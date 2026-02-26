@@ -39,13 +39,14 @@
         <option value="launched">Launched / Live</option>
       </select>
       <span class="count" id="row-count"></span>
+      <button class="btn btn-ghost" onclick="exportCSV()">⬇ Export CSV</button>
     </div>
 
     <div class="table-wrap">
       <table id="launch-table">
         <thead>
           <tr>
-            <th>Account</th>
+            <th class="sticky-col">Account</th>
             <th>Department</th>
             <th>Contact</th>
             <th>Phone</th>
@@ -154,7 +155,7 @@ function renderTable(data) {
 
   tbody.innerHTML = data.map(r => `
     <tr data-id="${r.id}">
-      <td>
+      <td class="sticky-col">
         <div class="account-name">${esc(r.account_name)}</div>
         <div class="domain">🌐 ${esc(r.domain_name)}</div>
       </td>
@@ -203,9 +204,10 @@ async function quickStatus(select) {
     });
     if (!res.ok) throw new Error();
     showToast('Status updated.');
+    fetchLaunches();
   } catch {
     showToast('Failed to update status.', 'error');
-    fetchLaunches(); // re-sync
+    fetchLaunches();
   }
 }
 
@@ -321,6 +323,34 @@ document.getElementById('logout-btn').addEventListener('click', async () => {
   await fetch('/api/auth/logout', { method: 'POST' });
   window.location.href = '/login';
 });
+
+// ── Export CSV ──
+async function exportCSV() {
+  const res = await fetch('/api/launches');
+  if (res.status === 401) { window.location.href = '/login'; return; }
+  const data = await res.json();
+
+  const headers = ['Account Name','Domain','Department','Contact Name','Email','Phone','Status','Notes','Status Updated','Submitted'];
+  const STATUS_FULL = {
+    new: 'New', in_progress: 'In Progress', awaiting_dns: 'Awaiting DNS Access',
+    awaiting_approval: 'Awaiting Client Approval / Edits', launched: 'Launched / Live'
+  };
+
+  const rows = data.map(r => [
+    r.account_name, r.domain_name, r.department, r.contact_name,
+    r.email, r.phone, STATUS_FULL[r.status] || r.status,
+    r.notes || '', formatDate(r.status_changed_at), formatDate(r.created_at)
+  ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(','));
+
+  const csv = [headers.join(','), ...rows].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `launches-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 // Initial load
 fetchLaunches();

@@ -218,6 +218,14 @@ td {
 tr:last-child td { border-bottom: none; }
 tr:hover td { background: #f8fafc; }
 
+.sticky-col {
+  position: sticky;
+  left: 0;
+  background: var(--surface);
+  z-index: 1;
+}
+tr:hover .sticky-col { background: #f8fafc; }
+
 .account-name { font-weight: 600; }
 .domain { font-size: .8rem; color: var(--text-muted); margin-top: .1rem; }
 .contact-email { font-size: .78rem; color: var(--text-muted); }
