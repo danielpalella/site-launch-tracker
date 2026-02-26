@@ -8,7 +8,6 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 const PASSWORD = 'duda';
-const sessions = new Set();
 
 function generateToken() {
   return Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2) + Date.now().toString(36);
@@ -25,7 +24,8 @@ function getCookies(req) {
 
 function requireAuth(req, res, next) {
   const { auth_token } = getCookies(req);
-  if (sessions.has(auth_token)) return next();
+  const valid = auth_token && db.prepare('SELECT token FROM sessions WHERE token = ?').get(auth_token);
+  if (valid) return next();
   if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'Unauthorized' });
   res.redirect('/login');
 }
@@ -41,14 +41,14 @@ app.post('/api/auth/login', (req, res) => {
     return res.status(401).json({ error: 'Incorrect password.' });
   }
   const token = generateToken();
-  sessions.add(token);
+  db.prepare('INSERT INTO sessions (token) VALUES (?)').run(token);
   res.setHeader('Set-Cookie', `auth_token=${token}; Path=/; HttpOnly; SameSite=Lax`);
   res.json({ ok: true });
 });
 
 app.post('/api/auth/logout', (req, res) => {
   const { auth_token } = getCookies(req);
-  sessions.delete(auth_token);
+  if (auth_token) db.prepare('DELETE FROM sessions WHERE token = ?').run(auth_token);
   res.setHeader('Set-Cookie', 'auth_token=; Path=/; Max-Age=0');
   res.json({ ok: true });
 });

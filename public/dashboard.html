@@ -159,7 +159,7 @@ function renderTable(data) {
     <tr data-id="${r.id}">
       <td class="sticky-col">
         <div class="account-name">${esc(r.account_name)}</div>
-        <div class="domain">🌐 ${esc(r.domain_name)}</div>
+        <div class="domain">🌐 <a href="https://${esc(r.domain_name)}" target="_blank" rel="noopener" style="color:var(--primary);text-decoration:none" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${esc(r.domain_name)}</a></div>
       </td>
       <td>${esc(r.department)}</td>
       <td>

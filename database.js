@@ -31,4 +31,12 @@ try {
 // Backfill any rows where it's still null
 db.exec(`UPDATE launches SET status_changed_at = updated_at WHERE status_changed_at IS NULL`);
 
+// Sessions table — persists across restarts
+db.exec(`
+  CREATE TABLE IF NOT EXISTS sessions (
+    token TEXT PRIMARY KEY,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )
+`);
+
 export default db;
