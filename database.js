@@ -31,6 +31,9 @@ try {
 // Backfill any rows where it's still null
 db.exec(`UPDATE launches SET status_changed_at = updated_at WHERE status_changed_at IS NULL`);
 
+// Migrate old 'pending_review' status to 'new'
+db.exec(`UPDATE launches SET status = 'new' WHERE status = 'pending_review'`);
+
 // Sessions table — persists across restarts
 db.exec(`
   CREATE TABLE IF NOT EXISTS sessions (
