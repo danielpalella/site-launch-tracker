@@ -14,11 +14,19 @@ db.exec(`
     contact_name TEXT NOT NULL,
     email TEXT NOT NULL,
     phone TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'pending_review',
+    status TEXT NOT NULL DEFAULT 'new',
     notes TEXT DEFAULT '',
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    status_changed_at TEXT NOT NULL DEFAULT (datetime('now'))
   )
 `);
+
+// Migration: add status_changed_at to existing databases that don't have it
+try {
+  db.exec(`ALTER TABLE launches ADD COLUMN status_changed_at TEXT NOT NULL DEFAULT (datetime('now'))`);
+} catch {
+  // Column already exists — nothing to do
+}
 
 export default db;

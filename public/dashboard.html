@@ -32,7 +32,7 @@
       <input type="search" id="search" placeholder="Search account, domain, or contact…" />
       <select id="filter-status">
         <option value="all">All Statuses</option>
-        <option value="pending_review">Pending / In Review</option>
+        <option value="new">New</option>
         <option value="in_progress">In Progress</option>
         <option value="awaiting_dns">Awaiting DNS Access</option>
         <option value="awaiting_approval">Awaiting Client Approval / Edits</option>
@@ -50,6 +50,7 @@
             <th>Contact</th>
             <th>Phone</th>
             <th>Status</th>
+            <th>Status Updated</th>
             <th>Notes</th>
             <th>Submitted</th>
             <th></th>
@@ -74,7 +75,7 @@
     <div style="margin-bottom:1rem;">
       <label for="modal-status">Status</label>
       <select id="modal-status">
-        <option value="pending_review">Pending / In Review</option>
+        <option value="new">New</option>
         <option value="in_progress">In Progress</option>
         <option value="awaiting_dns">Awaiting DNS Access</option>
         <option value="awaiting_approval">Awaiting Client Approval / Edits</option>
@@ -113,7 +114,7 @@
 
 <script>
 const STATUS_LABELS = {
-  pending_review:    'Pending Review',
+  new:               'New',
   in_progress:       'In Progress',
   awaiting_dns:      'Awaiting DNS',
   awaiting_approval: 'Awaiting Approval',
@@ -141,7 +142,7 @@ function renderTable(data) {
   document.getElementById('row-count').textContent = `${data.length} record${data.length !== 1 ? 's' : ''}`;
 
   if (!data.length) {
-    tbody.innerHTML = `<tr><td colspan="8"><div class="empty">
+    tbody.innerHTML = `<tr><td colspan="9"><div class="empty">
       <svg width="48" height="48" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
           d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
@@ -172,6 +173,7 @@ function renderTable(data) {
           </select>
         </div>
       </td>
+      <td style="white-space:nowrap;font-size:.8rem;color:var(--text-muted)">${formatDate(r.status_changed_at)}</td>
       <td style="max-width:200px;white-space:pre-wrap;font-size:.8rem;color:var(--text-muted)">${esc(r.notes || '—')}</td>
       <td style="white-space:nowrap;font-size:.8rem;color:var(--text-muted)">${formatDate(r.created_at)}</td>
       <td>

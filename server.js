@@ -55,7 +55,7 @@ app.post('/api/auth/logout', (req, res) => {
 
 // ── Launches API (protected except POST — form submissions are public) ──
 const VALID_STATUSES = [
-  'pending_review', 'in_progress', 'awaiting_dns',
+  'new', 'in_progress', 'awaiting_dns',
   'awaiting_approval', 'launched'
 ];
 
@@ -104,8 +104,14 @@ app.patch('/api/launches/:id', requireAuth, (req, res) => {
   const row = db.prepare('SELECT * FROM launches WHERE id = ?').get(req.params.id);
   if (!row) return res.status(404).json({ error: 'Not found' });
   if (status && !VALID_STATUSES.includes(status)) return res.status(400).json({ error: 'Invalid status.' });
-  db.prepare(`UPDATE launches SET status = ?, notes = ?, updated_at = datetime('now') WHERE id = ?`)
-    .run(status || row.status, notes !== undefined ? notes : row.notes, Number(req.params.id));
+  const newStatus = status || row.status;
+  const newNotes = notes !== undefined ? notes : row.notes;
+  const statusChanged = newStatus !== row.status;
+  db.prepare(`
+    UPDATE launches SET status = ?, notes = ?, updated_at = datetime('now'),
+    status_changed_at = CASE WHEN ? THEN datetime('now') ELSE status_changed_at END
+    WHERE id = ?
+  `).run(newStatus, newNotes, statusChanged ? 1 : 0, Number(req.params.id));
   res.json(db.prepare('SELECT * FROM launches WHERE id = ?').get(req.params.id));
 });
 
