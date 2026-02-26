@@ -38,6 +38,23 @@
         </div>
 
         <div class="full">
+          <label for="industry">Industry <span class="req">*</span></label>
+          <select id="industry" name="industry" required>
+            <option value="">Select an industry…</option>
+            <option value="Roofing">Roofing</option>
+            <option value="Plumbing">Plumbing</option>
+            <option value="Electrical">Electrical</option>
+            <option value="HVAC">HVAC</option>
+            <option value="Landscaping">Landscaping</option>
+            <option value="Contracting">Contracting</option>
+            <option value="Restoration">Restoration</option>
+            <option value="Solar">Solar</option>
+            <option value="Flooring">Flooring</option>
+          </select>
+          <div class="field-error" id="err-industry"></div>
+        </div>
+
+        <div class="full">
           <label for="account_name">Account Name <span class="req">*</span></label>
           <input type="text" id="account_name" name="account_name" placeholder="e.g. Acme Corporation" required />
           <div class="field-error" id="err-account_name"></div>
@@ -93,7 +110,7 @@
 <div id="toast"></div>
 
 <script>
-const FIELDS = ['department','account_name','domain_name','contact_name','email','phone'];
+const FIELDS = ['department','industry','account_name','domain_name','contact_name','email','phone'];
 
 function clearErrors() {
   FIELDS.forEach(f => {
@@ -110,6 +127,7 @@ function showError(field, msg) {
 function validate(data) {
   let ok = true;
   if (!data.department) { showError('department', 'Please select your department.'); ok = false; }
+  if (!data.industry) { showError('industry', 'Please select an industry.'); ok = false; }
   if (!data.account_name.trim()) { showError('account_name', 'Account name is required.'); ok = false; }
   if (!data.domain_name.trim()) { showError('domain_name', 'Domain name is required.'); ok = false; }
   else if (!/^[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9]?\.[a-zA-Z]{2,}$/.test(data.domain_name.trim())) {

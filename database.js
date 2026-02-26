@@ -34,6 +34,13 @@ db.exec(`UPDATE launches SET status_changed_at = updated_at WHERE status_changed
 // Migrate old 'pending_review' status to 'new'
 db.exec(`UPDATE launches SET status = 'new' WHERE status = 'pending_review'`);
 
+// Migration: add industry column
+try {
+  db.exec(`ALTER TABLE launches ADD COLUMN industry TEXT NOT NULL DEFAULT ''`);
+} catch {
+  // Column already exists
+}
+
 // Sessions table — persists across restarts
 db.exec(`
   CREATE TABLE IF NOT EXISTS sessions (

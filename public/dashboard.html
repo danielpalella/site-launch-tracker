@@ -30,6 +30,18 @@
   <div class="card">
     <div class="toolbar">
       <input type="search" id="search" placeholder="Search account, domain, or contact…" />
+      <select id="filter-industry">
+        <option value="all">All Industries</option>
+        <option value="Roofing">Roofing</option>
+        <option value="Plumbing">Plumbing</option>
+        <option value="Electrical">Electrical</option>
+        <option value="HVAC">HVAC</option>
+        <option value="Landscaping">Landscaping</option>
+        <option value="Contracting">Contracting</option>
+        <option value="Restoration">Restoration</option>
+        <option value="Solar">Solar</option>
+        <option value="Flooring">Flooring</option>
+      </select>
       <select id="filter-department">
         <option value="all">All Departments</option>
         <option value="Sales">Sales</option>
@@ -54,6 +66,7 @@
         <thead>
           <tr>
             <th class="sticky-col">Account</th>
+            <th>Industry</th>
             <th>Department</th>
             <th>Contact</th>
             <th>Phone</th>
@@ -152,7 +165,7 @@ function renderTable(data) {
   document.getElementById('row-count').textContent = `${data.length} record${data.length !== 1 ? 's' : ''}`;
 
   if (!data.length) {
-    tbody.innerHTML = `<tr><td colspan="9"><div class="empty">
+    tbody.innerHTML = `<tr><td colspan="10"><div class="empty">
       <svg width="48" height="48" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
           d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
@@ -168,6 +181,7 @@ function renderTable(data) {
         <div class="account-name">${esc(r.account_name)}</div>
         <div class="domain">🌐 <a href="https://${esc(r.domain_name)}" target="_blank" rel="noopener" style="color:var(--primary);text-decoration:none" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${esc(r.domain_name)}</a></div>
       </td>
+      <td>${esc(r.industry || '—')}</td>
       <td>${esc(r.department)}</td>
       <td>
         <div>${esc(r.contact_name)}</div>
@@ -309,16 +323,19 @@ document.getElementById('search').addEventListener('input', () => {
 });
 document.getElementById('filter-status').addEventListener('change', fetchLaunches);
 document.getElementById('filter-department').addEventListener('change', fetchLaunches);
+document.getElementById('filter-industry').addEventListener('change', fetchLaunches);
 
 // Redirect to login on 401
 async function fetchLaunches() {
   const search = document.getElementById('search').value.trim();
   const status = document.getElementById('filter-status').value;
   const department = document.getElementById('filter-department').value;
+  const industry = document.getElementById('filter-industry').value;
   const params = new URLSearchParams();
   if (search) params.set('search', search);
   if (status !== 'all') params.set('status', status);
   if (department !== 'all') params.set('department', department);
+  if (industry !== 'all') params.set('industry', industry);
 
   try {
     const res = await fetch('/api/launches?' + params.toString());
@@ -342,14 +359,14 @@ async function exportCSV() {
   if (res.status === 401) { window.location.href = '/login'; return; }
   const data = await res.json();
 
-  const headers = ['Account Name','Domain','Department','Contact Name','Email','Phone','Status','Notes','Status Updated','Submitted'];
+  const headers = ['Account Name','Domain','Industry','Department','Contact Name','Email','Phone','Status','Notes','Status Updated','Submitted'];
   const STATUS_FULL = {
     new: 'New', in_progress: 'In Progress', awaiting_dns: 'Awaiting DNS Access',
     awaiting_approval: 'Awaiting Client Approval / Edits', launched: 'Launched / Live'
   };
 
   const rows = data.map(r => [
-    r.account_name, r.domain_name, r.department, r.contact_name,
+    r.account_name, r.domain_name, r.industry || '', r.department, r.contact_name,
     r.email, r.phone, STATUS_FULL[r.status] || r.status,
     r.notes || '', formatDate(r.status_changed_at), formatDate(r.created_at)
   ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(','));

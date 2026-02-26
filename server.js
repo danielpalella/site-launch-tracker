@@ -60,13 +60,14 @@ const VALID_STATUSES = [
 ];
 
 app.get('/api/launches', requireAuth, (req, res) => {
-  const { status, search, department } = req.query;
+  const { status, search, department, industry } = req.query;
   let query = 'SELECT * FROM launches';
   const params = [];
   const conditions = [];
 
   if (status && status !== 'all') { conditions.push('status = ?'); params.push(status); }
   if (department && department !== 'all') { conditions.push('department = ?'); params.push(department); }
+  if (industry && industry !== 'all') { conditions.push('industry = ?'); params.push(industry); }
   if (search) {
     conditions.push('(account_name LIKE ? OR domain_name LIKE ? OR contact_name LIKE ?)');
     const term = `%${search}%`;
@@ -86,17 +87,17 @@ app.get('/api/launches/:id', requireAuth, (req, res) => {
 
 // POST is public — the submission form doesn't require a login
 app.post('/api/launches', (req, res) => {
-  const { department, account_name, domain_name, contact_name, email, phone } = req.body;
-  if (!department || !account_name || !domain_name || !contact_name || !email || !phone) {
+  const { department, account_name, domain_name, contact_name, email, phone, industry } = req.body;
+  if (!department || !account_name || !domain_name || !contact_name || !email || !phone || !industry) {
     return res.status(400).json({ error: 'All fields are required.' });
   }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return res.status(400).json({ error: 'Invalid email address.' });
   }
   const result = db.prepare(`
-    INSERT INTO launches (department, account_name, domain_name, contact_name, email, phone, status)
-    VALUES (?, ?, ?, ?, ?, ?, 'new')
-  `).run(department, account_name.trim(), domain_name.trim().toLowerCase(), contact_name.trim(), email.trim().toLowerCase(), phone.trim());
+    INSERT INTO launches (department, account_name, domain_name, contact_name, email, phone, industry, status)
+    VALUES (?, ?, ?, ?, ?, ?, ?, 'new')
+  `).run(department, account_name.trim(), domain_name.trim().toLowerCase(), contact_name.trim(), email.trim().toLowerCase(), phone.trim(), industry);
   res.status(201).json(db.prepare('SELECT * FROM launches WHERE id = ?').get(result.lastInsertRowid));
 });
 
