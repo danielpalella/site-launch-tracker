@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>New Site Launch — Launch Tracker</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+
+<nav>
+  <a class="nav-brand" href="/">
+    <img src="/logo.png" alt="Logo" class="nav-logo" onerror="this.style.display='none';document.getElementById('nav-text').style.display='inline'" />
+    <span id="nav-text" style="display:none"><span>Launch</span>Tracker</span>
+  </a>
+  <a href="/" class="active">New Submission</a>
+  <a href="/dashboard">Tracker</a>
+</nav>
+
+<div class="page">
+  <h1>New Site Launch Request</h1>
+  <p class="subtitle">Fill out the form below to submit a new customer site for launch tracking.</p>
+
+  <div class="card" id="form-card">
+    <form id="launch-form" novalidate>
+      <div class="form-grid">
+
+        <div class="full">
+          <label for="department">Department <span class="req">*</span></label>
+          <select id="department" name="department" required>
+            <option value="">Select your department…</option>
+            <option value="Sales">Sales</option>
+            <option value="Retention">Retention</option>
+            <option value="Account Management">Account Management</option>
+            <option value="Marketing">Marketing</option>
+            <option value="Support">Support</option>
+            <option value="Operations">Operations</option>
+            <option value="Other">Other</option>
+          </select>
+          <div class="field-error" id="err-department"></div>
+        </div>
+
+        <div class="full">
+          <label for="account_name">Account Name <span class="req">*</span></label>
+          <input type="text" id="account_name" name="account_name" placeholder="e.g. Acme Corporation" required />
+          <div class="field-error" id="err-account_name"></div>
+        </div>
+
+        <div class="full">
+          <label for="domain_name">Domain Name <span class="req">*</span></label>
+          <input type="text" id="domain_name" name="domain_name" placeholder="e.g. realworklabs.com" required />
+          <div class="field-error" id="err-domain_name"></div>
+        </div>
+
+        <div class="full">
+          <label for="contact_name">Contact Name <span class="req">*</span></label>
+          <input type="text" id="contact_name" name="contact_name" placeholder="First Last" required />
+          <div class="field-error" id="err-contact_name"></div>
+        </div>
+
+        <div>
+          <label for="email">Email Address <span class="req">*</span></label>
+          <input type="email" id="email" name="email" placeholder="contact@example.com" required />
+          <div class="field-error" id="err-email"></div>
+        </div>
+
+        <div>
+          <label for="phone">Phone Number <span class="req">*</span></label>
+          <input type="tel" id="phone" name="phone" placeholder="(555) 000-0000" required />
+          <div class="field-error" id="err-phone"></div>
+        </div>
+
+      </div>
+
+      <div class="form-actions">
+        <button type="reset" class="btn btn-ghost">Clear</button>
+        <button type="submit" class="btn btn-primary" id="submit-btn">
+          Submit Launch Request
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Success state (hidden initially) -->
+  <div class="card success-box" id="success-card" style="display:none">
+    <div class="success-icon">🚀</div>
+    <h2>Launch request submitted!</h2>
+    <p>The site has been added to the tracker. You can monitor its progress on the dashboard.</p>
+    <div class="success-links">
+      <a href="/dashboard" class="btn btn-primary">View Dashboard</a>
+      <button class="btn btn-ghost" id="submit-another">Submit Another</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const FIELDS = ['department','account_name','domain_name','contact_name','email','phone'];
+
+function clearErrors() {
+  FIELDS.forEach(f => {
+    document.getElementById(f).classList.remove('error');
+    document.getElementById('err-' + f).textContent = '';
+  });
+}
+
+function showError(field, msg) {
+  document.getElementById(field).classList.add('error');
+  document.getElementById('err-' + field).textContent = msg;
+}
+
+function validate(data) {
+  let ok = true;
+  if (!data.department) { showError('department', 'Please select your department.'); ok = false; }
+  if (!data.account_name.trim()) { showError('account_name', 'Account name is required.'); ok = false; }
+  if (!data.domain_name.trim()) { showError('domain_name', 'Domain name is required.'); ok = false; }
+  else if (!/^[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9]?\.[a-zA-Z]{2,}$/.test(data.domain_name.trim())) {
+    showError('domain_name', 'Enter a valid domain (e.g. realworklabs.com).');
+    ok = false;
+  }
+  if (!data.contact_name.trim()) { showError('contact_name', 'Contact name is required.'); ok = false; }
+  else if (data.contact_name.trim().split(/\s+/).length < 2) {
+    showError('contact_name', 'Please enter first and last name.');
+    ok = false;
+  }
+  if (!data.email.trim()) { showError('email', 'Email address is required.'); ok = false; }
+  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email.trim())) {
+    showError('email', 'Enter a valid email address.');
+    ok = false;
+  }
+  if (!data.phone.trim()) { showError('phone', 'Phone number is required.'); ok = false; }
+  return ok;
+}
+
+function showToast(msg, type = 'success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show ' + type;
+  setTimeout(() => { t.className = ''; }, 3500);
+}
+
+document.getElementById('launch-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  clearErrors();
+
+  const data = {};
+  FIELDS.forEach(f => data[f] = document.getElementById(f).value);
+
+  if (!validate(data)) return;
+
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  btn.textContent = 'Submitting…';
+
+  try {
+    const res = await fetch('/api/launches', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || 'Submission failed.');
+
+    document.getElementById('form-card').style.display = 'none';
+    document.getElementById('success-card').style.display = 'block';
+  } catch (err) {
+    showToast(err.message, 'error');
+    btn.disabled = false;
+    btn.textContent = 'Submit Launch Request';
+  }
+});
+
+document.getElementById('submit-another').addEventListener('click', () => {
+  document.getElementById('launch-form').reset();
+  document.getElementById('success-card').style.display = 'none';
+  document.getElementById('form-card').style.display = 'block';
+});
+</script>
+</body>
+</html>

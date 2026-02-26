@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tracker</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body class="dashboard-page">
+
+<nav>
+  <a class="nav-brand" href="/">
+    <img src="/logo.png" alt="Logo" class="nav-logo" onerror="this.style.display='none';document.getElementById('nav-text').style.display='inline'" />
+    <span id="nav-text" style="display:none"><span>Launch</span>Tracker</span>
+  </a>
+  <a href="/">New Submission</a>
+  <a href="/dashboard" class="active">Dashboard</a>
+  <button id="logout-btn" class="btn btn-ghost" style="margin-left:auto;padding:.3rem .9rem;font-size:.8rem">Sign Out</button>
+</nav>
+
+<div class="page-wide">
+  <div class="dashboard-header">
+    <div>
+      <h1>Site Launch Dashboard</h1>
+      <p class="subtitle" style="margin-bottom:0">Track and update the status of every customer site launch.</p>
+    </div>
+    <a href="/" class="btn btn-primary">+ New Submission</a>
+  </div>
+
+  <div class="card">
+    <div class="toolbar">
+      <input type="search" id="search" placeholder="Search account, domain, or contact…" />
+      <select id="filter-status">
+        <option value="all">All Statuses</option>
+        <option value="pending_review">Pending / In Review</option>
+        <option value="in_progress">In Progress</option>
+        <option value="awaiting_dns">Awaiting DNS Access</option>
+        <option value="awaiting_approval">Awaiting Client Approval / Edits</option>
+        <option value="launched">Launched / Live</option>
+      </select>
+      <span class="count" id="row-count"></span>
+    </div>
+
+    <div class="table-wrap">
+      <table id="launch-table">
+        <thead>
+          <tr>
+            <th>Account</th>
+            <th>Department</th>
+            <th>Contact</th>
+            <th>Phone</th>
+            <th>Status</th>
+            <th>Notes</th>
+            <th>Submitted</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="table-body">
+          <tr>
+            <td colspan="8">
+              <div class="empty"><p>Loading…</p></div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Notes/Detail Modal -->
+<div class="modal-backdrop" id="modal">
+  <div class="modal">
+    <h2 id="modal-title">Edit Notes</h2>
+    <div style="margin-bottom:1rem;">
+      <label for="modal-status">Status</label>
+      <select id="modal-status">
+        <option value="pending_review">Pending / In Review</option>
+        <option value="in_progress">In Progress</option>
+        <option value="awaiting_dns">Awaiting DNS Access</option>
+        <option value="awaiting_approval">Awaiting Client Approval / Edits</option>
+        <option value="launched">Launched / Live</option>
+      </select>
+    </div>
+    <div>
+      <label for="modal-notes">Internal Notes</label>
+      <textarea id="modal-notes" rows="5" placeholder="Add any internal notes about this launch…" style="resize:vertical"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-danger" id="modal-delete">Delete</button>
+      <div style="display:flex;gap:.75rem;margin-left:auto">
+        <button class="btn btn-ghost" id="modal-cancel">Cancel</button>
+        <button class="btn btn-primary" id="modal-save">Save Changes</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Confirm Modal -->
+<div class="modal-backdrop" id="confirm-modal">
+  <div class="modal">
+    <h2>Delete this launch?</h2>
+    <p style="color:var(--text-muted);font-size:.9rem;margin-top:.5rem">
+      This will permanently remove the record. This action cannot be undone.
+    </p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="confirm-cancel">Cancel</button>
+      <button class="btn btn-danger" id="confirm-delete">Yes, Delete</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const STATUS_LABELS = {
+  pending_review:    'Pending Review',
+  in_progress:       'In Progress',
+  awaiting_dns:      'Awaiting DNS',
+  awaiting_approval: 'Awaiting Approval',
+  launched:          'Launched'
+};
+
+let allLaunches = [];
+let editingId = null;
+let deletingId = null;
+
+function showToast(msg, type = 'success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show ' + type;
+  setTimeout(() => { t.className = ''; }, 3500);
+}
+
+function formatDate(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function renderTable(data) {
+  const tbody = document.getElementById('table-body');
+  document.getElementById('row-count').textContent = `${data.length} record${data.length !== 1 ? 's' : ''}`;
+
+  if (!data.length) {
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty">
+      <svg width="48" height="48" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+          d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+      </svg>
+      <p>No launches found.</p>
+    </div></td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = data.map(r => `
+    <tr data-id="${r.id}">
+      <td>
+        <div class="account-name">${esc(r.account_name)}</div>
+        <div class="domain">🌐 ${esc(r.domain_name)}</div>
+      </td>
+      <td>${esc(r.department)}</td>
+      <td>
+        <div>${esc(r.contact_name)}</div>
+        <div class="contact-email">${esc(r.email)}</div>
+      </td>
+      <td style="white-space:nowrap">${esc(r.phone)}</td>
+      <td>
+        <div class="status-wrap">
+          <select class="status-select ${r.status}" data-id="${r.id}" onchange="quickStatus(this)">
+            ${Object.entries(STATUS_LABELS).map(([v,l]) =>
+              `<option value="${v}"${v === r.status ? ' selected' : ''}>${l}</option>`
+            ).join('')}
+          </select>
+        </div>
+      </td>
+      <td style="max-width:200px;white-space:pre-wrap;font-size:.8rem;color:var(--text-muted)">${esc(r.notes || '—')}</td>
+      <td style="white-space:nowrap;font-size:.8rem;color:var(--text-muted)">${formatDate(r.created_at)}</td>
+      <td>
+        <button class="btn btn-ghost" style="padding:.3rem .65rem;font-size:.78rem" onclick="openEdit(${r.id})">Edit</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function esc(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Quick status change directly in the table dropdown
+async function quickStatus(select) {
+  const id = select.dataset.id;
+  const status = select.value;
+  // Update appearance immediately
+  select.className = 'status-select ' + status;
+
+  try {
+    const res = await fetch(`/api/launches/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status })
+    });
+    if (!res.ok) throw new Error();
+    showToast('Status updated.');
+  } catch {
+    showToast('Failed to update status.', 'error');
+    fetchLaunches(); // re-sync
+  }
+}
+
+// ── Edit Modal ──
+function openEdit(id) {
+  const r = allLaunches.find(x => x.id === id);
+  if (!r) return;
+  editingId = id;
+  document.getElementById('modal-title').textContent = `Edit — ${r.account_name}`;
+  document.getElementById('modal-status').value = r.status;
+  document.getElementById('modal-notes').value = r.notes || '';
+  document.getElementById('modal').classList.add('open');
+}
+
+document.getElementById('modal-cancel').addEventListener('click', () => {
+  document.getElementById('modal').classList.remove('open');
+});
+
+document.getElementById('modal-delete').addEventListener('click', () => {
+  document.getElementById('modal').classList.remove('open');
+  openDelete(editingId);
+});
+
+document.getElementById('modal-save').addEventListener('click', async () => {
+  const status = document.getElementById('modal-status').value;
+  const notes = document.getElementById('modal-notes').value;
+  const btn = document.getElementById('modal-save');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+
+  try {
+    const res = await fetch(`/api/launches/${editingId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status, notes })
+    });
+    if (!res.ok) throw new Error();
+    document.getElementById('modal').classList.remove('open');
+    showToast('Changes saved.');
+    fetchLaunches();
+  } catch {
+    showToast('Failed to save changes.', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Save Changes';
+  }
+});
+
+// ── Delete Modal ──
+function openDelete(id) {
+  deletingId = id;
+  document.getElementById('confirm-modal').classList.add('open');
+}
+
+document.getElementById('confirm-cancel').addEventListener('click', () => {
+  document.getElementById('confirm-modal').classList.remove('open');
+});
+
+document.getElementById('confirm-delete').addEventListener('click', async () => {
+  const btn = document.getElementById('confirm-delete');
+  btn.disabled = true;
+  btn.textContent = 'Deleting…';
+
+  try {
+    const res = await fetch(`/api/launches/${deletingId}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error();
+    document.getElementById('confirm-modal').classList.remove('open');
+    showToast('Launch deleted.');
+    fetchLaunches();
+  } catch {
+    showToast('Failed to delete.', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Yes, Delete';
+  }
+});
+
+// Close modals on backdrop click
+['modal','confirm-modal'].forEach(id => {
+  document.getElementById(id).addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) e.currentTarget.classList.remove('open');
+  });
+});
+
+// Search & filter with debounce
+let debounceTimer;
+document.getElementById('search').addEventListener('input', () => {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(fetchLaunches, 300);
+});
+document.getElementById('filter-status').addEventListener('change', fetchLaunches);
+
+// Redirect to login on 401
+async function fetchLaunches() {
+  const search = document.getElementById('search').value.trim();
+  const status = document.getElementById('filter-status').value;
+  const params = new URLSearchParams();
+  if (search) params.set('search', search);
+  if (status !== 'all') params.set('status', status);
+
+  try {
+    const res = await fetch('/api/launches?' + params.toString());
+    if (res.status === 401) { window.location.href = '/login'; return; }
+    allLaunches = await res.json();
+    renderTable(allLaunches);
+  } catch {
+    showToast('Failed to load launches.', 'error');
+  }
+}
+
+// Logout
+document.getElementById('logout-btn').addEventListener('click', async () => {
+  await fetch('/api/auth/logout', { method: 'POST' });
+  window.location.href = '/login';
+});
+
+// Initial load
+fetchLaunches();
+</script>
+</body>
+</html>

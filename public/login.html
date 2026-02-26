@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign In — Launch Tracker</title>
+  <link rel="stylesheet" href="/style.css" />
+  <style>
+    .login-wrap {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+    }
+    .login-box {
+      width: 100%;
+      max-width: 380px;
+    }
+    .login-logo {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    .login-logo img {
+      height: 48px;
+      width: auto;
+      object-fit: contain;
+    }
+    .login-logo .text-brand {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--primary);
+    }
+    .login-logo .text-brand span { color: var(--text); }
+    .login-box h1 { font-size: 1.2rem; margin-bottom: .25rem; }
+    .login-box .subtitle { margin-bottom: 1.5rem; }
+    .login-box .form-actions { margin-top: 1.25rem; }
+    .login-box .btn-primary { width: 100%; justify-content: center; }
+  </style>
+</head>
+<body>
+<div class="login-wrap">
+  <div class="login-box">
+    <div class="login-logo">
+      <img src="/logo.png" alt="Logo" onerror="this.style.display='none';document.getElementById('text-brand').style.display='block'" />
+      <div class="text-brand" id="text-brand" style="display:none"><span>Launch</span>Tracker</div>
+    </div>
+    <div class="card">
+      <h1>Dashboard Sign In</h1>
+      <p class="subtitle">Enter your password to access the launch tracker.</p>
+      <form id="login-form" novalidate>
+        <div>
+          <label for="password">Password <span class="req">*</span></label>
+          <input type="password" id="password" name="password" placeholder="Enter password" autofocus />
+          <div class="field-error" id="err-password"></div>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary" id="login-btn">Sign In</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+function showToast(msg, type = 'error') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show ' + type;
+  setTimeout(() => { t.className = ''; }, 3500);
+}
+
+document.getElementById('login-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const password = document.getElementById('password').value;
+  const errEl = document.getElementById('err-password');
+  const btn = document.getElementById('login-btn');
+
+  errEl.textContent = '';
+  document.getElementById('password').classList.remove('error');
+
+  if (!password) {
+    document.getElementById('password').classList.add('error');
+    errEl.textContent = 'Password is required.';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Signing in…';
+
+  try {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password })
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      document.getElementById('password').classList.add('error');
+      errEl.textContent = json.error || 'Incorrect password.';
+      btn.disabled = false;
+      btn.textContent = 'Sign In';
+      return;
+    }
+    window.location.href = '/dashboard';
+  } catch {
+    showToast('Something went wrong. Try again.');
+    btn.disabled = false;
+    btn.textContent = 'Sign In';
+  }
+});
+</script>
+</body>
+</html>

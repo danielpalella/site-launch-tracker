@@ -1,0 +1,14 @@
+{
+  "name": "site-launch-tracker",
+  "version": "1.0.0",
+  "description": "Customer site launch status tracker",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "bun server.js",
+    "dev": "bun --watch server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}
