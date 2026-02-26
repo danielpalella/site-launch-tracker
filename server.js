@@ -87,7 +87,7 @@ app.get('/api/launches/:id', requireAuth, (req, res) => {
 
 // POST is public — the submission form doesn't require a login
 app.post('/api/launches', (req, res) => {
-  const { department, account_name, domain_name, contact_name, email, phone, industry } = req.body;
+  const { department, account_name, domain_name, contact_name, email, phone, industry, notes } = req.body;
   if (!department || !account_name || !domain_name || !contact_name || !email || !phone || !industry) {
     return res.status(400).json({ error: 'All fields are required.' });
   }
@@ -95,9 +95,9 @@ app.post('/api/launches', (req, res) => {
     return res.status(400).json({ error: 'Invalid email address.' });
   }
   const result = db.prepare(`
-    INSERT INTO launches (department, account_name, domain_name, contact_name, email, phone, industry, status)
-    VALUES (?, ?, ?, ?, ?, ?, ?, 'new')
-  `).run(department, account_name.trim(), domain_name.trim().toLowerCase(), contact_name.trim(), email.trim().toLowerCase(), phone.trim(), industry);
+    INSERT INTO launches (department, account_name, domain_name, contact_name, email, phone, industry, notes, status)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'new')
+  `).run(department, account_name.trim(), domain_name.trim().toLowerCase(), contact_name.trim(), email.trim().toLowerCase(), phone.trim(), industry, (notes || '').trim());
   res.status(201).json(db.prepare('SELECT * FROM launches WHERE id = ?').get(result.lastInsertRowid));
 });
 

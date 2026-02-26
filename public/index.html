@@ -166,6 +166,7 @@ document.getElementById('launch-form').addEventListener('submit', async (e) => {
 
   const data = {};
   FIELDS.forEach(f => data[f] = document.getElementById(f).value);
+  data.notes = document.getElementById('notes').value;
 
   if (!validate(data)) return;
 
