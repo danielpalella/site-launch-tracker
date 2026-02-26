@@ -60,12 +60,13 @@ const VALID_STATUSES = [
 ];
 
 app.get('/api/launches', requireAuth, (req, res) => {
-  const { status, search } = req.query;
+  const { status, search, department } = req.query;
   let query = 'SELECT * FROM launches';
   const params = [];
   const conditions = [];
 
   if (status && status !== 'all') { conditions.push('status = ?'); params.push(status); }
+  if (department && department !== 'all') { conditions.push('department = ?'); params.push(department); }
   if (search) {
     conditions.push('(account_name LIKE ? OR domain_name LIKE ? OR contact_name LIKE ?)');
     const term = `%${search}%`;

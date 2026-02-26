@@ -30,6 +30,13 @@
   <div class="card">
     <div class="toolbar">
       <input type="search" id="search" placeholder="Search account, domain, or contact…" />
+      <select id="filter-department">
+        <option value="all">All Departments</option>
+        <option value="Sales">Sales</option>
+        <option value="Retention">Retention</option>
+        <option value="Customer Success">Customer Success</option>
+        <option value="Other">Other</option>
+      </select>
       <select id="filter-status">
         <option value="all">All Statuses</option>
         <option value="new">New</option>
@@ -301,14 +308,17 @@ document.getElementById('search').addEventListener('input', () => {
   debounceTimer = setTimeout(fetchLaunches, 300);
 });
 document.getElementById('filter-status').addEventListener('change', fetchLaunches);
+document.getElementById('filter-department').addEventListener('change', fetchLaunches);
 
 // Redirect to login on 401
 async function fetchLaunches() {
   const search = document.getElementById('search').value.trim();
   const status = document.getElementById('filter-status').value;
+  const department = document.getElementById('filter-department').value;
   const params = new URLSearchParams();
   if (search) params.set('search', search);
   if (status !== 'all') params.set('status', status);
+  if (department !== 'all') params.set('department', department);
 
   try {
     const res = await fetch('/api/launches?' + params.toString());
