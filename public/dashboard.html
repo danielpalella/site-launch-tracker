@@ -89,23 +89,69 @@
   </div>
 </div>
 
-<!-- Notes/Detail Modal -->
+<!-- Edit Modal -->
 <div class="modal-backdrop" id="modal">
-  <div class="modal">
-    <h2 id="modal-title">Edit Notes</h2>
-    <div style="margin-bottom:1rem;">
-      <label for="modal-status">Status</label>
-      <select id="modal-status">
-        <option value="new">New</option>
-        <option value="in_progress">In Progress</option>
-        <option value="awaiting_dns">Awaiting DNS Access</option>
-        <option value="awaiting_approval">Awaiting Client Approval / Edits</option>
-        <option value="launched">Launched / Live</option>
-      </select>
-    </div>
-    <div>
-      <label for="modal-notes">Internal Notes</label>
-      <textarea id="modal-notes" rows="5" placeholder="Add any internal notes about this launch…" style="resize:vertical"></textarea>
+  <div class="modal" style="max-width:680px">
+    <h2 id="modal-title">Edit Record</h2>
+    <div class="form-grid" style="margin-bottom:1.25rem">
+      <div>
+        <label for="modal-industry">Industry</label>
+        <select id="modal-industry">
+          <option value="">— None —</option>
+          <option value="Roofing">Roofing</option>
+          <option value="Plumbing">Plumbing</option>
+          <option value="Electrical">Electrical</option>
+          <option value="HVAC">HVAC</option>
+          <option value="Landscaping">Landscaping</option>
+          <option value="Contracting">Contracting</option>
+          <option value="Restoration">Restoration</option>
+          <option value="Solar">Solar</option>
+          <option value="Flooring">Flooring</option>
+        </select>
+      </div>
+      <div>
+        <label for="modal-department">Department</label>
+        <select id="modal-department">
+          <option value="Sales">Sales</option>
+          <option value="Retention">Retention</option>
+          <option value="Customer Success">Customer Success</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <div class="full">
+        <label for="modal-account_name">Account Name</label>
+        <input type="text" id="modal-account_name" />
+      </div>
+      <div class="full">
+        <label for="modal-domain_name">Domain Name</label>
+        <input type="text" id="modal-domain_name" />
+      </div>
+      <div class="full">
+        <label for="modal-contact_name">Contact Name</label>
+        <input type="text" id="modal-contact_name" />
+      </div>
+      <div>
+        <label for="modal-email">Email</label>
+        <input type="email" id="modal-email" />
+      </div>
+      <div>
+        <label for="modal-phone">Phone</label>
+        <input type="tel" id="modal-phone" />
+      </div>
+      <div class="full">
+        <label for="modal-status">Status</label>
+        <select id="modal-status">
+          <option value="new">New</option>
+          <option value="in_progress">In Progress</option>
+          <option value="awaiting_dns">Awaiting DNS Access</option>
+          <option value="awaiting_approval">Awaiting Client Approval / Edits</option>
+          <option value="launched">Launched / Live</option>
+        </select>
+      </div>
+      <div class="full">
+        <label for="modal-notes">Notes</label>
+        <textarea id="modal-notes" rows="3" placeholder="Internal notes…" style="resize:vertical"></textarea>
+      </div>
     </div>
     <div class="modal-actions">
       <button class="btn btn-danger" id="modal-delete">Delete</button>
@@ -240,8 +286,15 @@ function openEdit(id) {
   if (!r) return;
   editingId = id;
   document.getElementById('modal-title').textContent = `Edit — ${r.account_name}`;
-  document.getElementById('modal-status').value = r.status;
-  document.getElementById('modal-notes').value = r.notes || '';
+  document.getElementById('modal-industry').value     = r.industry || '';
+  document.getElementById('modal-department').value   = r.department || '';
+  document.getElementById('modal-account_name').value = r.account_name || '';
+  document.getElementById('modal-domain_name').value  = r.domain_name || '';
+  document.getElementById('modal-contact_name').value = r.contact_name || '';
+  document.getElementById('modal-email').value        = r.email || '';
+  document.getElementById('modal-phone').value        = r.phone || '';
+  document.getElementById('modal-status').value       = r.status;
+  document.getElementById('modal-notes').value        = r.notes || '';
   document.getElementById('modal').classList.add('open');
 }
 
@@ -255,17 +308,26 @@ document.getElementById('modal-delete').addEventListener('click', () => {
 });
 
 document.getElementById('modal-save').addEventListener('click', async () => {
-  const status = document.getElementById('modal-status').value;
-  const notes = document.getElementById('modal-notes').value;
   const btn = document.getElementById('modal-save');
   btn.disabled = true;
   btn.textContent = 'Saving…';
+  const payload = {
+    industry:     document.getElementById('modal-industry').value,
+    department:   document.getElementById('modal-department').value,
+    account_name: document.getElementById('modal-account_name').value,
+    domain_name:  document.getElementById('modal-domain_name').value,
+    contact_name: document.getElementById('modal-contact_name').value,
+    email:        document.getElementById('modal-email').value,
+    phone:        document.getElementById('modal-phone').value,
+    status:       document.getElementById('modal-status').value,
+    notes:        document.getElementById('modal-notes').value,
+  };
 
   try {
     const res = await fetch(`/api/launches/${editingId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status, notes })
+      body: JSON.stringify(payload)
     });
     if (!res.ok) throw new Error();
     document.getElementById('modal').classList.remove('open');
@@ -368,7 +430,7 @@ async function exportCSV() {
   const rows = data.map(r => [
     r.account_name, r.domain_name, r.industry || '', r.department, r.contact_name,
     r.email, r.phone, STATUS_FULL[r.status] || r.status,
-    r.notes || '', formatDate(r.status_changed_at), formatDate(r.created_at)
+    (r.notes || '').replace(/\r?\n/g, ' '), formatDate(r.status_changed_at), formatDate(r.created_at)
   ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(','));
 
   const csv = [headers.join(','), ...rows].join('\n');

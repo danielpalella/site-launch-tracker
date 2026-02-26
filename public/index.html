@@ -84,6 +84,11 @@
           <div class="field-error" id="err-phone"></div>
         </div>
 
+        <div class="full">
+          <label for="notes">Notes</label>
+          <textarea id="notes" name="notes" rows="3" placeholder="Any additional information…" style="resize:vertical"></textarea>
+        </div>
+
       </div>
 
       <div class="form-actions">
@@ -110,7 +115,7 @@
 <div id="toast"></div>
 
 <script>
-const FIELDS = ['department','industry','account_name','domain_name','contact_name','email','phone'];
+const FIELDS = ['department','industry','account_name','domain_name','contact_name','email','phone','notes'];
 
 function clearErrors() {
   FIELDS.forEach(f => {

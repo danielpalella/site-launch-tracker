@@ -187,14 +187,17 @@ input.error, select.error { border-color: var(--s-awaiting); }
 /* ── DASHBOARD TOOLBAR ── */
 .toolbar {
   display: flex;
-  gap: 1rem;
+  gap: .6rem;
   margin-bottom: 1.25rem;
-  flex-wrap: wrap;
   align-items: center;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding-bottom: 2px;
 }
-.toolbar input { max-width: 260px; }
-.toolbar select { width: auto; min-width: 180px; }
-.toolbar .count { margin-left: auto; font-size: .8rem; color: var(--text-muted); }
+.toolbar input { min-width: 160px; flex: 1; font-size: .82rem; padding: .5rem .75rem; }
+.toolbar select { width: auto; min-width: 0; flex-shrink: 0; font-size: .82rem; padding: .5rem .6rem; }
+.toolbar .count { white-space: nowrap; font-size: .8rem; color: var(--text-muted); flex-shrink: 0; }
+.toolbar .btn { flex-shrink: 0; padding: .5rem .9rem; font-size: .82rem; white-space: nowrap; }
 
 /* ── TABLE ── */
 .table-wrap { overflow-x: auto; }

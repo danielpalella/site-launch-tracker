@@ -102,20 +102,26 @@ app.post('/api/launches', (req, res) => {
 });
 
 app.patch('/api/launches/:id', requireAuth, (req, res) => {
-  const { status, notes } = req.body;
+  const { status, notes, department, industry, account_name, domain_name, contact_name, email, phone } = req.body;
   const row = db.prepare('SELECT * FROM launches WHERE id = ?').get(req.params.id);
   if (!row) return res.status(404).json({ error: 'Not found' });
   if (status && !VALID_STATUSES.includes(status)) return res.status(400).json({ error: 'Invalid status.' });
-  const newStatus = status || row.status;
-  const newNotes = notes !== undefined ? notes : row.notes;
+
+  const newStatus   = status       || row.status;
+  const newNotes    = notes        !== undefined ? notes               : row.notes;
+  const newDept     = department   || row.department;
+  const newIndustry = industry     !== undefined ? industry            : row.industry;
+  const newAccount  = account_name ? account_name.trim()              : row.account_name;
+  const newDomain   = domain_name  ? domain_name.trim().toLowerCase() : row.domain_name;
+  const newContact  = contact_name ? contact_name.trim()              : row.contact_name;
+  const newEmail    = email        ? email.trim().toLowerCase()        : row.email;
+  const newPhone    = phone        ? phone.trim()                      : row.phone;
   const statusChanged = newStatus !== row.status;
-  if (statusChanged) {
-    db.prepare(`UPDATE launches SET status = ?, notes = ?, updated_at = datetime('now'), status_changed_at = datetime('now') WHERE id = ?`)
-      .run(newStatus, newNotes, Number(req.params.id));
-  } else {
-    db.prepare(`UPDATE launches SET status = ?, notes = ?, updated_at = datetime('now') WHERE id = ?`)
-      .run(newStatus, newNotes, Number(req.params.id));
-  }
+
+  const changedAt = statusChanged ? `, status_changed_at = datetime('now')` : '';
+  db.prepare(`UPDATE launches SET status=?, notes=?, department=?, industry=?, account_name=?, domain_name=?, contact_name=?, email=?, phone=?, updated_at=datetime('now')${changedAt} WHERE id=?`)
+    .run(newStatus, newNotes, newDept, newIndustry, newAccount, newDomain, newContact, newEmail, newPhone, Number(req.params.id));
+
   res.json(db.prepare('SELECT * FROM launches WHERE id = ?').get(req.params.id));
 });
 
