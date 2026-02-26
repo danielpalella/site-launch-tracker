@@ -269,6 +269,11 @@ function showToast(msg, type = 'success') {
   setTimeout(() => { t.className = ''; }, 3500);
 }
 
+function handleRowDblClick(e, id) {
+  if (e.target.closest('.status-select, .btn, a, .note-dot')) return;
+  openEdit(id);
+}
+
 function showNoteTooltip(e, el) {
   const tip = document.getElementById('note-tooltip');
   tip.textContent = el.dataset.note;
@@ -306,7 +311,7 @@ function renderTable(data) {
   }
 
   tbody.innerHTML = data.map(r => `
-    <tr data-id="${r.id}">
+    <tr data-id="${r.id}" ondblclick="handleRowDblClick(event,${r.id})" style="cursor:pointer">
       <td class="sticky-col">
         <div class="account-name">${esc(r.account_name)}</div>
         <div class="domain">🌐 <a href="https://${esc(r.domain_name)}" target="_blank" rel="noopener" style="color:var(--primary);text-decoration:none" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${esc(r.domain_name)}</a></div>
