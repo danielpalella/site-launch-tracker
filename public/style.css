@@ -237,26 +237,27 @@ tr:hover .sticky-col { background: #f8fafc; }
 .status-select {
   border: none;
   background: transparent;
-  font-size: .75rem;
+  font-size: .7rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: .04em;
   cursor: pointer;
-  padding: .2rem 1.4rem .2rem .6rem;
+  padding: .15rem 1.1rem .15rem .5rem;
   border-radius: 99px;
   appearance: none;
   -webkit-appearance: none;
   white-space: nowrap;
+  max-width: 130px;
   width: auto;
 }
-.status-wrap { position: relative; display: inline-block; }
+.status-wrap { position: relative; display: inline-block; max-width: 130px; }
 .status-wrap::after {
   content: '▾';
   position: absolute;
-  right: .3rem;
+  right: .25rem;
   top: 50%;
   transform: translateY(-50%);
-  font-size: .6rem;
+  font-size: .55rem;
   pointer-events: none;
   opacity: .7;
 }
