@@ -107,11 +107,13 @@ app.patch('/api/launches/:id', requireAuth, (req, res) => {
   const newStatus = status || row.status;
   const newNotes = notes !== undefined ? notes : row.notes;
   const statusChanged = newStatus !== row.status;
-  db.prepare(`
-    UPDATE launches SET status = ?, notes = ?, updated_at = datetime('now'),
-    status_changed_at = CASE WHEN ? THEN datetime('now') ELSE status_changed_at END
-    WHERE id = ?
-  `).run(newStatus, newNotes, statusChanged ? 1 : 0, Number(req.params.id));
+  if (statusChanged) {
+    db.prepare(`UPDATE launches SET status = ?, notes = ?, updated_at = datetime('now'), status_changed_at = datetime('now') WHERE id = ?`)
+      .run(newStatus, newNotes, Number(req.params.id));
+  } else {
+    db.prepare(`UPDATE launches SET status = ?, notes = ?, updated_at = datetime('now') WHERE id = ?`)
+      .run(newStatus, newNotes, Number(req.params.id));
+  }
   res.json(db.prepare('SELECT * FROM launches WHERE id = ?').get(req.params.id));
 });
 
