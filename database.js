@@ -1,9 +1,12 @@
 import { Database } from 'bun:sqlite';
 import { join, dirname } from 'path';
+import { mkdirSync } from 'fs';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const db = new Database(join(__dirname, 'launches.db'));
+const dataDir = join(__dirname, 'data');
+mkdirSync(dataDir, { recursive: true });
+const db = new Database(join(dataDir, 'launches.db'));
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS launches (
