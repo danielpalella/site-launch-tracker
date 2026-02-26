@@ -346,16 +346,14 @@ tr:hover .sticky-col { background: #f8fafc; }
 }
 .fp-panel {
   display: none;
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
+  position: fixed;
   width: 340px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: 0 8px 28px rgba(0,0,0,.13);
   padding: 1rem 1.1rem;
-  z-index: 50;
+  z-index: 200;
 }
 .fp-panel.open { display: block; }
 .fp-panel-header {

@@ -218,7 +218,14 @@ let deletingId = null;
 const fpState = { status: 'all', industry: 'all', department: 'all' };
 
 function toggleFilterPanel() {
-  document.getElementById('fp-panel').classList.toggle('open');
+  const panel = document.getElementById('fp-panel');
+  const btn = document.getElementById('fp-btn');
+  if (!panel.classList.contains('open')) {
+    const rect = btn.getBoundingClientRect();
+    panel.style.top = (rect.bottom + 6) + 'px';
+    panel.style.left = rect.left + 'px';
+  }
+  panel.classList.toggle('open');
 }
 
 function setFilter(filter, value, btn) {
