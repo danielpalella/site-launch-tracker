@@ -30,33 +30,55 @@
   <div class="card">
     <div class="toolbar">
       <input type="search" id="search" placeholder="Search account, domain, or contact…" />
-      <select id="filter-industry">
-        <option value="all">All Industries</option>
-        <option value="Roofing">Roofing</option>
-        <option value="Plumbing">Plumbing</option>
-        <option value="Electrical">Electrical</option>
-        <option value="HVAC">HVAC</option>
-        <option value="Landscaping">Landscaping</option>
-        <option value="Contracting">Contracting</option>
-        <option value="Restoration">Restoration</option>
-        <option value="Solar">Solar</option>
-        <option value="Flooring">Flooring</option>
-      </select>
-      <select id="filter-department">
-        <option value="all">All Departments</option>
-        <option value="Sales">Sales</option>
-        <option value="Retention">Retention</option>
-        <option value="Customer Success">Customer Success</option>
-        <option value="Other">Other</option>
-      </select>
-      <select id="filter-status">
-        <option value="all">All Statuses</option>
-        <option value="new">New</option>
-        <option value="in_progress">In Progress</option>
-        <option value="awaiting_dns">Awaiting DNS Access</option>
-        <option value="awaiting_approval">Awaiting Client Approval / Edits</option>
-        <option value="launched">Launched / Live</option>
-      </select>
+      <div class="fp-wrap" id="fp-wrap">
+        <button class="btn btn-ghost fp-btn" id="fp-btn" onclick="toggleFilterPanel()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
+          Filters
+          <span class="fp-badge" id="fp-badge">0</span>
+        </button>
+        <div class="fp-panel" id="fp-panel">
+          <div class="fp-panel-header">
+            <span class="fp-panel-title">Filters</span>
+            <button class="fp-clear-all" onclick="clearAllFilters()">Clear all</button>
+          </div>
+          <div class="fp-group">
+            <div class="fp-group-label">Status</div>
+            <div class="fp-chips">
+              <button class="fp-chip fp-chip-active" data-filter="status" data-value="all" onclick="setFilter('status','all',this)">All</button>
+              <button class="fp-chip" data-filter="status" data-value="new" onclick="setFilter('status','new',this)">New</button>
+              <button class="fp-chip" data-filter="status" data-value="in_progress" onclick="setFilter('status','in_progress',this)">In Progress</button>
+              <button class="fp-chip" data-filter="status" data-value="awaiting_dns" onclick="setFilter('status','awaiting_dns',this)">Awaiting DNS</button>
+              <button class="fp-chip" data-filter="status" data-value="awaiting_approval" onclick="setFilter('status','awaiting_approval',this)">Awaiting Approval</button>
+              <button class="fp-chip" data-filter="status" data-value="launched" onclick="setFilter('status','launched',this)">Launched</button>
+            </div>
+          </div>
+          <div class="fp-group">
+            <div class="fp-group-label">Industry</div>
+            <div class="fp-chips">
+              <button class="fp-chip fp-chip-active" data-filter="industry" data-value="all" onclick="setFilter('industry','all',this)">All</button>
+              <button class="fp-chip" data-filter="industry" data-value="Roofing" onclick="setFilter('industry','Roofing',this)">Roofing</button>
+              <button class="fp-chip" data-filter="industry" data-value="Plumbing" onclick="setFilter('industry','Plumbing',this)">Plumbing</button>
+              <button class="fp-chip" data-filter="industry" data-value="Electrical" onclick="setFilter('industry','Electrical',this)">Electrical</button>
+              <button class="fp-chip" data-filter="industry" data-value="HVAC" onclick="setFilter('industry','HVAC',this)">HVAC</button>
+              <button class="fp-chip" data-filter="industry" data-value="Landscaping" onclick="setFilter('industry','Landscaping',this)">Landscaping</button>
+              <button class="fp-chip" data-filter="industry" data-value="Contracting" onclick="setFilter('industry','Contracting',this)">Contracting</button>
+              <button class="fp-chip" data-filter="industry" data-value="Restoration" onclick="setFilter('industry','Restoration',this)">Restoration</button>
+              <button class="fp-chip" data-filter="industry" data-value="Solar" onclick="setFilter('industry','Solar',this)">Solar</button>
+              <button class="fp-chip" data-filter="industry" data-value="Flooring" onclick="setFilter('industry','Flooring',this)">Flooring</button>
+            </div>
+          </div>
+          <div class="fp-group">
+            <div class="fp-group-label">Department</div>
+            <div class="fp-chips">
+              <button class="fp-chip fp-chip-active" data-filter="department" data-value="all" onclick="setFilter('department','all',this)">All</button>
+              <button class="fp-chip" data-filter="department" data-value="Sales" onclick="setFilter('department','Sales',this)">Sales</button>
+              <button class="fp-chip" data-filter="department" data-value="Retention" onclick="setFilter('department','Retention',this)">Retention</button>
+              <button class="fp-chip" data-filter="department" data-value="Customer Success" onclick="setFilter('department','Customer Success',this)">Customer Success</button>
+              <button class="fp-chip" data-filter="department" data-value="Other" onclick="setFilter('department','Other',this)">Other</button>
+            </div>
+          </div>
+        </div>
+      </div>
       <span class="count" id="row-count"></span>
       <button class="btn btn-ghost" onclick="exportCSV()">⬇ Export CSV</button>
     </div>
@@ -191,6 +213,46 @@ const STATUS_LABELS = {
 let allLaunches = [];
 let editingId = null;
 let deletingId = null;
+
+// ── Filter Panel State ──
+const fpState = { status: 'all', industry: 'all', department: 'all' };
+
+function toggleFilterPanel() {
+  document.getElementById('fp-panel').classList.toggle('open');
+}
+
+function setFilter(filter, value, btn) {
+  fpState[filter] = value;
+  document.querySelectorAll(`[data-filter="${filter}"]`).forEach(c => c.classList.remove('fp-chip-active'));
+  btn.classList.add('fp-chip-active');
+  updateFilterBadge();
+  fetchLaunches();
+}
+
+function clearAllFilters() {
+  ['status', 'industry', 'department'].forEach(f => {
+    fpState[f] = 'all';
+    document.querySelectorAll(`[data-filter="${f}"]`).forEach(c => c.classList.remove('fp-chip-active'));
+    const allChip = document.querySelector(`[data-filter="${f}"][data-value="all"]`);
+    if (allChip) allChip.classList.add('fp-chip-active');
+  });
+  updateFilterBadge();
+  fetchLaunches();
+}
+
+function updateFilterBadge() {
+  const count = ['status', 'industry', 'department'].filter(f => fpState[f] !== 'all').length;
+  const badge = document.getElementById('fp-badge');
+  badge.textContent = count;
+  badge.style.display = count > 0 ? 'inline-flex' : 'none';
+}
+
+document.addEventListener('click', (e) => {
+  const wrap = document.getElementById('fp-wrap');
+  if (!wrap.contains(e.target)) {
+    document.getElementById('fp-panel').classList.remove('open');
+  }
+});
 
 function showToast(msg, type = 'success') {
   const t = document.getElementById('toast');
@@ -377,27 +439,21 @@ document.getElementById('confirm-delete').addEventListener('click', async () => 
   });
 });
 
-// Search & filter with debounce
+// Search with debounce
 let debounceTimer;
 document.getElementById('search').addEventListener('input', () => {
   clearTimeout(debounceTimer);
   debounceTimer = setTimeout(fetchLaunches, 300);
 });
-document.getElementById('filter-status').addEventListener('change', fetchLaunches);
-document.getElementById('filter-department').addEventListener('change', fetchLaunches);
-document.getElementById('filter-industry').addEventListener('change', fetchLaunches);
 
 // Redirect to login on 401
 async function fetchLaunches() {
   const search = document.getElementById('search').value.trim();
-  const status = document.getElementById('filter-status').value;
-  const department = document.getElementById('filter-department').value;
-  const industry = document.getElementById('filter-industry').value;
   const params = new URLSearchParams();
   if (search) params.set('search', search);
-  if (status !== 'all') params.set('status', status);
-  if (department !== 'all') params.set('department', department);
-  if (industry !== 'all') params.set('industry', industry);
+  if (fpState.status !== 'all') params.set('status', fpState.status);
+  if (fpState.department !== 'all') params.set('department', fpState.department);
+  if (fpState.industry !== 'all') params.set('industry', fpState.industry);
 
   try {
     const res = await fetch('/api/launches?' + params.toString());

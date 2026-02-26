@@ -327,6 +327,85 @@ tr:hover .sticky-col { background: #f8fafc; }
 .success-box p { color: var(--text-muted); font-size: .9rem; margin-bottom: 1.75rem; }
 .success-links { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
 
+/* ── FILTER PANEL ── */
+.fp-wrap { position: relative; flex-shrink: 0; }
+.fp-btn { gap: .4rem; }
+.fp-badge {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: var(--primary);
+  color: #fff;
+  font-size: .6rem;
+  font-weight: 700;
+  border-radius: 99px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  line-height: 1;
+}
+.fp-panel {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 340px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 28px rgba(0,0,0,.13);
+  padding: 1rem 1.1rem;
+  z-index: 50;
+}
+.fp-panel.open { display: block; }
+.fp-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: .85rem;
+}
+.fp-panel-title {
+  font-size: .72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+.fp-clear-all {
+  background: none;
+  border: none;
+  color: var(--primary);
+  font-size: .8rem;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0;
+}
+.fp-clear-all:hover { text-decoration: underline; }
+.fp-group { margin-bottom: .85rem; }
+.fp-group:last-child { margin-bottom: 0; }
+.fp-group-label {
+  font-size: .7rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  margin-bottom: .4rem;
+}
+.fp-chips { display: flex; flex-wrap: wrap; gap: .3rem; }
+.fp-chip {
+  background: var(--bg);
+  border: 1.5px solid var(--border);
+  border-radius: 99px;
+  padding: .2rem .65rem;
+  font-size: .75rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background .1s, border-color .1s, color .1s;
+}
+.fp-chip:hover { border-color: var(--primary); color: var(--primary); }
+.fp-chip.fp-chip-active { background: var(--primary); border-color: var(--primary); color: #fff; }
+
 @media (max-width: 600px) {
   .form-grid { grid-template-columns: 1fr; }
   .form-grid .full { grid-column: 1; }
