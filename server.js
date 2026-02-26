@@ -94,8 +94,8 @@ app.post('/api/launches', (req, res) => {
     return res.status(400).json({ error: 'Invalid email address.' });
   }
   const result = db.prepare(`
-    INSERT INTO launches (department, account_name, domain_name, contact_name, email, phone)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO launches (department, account_name, domain_name, contact_name, email, phone, status)
+    VALUES (?, ?, ?, ?, ?, ?, 'new')
   `).run(department, account_name.trim(), domain_name.trim().toLowerCase(), contact_name.trim(), email.trim().toLowerCase(), phone.trim());
   res.status(201).json(db.prepare('SELECT * FROM launches WHERE id = ?').get(result.lastInsertRowid));
 });
