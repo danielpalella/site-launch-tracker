@@ -200,6 +200,7 @@
 </div>
 
 <div id="toast"></div>
+<div id="note-tooltip" class="note-tooltip"></div>
 
 <script>
 const STATUS_LABELS = {
@@ -268,6 +269,20 @@ function showToast(msg, type = 'success') {
   setTimeout(() => { t.className = ''; }, 3500);
 }
 
+function showNoteTooltip(e, el) {
+  const tip = document.getElementById('note-tooltip');
+  tip.textContent = el.dataset.note;
+  const rect = el.getBoundingClientRect();
+  const left = Math.min(rect.left, window.innerWidth - 260);
+  tip.style.top  = (rect.bottom + 6) + 'px';
+  tip.style.left = left + 'px';
+  tip.classList.add('visible');
+}
+
+function hideNoteTooltip() {
+  document.getElementById('note-tooltip').classList.remove('visible');
+}
+
 function formatDate(iso) {
   if (!iso) return '—';
   const d = new Date(iso.replace(' ', 'T'));
@@ -313,7 +328,7 @@ function renderTable(data) {
         </div>
       </td>
       <td style="white-space:nowrap;font-size:.8rem;color:var(--text-muted)">${formatDate(r.status_changed_at)}</td>
-      <td style="max-width:200px;white-space:pre-wrap;font-size:.8rem;color:var(--text-muted)">${esc(r.notes || '—')}</td>
+      <td style="text-align:center">${r.notes ? `<span class="note-dot" data-note="${esc(r.notes)}" onmouseenter="showNoteTooltip(event,this)" onmouseleave="hideNoteTooltip()">···</span>` : '<span style="color:var(--text-muted);font-size:.8rem">—</span>'}</td>
       <td style="white-space:nowrap;font-size:.8rem;color:var(--text-muted)">${formatDate(r.created_at)}</td>
       <td>
         <button class="btn btn-ghost" style="padding:.3rem .65rem;font-size:.78rem" onclick="openEdit(${r.id})">Edit</button>

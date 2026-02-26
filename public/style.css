@@ -328,6 +328,40 @@ tr:hover .sticky-col { background: #f8fafc; }
 .success-box p { color: var(--text-muted); font-size: .9rem; margin-bottom: 1.75rem; }
 .success-links { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
 
+/* ── NOTES DOT ── */
+.note-dot {
+  display: inline-block;
+  padding: .12rem .45rem;
+  background: var(--bg);
+  border: 1.5px solid var(--border);
+  border-radius: 99px;
+  font-size: .72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  cursor: default;
+  letter-spacing: .12em;
+  user-select: none;
+  transition: border-color .12s, color .12s;
+}
+.note-dot:hover { border-color: var(--primary); color: var(--primary); }
+.note-tooltip {
+  display: none;
+  position: fixed;
+  background: #1e293b;
+  color: #f1f5f9;
+  font-size: .8rem;
+  line-height: 1.5;
+  padding: .55rem .75rem;
+  border-radius: 7px;
+  max-width: 240px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  z-index: 300;
+  box-shadow: 0 4px 16px rgba(0,0,0,.25);
+  pointer-events: none;
+}
+.note-tooltip.visible { display: block; }
+
 /* ── FILTER PANEL ── */
 .fp-wrap { position: relative; flex-shrink: 0; }
 .fp-btn { gap: .4rem; }
