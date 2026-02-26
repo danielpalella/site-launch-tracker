@@ -24,9 +24,11 @@ db.exec(`
 
 // Migration: add status_changed_at to existing databases that don't have it
 try {
-  db.exec(`ALTER TABLE launches ADD COLUMN status_changed_at TEXT NOT NULL DEFAULT (datetime('now'))`);
+  db.exec(`ALTER TABLE launches ADD COLUMN status_changed_at TEXT`);
 } catch {
   // Column already exists — nothing to do
 }
+// Backfill any rows where it's still null
+db.exec(`UPDATE launches SET status_changed_at = updated_at WHERE status_changed_at IS NULL`);
 
 export default db;
