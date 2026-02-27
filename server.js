@@ -110,6 +110,16 @@ app.get('/auth/google/callback', async (req, res) => {
   }
 });
 
+app.post('/api/auth/login', (req, res) => {
+  if (req.body.password !== 'duda') {
+    return res.status(401).json({ error: 'Incorrect password.' });
+  }
+  const token = generateToken();
+  db.prepare('INSERT INTO sessions (token) VALUES (?)').run(token);
+  res.setHeader('Set-Cookie', `auth_token=${token}; Path=/; HttpOnly; SameSite=Lax`);
+  res.json({ ok: true });
+});
+
 app.post('/api/auth/logout', (req, res) => {
   const { auth_token } = getCookies(req);
   if (auth_token) db.prepare('DELETE FROM sessions WHERE token = ?').run(auth_token);

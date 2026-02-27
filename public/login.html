@@ -80,6 +80,21 @@
       color: var(--text-muted);
       margin-top: 1rem;
     }
+    .login-divider {
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+      margin: 1.25rem 0;
+      font-size: .75rem;
+      color: var(--text-muted);
+    }
+    .login-divider::before, .login-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+    .login-box .btn-primary { width: 100%; justify-content: center; }
   </style>
 </head>
 <body>
@@ -103,6 +118,17 @@
         Sign in with Google
       </a>
       <p class="login-domain">Restricted to @realworklabs.com accounts</p>
+      <div class="login-divider">or</div>
+      <form id="login-form" novalidate>
+        <div>
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" placeholder="Enter password" />
+          <div class="field-error" id="err-password"></div>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary" id="login-btn">Sign In</button>
+        </div>
+      </form>
     </div>
   </div>
 </div>
@@ -132,6 +158,36 @@ function toggleDark() {
     el.style.display = 'block';
   }
 })();
+
+document.getElementById('login-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const password = document.getElementById('password').value;
+  const errEl = document.getElementById('err-password');
+  const btn = document.getElementById('login-btn');
+  errEl.textContent = '';
+  if (!password) { errEl.textContent = 'Password is required.'; return; }
+  btn.disabled = true;
+  btn.textContent = 'Signing in…';
+  try {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password })
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      errEl.textContent = json.error || 'Incorrect password.';
+      btn.disabled = false;
+      btn.textContent = 'Sign In';
+      return;
+    }
+    window.location.href = '/dashboard';
+  } catch {
+    errEl.textContent = 'Something went wrong. Try again.';
+    btn.disabled = false;
+    btn.textContent = 'Sign In';
+  }
+});
 </script>
 </body>
 </html>
