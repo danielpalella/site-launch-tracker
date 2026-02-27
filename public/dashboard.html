@@ -331,6 +331,50 @@ async function loadTimeline(id) {
   }
 }
 
+// ── Status Age Tooltip ──
+const historyCache = {};
+
+async function showStatusAgeTooltip(e, cell) {
+  const id = Number(cell.dataset.id);
+  const tip = document.getElementById('note-tooltip');
+  const rect = cell.getBoundingClientRect();
+  tip.style.top  = (rect.bottom + 6) + 'px';
+  tip.style.left = Math.min(rect.left, window.innerWidth - 260) + 'px';
+  tip.innerHTML  = '<span style="opacity:.5;font-size:.78rem">Loading…</span>';
+  tip.classList.add('visible');
+
+  if (!historyCache[id]) {
+    try {
+      const res = await fetch(`/api/launches/${id}/history`);
+      historyCache[id] = res.ok ? await res.json() : [];
+    } catch { historyCache[id] = []; }
+  }
+
+  if (!tip.classList.contains('visible')) return; // moused away
+  const history = historyCache[id];
+  if (!history.length) {
+    tip.innerHTML = '<span style="opacity:.6;font-size:.78rem">No history yet</span>';
+    return;
+  }
+
+  const LABELS = {
+    new: 'New', in_progress: 'In Progress', awaiting_dns: 'Awaiting DNS',
+    awaiting_approval: 'Awaiting Approval', launched: 'Launched'
+  };
+  const now = Date.now();
+  const rows = history.map((entry, i) => {
+    const start    = toDate(entry.entered_at).getTime();
+    const end      = i < history.length - 1 ? toDate(history[i + 1].entered_at).getTime() : now;
+    const isCurrent = i === history.length - 1;
+    const label    = LABELS[entry.status] || entry.status;
+    const dur      = entry.status === 'launched' ? formatDate(entry.entered_at) : formatDuration(end - start);
+    return `<div style="display:flex;justify-content:space-between;gap:1.25rem;padding:.12rem 0;${isCurrent ? 'color:#f1f5f9;font-weight:600' : 'opacity:.75'}">
+      <span>${label}</span><span>${dur}</span></div>`;
+  }).join('');
+
+  tip.innerHTML = `<div style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;opacity:.55;margin-bottom:.5rem">Time per Status</div>${rows}`;
+}
+
 function showNoteTooltip(e, el) {
   const tip = document.getElementById('note-tooltip');
   tip.textContent = el.dataset.note;
@@ -421,7 +465,7 @@ function renderTable(data) {
           </select>
         </div>
       </td>
-      <td style="white-space:nowrap;font-size:.8rem;color:var(--text-muted)">${r.status === 'launched' ? formatDate(r.status_changed_at || r.created_at) : (r.status_changed_at || r.created_at ? formatDuration(Date.now() - toDate(r.status_changed_at || r.created_at).getTime()) : '—')}</td>
+      <td data-id="${r.id}" onmouseenter="showStatusAgeTooltip(event,this)" onmouseleave="hideNoteTooltip()" style="white-space:nowrap;font-size:.8rem;color:var(--text-muted);cursor:help">${r.status === 'launched' ? formatDate(r.status_changed_at || r.created_at) : (r.status_changed_at || r.created_at ? formatDuration(Date.now() - toDate(r.status_changed_at || r.created_at).getTime()) : '—')}</td>
       <td style="text-align:center">${r.notes ? `<span class="note-dot" data-note="${esc(r.notes)}" onmouseenter="showNoteTooltip(event,this)" onmouseleave="hideNoteTooltip()">···</span>` : '<span style="color:var(--text-muted);font-size:.8rem">—</span>'}</td>
       <td style="font-size:.8rem;color:var(--text-muted)">${esc(r.department)}</td>
       <td style="white-space:nowrap;font-size:.8rem;color:var(--text-muted)">${formatDate(r.created_at)}</td>
@@ -451,6 +495,7 @@ async function quickStatus(select) {
       body: JSON.stringify({ status })
     });
     if (!res.ok) throw new Error();
+    delete historyCache[id];
     showToast('Status updated.');
     if (status === 'launched') launchConfetti(select);
     fetchLaunches();
@@ -512,6 +557,7 @@ document.getElementById('modal-save').addEventListener('click', async () => {
     });
     if (!res.ok) throw new Error();
     const wasLaunched = allLaunches.find(x => x.id === editingId)?.status === 'launched';
+    delete historyCache[editingId];
     document.getElementById('modal').classList.remove('open');
     showToast('Changes saved.');
     if (payload.status === 'launched' && !wasLaunched) launchConfetti(btn);
