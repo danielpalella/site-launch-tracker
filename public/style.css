@@ -216,7 +216,11 @@ th {
   color: var(--text-muted);
   border-bottom: 2px solid var(--border);
   background: #f8fafc;
+  position: sticky;
+  top: 0;
+  z-index: 2;
 }
+thead .sticky-col { z-index: 3; }
 td {
   padding: .875rem 1rem;
   border-bottom: 1px solid var(--border);

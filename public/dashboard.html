@@ -91,7 +91,6 @@
             <th class="sticky-col">Account</th>
             <th>Industry</th>
             <th>Contact</th>
-            <th>Phone</th>
             <th id="status-th" onclick="sortBy('status')" style="cursor:pointer;user-select:none;white-space:nowrap">Status</th>
             <th>Status Age</th>
             <th>Notes</th>
@@ -434,7 +433,7 @@ function renderTable(data) {
   }
 
   if (!data.length) {
-    tbody.innerHTML = `<tr><td colspan="10"><div class="empty">
+    tbody.innerHTML = `<tr><td colspan="9"><div class="empty">
       <svg width="48" height="48" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
           d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
@@ -454,8 +453,8 @@ function renderTable(data) {
       <td>
         <div>${esc(r.contact_name)}</div>
         <div class="contact-email">${esc(r.email)}</div>
+        <div class="contact-email">${esc(r.phone)}</div>
       </td>
-      <td style="white-space:nowrap">${esc(r.phone)}</td>
       <td>
         <div class="status-wrap">
           <select class="status-select ${r.status}" data-id="${r.id}" onchange="quickStatus(this)">
