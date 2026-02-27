@@ -422,7 +422,7 @@ function renderTable(data) {
           </select>
         </div>
       </td>
-      <td style="white-space:nowrap;font-size:.8rem;color:var(--text-muted)">${r.status_changed_at || r.created_at ? formatDuration(Date.now() - toDate(r.status_changed_at || r.created_at).getTime()) : '—'}</td>
+      <td style="white-space:nowrap;font-size:.8rem;color:var(--text-muted)">${r.status === 'launched' ? formatDate(r.status_changed_at || r.created_at) : (r.status_changed_at || r.created_at ? formatDuration(Date.now() - toDate(r.status_changed_at || r.created_at).getTime()) : '—')}</td>
       <td style="text-align:center">${r.notes ? `<span class="note-dot" data-note="${esc(r.notes)}" onmouseenter="showNoteTooltip(event,this)" onmouseleave="hideNoteTooltip()">···</span>` : '<span style="color:var(--text-muted);font-size:.8rem">—</span>'}</td>
       <td style="white-space:nowrap;font-size:.8rem;color:var(--text-muted)">${formatDate(r.created_at)}</td>
       <td>
