@@ -94,7 +94,7 @@
             <th>Contact</th>
             <th>Phone</th>
             <th id="status-th" onclick="toggleStatusSort()" style="cursor:pointer;user-select:none;white-space:nowrap">Status</th>
-            <th>Status Updated</th>
+            <th>Status Age</th>
             <th>Notes</th>
             <th>Submitted</th>
             <th></th>
@@ -402,7 +402,7 @@ function renderTable(data) {
           </select>
         </div>
       </td>
-      <td style="white-space:nowrap;font-size:.8rem;color:var(--text-muted)">${formatDate(r.status_changed_at)}</td>
+      <td style="white-space:nowrap;font-size:.8rem;color:var(--text-muted)">${r.status_changed_at || r.created_at ? formatDuration(Date.now() - new Date((r.status_changed_at || r.created_at).replace(' ','T')).getTime()) : '—'}</td>
       <td style="text-align:center">${r.notes ? `<span class="note-dot" data-note="${esc(r.notes)}" onmouseenter="showNoteTooltip(event,this)" onmouseleave="hideNoteTooltip()">···</span>` : '<span style="color:var(--text-muted);font-size:.8rem">—</span>'}</td>
       <td style="white-space:nowrap;font-size:.8rem;color:var(--text-muted)">${formatDate(r.created_at)}</td>
       <td>
