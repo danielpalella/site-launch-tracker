@@ -7,6 +7,7 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌐</text></svg>" />
   <link rel="stylesheet" href="/style.css" />
   <script>document.documentElement.setAttribute('data-theme', localStorage.getItem('theme') || 'light');</script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 </head>
 <body class="dashboard-page">
 
@@ -89,10 +90,14 @@
         </div>
       </div>
       <span class="count" id="row-count"></span>
+      <div class="view-toggle">
+        <button class="view-btn view-btn-active" id="view-table-btn" onclick="setView('table')">Table</button>
+        <button class="view-btn" id="view-graph-btn" onclick="setView('graph')">Graph</button>
+      </div>
       <button class="btn btn-ghost" id="export-btn" onclick="handleExportClick(this)">⬇ Export CSV</button>
     </div>
 
-    <div class="table-wrap">
+    <div class="table-wrap" id="table-wrap">
       <table id="launch-table">
         <thead>
           <tr>
@@ -114,6 +119,22 @@
           </tr>
         </tbody>
       </table>
+    </div>
+
+    <!-- Graph View -->
+    <div id="chart-area" class="chart-area">
+      <div class="chart-header">
+        <span class="chart-group-label">Group by</span>
+        <div class="chart-group-tabs">
+          <button class="chart-group-btn chart-group-btn-active" onclick="setGroupBy('department',this)">Department</button>
+          <button class="chart-group-btn" onclick="setGroupBy('industry',this)">Industry</button>
+          <button class="chart-group-btn" onclick="setGroupBy('owner',this)">Owner</button>
+        </div>
+        <div class="chart-summary" id="chart-summary"></div>
+      </div>
+      <div class="chart-canvas-wrap" id="chart-canvas-wrap">
+        <canvas id="progress-chart"></canvas>
+      </div>
     </div>
   </div>
 </div>
@@ -252,6 +273,156 @@ let allLaunches = [];
 let editingId = null;
 let deletingId = null;
 const STATUS_ORDER = ['new', 'in_progress', 'awaiting_approval', 'awaiting_dns', 'launched'];
+
+// ── Chart / View State ──
+const STATUS_COLORS = {
+  new:               '#ec4899',
+  in_progress:       '#3b82f6',
+  awaiting_approval: '#f97316',
+  awaiting_dns:      '#8b5cf6',
+  launched:          '#22c55e',
+};
+const GROUP_KEYS = {
+  department: ['Sales', 'Retention', 'Customer Success', 'Other'],
+  industry:   ['Roofing', 'Plumbing', 'Electrical', 'HVAC', 'Landscaping', 'Contracting', 'Restoration', 'Solar', 'Flooring'],
+  owner:      ['Daniel', 'Thierry', 'Unassigned'],
+};
+let viewMode   = 'table';
+let groupByDim = 'department';
+let chartInstance = null;
+
+function setView(mode) {
+  viewMode = mode;
+  document.getElementById('view-table-btn').classList.toggle('view-btn-active', mode === 'table');
+  document.getElementById('view-graph-btn').classList.toggle('view-btn-active', mode === 'graph');
+  document.getElementById('table-wrap').style.display = mode === 'table' ? '' : 'none';
+  document.getElementById('chart-area').classList.toggle('visible', mode === 'graph');
+  if (mode === 'graph') renderChart();
+}
+
+function setGroupBy(dim, btn) {
+  groupByDim = dim;
+  document.querySelectorAll('.chart-group-btn').forEach(b => b.classList.remove('chart-group-btn-active'));
+  btn.classList.add('chart-group-btn-active');
+  renderChart();
+}
+
+function renderChart() {
+  if (viewMode !== 'graph') return;
+
+  // Build groups
+  const groups = {};
+  for (const key of GROUP_KEYS[groupByDim]) {
+    groups[key] = { new: 0, in_progress: 0, awaiting_approval: 0, awaiting_dns: 0, launched: 0 };
+  }
+  for (const r of allLaunches) {
+    const key = groupByDim === 'owner' ? (r.owner || 'Unassigned') : (r[groupByDim] || '—');
+    if (!groups[key]) groups[key] = { new: 0, in_progress: 0, awaiting_approval: 0, awaiting_dns: 0, launched: 0 };
+    if (r.status in groups[key]) groups[key][r.status]++;
+  }
+
+  // Only show groups with at least one record, sorted by total desc
+  const labels = Object.keys(groups)
+    .filter(k => STATUS_ORDER.some(s => groups[k][s] > 0))
+    .sort((a, b) => {
+      const totA = STATUS_ORDER.reduce((n, s) => n + groups[a][s], 0);
+      const totB = STATUS_ORDER.reduce((n, s) => n + groups[b][s], 0);
+      return totB - totA;
+    });
+
+  // Summary stats
+  const summaryEl = document.getElementById('chart-summary');
+  summaryEl.innerHTML = STATUS_ORDER.map(s => {
+    const cnt = allLaunches.filter(r => r.status === s).length;
+    if (!cnt) return '';
+    return `<div class="chart-stat">
+      <div class="chart-stat-dot" style="background:${STATUS_COLORS[s]}"></div>
+      <span>${STATUS_LABELS[s]}</span>
+      <span class="chart-stat-count">${cnt}</span>
+    </div>`;
+  }).join('');
+
+  const wrap = document.getElementById('chart-canvas-wrap');
+
+  if (!labels.length) {
+    if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+    wrap.innerHTML = '<div class="chart-empty">No data matches the current filters.</div>';
+    return;
+  }
+
+  // Restore canvas if we showed the empty state
+  if (!wrap.querySelector('canvas')) {
+    wrap.innerHTML = '<canvas id="progress-chart"></canvas>';
+  }
+
+  const isDark    = document.documentElement.getAttribute('data-theme') === 'dark';
+  const textColor = isDark ? '#94a3b8' : '#64748b';
+  const gridColor = isDark ? '#334155' : '#e2e8f0';
+
+  const datasets = STATUS_ORDER.map(status => ({
+    label:           STATUS_LABELS[status],
+    data:            labels.map(l => groups[l][status]),
+    backgroundColor: STATUS_COLORS[status],
+    borderRadius:    3,
+    borderSkipped:   false,
+  }));
+
+  if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+
+  chartInstance = new Chart(document.getElementById('progress-chart'), {
+    type: 'bar',
+    data: { labels, datasets },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 250 },
+      plugins: {
+        legend: {
+          position: 'top',
+          align: 'start',
+          labels: {
+            color:          textColor,
+            font:           { family: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif', size: 11, weight: '600' },
+            boxWidth:       10,
+            boxHeight:      10,
+            borderRadius:   3,
+            useBorderRadius: true,
+            padding:        16,
+          },
+        },
+        tooltip: {
+          backgroundColor: isDark ? '#0f172a' : '#1e293b',
+          titleColor:      '#f1f5f9',
+          bodyColor:       '#94a3b8',
+          padding:         10,
+          callbacks: {
+            title: ([item]) => item.label,
+            label: (item)   => ` ${item.dataset.label}: ${item.raw}`,
+            footer: (items) => {
+              const total = items.reduce((n, i) => n + i.raw, 0);
+              return `Total: ${total}`;
+            },
+          },
+        },
+      },
+      scales: {
+        x: {
+          stacked: true,
+          ticks:  { color: textColor, stepSize: 1, precision: 0 },
+          grid:   { color: gridColor },
+          border: { color: gridColor },
+        },
+        y: {
+          stacked: true,
+          ticks:  { color: textColor, font: { size: 12, weight: '500' } },
+          grid:   { display: false },
+          border: { display: false },
+        },
+      },
+    },
+  });
+}
 
 // ── Filter Panel State ──
 const fpState = { status: 'all', industry: 'all', department: 'all', owner: 'all' };
@@ -668,6 +839,7 @@ async function fetchLaunches() {
     if (res.status === 401) { window.location.href = '/login'; return; }
     allLaunches = await res.json();
     renderTable(allLaunches);
+    if (viewMode === 'graph') renderChart();
   } catch {
     showToast('Failed to load launches.', 'error');
   }
@@ -836,6 +1008,7 @@ function toggleDark() {
   document.documentElement.setAttribute('data-theme', next);
   localStorage.setItem('theme', next);
   document.getElementById('dark-toggle').textContent = next === 'dark' ? '☀️' : '🌙';
+  if (viewMode === 'graph') renderChart();
 }
 (function() {
   const saved = localStorage.getItem('theme') || 'light';

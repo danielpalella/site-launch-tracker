@@ -636,6 +636,114 @@ tr:hover .sticky-col { background: #f8fafc; }
   animation: emoji-fall 1.8s cubic-bezier(.25,.46,.45,.94) forwards;
 }
 
+/* ── VIEW TOGGLE (Table / Graph) ── */
+.view-toggle {
+  display: flex;
+  gap: 0;
+  border: 1.5px solid var(--border);
+  border-radius: 7px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.view-btn {
+  background: transparent;
+  border: none;
+  padding: .38rem .85rem;
+  font-size: .78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background .12s, color .12s;
+  white-space: nowrap;
+  font-family: inherit;
+}
+.view-btn:hover { background: var(--bg); color: var(--text); }
+.view-btn.view-btn-active { background: var(--primary); color: #fff; }
+
+/* ── CHART AREA ── */
+.chart-area {
+  display: none;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+  gap: .85rem;
+}
+.chart-area.visible { display: flex; }
+.chart-header {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+.chart-group-label {
+  font-size: .7rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  white-space: nowrap;
+}
+.chart-group-tabs {
+  display: flex;
+  gap: 0;
+  border: 1.5px solid var(--border);
+  border-radius: 7px;
+  overflow: hidden;
+}
+.chart-group-btn {
+  background: transparent;
+  border: none;
+  padding: .3rem .75rem;
+  font-size: .78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background .12s, color .12s;
+  white-space: nowrap;
+  font-family: inherit;
+}
+.chart-group-btn:hover { background: var(--bg); color: var(--text); }
+.chart-group-btn.chart-group-btn-active { background: var(--primary); color: #fff; }
+.chart-summary {
+  margin-left: auto;
+  display: flex;
+  gap: .85rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.chart-stat {
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+  font-size: .76rem;
+  color: var(--text-muted);
+}
+.chart-stat-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.chart-stat-count {
+  font-weight: 700;
+  color: var(--text);
+}
+.chart-canvas-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 180px;
+}
+.chart-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  color: var(--text-muted);
+  font-size: .875rem;
+  padding: 3rem;
+}
+
 @media (max-width: 600px) {
   .form-grid { grid-template-columns: 1fr; }
   .form-grid .full { grid-column: 1; }
