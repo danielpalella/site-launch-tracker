@@ -48,8 +48,8 @@
               <button class="fp-chip fp-chip-active" data-filter="status" data-value="all" onclick="setFilter('status','all',this)">All</button>
               <button class="fp-chip" data-filter="status" data-value="new" onclick="setFilter('status','new',this)">New</button>
               <button class="fp-chip" data-filter="status" data-value="in_progress" onclick="setFilter('status','in_progress',this)">In Progress</button>
-              <button class="fp-chip" data-filter="status" data-value="awaiting_dns" onclick="setFilter('status','awaiting_dns',this)">Awaiting DNS</button>
-              <button class="fp-chip" data-filter="status" data-value="awaiting_approval" onclick="setFilter('status','awaiting_approval',this)">Awaiting Approval</button>
+              <button class="fp-chip" data-filter="status" data-value="awaiting_approval" onclick="setFilter('status','awaiting_approval',this)">Approval</button>
+              <button class="fp-chip" data-filter="status" data-value="awaiting_dns" onclick="setFilter('status','awaiting_dns',this)">DNS Access</button>
               <button class="fp-chip" data-filter="status" data-value="launched" onclick="setFilter('status','launched',this)">Launched</button>
             </div>
           </div>
@@ -183,8 +183,8 @@
         <select id="modal-status">
           <option value="new">New</option>
           <option value="in_progress">In Progress</option>
-          <option value="awaiting_dns">Awaiting DNS Access</option>
           <option value="awaiting_approval">Awaiting Client Approval / Edits</option>
+          <option value="awaiting_dns">Awaiting DNS Access</option>
           <option value="launched">Launched / Live</option>
         </select>
       </div>
@@ -243,15 +243,15 @@
 const STATUS_LABELS = {
   new:               'New',
   in_progress:       'In Progress',
-  awaiting_dns:      'DNS Access',
   awaiting_approval: 'Approval',
+  awaiting_dns:      'DNS Access',
   launched:          'Launched'
 };
 
 let allLaunches = [];
 let editingId = null;
 let deletingId = null;
-const STATUS_ORDER = ['new', 'in_progress', 'awaiting_dns', 'awaiting_approval', 'launched'];
+const STATUS_ORDER = ['new', 'in_progress', 'awaiting_approval', 'awaiting_dns', 'launched'];
 
 // ── Filter Panel State ──
 const fpState = { status: 'all', industry: 'all', department: 'all', owner: 'all' };
@@ -352,17 +352,17 @@ async function loadTimeline(id) {
     }
     const now = Date.now();
     body.innerHTML = history.map((entry, i) => {
-      const start = toDate(entry.entered_at).getTime();
-      const end   = i < history.length - 1
-        ? toDate(history[i + 1].entered_at).getTime()
-        : now;
-      const isCurrent = i === history.length - 1;
-      const label = TIMELINE_STATUS_LABELS[entry.status] || entry.status;
-      const dur   = formatDuration(end - start);
+      const start      = toDate(entry.entered_at).getTime();
+      const end        = i < history.length - 1 ? toDate(history[i + 1].entered_at).getTime() : now;
+      const isCurrent  = i === history.length - 1;
+      const isLaunched = entry.status === 'launched';
+      const label      = TIMELINE_STATUS_LABELS[entry.status] || entry.status;
+      const dur        = isLaunched ? formatDate(entry.entered_at) : formatDuration(end - start);
+      const suffix     = isCurrent && !isLaunched ? ' <span class="tl-ongoing">ongoing</span>' : '';
       return `<div class="tl-row${isCurrent ? ' tl-current' : ''}">
         <div class="tl-dot${isCurrent ? ' tl-dot-active' : ''}"></div>
         <div class="tl-label">${label}</div>
-        <div class="tl-dur">${dur}${isCurrent ? ' <span class="tl-ongoing">ongoing</span>' : ''}</div>
+        <div class="tl-dur">${dur}${suffix}</div>
       </div>`;
     }).join('');
   } catch {
