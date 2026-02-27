@@ -219,6 +219,14 @@
       <div id="modal-timeline-body"><p style="color:var(--text-muted);font-size:.8rem">Loading…</p></div>
     </div>
 
+    <div id="modal-domain-info" style="border-top:1px solid var(--border);padding-top:1rem;margin-top:.25rem">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.65rem">
+        <div style="font-size:.72rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em">Domain Info</div>
+        <button class="btn btn-ghost" id="domain-lookup-btn" onclick="lookupDomain()" style="padding:.25rem .65rem;font-size:.75rem">Refresh</button>
+      </div>
+      <div id="domain-info-body"></div>
+    </div>
+
     <div class="modal-actions">
       <button class="btn btn-danger" id="modal-delete">Delete</button>
       <div style="display:flex;gap:.75rem;margin-left:auto">
@@ -732,6 +740,7 @@ function openEdit(id) {
   document.getElementById('modal-notes').value        = r.notes || '';
   document.getElementById('modal').classList.add('open');
   loadTimeline(id);
+  lookupDomain(r.domain_name);
 }
 
 document.getElementById('modal-cancel').addEventListener('click', () => {
@@ -1014,6 +1023,64 @@ function toggleDark() {
   const saved = localStorage.getItem('theme') || 'light';
   document.getElementById('dark-toggle').textContent = saved === 'dark' ? '☀️' : '🌙';
 })();
+
+// ── Domain Info (RDAP) ──
+const domainInfoCache = {};
+
+async function lookupDomain(domain) {
+  domain = (domain || document.getElementById('modal-domain_name').value).trim().toLowerCase().replace(/^https?:\/\//, '').split('/')[0];
+  if (!domain) return;
+
+  const body = document.getElementById('domain-info-body');
+  const btn  = document.getElementById('domain-lookup-btn');
+  body.innerHTML = '<p style="color:var(--text-muted);font-size:.8rem">Looking up…</p>';
+  btn.disabled = true;
+
+  if (domainInfoCache[domain]) {
+    renderDomainInfo(domainInfoCache[domain]);
+    btn.disabled = false;
+    return;
+  }
+
+  try {
+    const res  = await fetch(`/api/domain-info/${encodeURIComponent(domain)}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Lookup failed.');
+    domainInfoCache[domain] = data;
+    renderDomainInfo(data);
+  } catch (err) {
+    body.innerHTML = `<p style="color:var(--text-muted);font-size:.8rem">${esc(err.message)}</p>`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function renderDomainInfo(data) {
+  const body = document.getElementById('domain-info-body');
+  const fmt  = iso => iso ? new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+
+  const now     = Date.now();
+  const expires = data.expires ? new Date(data.expires) : null;
+  const daysLeft = expires ? Math.ceil((expires - now) / 86400000) : null;
+  const expiryWarning = daysLeft !== null && daysLeft < 60
+    ? ` <span style="color:#f97316;font-weight:700">(${daysLeft}d left)</span>` : '';
+
+  const rows = [
+    ['Registrar',    esc(data.registrar || '—')],
+    ['Created',      fmt(data.created)],
+    ['Expires',      fmt(data.expires) + expiryWarning],
+    ['Nameservers',  data.nameservers?.length
+      ? data.nameservers.map(ns => `<span style="display:block">${esc(ns)}</span>`).join('')
+      : '—'],
+  ];
+
+  body.innerHTML = rows.map(([label, value]) =>
+    `<div style="display:flex;justify-content:space-between;gap:1rem;padding:.2rem 0;font-size:.82rem;border-bottom:1px solid var(--border)">
+      <span style="color:var(--text-muted);font-weight:600;white-space:nowrap">${label}</span>
+      <span style="text-align:right;word-break:break-all">${value}</span>
+    </div>`
+  ).join('');
+}
 
 // Initial load
 fetchLaunches();

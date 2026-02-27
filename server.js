@@ -218,6 +218,46 @@ app.delete('/api/launches/:id', requireAuth, (req, res) => {
   res.json({ success: true });
 });
 
+// ── RDAP / Domain Info ──
+app.get('/api/domain-info/:domain', requireAuth, async (req, res) => {
+  const domain = req.params.domain.toLowerCase().replace(/^https?:\/\//, '').split('/')[0];
+  try {
+    const rdapRes = await fetch(`https://rdap.org/domain/${domain}`, {
+      headers: { Accept: 'application/json' },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!rdapRes.ok) return res.status(404).json({ error: 'Domain not found.' });
+    const data = await rdapRes.json();
+
+    // Registrar name from entities
+    let registrar = null;
+    const regEntity = data.entities?.find(e => e.roles?.includes('registrar'));
+    if (regEntity?.vcardArray?.[1]) {
+      const fn = regEntity.vcardArray[1].find(p => p[0] === 'fn');
+      if (fn) registrar = fn[3];
+    }
+
+    // Key dates
+    const dates = {};
+    for (const ev of data.events || []) {
+      if (ev.eventAction === 'registration') dates.created = ev.eventDate;
+      if (ev.eventAction === 'expiration')   dates.expires = ev.eventDate;
+      if (ev.eventAction === 'last changed') dates.updated = ev.eventDate;
+    }
+
+    // Nameservers
+    const nameservers = (data.nameservers || [])
+      .map(ns => ns.ldhName?.toLowerCase())
+      .filter(Boolean);
+
+    res.json({ registrar, nameservers, ...dates });
+  } catch (err) {
+    if (err.name === 'TimeoutError') return res.status(504).json({ error: 'Lookup timed out.' });
+    console.error('RDAP error:', err.message);
+    res.status(500).json({ error: 'Lookup failed.' });
+  }
+});
+
 // ── Pages ──
 app.get('/dashboard', requireAuth, (_req, res) => res.sendFile(join(__dirname, 'public', 'dashboard.html')));
 
