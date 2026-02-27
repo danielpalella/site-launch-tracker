@@ -1,3 +1,4 @@
 node_modules/
-  launches.db
-  *.db
+launches.db
+*.db
+.env
