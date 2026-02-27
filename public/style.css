@@ -527,6 +527,100 @@ tr:hover .sticky-col { background: #f8fafc; }
 .fp-chip:hover { border-color: var(--primary); color: var(--primary); }
 .fp-chip.fp-chip-active { background: var(--primary); border-color: var(--primary); color: #fff; }
 
+/* ── CONTACT POPUP ── */
+.contact-name-btn {
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--text);
+  border-bottom: 1px dashed var(--border);
+  transition: color .12s, border-color .12s;
+  white-space: nowrap;
+}
+.contact-name-btn:hover { color: var(--primary); border-bottom-color: var(--primary); }
+.contact-popup {
+  display: none;
+  position: fixed;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgba(0,0,0,.15);
+  padding: .75rem 1rem;
+  z-index: 300;
+  min-width: 190px;
+  font-size: .82rem;
+}
+.contact-popup.open { display: block; }
+.contact-popup-name { font-weight: 700; color: var(--text); margin-bottom: .45rem; font-size: .88rem; }
+.contact-popup-row { color: var(--text-muted); margin-top: .2rem; }
+.contact-popup-row a { color: var(--primary); text-decoration: none; }
+.contact-popup-row a:hover { text-decoration: underline; }
+
+/* ── OWNER COLUMN ── */
+.owner-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: .78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--bg);
+  border: 1.5px solid var(--border);
+  border-radius: 99px;
+  padding: .15rem .65rem;
+  cursor: pointer;
+  transition: border-color .12s, color .12s;
+  white-space: nowrap;
+}
+.owner-badge:hover { border-color: var(--primary); color: var(--primary); }
+.claim-btn {
+  background: none;
+  border: 1.5px dashed var(--border);
+  border-radius: 99px;
+  padding: .15rem .65rem;
+  font-size: .78rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: border-color .12s, color .12s;
+  white-space: nowrap;
+}
+.claim-btn:hover { border-color: var(--primary); color: var(--primary); }
+.claim-popup {
+  display: none;
+  position: fixed;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgba(0,0,0,.15);
+  padding: .5rem;
+  z-index: 300;
+  min-width: 130px;
+}
+.claim-popup.open { display: block; }
+.claim-popup-title {
+  font-size: .65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--text-muted);
+  padding: .15rem .5rem .4rem;
+}
+.claim-option {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: .4rem .6rem;
+  border-radius: 6px;
+  font-size: .85rem;
+  font-family: inherit;
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 500;
+  transition: background .1s;
+}
+.claim-option:hover { background: var(--bg); }
+
 /* ── EASTER EGG ── */
 @keyframes emoji-fall {
   0%   { transform: translate(0, 0) rotate(0deg) scale(1); opacity: 1; }

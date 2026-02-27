@@ -60,7 +60,7 @@ const VALID_STATUSES = [
 ];
 
 app.get('/api/launches', requireAuth, (req, res) => {
-  const { status, search, department, industry } = req.query;
+  const { status, search, department, industry, owner } = req.query;
   let query = 'SELECT * FROM launches';
   const params = [];
   const conditions = [];
@@ -68,6 +68,7 @@ app.get('/api/launches', requireAuth, (req, res) => {
   if (status && status !== 'all') { conditions.push('status = ?'); params.push(status); }
   if (department && department !== 'all') { conditions.push('department = ?'); params.push(department); }
   if (industry && industry !== 'all') { conditions.push('industry = ?'); params.push(industry); }
+  if (owner && owner !== 'all') { conditions.push('owner = ?'); params.push(owner); }
   if (search) {
     conditions.push('(account_name LIKE ? OR domain_name LIKE ? OR contact_name LIKE ?)');
     const term = `%${search}%`;
@@ -103,7 +104,7 @@ app.post('/api/launches', (req, res) => {
 });
 
 app.patch('/api/launches/:id', requireAuth, (req, res) => {
-  const { status, notes, department, industry, account_name, domain_name, contact_name, email, phone } = req.body;
+  const { status, notes, department, industry, account_name, domain_name, contact_name, email, phone, owner } = req.body;
   const row = db.prepare('SELECT * FROM launches WHERE id = ?').get(req.params.id);
   if (!row) return res.status(404).json({ error: 'Not found' });
   if (status && !VALID_STATUSES.includes(status)) return res.status(400).json({ error: 'Invalid status.' });
@@ -117,11 +118,12 @@ app.patch('/api/launches/:id', requireAuth, (req, res) => {
   const newContact  = contact_name ? contact_name.trim()              : row.contact_name;
   const newEmail    = email        ? email.trim().toLowerCase()        : row.email;
   const newPhone    = phone        ? phone.trim()                      : row.phone;
+  const newOwner    = owner        !== undefined ? owner               : row.owner;
   const statusChanged = newStatus !== row.status;
 
   const changedAt = statusChanged ? `, status_changed_at = datetime('now')` : '';
-  db.prepare(`UPDATE launches SET status=?, notes=?, department=?, industry=?, account_name=?, domain_name=?, contact_name=?, email=?, phone=?, updated_at=datetime('now')${changedAt} WHERE id=?`)
-    .run(newStatus, newNotes, newDept, newIndustry, newAccount, newDomain, newContact, newEmail, newPhone, Number(req.params.id));
+  db.prepare(`UPDATE launches SET status=?, notes=?, department=?, industry=?, account_name=?, domain_name=?, contact_name=?, email=?, phone=?, owner=?, updated_at=datetime('now')${changedAt} WHERE id=?`)
+    .run(newStatus, newNotes, newDept, newIndustry, newAccount, newDomain, newContact, newEmail, newPhone, newOwner, Number(req.params.id));
 
   if (statusChanged) {
     db.prepare('INSERT INTO status_history (launch_id, status) VALUES (?, ?)').run(Number(req.params.id), newStatus);

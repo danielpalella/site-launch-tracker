@@ -69,6 +69,14 @@
             </div>
           </div>
           <div class="fp-group">
+            <div class="fp-group-label">Owner</div>
+            <div class="fp-chips">
+              <button class="fp-chip fp-chip-active" data-filter="owner" data-value="all" onclick="setFilter('owner','all',this)">All</button>
+              <button class="fp-chip" data-filter="owner" data-value="Daniel" onclick="setFilter('owner','Daniel',this)">Daniel</button>
+              <button class="fp-chip" data-filter="owner" data-value="Thierry" onclick="setFilter('owner','Thierry',this)">Thierry</button>
+            </div>
+          </div>
+          <div class="fp-group">
             <div class="fp-group-label">Department</div>
             <div class="fp-chips">
               <button class="fp-chip fp-chip-active" data-filter="department" data-value="all" onclick="setFilter('department','all',this)">All</button>
@@ -91,6 +99,7 @@
             <th class="sticky-col">Account</th>
             <th>Industry</th>
             <th>Contact</th>
+            <th>Owner</th>
             <th id="status-th" onclick="sortBy('status')" style="cursor:pointer;user-select:none;white-space:nowrap">Status</th>
             <th>Status Age</th>
             <th>Notes</th>
@@ -99,7 +108,7 @@
         </thead>
         <tbody id="table-body">
           <tr>
-            <td colspan="8">
+            <td colspan="9">
               <div class="empty"><p>Loading…</p></div>
             </td>
           </tr>
@@ -162,6 +171,14 @@
         <input type="tel" id="modal-phone" />
       </div>
       <div class="full">
+        <label for="modal-owner">Owner</label>
+        <select id="modal-owner">
+          <option value="">— Unassigned —</option>
+          <option value="Daniel">Daniel</option>
+          <option value="Thierry">Thierry</option>
+        </select>
+      </div>
+      <div class="full">
         <label for="modal-status">Status</label>
         <select id="modal-status">
           <option value="new">New</option>
@@ -207,6 +224,19 @@
 
 <div id="toast"></div>
 <div id="note-tooltip" class="note-tooltip"></div>
+
+<div id="contact-popup" class="contact-popup">
+  <div class="contact-popup-name" id="cp-name"></div>
+  <div class="contact-popup-row" id="cp-email"></div>
+  <div class="contact-popup-row" id="cp-phone"></div>
+</div>
+
+<div id="claim-popup" class="claim-popup">
+  <div class="claim-popup-title">Assign to…</div>
+  <button class="claim-option" onclick="assignOwner('Daniel')">Daniel</button>
+  <button class="claim-option" onclick="assignOwner('Thierry')">Thierry</button>
+</div>
+
 <button id="dark-toggle" title="Toggle dark mode" onclick="toggleDark()">🌙</button>
 
 <script>
@@ -224,7 +254,7 @@ let deletingId = null;
 const STATUS_ORDER = ['new', 'in_progress', 'awaiting_dns', 'awaiting_approval', 'launched'];
 
 // ── Filter Panel State ──
-const fpState = { status: 'all', industry: 'all', department: 'all' };
+const fpState = { status: 'all', industry: 'all', department: 'all', owner: 'all' };
 
 function toggleFilterPanel() {
   const panel = document.getElementById('fp-panel');
@@ -246,7 +276,7 @@ function setFilter(filter, value, btn) {
 }
 
 function clearAllFilters() {
-  ['status', 'industry', 'department'].forEach(f => {
+  ['status', 'industry', 'department', 'owner'].forEach(f => {
     fpState[f] = 'all';
     document.querySelectorAll(`[data-filter="${f}"]`).forEach(c => c.classList.remove('fp-chip-active'));
     const allChip = document.querySelector(`[data-filter="${f}"][data-value="all"]`);
@@ -257,7 +287,7 @@ function clearAllFilters() {
 }
 
 function updateFilterBadge() {
-  const count = ['status', 'industry', 'department'].filter(f => fpState[f] !== 'all').length;
+  const count = ['status', 'industry', 'department', 'owner'].filter(f => fpState[f] !== 'all').length;
   const badge = document.getElementById('fp-badge');
   badge.textContent = count;
   badge.style.display = count > 0 ? 'inline-flex' : 'none';
@@ -267,6 +297,14 @@ document.addEventListener('click', (e) => {
   const wrap = document.getElementById('fp-wrap');
   if (!wrap.contains(e.target)) {
     document.getElementById('fp-panel').classList.remove('open');
+  }
+  const cp = document.getElementById('contact-popup');
+  if (!cp.contains(e.target) && !e.target.closest('.contact-name-btn')) {
+    cp.classList.remove('open');
+  }
+  const claimPop = document.getElementById('claim-popup');
+  if (!claimPop.contains(e.target) && !e.target.closest('.claim-btn') && !e.target.closest('.owner-badge')) {
+    claimPop.classList.remove('open');
   }
 });
 
@@ -430,7 +468,7 @@ function renderTable(data) {
   }
 
   if (!data.length) {
-    tbody.innerHTML = `<tr><td colspan="7"><div class="empty">
+    tbody.innerHTML = `<tr><td colspan="9"><div class="empty">
       <svg width="48" height="48" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
           d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
@@ -448,9 +486,16 @@ function renderTable(data) {
       </td>
       <td>${esc(r.industry || '—')}</td>
       <td>
-        <div>${esc(r.contact_name)}</div>
-        <div class="contact-email">${esc(r.email)}</div>
-        <div class="contact-email">${esc(r.phone)}</div>
+        <span class="contact-name-btn"
+          data-name="${esc(r.contact_name)}"
+          data-email="${esc(r.email)}"
+          data-phone="${esc(r.phone)}"
+          onclick="showContactPopup(event,this)">${esc(r.contact_name)}</span>
+      </td>
+      <td style="white-space:nowrap">
+        ${r.owner
+          ? `<span class="owner-badge" data-id="${r.id}" onclick="showClaimPopup(event,this)">${esc(r.owner)}</span>`
+          : `<button class="claim-btn" data-id="${r.id}" onclick="showClaimPopup(event,this)">Claim</button>`}
       </td>
       <td>
         <div class="status-wrap">
@@ -511,6 +556,7 @@ function openEdit(id) {
   document.getElementById('modal-contact_name').value = r.contact_name || '';
   document.getElementById('modal-email').value        = r.email || '';
   document.getElementById('modal-phone').value        = r.phone || '';
+  document.getElementById('modal-owner').value        = r.owner || '';
   document.getElementById('modal-status').value       = r.status;
   document.getElementById('modal-notes').value        = r.notes || '';
   document.getElementById('modal').classList.add('open');
@@ -538,6 +584,7 @@ document.getElementById('modal-save').addEventListener('click', async () => {
     contact_name: document.getElementById('modal-contact_name').value,
     email:        document.getElementById('modal-email').value,
     phone:        document.getElementById('modal-phone').value,
+    owner:        document.getElementById('modal-owner').value,
     status:       document.getElementById('modal-status').value,
     notes:        document.getElementById('modal-notes').value,
   };
@@ -614,6 +661,7 @@ async function fetchLaunches() {
   if (fpState.status !== 'all') params.set('status', fpState.status);
   if (fpState.department !== 'all') params.set('department', fpState.department);
   if (fpState.industry !== 'all') params.set('industry', fpState.industry);
+  if (fpState.owner !== 'all') params.set('owner', fpState.owner);
 
   try {
     const res = await fetch('/api/launches?' + params.toString());
@@ -739,6 +787,47 @@ function launchConfetti(originEl) {
     else canvas.remove();
   }
   draw();
+}
+
+// ── Contact Popup ──
+function showContactPopup(e, el) {
+  e.stopPropagation();
+  const popup = document.getElementById('contact-popup');
+  document.getElementById('cp-name').textContent  = el.dataset.name;
+  document.getElementById('cp-email').innerHTML   = `<a href="mailto:${esc(el.dataset.email)}">${esc(el.dataset.email)}</a>`;
+  document.getElementById('cp-phone').textContent = el.dataset.phone;
+  const rect = el.getBoundingClientRect();
+  popup.style.top  = (rect.bottom + 6) + 'px';
+  popup.style.left = Math.min(rect.left, window.innerWidth - 220) + 'px';
+  popup.classList.add('open');
+}
+
+// ── Claim / Owner Popup ──
+let claimingId = null;
+function showClaimPopup(e, el) {
+  e.stopPropagation();
+  claimingId = Number(el.dataset.id);
+  const popup = document.getElementById('claim-popup');
+  const rect = el.getBoundingClientRect();
+  popup.style.top  = (rect.bottom + 6) + 'px';
+  popup.style.left = Math.min(rect.left, window.innerWidth - 160) + 'px';
+  popup.classList.add('open');
+}
+
+async function assignOwner(name) {
+  document.getElementById('claim-popup').classList.remove('open');
+  if (!claimingId) return;
+  try {
+    const res = await fetch(`/api/launches/${claimingId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ owner: name })
+    });
+    if (!res.ok) throw new Error();
+    fetchLaunches();
+  } catch {
+    showToast('Failed to assign owner.', 'error');
+  }
 }
 
 // ── Dark Mode ──

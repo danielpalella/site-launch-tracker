@@ -44,6 +44,13 @@ try {
   // Column already exists
 }
 
+// Migration: add owner column
+try {
+  db.exec(`ALTER TABLE launches ADD COLUMN owner TEXT NOT NULL DEFAULT ''`);
+} catch {
+  // Column already exists
+}
+
 // Status history table — tracks each status change with timestamp
 db.exec(`
   CREATE TABLE IF NOT EXISTS status_history (
