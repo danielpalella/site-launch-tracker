@@ -98,6 +98,7 @@ app.post('/api/launches', (req, res) => {
     INSERT INTO launches (department, account_name, domain_name, contact_name, email, phone, industry, notes, status)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'new')
   `).run(department, account_name.trim(), domain_name.trim().toLowerCase(), contact_name.trim(), email.trim().toLowerCase(), phone.trim(), industry, (notes || '').trim());
+  db.prepare('INSERT INTO status_history (launch_id, status) VALUES (?, ?)').run(result.lastInsertRowid, 'new');
   res.status(201).json(db.prepare('SELECT * FROM launches WHERE id = ?').get(result.lastInsertRowid));
 });
 
@@ -122,7 +123,16 @@ app.patch('/api/launches/:id', requireAuth, (req, res) => {
   db.prepare(`UPDATE launches SET status=?, notes=?, department=?, industry=?, account_name=?, domain_name=?, contact_name=?, email=?, phone=?, updated_at=datetime('now')${changedAt} WHERE id=?`)
     .run(newStatus, newNotes, newDept, newIndustry, newAccount, newDomain, newContact, newEmail, newPhone, Number(req.params.id));
 
+  if (statusChanged) {
+    db.prepare('INSERT INTO status_history (launch_id, status) VALUES (?, ?)').run(Number(req.params.id), newStatus);
+  }
+
   res.json(db.prepare('SELECT * FROM launches WHERE id = ?').get(req.params.id));
+});
+
+app.get('/api/launches/:id/history', requireAuth, (req, res) => {
+  const rows = db.prepare('SELECT * FROM status_history WHERE launch_id = ? ORDER BY entered_at ASC').all(Number(req.params.id));
+  res.json(rows);
 });
 
 app.delete('/api/launches/:id', requireAuth, (req, res) => {

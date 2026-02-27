@@ -93,7 +93,7 @@
             <th>Department</th>
             <th>Contact</th>
             <th>Phone</th>
-            <th>Status</th>
+            <th id="status-th" onclick="toggleStatusSort()" style="cursor:pointer;user-select:none;white-space:nowrap">Status</th>
             <th>Status Updated</th>
             <th>Notes</th>
             <th>Submitted</th>
@@ -176,6 +176,11 @@
         <textarea id="modal-notes" rows="3" placeholder="Internal notes…" style="resize:vertical"></textarea>
       </div>
     </div>
+    <div id="modal-timeline" style="border-top:1px solid var(--border);padding-top:1rem;margin-top:.25rem">
+      <div style="font-size:.72rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.65rem">Project Timeline</div>
+      <div id="modal-timeline-body"><p style="color:var(--text-muted);font-size:.8rem">Loading…</p></div>
+    </div>
+
     <div class="modal-actions">
       <button class="btn btn-danger" id="modal-delete">Delete</button>
       <div style="display:flex;gap:.75rem;margin-left:auto">
@@ -215,6 +220,15 @@ const STATUS_LABELS = {
 let allLaunches = [];
 let editingId = null;
 let deletingId = null;
+const STATUS_ORDER = ['new', 'in_progress', 'awaiting_dns', 'awaiting_approval', 'launched'];
+let sortDir = 0; // 0 = off, 1 = asc, -1 = desc
+
+function toggleStatusSort() {
+  sortDir = sortDir === 1 ? -1 : 1;
+  const th = document.getElementById('status-th');
+  th.innerHTML = `Status <span style="opacity:.5;font-size:.65em">${sortDir === 1 ? '▲' : '▼'}</span>`;
+  renderTable(allLaunches);
+}
 
 // ── Filter Panel State ──
 const fpState = { status: 'all', industry: 'all', department: 'all' };
@@ -275,6 +289,56 @@ function handleRowDblClick(e, id) {
   openEdit(id);
 }
 
+function formatDuration(ms) {
+  if (ms < 0) ms = 0;
+  const totalMins  = Math.floor(ms / 60000);
+  const mins       = totalMins % 60;
+  const totalHours = Math.floor(totalMins / 60);
+  const hours      = totalHours % 24;
+  const days       = Math.floor(totalHours / 24);
+  const parts = [];
+  if (days  > 0) parts.push(`${days}d`);
+  if (hours > 0) parts.push(`${hours}h`);
+  if (mins  > 0 && days === 0) parts.push(`${mins}m`);
+  return parts.length ? parts.join(' ') : 'Just now';
+}
+
+const TIMELINE_STATUS_LABELS = {
+  new: 'New', in_progress: 'In Progress', awaiting_dns: 'Awaiting DNS',
+  awaiting_approval: 'Awaiting Approval', launched: 'Launched'
+};
+
+async function loadTimeline(id) {
+  const body = document.getElementById('modal-timeline-body');
+  body.innerHTML = '<p style="color:var(--text-muted);font-size:.8rem">Loading…</p>';
+  try {
+    const res = await fetch(`/api/launches/${id}/history`);
+    if (!res.ok) throw new Error();
+    const history = await res.json();
+    if (!history.length) {
+      body.innerHTML = '<p style="color:var(--text-muted);font-size:.8rem">No timeline data — tracking starts on new submissions.</p>';
+      return;
+    }
+    const now = Date.now();
+    body.innerHTML = history.map((entry, i) => {
+      const start = new Date(entry.entered_at.replace(' ', 'T')).getTime();
+      const end   = i < history.length - 1
+        ? new Date(history[i + 1].entered_at.replace(' ', 'T')).getTime()
+        : now;
+      const isCurrent = i === history.length - 1;
+      const label = TIMELINE_STATUS_LABELS[entry.status] || entry.status;
+      const dur   = formatDuration(end - start);
+      return `<div class="tl-row${isCurrent ? ' tl-current' : ''}">
+        <div class="tl-dot${isCurrent ? ' tl-dot-active' : ''}"></div>
+        <div class="tl-label">${label}</div>
+        <div class="tl-dur">${dur}${isCurrent ? ' <span class="tl-ongoing">ongoing</span>' : ''}</div>
+      </div>`;
+    }).join('');
+  } catch {
+    body.innerHTML = '<p style="color:var(--text-muted);font-size:.8rem">Could not load timeline.</p>';
+  }
+}
+
 function showNoteTooltip(e, el) {
   const tip = document.getElementById('note-tooltip');
   tip.textContent = el.dataset.note;
@@ -299,6 +363,11 @@ function formatDate(iso) {
 function renderTable(data) {
   const tbody = document.getElementById('table-body');
   document.getElementById('row-count').textContent = `${data.length} record${data.length !== 1 ? 's' : ''}`;
+  if (sortDir !== 0) {
+    data = [...data].sort((a, b) =>
+      (STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status)) * sortDir
+    );
+  }
 
   if (!data.length) {
     tbody.innerHTML = `<tr><td colspan="10"><div class="empty">
@@ -386,6 +455,7 @@ function openEdit(id) {
   document.getElementById('modal-status').value       = r.status;
   document.getElementById('modal-notes').value        = r.notes || '';
   document.getElementById('modal').classList.add('open');
+  loadTimeline(id);
 }
 
 document.getElementById('modal-cancel').addEventListener('click', () => {

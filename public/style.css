@@ -331,6 +331,40 @@ tr:hover .sticky-col { background: #f8fafc; }
 .success-box p { color: var(--text-muted); font-size: .9rem; margin-bottom: 1.75rem; }
 .success-links { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
 
+/* ── PROJECT TIMELINE ── */
+.tl-row {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  padding: .28rem 0;
+  font-size: .82rem;
+  color: var(--text-muted);
+}
+.tl-row.tl-current { color: var(--text); }
+.tl-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border);
+  flex-shrink: 0;
+}
+.tl-dot.tl-dot-active { background: var(--primary); }
+.tl-label { font-weight: 600; min-width: 140px; }
+.tl-dur { font-size: .78rem; }
+.tl-ongoing {
+  display: inline-block;
+  background: #dbeafe;
+  color: #1e40af;
+  font-size: .65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  padding: .1rem .4rem;
+  border-radius: 99px;
+  margin-left: .3rem;
+  vertical-align: middle;
+}
+
 /* ── NOTES DOT ── */
 .note-dot {
   display: inline-block;

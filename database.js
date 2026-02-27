@@ -44,6 +44,16 @@ try {
   // Column already exists
 }
 
+// Status history table — tracks each status change with timestamp
+db.exec(`
+  CREATE TABLE IF NOT EXISTS status_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    launch_id INTEGER NOT NULL,
+    status TEXT NOT NULL,
+    entered_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )
+`);
+
 // Sessions table — persists across restarts
 db.exec(`
   CREATE TABLE IF NOT EXISTS sessions (
