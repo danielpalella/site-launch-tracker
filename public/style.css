@@ -220,6 +220,8 @@ td {
 }
 tr:last-child td { border-bottom: none; }
 tr:hover td { background: #f8fafc; }
+tr.row-launched td, tr.row-launched .sticky-col { background: #f0fdf4; }
+tr.row-launched:hover td, tr.row-launched:hover .sticky-col { background: #dcfce7; }
 
 .sticky-col {
   position: sticky;

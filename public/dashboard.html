@@ -381,7 +381,7 @@ function renderTable(data) {
   }
 
   tbody.innerHTML = data.map(r => `
-    <tr data-id="${r.id}" ondblclick="handleRowDblClick(event,${r.id})" style="cursor:pointer">
+    <tr data-id="${r.id}" ondblclick="handleRowDblClick(event,${r.id})" style="cursor:pointer" ${r.status === 'launched' ? 'class="row-launched"' : ''}>
       <td class="sticky-col">
         <div class="account-name">${esc(r.account_name)}</div>
         <div class="domain">🌐 <a href="https://${esc(r.domain_name)}" target="_blank" rel="noopener" style="color:var(--primary);text-decoration:none" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${esc(r.domain_name)}</a></div>
@@ -432,6 +432,7 @@ async function quickStatus(select) {
     });
     if (!res.ok) throw new Error();
     showToast('Status updated.');
+    if (status === 'launched') launchConfetti(select);
     fetchLaunches();
   } catch {
     showToast('Failed to update status.', 'error');
@@ -490,8 +491,10 @@ document.getElementById('modal-save').addEventListener('click', async () => {
       body: JSON.stringify(payload)
     });
     if (!res.ok) throw new Error();
+    const wasLaunched = allLaunches.find(x => x.id === editingId)?.status === 'launched';
     document.getElementById('modal').classList.remove('open');
     showToast('Changes saved.');
+    if (payload.status === 'launched' && !wasLaunched) launchConfetti(btn);
     fetchLaunches();
   } catch {
     showToast('Failed to save changes.', 'error');
@@ -595,6 +598,56 @@ async function exportCSV() {
   a.download = `launches-${new Date().toISOString().slice(0,10)}.csv`;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+// ── Confetti ──
+function launchConfetti(originEl) {
+  const canvas = document.createElement('canvas');
+  canvas.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:9999';
+  document.body.appendChild(canvas);
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
+  const ctx = canvas.getContext('2d');
+
+  const rect = originEl.getBoundingClientRect();
+  const ox = rect.left + rect.width  / 2;
+  const oy = rect.top  + rect.height / 2;
+  const colors = ['#22c55e','#16a34a','#4ade80','#fbbf24','#60a5fa','#f472b6','#a78bfa','#fb923c'];
+
+  const particles = Array.from({ length: 72 }, () => ({
+    x: ox, y: oy,
+    vx: (Math.random() - 0.5) * 14,
+    vy: (Math.random() - 0.9) * 14,
+    color: colors[Math.floor(Math.random() * colors.length)],
+    w: Math.random() * 7 + 3,
+    h: Math.random() * 4 + 2,
+    rot: Math.random() * 360,
+    rotV: (Math.random() - 0.5) * 12,
+    opacity: 1,
+  }));
+
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    let alive = false;
+    for (const p of particles) {
+      p.x += p.vx; p.y += p.vy;
+      p.vy += 0.35;
+      p.rot += p.rotV;
+      p.opacity -= 0.013;
+      if (p.opacity <= 0) continue;
+      alive = true;
+      ctx.save();
+      ctx.globalAlpha = p.opacity;
+      ctx.fillStyle = p.color;
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot * Math.PI / 180);
+      ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+      ctx.restore();
+    }
+    if (alive) requestAnimationFrame(draw);
+    else canvas.remove();
+  }
+  draw();
 }
 
 // Initial load
