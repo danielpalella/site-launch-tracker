@@ -219,17 +219,49 @@ app.delete('/api/launches/:id', requireAuth, (req, res) => {
 });
 
 // ── RDAP / Domain Info ──
+// Cache the IANA bootstrap (which RDAP server handles each TLD) for 24h
+let rdapBootstrap = null;
+let rdapBootstrapExpiry = 0;
+
+async function getRdapBaseUrl(tld) {
+  if (!rdapBootstrap || Date.now() > rdapBootstrapExpiry) {
+    const res = await fetch('https://data.iana.org/rdap/dns.json', {
+      signal: AbortSignal.timeout(6000),
+    });
+    if (!res.ok) throw new Error('Failed to fetch RDAP bootstrap');
+    rdapBootstrap = await res.json();
+    rdapBootstrapExpiry = Date.now() + 86400000;
+  }
+  for (const [tlds, urls] of rdapBootstrap.services) {
+    if (tlds.map(t => t.toLowerCase()).includes(tld)) {
+      return urls.find(u => u.startsWith('https://')) || urls[0];
+    }
+  }
+  return null;
+}
+
+// Cache domain results server-side for 1 hour
+const domainCache = new Map();
+
 app.get('/api/domain-info/:domain', requireAuth, async (req, res) => {
   const domain = req.params.domain.toLowerCase().replace(/^https?:\/\//, '').split('/')[0];
+
+  const cached = domainCache.get(domain);
+  if (cached && Date.now() < cached.expiry) return res.json(cached.data);
+
   try {
-    const rdapRes = await fetch(`https://rdap.org/domain/${domain}`, {
+    const tld = domain.split('.').pop();
+    const baseUrl = await getRdapBaseUrl(tld);
+    if (!baseUrl) return res.status(404).json({ error: `No RDAP server found for .${tld}` });
+
+    const rdapRes = await fetch(`${baseUrl}domain/${domain}`, {
       headers: { Accept: 'application/json' },
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(10000),
     });
     if (!rdapRes.ok) return res.status(404).json({ error: 'Domain not found.' });
     const data = await rdapRes.json();
 
-    // Registrar name from entities
+    // Registrar
     let registrar = null;
     const regEntity = data.entities?.find(e => e.roles?.includes('registrar'));
     if (regEntity?.vcardArray?.[1]) {
@@ -250,7 +282,9 @@ app.get('/api/domain-info/:domain', requireAuth, async (req, res) => {
       .map(ns => ns.ldhName?.toLowerCase())
       .filter(Boolean);
 
-    res.json({ registrar, nameservers, ...dates });
+    const result = { registrar, nameservers, ...dates };
+    domainCache.set(domain, { data: result, expiry: Date.now() + 3600000 });
+    res.json(result);
   } catch (err) {
     if (err.name === 'TimeoutError') return res.status(504).json({ error: 'Lookup timed out.' });
     console.error('RDAP error:', err.message);
