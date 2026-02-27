@@ -486,6 +486,21 @@ tr:hover .sticky-col { background: #f8fafc; }
 .fp-chip:hover { border-color: var(--primary); color: var(--primary); }
 .fp-chip.fp-chip-active { background: var(--primary); border-color: var(--primary); color: #fff; }
 
+/* ── EASTER EGG ── */
+@keyframes emoji-fall {
+  0%   { transform: translate(0, 0) rotate(0deg) scale(1); opacity: 1; }
+  70%  { opacity: 1; }
+  100% { transform: translate(var(--ex), 200px) rotate(var(--er)) scale(0.7); opacity: 0; }
+}
+.easter-emoji {
+  position: fixed;
+  pointer-events: none;
+  font-size: 1.4rem;
+  line-height: 1;
+  z-index: 9999;
+  animation: emoji-fall 1.8s cubic-bezier(.25,.46,.45,.94) forwards;
+}
+
 @media (max-width: 600px) {
   .form-grid { grid-template-columns: 1fr; }
   .form-grid .full { grid-column: 1; }

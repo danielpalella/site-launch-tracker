@@ -81,7 +81,7 @@
         </div>
       </div>
       <span class="count" id="row-count"></span>
-      <button class="btn btn-ghost" onclick="exportCSV()">⬇ Export CSV</button>
+      <button class="btn btn-ghost" id="export-btn" onclick="handleExportClick(this)">⬇ Export CSV</button>
     </div>
 
     <div class="table-wrap">
@@ -663,6 +663,38 @@ async function exportCSV() {
   a.download = `launches-${new Date().toISOString().slice(0,10)}.csv`;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+// ── Export CSV with easter egg ──
+let exportClicks = 0, exportTimer;
+function handleExportClick(btn) {
+  exportClicks++;
+  clearTimeout(exportTimer);
+  exportTimer = setTimeout(() => {
+    const n = exportClicks;
+    exportClicks = 0;
+    if (n >= 3) easterEgg(btn);
+    else exportCSV();
+  }, 350);
+}
+
+function easterEgg(btn) {
+  const emojis = ['🥚','🐣','🐥','🐰','🌷','🌸','🌈','✨','🎊','🎉','🦄','💫'];
+  const rect = btn.getBoundingClientRect();
+  for (let i = 0; i < 14; i++) {
+    setTimeout(() => {
+      const el = document.createElement('span');
+      el.className = 'easter-emoji';
+      el.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+      el.style.left = (rect.left + Math.random() * rect.width) + 'px';
+      el.style.top  = rect.bottom + 'px';
+      el.style.setProperty('--ex', (Math.random() - 0.5) * 120 + 'px');
+      el.style.setProperty('--er', (Math.random() * 540 - 270) + 'deg');
+      el.style.animationDelay = (Math.random() * 0.2) + 's';
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 2200);
+    }, i * 40);
+  }
 }
 
 // ── Confetti ──
