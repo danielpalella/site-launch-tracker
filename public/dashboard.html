@@ -93,10 +93,10 @@
             <th>Department</th>
             <th>Contact</th>
             <th>Phone</th>
-            <th id="status-th" onclick="toggleStatusSort()" style="cursor:pointer;user-select:none;white-space:nowrap">Status</th>
+            <th id="status-th" onclick="sortBy('status')" style="cursor:pointer;user-select:none;white-space:nowrap">Status</th>
             <th>Status Age</th>
             <th>Notes</th>
-            <th>Submitted</th>
+            <th id="submitted-th" onclick="sortBy('created_at')" style="cursor:pointer;user-select:none;white-space:nowrap">Submitted</th>
             <th></th>
           </tr>
         </thead>
@@ -221,14 +221,6 @@ let allLaunches = [];
 let editingId = null;
 let deletingId = null;
 const STATUS_ORDER = ['new', 'in_progress', 'awaiting_dns', 'awaiting_approval', 'launched'];
-let sortDir = 0; // 0 = off, 1 = asc, -1 = desc
-
-function toggleStatusSort() {
-  sortDir = sortDir === 1 ? -1 : 1;
-  const th = document.getElementById('status-th');
-  th.innerHTML = `Status <span style="opacity:.5;font-size:.65em">${sortDir === 1 ? '▲' : '▼'}</span>`;
-  renderTable(allLaunches);
-}
 
 // ── Filter Panel State ──
 const fpState = { status: 'all', industry: 'all', department: 'all' };
@@ -321,9 +313,9 @@ async function loadTimeline(id) {
     }
     const now = Date.now();
     body.innerHTML = history.map((entry, i) => {
-      const start = new Date(entry.entered_at.replace(' ', 'T')).getTime();
+      const start = toDate(entry.entered_at).getTime();
       const end   = i < history.length - 1
-        ? new Date(history[i + 1].entered_at.replace(' ', 'T')).getTime()
+        ? toDate(history[i + 1].entered_at).getTime()
         : now;
       const isCurrent = i === history.length - 1;
       const label = TIMELINE_STATUS_LABELS[entry.status] || entry.status;
@@ -353,19 +345,47 @@ function hideNoteTooltip() {
   document.getElementById('note-tooltip').classList.remove('visible');
 }
 
+function toDate(iso) {
+  if (!iso) return null;
+  return new Date(iso.replace(' ', 'T') + 'Z'); // treat SQLite UTC as UTC
+}
+
 function formatDate(iso) {
-  if (!iso) return '—';
-  const d = new Date(iso.replace(' ', 'T'));
-  if (isNaN(d.getTime())) return '—';
+  const d = toDate(iso);
+  if (!d || isNaN(d.getTime())) return '—';
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+// ── Sorting ──
+let sortState = { col: null, dir: 1 };
+
+function sortBy(col) {
+  sortState.dir = sortState.col === col ? sortState.dir * -1 : 1;
+  sortState.col = col;
+  updateSortHeaders();
+  renderTable(allLaunches);
+}
+
+function updateSortHeaders() {
+  [['status-th', 'Status'], ['submitted-th', 'Submitted']].forEach(([id, label]) => {
+    const th = document.getElementById(id);
+    if (!th) return;
+    const active = (id === 'status-th' && sortState.col === 'status') ||
+                   (id === 'submitted-th' && sortState.col === 'created_at');
+    th.innerHTML = label + (active ? ` <span style="opacity:.5;font-size:.65em">${sortState.dir === 1 ? '▲' : '▼'}</span>` : '');
+  });
 }
 
 function renderTable(data) {
   const tbody = document.getElementById('table-body');
   document.getElementById('row-count').textContent = `${data.length} record${data.length !== 1 ? 's' : ''}`;
-  if (sortDir !== 0) {
+  if (sortState.col === 'status') {
     data = [...data].sort((a, b) =>
-      (STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status)) * sortDir
+      (STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status)) * sortState.dir
+    );
+  } else if (sortState.col === 'created_at') {
+    data = [...data].sort((a, b) =>
+      ((toDate(a.created_at) || 0) - (toDate(b.created_at) || 0)) * sortState.dir
     );
   }
 
@@ -402,7 +422,7 @@ function renderTable(data) {
           </select>
         </div>
       </td>
-      <td style="white-space:nowrap;font-size:.8rem;color:var(--text-muted)">${r.status_changed_at || r.created_at ? formatDuration(Date.now() - new Date((r.status_changed_at || r.created_at).replace(' ','T')).getTime()) : '—'}</td>
+      <td style="white-space:nowrap;font-size:.8rem;color:var(--text-muted)">${r.status_changed_at || r.created_at ? formatDuration(Date.now() - toDate(r.status_changed_at || r.created_at).getTime()) : '—'}</td>
       <td style="text-align:center">${r.notes ? `<span class="note-dot" data-note="${esc(r.notes)}" onmouseenter="showNoteTooltip(event,this)" onmouseleave="hideNoteTooltip()">···</span>` : '<span style="color:var(--text-muted);font-size:.8rem">—</span>'}</td>
       <td style="white-space:nowrap;font-size:.8rem;color:var(--text-muted)">${formatDate(r.created_at)}</td>
       <td>
