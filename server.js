@@ -7,10 +7,32 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-const PASSWORD = 'duda';
+const GOOGLE_CLIENT_ID     = process.env.GOOGLE_CLIENT_ID;
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+const GOOGLE_REDIRECT_URI  = process.env.GOOGLE_REDIRECT_URI || `http://localhost:${PORT}/auth/google/callback`;
+const ALLOWED_DOMAIN       = 'realworklabs.com';
+
+if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+  console.warn('\n  ⚠️  GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be set in your .env file.\n');
+}
 
 function generateToken() {
   return Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2) + Date.now().toString(36);
+}
+
+// Short-lived in-memory store for OAuth state (CSRF protection)
+const oauthStates = new Map();
+function createState() {
+  const state = crypto.randomUUID();
+  oauthStates.set(state, Date.now());
+  for (const [k, t] of oauthStates) if (Date.now() - t > 600_000) oauthStates.delete(k);
+  return state;
+}
+function consumeState(state) {
+  const t = oauthStates.get(state);
+  if (!t || Date.now() - t > 600_000) return false;
+  oauthStates.delete(state);
+  return true;
 }
 
 function getCookies(req) {
@@ -36,14 +58,56 @@ app.use(express.static(join(__dirname, 'public')));
 // ── Auth (public) ──
 app.get('/login', (_req, res) => res.sendFile(join(__dirname, 'public', 'login.html')));
 
-app.post('/api/auth/login', (req, res) => {
-  if (req.body.password !== PASSWORD) {
-    return res.status(401).json({ error: 'Incorrect password.' });
+app.get('/auth/google', (_req, res) => {
+  const params = new URLSearchParams({
+    client_id:     GOOGLE_CLIENT_ID,
+    redirect_uri:  GOOGLE_REDIRECT_URI,
+    response_type: 'code',
+    scope:         'openid email profile',
+    access_type:   'online',
+    state:         createState(),
+  });
+  res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`);
+});
+
+app.get('/auth/google/callback', async (req, res) => {
+  const { code, state, error } = req.query;
+  if (error || !code || !consumeState(state)) {
+    return res.redirect('/login?error=cancelled');
   }
-  const token = generateToken();
-  db.prepare('INSERT INTO sessions (token) VALUES (?)').run(token);
-  res.setHeader('Set-Cookie', `auth_token=${token}; Path=/; HttpOnly; SameSite=Lax`);
-  res.json({ ok: true });
+  try {
+    const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        code,
+        client_id:     GOOGLE_CLIENT_ID,
+        client_secret: GOOGLE_CLIENT_SECRET,
+        redirect_uri:  GOOGLE_REDIRECT_URI,
+        grant_type:    'authorization_code',
+      }),
+    });
+    const tokens = await tokenRes.json();
+    if (!tokenRes.ok) throw new Error(tokens.error || 'token exchange failed');
+
+    const userRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+      headers: { Authorization: `Bearer ${tokens.access_token}` },
+    });
+    const user = await userRes.json();
+    if (!userRes.ok) throw new Error('userinfo fetch failed');
+
+    if (!user.email?.endsWith(`@${ALLOWED_DOMAIN}`)) {
+      return res.redirect('/login?error=domain');
+    }
+
+    const token = generateToken();
+    db.prepare('INSERT INTO sessions (token) VALUES (?)').run(token);
+    res.setHeader('Set-Cookie', `auth_token=${token}; Path=/; HttpOnly; SameSite=Lax`);
+    res.redirect('/dashboard');
+  } catch (err) {
+    console.error('OAuth callback error:', err.message);
+    res.redirect('/login?error=failed');
+  }
 });
 
 app.post('/api/auth/logout', (req, res) => {
