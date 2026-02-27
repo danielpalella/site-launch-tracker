@@ -90,12 +90,12 @@
           <tr>
             <th class="sticky-col">Account</th>
             <th>Industry</th>
-            <th>Department</th>
             <th>Contact</th>
             <th>Phone</th>
             <th id="status-th" onclick="sortBy('status')" style="cursor:pointer;user-select:none;white-space:nowrap">Status</th>
             <th>Status Age</th>
             <th>Notes</th>
+            <th>Department</th>
             <th id="submitted-th" onclick="sortBy('created_at')" style="cursor:pointer;user-select:none;white-space:nowrap">Submitted</th>
             <th></th>
           </tr>
@@ -407,7 +407,6 @@ function renderTable(data) {
         <div class="domain">🌐 <a href="https://${esc(r.domain_name)}" target="_blank" rel="noopener" style="color:var(--primary);text-decoration:none" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${esc(r.domain_name)}</a></div>
       </td>
       <td>${esc(r.industry || '—')}</td>
-      <td>${esc(r.department)}</td>
       <td>
         <div>${esc(r.contact_name)}</div>
         <div class="contact-email">${esc(r.email)}</div>
@@ -424,6 +423,7 @@ function renderTable(data) {
       </td>
       <td style="white-space:nowrap;font-size:.8rem;color:var(--text-muted)">${r.status === 'launched' ? formatDate(r.status_changed_at || r.created_at) : (r.status_changed_at || r.created_at ? formatDuration(Date.now() - toDate(r.status_changed_at || r.created_at).getTime()) : '—')}</td>
       <td style="text-align:center">${r.notes ? `<span class="note-dot" data-note="${esc(r.notes)}" onmouseenter="showNoteTooltip(event,this)" onmouseleave="hideNoteTooltip()">···</span>` : '<span style="color:var(--text-muted);font-size:.8rem">—</span>'}</td>
+      <td style="font-size:.8rem;color:var(--text-muted)">${esc(r.department)}</td>
       <td style="white-space:nowrap;font-size:.8rem;color:var(--text-muted)">${formatDate(r.created_at)}</td>
       <td>
         <button class="btn btn-ghost" style="padding:.3rem .65rem;font-size:.78rem" onclick="openEdit(${r.id})">Edit</button>
