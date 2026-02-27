@@ -59,11 +59,12 @@ nav a {
   text-decoration: none;
   font-size: .875rem;
   font-weight: 500;
-  padding: .25rem 0;
-  border-bottom: 2px solid transparent;
-  transition: color .15s, border-color .15s;
+  padding: .35rem .85rem;
+  border-radius: 7px;
+  transition: color .15s, background .15s;
 }
-nav a:hover, nav a.active { color: var(--primary); border-bottom-color: var(--primary); }
+nav a:hover { color: var(--text); background: var(--bg); }
+nav a.active { color: var(--primary); background: #eff6ff; font-weight: 600; }
 
 /* ── PAGE WRAPPER ── */
 .page { max-width: 860px; margin: 2.5rem auto; padding: 0 1.5rem 4rem; }
