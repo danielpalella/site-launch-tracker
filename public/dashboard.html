@@ -94,7 +94,6 @@
             <th>Status Age</th>
             <th>Notes</th>
             <th>Department</th>
-            <th></th>
           </tr>
         </thead>
         <tbody id="table-body">
@@ -429,7 +428,7 @@ function renderTable(data) {
   }
 
   if (!data.length) {
-    tbody.innerHTML = `<tr><td colspan="8"><div class="empty">
+    tbody.innerHTML = `<tr><td colspan="7"><div class="empty">
       <svg width="48" height="48" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
           d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
@@ -463,9 +462,6 @@ function renderTable(data) {
       <td data-id="${r.id}" onmouseenter="showStatusAgeTooltip(event,this)" onmouseleave="hideNoteTooltip()" style="white-space:nowrap;font-size:.8rem;color:var(--text-muted);cursor:help">${r.status === 'launched' ? formatDate(r.status_changed_at || r.created_at) : (r.status_changed_at || r.created_at ? formatDuration(Date.now() - toDate(r.status_changed_at || r.created_at).getTime()) : '—')}</td>
       <td style="text-align:center">${r.notes ? `<span class="note-dot" data-note="${esc(r.notes)}" onmouseenter="showNoteTooltip(event,this)" onmouseleave="hideNoteTooltip()">···</span>` : '<span style="color:var(--text-muted);font-size:.8rem">—</span>'}</td>
       <td style="font-size:.8rem;color:var(--text-muted)">${esc(r.department)}</td>
-      <td>
-        <button class="btn btn-ghost" style="padding:.3rem .65rem;font-size:.78rem" onclick="openEdit(${r.id})">Edit</button>
-      </td>
     </tr>
   `).join('');
 }
