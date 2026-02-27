@@ -6,6 +6,7 @@
   <title>Projects — Launch Tracker</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌐</text></svg>" />
   <link rel="stylesheet" href="/style.css" />
+  <script>document.documentElement.setAttribute('data-theme', localStorage.getItem('theme') || 'light');</script>
 </head>
 <body class="dashboard-page">
 
@@ -206,6 +207,7 @@
 
 <div id="toast"></div>
 <div id="note-tooltip" class="note-tooltip"></div>
+<button id="dark-toggle" title="Toggle dark mode" onclick="toggleDark()">🌙</button>
 
 <script>
 const STATUS_LABELS = {
@@ -738,6 +740,18 @@ function launchConfetti(originEl) {
   }
   draw();
 }
+
+// ── Dark Mode ──
+function toggleDark() {
+  const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+  document.getElementById('dark-toggle').textContent = next === 'dark' ? '☀️' : '🌙';
+}
+(function() {
+  const saved = localStorage.getItem('theme') || 'light';
+  document.getElementById('dark-toggle').textContent = saved === 'dark' ? '☀️' : '🌙';
+})();
 
 // Initial load
 fetchLaunches();

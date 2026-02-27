@@ -20,6 +20,47 @@
   --s-launched: #22c55e;
 }
 
+/* ── DARK MODE ── */
+[data-theme="dark"] {
+  --surface: #1e293b;
+  --bg: #0f172a;
+  --border: #334155;
+  --text: #f1f5f9;
+  --text-muted: #94a3b8;
+  --shadow: 0 1px 3px rgba(0,0,0,.3), 0 4px 16px rgba(0,0,0,.25);
+}
+[data-theme="dark"] th { background: #162032; }
+[data-theme="dark"] tr:hover td { background: #263347; }
+[data-theme="dark"] tr:hover .sticky-col { background: #263347; }
+[data-theme="dark"] tr.row-launched td,
+[data-theme="dark"] tr.row-launched .sticky-col { background: #14352a; }
+[data-theme="dark"] tr.row-launched:hover td,
+[data-theme="dark"] tr.row-launched:hover .sticky-col { background: #1a4535; }
+[data-theme="dark"] nav a.active { background: #1e3a5f; }
+
+/* ── DARK MODE TOGGLE ── */
+#dark-toggle {
+  position: fixed;
+  bottom: 1.25rem;
+  right: 1.25rem;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  line-height: 1;
+  box-shadow: var(--shadow);
+  z-index: 150;
+  transition: background .15s, border-color .15s, color .15s, box-shadow .15s;
+}
+#dark-toggle:hover { color: var(--text); border-color: var(--text-muted); }
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   background: var(--bg);

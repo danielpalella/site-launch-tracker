@@ -6,6 +6,7 @@
   <title>Submit — Launch Tracker</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌐</text></svg>" />
   <link rel="stylesheet" href="/style.css" />
+  <script>document.documentElement.setAttribute('data-theme', localStorage.getItem('theme') || 'light');</script>
 </head>
 <body>
 
@@ -113,6 +114,7 @@
 </div>
 
 <div id="toast"></div>
+<button id="dark-toggle" title="Toggle dark mode" onclick="toggleDark()">🌙</button>
 
 <script>
 const FIELDS = ['department','industry','account_name','domain_name','contact_name','email','phone'];
@@ -191,6 +193,17 @@ document.getElementById('launch-form').addEventListener('submit', async (e) => {
     btn.textContent = 'Submit Launch Request';
   }
 });
+
+function toggleDark() {
+  const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+  document.getElementById('dark-toggle').textContent = next === 'dark' ? '☀️' : '🌙';
+}
+(function() {
+  const saved = localStorage.getItem('theme') || 'light';
+  document.getElementById('dark-toggle').textContent = saved === 'dark' ? '☀️' : '🌙';
+})();
 
 document.getElementById('submit-another').addEventListener('click', () => {
   document.getElementById('launch-form').reset();
