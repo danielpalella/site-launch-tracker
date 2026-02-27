@@ -55,6 +55,9 @@ nav {
 }
 .nav-brand span { color: var(--text); }
 nav a {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
   color: var(--text-muted);
   text-decoration: none;
   font-size: .875rem;
