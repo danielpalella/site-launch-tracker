@@ -285,14 +285,17 @@ tr:hover .sticky-col { background: #f8fafc; }
   z-index: 100;
   align-items: center;
   justify-content: center;
+  padding: 1rem;
 }
 .modal-backdrop.open { display: flex; }
 .modal {
   background: var(--surface);
   border-radius: var(--radius);
-  padding: 2rem;
+  padding: 1.5rem 2rem;
   width: 100%;
   max-width: 520px;
+  max-height: 90vh;
+  overflow-y: auto;
   box-shadow: 0 20px 60px rgba(0,0,0,.2);
 }
 .modal h2 { font-size: 1.1rem; margin-bottom: 1.25rem; }
