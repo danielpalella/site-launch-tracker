@@ -94,7 +94,6 @@
             <th>Status Age</th>
             <th>Notes</th>
             <th>Department</th>
-            <th id="submitted-th" onclick="sortBy('created_at')" style="cursor:pointer;user-select:none;white-space:nowrap">Submitted</th>
             <th></th>
           </tr>
         </thead>
@@ -113,7 +112,10 @@
 <!-- Edit Modal -->
 <div class="modal-backdrop" id="modal">
   <div class="modal" style="max-width:680px">
-    <h2 id="modal-title">Edit Record</h2>
+    <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:1.25rem">
+      <h2 id="modal-title" style="margin-bottom:0">Edit Record</h2>
+      <span id="modal-submitted" style="font-size:.78rem;color:var(--text-muted)"></span>
+    </div>
     <div class="form-grid" style="margin-bottom:1.25rem">
       <div>
         <label for="modal-industry">Industry</label>
@@ -409,13 +411,8 @@ function sortBy(col) {
 }
 
 function updateSortHeaders() {
-  [['status-th', 'Status'], ['submitted-th', 'Submitted']].forEach(([id, label]) => {
-    const th = document.getElementById(id);
-    if (!th) return;
-    const active = (id === 'status-th' && sortState.col === 'status') ||
-                   (id === 'submitted-th' && sortState.col === 'created_at');
-    th.innerHTML = label + (active ? ` <span style="opacity:.5;font-size:.65em">${sortState.dir === 1 ? '▲' : '▼'}</span>` : '');
-  });
+  const th = document.getElementById('status-th');
+  if (th) th.innerHTML = 'Status' + (sortState.col === 'status' ? ` <span style="opacity:.5;font-size:.65em">${sortState.dir === 1 ? '▲' : '▼'}</span>` : '');
 }
 
 function renderTable(data) {
@@ -432,7 +429,7 @@ function renderTable(data) {
   }
 
   if (!data.length) {
-    tbody.innerHTML = `<tr><td colspan="9"><div class="empty">
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty">
       <svg width="48" height="48" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
           d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
@@ -466,7 +463,6 @@ function renderTable(data) {
       <td data-id="${r.id}" onmouseenter="showStatusAgeTooltip(event,this)" onmouseleave="hideNoteTooltip()" style="white-space:nowrap;font-size:.8rem;color:var(--text-muted);cursor:help">${r.status === 'launched' ? formatDate(r.status_changed_at || r.created_at) : (r.status_changed_at || r.created_at ? formatDuration(Date.now() - toDate(r.status_changed_at || r.created_at).getTime()) : '—')}</td>
       <td style="text-align:center">${r.notes ? `<span class="note-dot" data-note="${esc(r.notes)}" onmouseenter="showNoteTooltip(event,this)" onmouseleave="hideNoteTooltip()">···</span>` : '<span style="color:var(--text-muted);font-size:.8rem">—</span>'}</td>
       <td style="font-size:.8rem;color:var(--text-muted)">${esc(r.department)}</td>
-      <td style="white-space:nowrap;font-size:.8rem;color:var(--text-muted)">${formatDate(r.created_at)}</td>
       <td>
         <button class="btn btn-ghost" style="padding:.3rem .65rem;font-size:.78rem" onclick="openEdit(${r.id})">Edit</button>
       </td>
@@ -509,6 +505,7 @@ function openEdit(id) {
   if (!r) return;
   editingId = id;
   document.getElementById('modal-title').textContent = `Edit — ${r.account_name}`;
+  document.getElementById('modal-submitted').textContent = `Submitted ${formatDate(r.created_at)}`;
   document.getElementById('modal-industry').value     = r.industry || '';
   document.getElementById('modal-department').value   = r.department || '';
   document.getElementById('modal-account_name').value = r.account_name || '';
