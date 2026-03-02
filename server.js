@@ -13,13 +13,13 @@ if (!getApps().length) initializeApp();
 const db = getFirestore();
 
 // ── Google OAuth config ──
-const GOOGLE_CLIENT_ID     = process.env.GOOGLE_CLIENT_ID;
-const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+const GOOGLE_CLIENT_ID     = process.env.OAUTH_CLIENT_ID;
+const GOOGLE_CLIENT_SECRET = process.env.OAUTH_CLIENT_SECRET;
 const GOOGLE_REDIRECT_URI  = process.env.GOOGLE_REDIRECT_URI || `http://localhost:${PORT}/auth/google/callback`;
 const ALLOWED_DOMAIN       = 'realworklabs.com';
 
 if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
-  console.warn('\n  ⚠️  GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be set.\n');
+  console.warn('\n  ⚠️  OAUTH_CLIENT_ID and OAUTH_CLIENT_SECRET must be set.\n');
 }
 
 function generateToken() {
