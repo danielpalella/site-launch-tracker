@@ -388,6 +388,19 @@ app.get('/api/admin/logs', requireAuth, async (req, res) => {
   }
 });
 
+// ── Admin test email ──
+app.post('/api/admin/test-email', requireAuth, async (req, res) => {
+  const { to } = req.body;
+  if (!to) return res.status(400).json({ error: 'Missing to address.' });
+  if (!process.env.RESEND_API_KEY) return res.status(500).json({ error: 'RESEND_API_KEY is not set.' });
+  try {
+    await sendClaimEmail(to, 'Test Account');
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── Admin owner email config ──
 app.get('/api/admin/owner-emails', requireAuth, async (req, res) => {
   try {
