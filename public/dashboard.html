@@ -268,6 +268,30 @@
 
 <button id="dark-toggle" title="Toggle dark mode" onclick="toggleDark()">🌙</button>
 
+<!-- ── Admin Portal ── -->
+<div id="admin-overlay" style="display:none">
+  <div id="admin-panel">
+    <div id="admin-header">
+      <span id="admin-title">Admin Audit Log</span>
+      <button id="admin-close" onclick="closeAdmin()" title="Close">&times;</button>
+    </div>
+    <div id="admin-body">
+      <div id="admin-loading" style="padding:2rem;text-align:center;color:var(--text-muted)">Loading logs…</div>
+      <table id="admin-table" style="display:none">
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>User</th>
+            <th>Action</th>
+            <th>Details</th>
+          </tr>
+        </thead>
+        <tbody id="admin-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
 <script>
 const STATUS_LABELS = {
   new:               'New',
@@ -1084,6 +1108,74 @@ function renderDomainInfo(data) {
 
 // Initial load
 fetchLaunches();
+
+// ── Admin portal ──
+(function() {
+  let clickTimes = [];
+  const btn = document.getElementById('dark-toggle');
+  btn.addEventListener('click', () => {
+    const now = Date.now();
+    clickTimes.push(now);
+    clickTimes = clickTimes.filter(t => now - t < 800);
+    if (clickTimes.length >= 3) {
+      clickTimes = [];
+      openAdmin();
+    }
+  });
+})();
+
+function openAdmin() {
+  document.getElementById('admin-overlay').style.display = 'flex';
+  loadAdminLogs();
+}
+
+function closeAdmin() {
+  document.getElementById('admin-overlay').style.display = 'none';
+}
+
+document.getElementById('admin-overlay').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('admin-overlay')) closeAdmin();
+});
+
+async function loadAdminLogs() {
+  const loading = document.getElementById('admin-loading');
+  const table   = document.getElementById('admin-table');
+  const tbody   = document.getElementById('admin-tbody');
+  loading.style.display = 'block';
+  table.style.display   = 'none';
+  try {
+    const res  = await fetch('/api/admin/logs');
+    const logs = await res.json();
+    tbody.innerHTML = logs.map(log => {
+      let details = '';
+      if (log.type === 'login') {
+        details = 'Signed in';
+      } else if (log.type === 'edit') {
+        const changes = log.changes || {};
+        const parts = Object.entries(changes).map(([f, { from, to }]) =>
+          `<span class="admin-change-field">${esc(f)}</span>: ${esc(String(from))} → ${esc(String(to))}`
+        );
+        details = parts.length
+          ? parts.join('<br>')
+          : `Edited <span class="admin-change-field">${esc(log.launch_id || '')}</span>`;
+      } else if (log.type === 'delete') {
+        details = `Deleted <span class="admin-change-field">${esc(log.account_name || log.launch_id || '')}</span>`;
+      } else if (log.type === 'create') {
+        details = `Created <span class="admin-change-field">${esc(log.account_name || '')}</span>`;
+      }
+      return `<tr>
+        <td class="admin-ts">${esc(log.at || '')}</td>
+        <td class="admin-email">${esc(log.email || '—')}</td>
+        <td><span class="admin-type admin-type-${esc(log.type)}">${esc(log.type)}</span></td>
+        <td class="admin-details">${details}</td>
+      </tr>`;
+    }).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:1.5rem">No logs yet.</td></tr>';
+    loading.style.display = 'none';
+    table.style.display   = 'table';
+  } catch (err) {
+    loading.textContent = 'Failed to load logs.';
+  }
+}
 </script>
 </body>
 </html>

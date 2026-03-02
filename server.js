@@ -51,6 +51,7 @@ function getCookies(req) {
 }
 
 // ── Session cache (in-memory, 5 min TTL) to reduce Firestore reads ──
+// Stores { expiry, email } per token
 const sessionCache = new Map();
 
 async function requireAuth(req, res, next) {
@@ -60,13 +61,31 @@ async function requireAuth(req, res, next) {
     res.redirect('/login');
   };
   if (!auth_token) return fail();
-  if ((sessionCache.get(auth_token) || 0) > Date.now()) return next();
+  const cached = sessionCache.get(auth_token);
+  if (cached && cached.expiry > Date.now()) {
+    req.userEmail = cached.email;
+    return next();
+  }
   try {
     const session = await db.collection('sessions').doc(auth_token).get();
     if (!session.exists) { sessionCache.delete(auth_token); return fail(); }
-    sessionCache.set(auth_token, Date.now() + 300_000);
+    const email = session.data().email || '';
+    sessionCache.set(auth_token, { expiry: Date.now() + 300_000, email });
+    req.userEmail = email;
     next();
   } catch { fail(); }
+}
+
+// ── Audit log ──
+async function logAudit(event) {
+  try {
+    await db.collection('audit_log').add({
+      ...event,
+      at: FieldValue.serverTimestamp(),
+    });
+  } catch (err) {
+    console.error('audit log error:', err.message);
+  }
 }
 
 // ── Firestore helpers ──
@@ -140,7 +159,11 @@ app.get('/auth/google/callback', async (req, res) => {
     if (!user.email?.endsWith(`@${ALLOWED_DOMAIN}`)) return res.redirect('/login?error=domain');
 
     const token = generateToken();
-    await db.collection('sessions').doc(token).set({ created_at: FieldValue.serverTimestamp() });
+    await db.collection('sessions').doc(token).set({
+      email: user.email,
+      created_at: FieldValue.serverTimestamp(),
+    });
+    await logAudit({ type: 'login', email: user.email });
     res.setHeader('Set-Cookie', `auth_token=${token}; Path=/; HttpOnly; SameSite=Lax`);
     res.redirect('/dashboard');
   } catch (err) {
@@ -265,6 +288,16 @@ app.patch('/api/launches/:id', requireAuth, async (req, res) => {
       await ref.collection('history').add({ status: newStatus, entered_at: FieldValue.serverTimestamp() });
     }
 
+    // Build diff of changed fields for audit
+    const changedFields = {};
+    const watched = ['status','notes','department','industry','account_name','domain_name','contact_name','email','phone','owner'];
+    for (const f of watched) {
+      const oldVal = row[f] ?? '';
+      const newVal = updates[f] ?? '';
+      if (String(oldVal) !== String(newVal)) changedFields[f] = { from: oldVal, to: newVal };
+    }
+    await logAudit({ type: 'edit', email: req.userEmail || '', launch_id: req.params.id, changes: changedFields });
+
     const updated = await ref.get();
     res.json(formatLaunch(updated));
   } catch (err) {
@@ -293,14 +326,34 @@ app.delete('/api/launches/:id', requireAuth, async (req, res) => {
     const ref = db.collection('launches').doc(req.params.id);
     const doc = await ref.get();
     if (!doc.exists) return res.status(404).json({ error: 'Not found' });
+    const data = doc.data();
     const history = await ref.collection('history').get();
     const batch = db.batch();
     history.docs.forEach(d => batch.delete(d.ref));
     batch.delete(ref);
     await batch.commit();
+    await logAudit({ type: 'delete', email: req.userEmail || '', launch_id: req.params.id, account_name: data.account_name || '' });
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: 'Failed to delete launch.' });
+  }
+});
+
+// ── Admin audit log ──
+app.get('/api/admin/logs', requireAuth, async (req, res) => {
+  try {
+    const snapshot = await db.collection('audit_log')
+      .orderBy('at', 'desc')
+      .limit(200)
+      .get();
+    const logs = snapshot.docs.map(doc => {
+      const d = doc.data();
+      return { id: doc.id, ...d, at: fmtTs(d.at) };
+    });
+    res.json(logs);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch logs.' });
   }
 });
 
