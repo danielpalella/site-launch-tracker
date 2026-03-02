@@ -577,7 +577,7 @@ async function loadTimeline(id) {
 const historyCache = {};
 
 async function showStatusAgeTooltip(e, cell) {
-  const id = Number(cell.dataset.id);
+  const id = cell.dataset.id;
   const tip = document.getElementById('note-tooltip');
   const rect = cell.getBoundingClientRect();
   tip.style.top  = (rect.bottom + 6) + 'px';
@@ -682,7 +682,7 @@ function renderTable(data) {
   }
 
   tbody.innerHTML = data.map(r => `
-    <tr data-id="${r.id}" ondblclick="handleRowDblClick(event,${r.id})" style="cursor:pointer" ${r.status === 'launched' ? 'class="row-launched"' : ''}>
+    <tr data-id="${r.id}" ondblclick="handleRowDblClick(event,'${r.id}')" style="cursor:pointer" ${r.status === 'launched' ? 'class="row-launched"' : ''}>
       <td class="sticky-col">
         <div class="account-name">${esc(r.account_name)}</div>
         <div class="domain">🌐 <a href="https://${esc(r.domain_name)}" target="_blank" rel="noopener" style="color:var(--primary);text-decoration:none" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${esc(r.domain_name)}</a></div>
@@ -1011,7 +1011,7 @@ function showContactPopup(e, el) {
 let claimingId = null;
 function showClaimPopup(e, el) {
   e.stopPropagation();
-  claimingId = Number(el.dataset.id);
+  claimingId = el.dataset.id;
   const popup = document.getElementById('claim-popup');
   const rect = el.getBoundingClientRect();
   popup.style.top  = (rect.bottom + 6) + 'px';
