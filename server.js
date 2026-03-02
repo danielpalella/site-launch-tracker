@@ -1,4 +1,5 @@
 import express from 'express';
+import nodemailer from 'nodemailer';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { initializeApp, getApps } from 'firebase-admin/app';
@@ -76,23 +77,33 @@ async function requireAuth(req, res, next) {
   } catch { fail(); }
 }
 
-// ── Email (Resend) ──
+// ── Email (Gmail SMTP via nodemailer) ──
+function getMailTransport() {
+  const user = process.env.GMAIL_USER;
+  const pass = process.env.GMAIL_APP_PASSWORD;
+  if (!user || !pass) return null;
+  return nodemailer.createTransport({
+    host: 'smtp.gmail.com',
+    port: 587,
+    secure: false,
+    auth: { user, pass },
+  });
+}
+
 async function sendClaimEmail(toEmail, accountName) {
-  const apiKey = process.env.RESEND_API_KEY;
-  const from   = process.env.RESEND_FROM || `noreply@${ALLOWED_DOMAIN}`;
-  if (!apiKey || !toEmail) return;
+  if (!toEmail) return;
+  const transport = getMailTransport();
+  if (!transport) {
+    console.warn('Email not sent: GMAIL_USER or GMAIL_APP_PASSWORD is not set.');
+    return;
+  }
   try {
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        from,
-        to:      [toEmail],
-        subject: `${accountName} / RealWork Website`,
-        text:    '',
-      }),
+    await transport.sendMail({
+      from:    process.env.GMAIL_USER,
+      to:      toEmail,
+      subject: `${accountName} / RealWork Website`,
+      text:    '',
     });
-    if (!res.ok) console.error('Resend error:', await res.text());
   } catch (err) {
     console.error('Email send error:', err.message);
   }
@@ -392,7 +403,9 @@ app.get('/api/admin/logs', requireAuth, async (req, res) => {
 app.post('/api/admin/test-email', requireAuth, async (req, res) => {
   const { to } = req.body;
   if (!to) return res.status(400).json({ error: 'Missing to address.' });
-  if (!process.env.RESEND_API_KEY) return res.status(500).json({ error: 'RESEND_API_KEY is not set.' });
+  if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
+    return res.status(500).json({ error: 'GMAIL_USER or GMAIL_APP_PASSWORD is not set.' });
+  }
   try {
     await sendClaimEmail(to, 'Test Account');
     res.json({ ok: true });
