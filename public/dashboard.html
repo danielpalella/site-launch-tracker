@@ -1248,7 +1248,7 @@ async function sendTestEmail() {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Unknown error');
-    status.textContent = `✓ Test email sent to ${to}. Check your inbox.`;
+    status.textContent = `✓ Sent from ${data.from} → ${data.to}. Check inbox (and spam).`;
     status.style.color = '#16a34a';
   } catch (err) {
     status.textContent = `✗ Failed: ${err.message}`;

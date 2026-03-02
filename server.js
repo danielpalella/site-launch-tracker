@@ -98,14 +98,16 @@ async function sendClaimEmail(toEmail, accountName) {
     return;
   }
   try {
-    await transport.sendMail({
-      from:    process.env.GMAIL_USER,
+    const info = await transport.sendMail({
+      from:    `"Launch Tracker" <${process.env.GMAIL_USER}>`,
       to:      toEmail,
       subject: `${accountName} / RealWork Website`,
-      text:    '',
+      text:    `${accountName} has been assigned to you.\n\nView the dashboard to get started.`,
     });
+    console.log('Email sent:', info.messageId, '→', toEmail);
   } catch (err) {
     console.error('Email send error:', err.message);
+    throw err;
   }
 }
 
@@ -408,7 +410,7 @@ app.post('/api/admin/test-email', requireAuth, async (req, res) => {
   }
   try {
     await sendClaimEmail(to, 'Test Account');
-    res.json({ ok: true });
+    res.json({ ok: true, to, from: process.env.GMAIL_USER });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
