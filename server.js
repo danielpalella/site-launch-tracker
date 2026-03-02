@@ -76,6 +76,28 @@ async function requireAuth(req, res, next) {
   } catch { fail(); }
 }
 
+// ── Email (Resend) ──
+async function sendClaimEmail(toEmail, accountName) {
+  const apiKey = process.env.RESEND_API_KEY;
+  const from   = process.env.RESEND_FROM || `noreply@${ALLOWED_DOMAIN}`;
+  if (!apiKey || !toEmail) return;
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from,
+        to:      [toEmail],
+        subject: `${accountName} / RealWork Website`,
+        text:    '',
+      }),
+    });
+    if (!res.ok) console.error('Resend error:', await res.text());
+  } catch (err) {
+    console.error('Email send error:', err.message);
+  }
+}
+
 // ── Audit log ──
 async function logAudit(event) {
   try {
@@ -267,6 +289,8 @@ app.patch('/api/launches/:id', requireAuth, async (req, res) => {
 
     const newStatus     = status || row.status;
     const statusChanged = newStatus !== row.status;
+    const newOwner      = owner !== undefined ? owner : (row.owner || '');
+    const ownerChanged  = owner !== undefined && owner !== (row.owner || '') && !!owner;
 
     const updates = {
       status:       newStatus,
@@ -297,6 +321,13 @@ app.patch('/api/launches/:id', requireAuth, async (req, res) => {
       if (String(oldVal) !== String(newVal)) changedFields[f] = { from: oldVal, to: newVal };
     }
     await logAudit({ type: 'edit', email: req.userEmail || '', launch_id: req.params.id, changes: changedFields });
+
+    if (ownerChanged) {
+      const configDoc  = await db.collection('config').doc('ownerEmails').get();
+      const ownerEmail = configDoc.exists ? configDoc.data()[newOwner] : null;
+      const name       = updates.account_name || row.account_name || '';
+      sendClaimEmail(ownerEmail, name); // fire-and-forget
+    }
 
     const updated = await ref.get();
     res.json(formatLaunch(updated));
@@ -354,6 +385,28 @@ app.get('/api/admin/logs', requireAuth, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to fetch logs.' });
+  }
+});
+
+// ── Admin owner email config ──
+app.get('/api/admin/owner-emails', requireAuth, async (req, res) => {
+  try {
+    const doc = await db.collection('config').doc('ownerEmails').get();
+    res.json(doc.exists ? doc.data() : {});
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch emails.' });
+  }
+});
+
+app.post('/api/admin/owner-emails', requireAuth, async (req, res) => {
+  try {
+    const data = {};
+    if (typeof req.body.Daniel  === 'string') data.Daniel  = req.body.Daniel.trim();
+    if (typeof req.body.Thierry === 'string') data.Thierry = req.body.Thierry.trim();
+    await db.collection('config').doc('ownerEmails').set(data, { merge: true });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to save emails.' });
   }
 });
 

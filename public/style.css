@@ -965,6 +965,51 @@ tr:hover .sticky-col { background: #f8fafc; }
   padding: 1rem 1.25rem;
   border-bottom: 1px solid var(--border);
 }
+#admin-email-section {
+  padding: .85rem 1.25rem 1rem;
+  border-bottom: 1px solid var(--border);
+}
+.admin-sub-label {
+  font-size: .68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  color: var(--text-muted);
+  margin-bottom: .6rem;
+}
+#admin-email-row {
+  display: flex;
+  gap: .65rem;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+.admin-email-field {
+  display: flex;
+  flex-direction: column;
+  gap: .2rem;
+  flex: 1;
+  min-width: 160px;
+}
+.admin-email-field label {
+  font-size: .72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.admin-email-field input {
+  padding: .45rem .65rem;
+  border: 1.5px solid var(--border);
+  border-radius: 7px;
+  font-size: .83rem;
+  background: var(--bg);
+  color: var(--text);
+  font-family: inherit;
+}
+.admin-email-field input:focus { outline: none; border-color: var(--primary); }
+.admin-email-hint {
+  font-size: .73rem;
+  color: var(--text-muted);
+  margin: .55rem 0 0;
+}
 #admin-title {
   font-weight: 700;
   font-size: 1rem;

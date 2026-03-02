@@ -289,11 +289,30 @@
 <div id="admin-overlay" style="display:none">
   <div id="admin-panel">
     <div id="admin-header">
-      <span id="admin-title">Admin Audit Log</span>
+      <span id="admin-title">Admin Portal</span>
       <button id="admin-close" onclick="closeAdmin()" title="Close">&times;</button>
     </div>
+
+    <!-- Owner email settings -->
+    <div id="admin-email-section">
+      <div class="admin-sub-label">Owner Notification Emails</div>
+      <div id="admin-email-row">
+        <div class="admin-email-field">
+          <label>Daniel</label>
+          <input type="email" id="admin-email-daniel" placeholder="daniel@example.com" />
+        </div>
+        <div class="admin-email-field">
+          <label>Thierry</label>
+          <input type="email" id="admin-email-thierry" placeholder="thierry@example.com" />
+        </div>
+        <button class="btn btn-primary" id="admin-save-emails" onclick="saveOwnerEmails()" style="align-self:flex-end;font-size:.8rem;padding:.45rem .9rem;white-space:nowrap">Save</button>
+      </div>
+      <p class="admin-email-hint">When a launch is claimed, an email is sent to that owner's address.</p>
+    </div>
+
     <div id="admin-body">
-      <div id="admin-loading" style="padding:2rem;text-align:center;color:var(--text-muted)">Loading logs…</div>
+      <div class="admin-sub-label" style="padding:.75rem 1.25rem .4rem">Audit Log</div>
+      <div id="admin-loading" style="padding:1.5rem;text-align:center;color:var(--text-muted)">Loading logs…</div>
       <table id="admin-table" style="display:none">
         <thead>
           <tr>
@@ -1192,7 +1211,39 @@ fetchLaunches();
 
 function openAdmin() {
   document.getElementById('admin-overlay').style.display = 'flex';
+  loadAdminOwnerEmails();
   loadAdminLogs();
+}
+
+async function loadAdminOwnerEmails() {
+  try {
+    const res  = await fetch('/api/admin/owner-emails');
+    const data = await res.json();
+    document.getElementById('admin-email-daniel').value  = data.Daniel  || '';
+    document.getElementById('admin-email-thierry').value = data.Thierry || '';
+  } catch { /* silent */ }
+}
+
+async function saveOwnerEmails() {
+  const btn = document.getElementById('admin-save-emails');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+  try {
+    const res = await fetch('/api/admin/owner-emails', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        Daniel:  document.getElementById('admin-email-daniel').value.trim(),
+        Thierry: document.getElementById('admin-email-thierry').value.trim(),
+      }),
+    });
+    if (!res.ok) throw new Error();
+    btn.textContent = 'Saved ✓';
+    setTimeout(() => { btn.textContent = 'Save'; btn.disabled = false; }, 1800);
+  } catch {
+    btn.textContent = 'Failed';
+    setTimeout(() => { btn.textContent = 'Save'; btn.disabled = false; }, 1800);
+  }
 }
 
 function closeAdmin() {
