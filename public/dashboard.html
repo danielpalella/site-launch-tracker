@@ -555,8 +555,10 @@ async function loadTimeline(id) {
     }
     const now = Date.now();
     body.innerHTML = history.map((entry, i) => {
-      const start      = toDate(entry.entered_at).getTime();
-      const end        = i < history.length - 1 ? toDate(history[i + 1].entered_at).getTime() : now;
+      const startDate  = toDate(entry.entered_at);
+      const start      = startDate ? startDate.getTime() : now;
+      const nextDate   = i < history.length - 1 ? toDate(history[i + 1].entered_at) : null;
+      const end        = nextDate ? nextDate.getTime() : now;
       const isCurrent  = i === history.length - 1;
       const isLaunched = entry.status === 'launched';
       const label      = TIMELINE_STATUS_LABELS[entry.status] || entry.status;
@@ -605,11 +607,13 @@ async function showStatusAgeTooltip(e, cell) {
   };
   const now = Date.now();
   const rows = history.map((entry, i) => {
-    const start    = toDate(entry.entered_at).getTime();
-    const end      = i < history.length - 1 ? toDate(history[i + 1].entered_at).getTime() : now;
+    const startDate = toDate(entry.entered_at);
+    const start     = startDate ? startDate.getTime() : now;
+    const nextDate  = i < history.length - 1 ? toDate(history[i + 1].entered_at) : null;
+    const end       = nextDate ? nextDate.getTime() : now;
     const isCurrent = i === history.length - 1;
-    const label    = LABELS[entry.status] || entry.status;
-    const dur      = entry.status === 'launched' ? formatDate(entry.entered_at) : formatDuration(end - start);
+    const label     = LABELS[entry.status] || entry.status;
+    const dur       = entry.status === 'launched' ? formatDate(entry.entered_at) : formatDuration(end - start);
     return `<div style="display:flex;justify-content:space-between;gap:1.25rem;padding:.12rem 0;${isCurrent ? 'color:#f1f5f9;font-weight:600' : 'opacity:.75'}">
       <span>${label}</span><span>${dur}</span></div>`;
   }).join('');
