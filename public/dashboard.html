@@ -141,93 +141,110 @@
 
 <!-- Edit Modal -->
 <div class="modal-backdrop" id="modal">
-  <div class="modal" style="max-width:680px">
-    <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:1.25rem">
-      <h2 id="modal-title" style="margin-bottom:0">Edit Record</h2>
-      <span id="modal-submitted" style="font-size:.78rem;color:var(--text-muted)"></span>
+  <div class="modal crm-modal">
+
+    <!-- Header -->
+    <div class="crm-header">
+      <div>
+        <h2 id="modal-title" class="crm-title">Edit Record</h2>
+        <div id="modal-domain-sub" class="crm-domain-sub"></div>
+      </div>
+      <span id="modal-submitted" class="crm-submitted"></span>
     </div>
-    <div class="form-grid" style="margin-bottom:1.25rem">
-      <div>
-        <label for="modal-industry">Industry</label>
-        <select id="modal-industry">
-          <option value="">— None —</option>
-          <option value="Roofing">Roofing</option>
-          <option value="Plumbing">Plumbing</option>
-          <option value="Electrical">Electrical</option>
-          <option value="HVAC">HVAC</option>
-          <option value="Landscaping">Landscaping</option>
-          <option value="Contracting">Contracting</option>
-          <option value="Restoration">Restoration</option>
-          <option value="Solar">Solar</option>
-          <option value="Flooring">Flooring</option>
-        </select>
+
+    <!-- Pipeline -->
+    <div class="crm-section">
+      <div class="crm-section-label">Launch Pipeline</div>
+      <div id="modal-pipeline" class="pipeline-wrap">
+        <p style="color:var(--text-muted);font-size:.8rem">Loading…</p>
       </div>
-      <div>
-        <label for="modal-department">Department</label>
-        <select id="modal-department">
-          <option value="Sales">Sales</option>
-          <option value="Retention">Retention</option>
-          <option value="Customer Success">Customer Success</option>
-          <option value="Other">Other</option>
-        </select>
+    </div>
+
+    <!-- Contact + Project -->
+    <div class="crm-two-col">
+      <div class="crm-card">
+        <div class="crm-card-title">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          Contact
+        </div>
+        <div class="crm-field"><label for="modal-contact_name">Name</label><input type="text" id="modal-contact_name" /></div>
+        <div class="crm-field"><label for="modal-email">Email</label><input type="email" id="modal-email" /></div>
+        <div class="crm-field"><label for="modal-phone">Phone</label><input type="tel" id="modal-phone" /></div>
       </div>
-      <div class="full">
-        <label for="modal-account_name">Account Name</label>
-        <input type="text" id="modal-account_name" />
+      <div class="crm-card">
+        <div class="crm-card-title">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+          Project
+        </div>
+        <div class="crm-field"><label for="modal-account_name">Account Name</label><input type="text" id="modal-account_name" /></div>
+        <div class="crm-field"><label for="modal-domain_name">Domain</label><input type="text" id="modal-domain_name" /></div>
+        <div class="crm-row">
+          <div class="crm-field">
+            <label for="modal-industry">Industry</label>
+            <select id="modal-industry">
+              <option value="">— None —</option>
+              <option value="Roofing">Roofing</option>
+              <option value="Plumbing">Plumbing</option>
+              <option value="Electrical">Electrical</option>
+              <option value="HVAC">HVAC</option>
+              <option value="Landscaping">Landscaping</option>
+              <option value="Contracting">Contracting</option>
+              <option value="Restoration">Restoration</option>
+              <option value="Solar">Solar</option>
+              <option value="Flooring">Flooring</option>
+            </select>
+          </div>
+          <div class="crm-field">
+            <label for="modal-department">Dept</label>
+            <select id="modal-department">
+              <option value="Sales">Sales</option>
+              <option value="Retention">Retention</option>
+              <option value="Customer Success">Cust. Success</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+        </div>
       </div>
-      <div class="full">
-        <label for="modal-domain_name">Domain Name</label>
-        <input type="text" id="modal-domain_name" />
+    </div>
+
+    <!-- Status + Owner + Notes -->
+    <div class="crm-section">
+      <div class="crm-row">
+        <div class="crm-field">
+          <label for="modal-status">Status</label>
+          <select id="modal-status">
+            <option value="new">New</option>
+            <option value="in_progress">In Progress</option>
+            <option value="awaiting_approval">Awaiting Client Approval / Edits</option>
+            <option value="awaiting_dns">Awaiting DNS Access</option>
+            <option value="launched">Launched / Live</option>
+          </select>
+        </div>
+        <div class="crm-field">
+          <label for="modal-owner">Owner</label>
+          <select id="modal-owner">
+            <option value="">— Unassigned —</option>
+            <option value="Daniel">Daniel</option>
+            <option value="Thierry">Thierry</option>
+          </select>
+        </div>
       </div>
-      <div class="full">
-        <label for="modal-contact_name">Contact Name</label>
-        <input type="text" id="modal-contact_name" />
-      </div>
-      <div>
-        <label for="modal-email">Email</label>
-        <input type="email" id="modal-email" />
-      </div>
-      <div>
-        <label for="modal-phone">Phone</label>
-        <input type="tel" id="modal-phone" />
-      </div>
-      <div class="full">
-        <label for="modal-owner">Owner</label>
-        <select id="modal-owner">
-          <option value="">— Unassigned —</option>
-          <option value="Daniel">Daniel</option>
-          <option value="Thierry">Thierry</option>
-        </select>
-      </div>
-      <div class="full">
-        <label for="modal-status">Status</label>
-        <select id="modal-status">
-          <option value="new">New</option>
-          <option value="in_progress">In Progress</option>
-          <option value="awaiting_approval">Awaiting Client Approval / Edits</option>
-          <option value="awaiting_dns">Awaiting DNS Access</option>
-          <option value="launched">Launched / Live</option>
-        </select>
-      </div>
-      <div class="full">
-        <label for="modal-notes">Notes</label>
+      <div class="crm-field" style="margin-top:.65rem">
+        <label for="modal-notes">Internal Notes</label>
         <textarea id="modal-notes" rows="3" placeholder="Internal notes…" style="resize:vertical"></textarea>
       </div>
     </div>
-    <div id="modal-timeline" style="border-top:1px solid var(--border);padding-top:1rem;margin-top:.25rem">
-      <div style="font-size:.72rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.65rem">Project Timeline</div>
-      <div id="modal-timeline-body"><p style="color:var(--text-muted);font-size:.8rem">Loading…</p></div>
-    </div>
 
-    <div id="modal-domain-info" style="border-top:1px solid var(--border);padding-top:1rem;margin-top:.25rem">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.65rem">
-        <div style="font-size:.72rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em">Domain Info</div>
-        <button class="btn btn-ghost" id="domain-lookup-btn" onclick="lookupDomain()" style="padding:.25rem .65rem;font-size:.75rem">Refresh</button>
+    <!-- Domain Info -->
+    <div class="crm-section" id="modal-domain-info">
+      <div class="crm-section-header">
+        <div class="crm-section-label">Domain Info</div>
+        <button class="btn btn-ghost" id="domain-lookup-btn" onclick="lookupDomain()" style="padding:.2rem .6rem;font-size:.72rem">↻ Refresh</button>
       </div>
       <div id="domain-info-body"></div>
     </div>
 
-    <div class="modal-actions">
+    <div class="modal-actions crm-actions">
       <button class="btn btn-danger" id="modal-delete">Delete</button>
       <div style="display:flex;gap:.75rem;margin-left:auto">
         <button class="btn btn-ghost" id="modal-cancel">Cancel</button>
@@ -537,41 +554,77 @@ function formatDuration(ms) {
   return parts.length ? parts.join(' ') : 'Just now';
 }
 
-const TIMELINE_STATUS_LABELS = {
-  new: 'New', in_progress: 'In Progress', awaiting_dns: 'Awaiting DNS',
-  awaiting_approval: 'Awaiting Approval', launched: 'Launched'
-};
+const PIPELINE_STAGES = [
+  { key: 'new',               label: 'New'          },
+  { key: 'in_progress',       label: 'In Progress'  },
+  { key: 'awaiting_approval', label: 'Approval'     },
+  { key: 'awaiting_dns',      label: 'DNS Access'   },
+  { key: 'launched',          label: 'Launched'     },
+];
 
 async function loadTimeline(id) {
-  const body = document.getElementById('modal-timeline-body');
-  body.innerHTML = '<p style="color:var(--text-muted);font-size:.8rem">Loading…</p>';
+  const container = document.getElementById('modal-pipeline');
+  container.innerHTML = '<p style="color:var(--text-muted);font-size:.8rem;padding:.25rem 0">Loading…</p>';
   try {
     const res = await fetch(`/api/launches/${id}/history`);
     if (!res.ok) throw new Error();
     const history = await res.json();
-    if (!history.length) {
-      body.innerHTML = '<p style="color:var(--text-muted);font-size:.8rem">No timeline data — tracking starts on new submissions.</p>';
-      return;
-    }
     const now = Date.now();
-    body.innerHTML = history.map((entry, i) => {
-      const startDate  = toDate(entry.entered_at);
-      const start      = startDate ? startDate.getTime() : now;
-      const nextDate   = i < history.length - 1 ? toDate(history[i + 1].entered_at) : null;
-      const end        = nextDate ? nextDate.getTime() : now;
-      const isCurrent  = i === history.length - 1;
-      const isLaunched = entry.status === 'launched';
-      const label      = TIMELINE_STATUS_LABELS[entry.status] || entry.status;
-      const dur        = isLaunched ? formatDate(entry.entered_at) : formatDuration(end - start);
-      const suffix     = isCurrent && !isLaunched ? ' <span class="tl-ongoing">ongoing</span>' : '';
-      return `<div class="tl-row${isCurrent ? ' tl-current' : ''}">
-        <div class="tl-dot${isCurrent ? ' tl-dot-active' : ''}"></div>
-        <div class="tl-label">${label}</div>
-        <div class="tl-dur">${dur}${suffix}</div>
-      </div>`;
+
+    // Build a map of status → timing info (last occurrence wins for exit time)
+    const statusMap = {};
+    history.forEach((entry, i) => {
+      const enteredAt = toDate(entry.entered_at)?.getTime() ?? now;
+      const exitedAt  = i < history.length - 1 ? (toDate(history[i + 1].entered_at)?.getTime() ?? now) : now;
+      const isCurrent = i === history.length - 1;
+      if (statusMap[entry.status]) {
+        statusMap[entry.status].exitedAt  = exitedAt;
+        statusMap[entry.status].isCurrent = isCurrent;
+      } else {
+        statusMap[entry.status] = { enteredAt, exitedAt, isCurrent };
+      }
+    });
+
+    const html = PIPELINE_STAGES.map((stage, i) => {
+      const visit    = statusMap[stage.key];
+      const isLast   = i === PIPELINE_STAGES.length - 1;
+      const prevKey  = i > 0 ? PIPELINE_STAGES[i - 1].key : null;
+      const connFilled = prevKey && statusMap[prevKey] && !statusMap[prevKey].isCurrent;
+
+      let state, nodeInner, timeLabel;
+      if (visit) {
+        if (visit.isCurrent) {
+          state     = 'current';
+          nodeInner = stage.key === 'launched' ? '<span style="font-size:.95rem;line-height:1">🚀</span>' : '';
+          timeLabel = stage.key === 'launched'
+            ? `<span class="pipe-date">${formatDate(new Date(visit.enteredAt).toISOString().replace('T',' ').slice(0,19))}</span>`
+            : `<span class="pipe-ongoing">${formatDuration(now - visit.enteredAt)}</span>`;
+        } else {
+          state     = 'completed';
+          nodeInner = `<svg width="10" height="10" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+          timeLabel = stage.key === 'launched'
+            ? `<span class="pipe-date">${formatDate(new Date(visit.enteredAt).toISOString().replace('T',' ').slice(0,19))}</span>`
+            : formatDuration(visit.exitedAt - visit.enteredAt);
+        }
+      } else {
+        state     = 'pending';
+        nodeInner = '';
+        timeLabel = '<span style="color:var(--border)">—</span>';
+      }
+
+      const activeDot = state === 'current' && stage.key !== 'launched' ? '<span class="pipe-active-dot"></span>' : '';
+
+      return `${i > 0 ? `<div class="pipe-connector${connFilled ? ' filled' : ''}"></div>` : ''}
+        <div class="pipe-step ${state}">
+          <div class="pipe-node">${nodeInner}</div>
+          <div class="pipe-step-label">${stage.label}${activeDot}</div>
+          <div class="pipe-step-time">${timeLabel}</div>
+        </div>`;
     }).join('');
+
+    container.innerHTML = `<div class="pipeline">${html}</div>`;
   } catch {
-    body.innerHTML = '<p style="color:var(--text-muted);font-size:.8rem">Could not load timeline.</p>';
+    container.innerHTML = '<p style="color:var(--text-muted);font-size:.8rem">Could not load pipeline.</p>';
   }
 }
 
@@ -754,7 +807,8 @@ function openEdit(id) {
   const r = allLaunches.find(x => x.id === id);
   if (!r) return;
   editingId = id;
-  document.getElementById('modal-title').textContent = `Edit — ${r.account_name}`;
+  document.getElementById('modal-title').textContent = r.account_name;
+  document.getElementById('modal-domain-sub').textContent = r.domain_name ? `🌐 ${r.domain_name}` : '';
   document.getElementById('modal-submitted').textContent = `Submitted ${formatDate(r.created_at)}`;
   document.getElementById('modal-industry').value     = r.industry || '';
   document.getElementById('modal-department').value   = r.department || '';
@@ -1087,27 +1141,35 @@ function renderDomainInfo(data) {
   const body = document.getElementById('domain-info-body');
   const fmt  = iso => iso ? new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
 
-  const now     = Date.now();
-  const expires = data.expires ? new Date(data.expires) : null;
+  const now      = Date.now();
+  const expires  = data.expires ? new Date(data.expires) : null;
   const daysLeft = expires ? Math.ceil((expires - now) / 86400000) : null;
-  const expiryWarning = daysLeft !== null && daysLeft < 60
-    ? ` <span style="color:#f97316;font-weight:700">(${daysLeft}d left)</span>` : '';
+  const warnBadge = daysLeft !== null && daysLeft < 60
+    ? `<span class="domain-expiry-warn">${daysLeft}d left</span>` : '';
 
-  const rows = [
-    ['Registrar',    esc(data.registrar || '—')],
-    ['Created',      fmt(data.created)],
-    ['Expires',      fmt(data.expires) + expiryWarning],
-    ['Nameservers',  data.nameservers?.length
-      ? data.nameservers.map(ns => `<span style="display:block">${esc(ns)}</span>`).join('')
-      : '—'],
-  ];
+  const nameservers = data.nameservers?.length
+    ? data.nameservers.map(ns => `<div class="domain-ns-item">${esc(ns)}</div>`).join('')
+    : '<span style="color:var(--text-muted)">—</span>';
 
-  body.innerHTML = rows.map(([label, value]) =>
-    `<div style="display:flex;justify-content:space-between;gap:1rem;padding:.2rem 0;font-size:.82rem;border-bottom:1px solid var(--border)">
-      <span style="color:var(--text-muted);font-weight:600;white-space:nowrap">${label}</span>
-      <span style="text-align:right;word-break:break-all">${value}</span>
-    </div>`
-  ).join('');
+  body.innerHTML = `
+    <div class="domain-grid">
+      <div class="domain-stat">
+        <div class="domain-stat-label">Registrar</div>
+        <div class="domain-stat-value">${esc(data.registrar || '—')}</div>
+      </div>
+      <div class="domain-stat">
+        <div class="domain-stat-label">Created</div>
+        <div class="domain-stat-value">${fmt(data.created)}</div>
+      </div>
+      <div class="domain-stat">
+        <div class="domain-stat-label">Expires</div>
+        <div class="domain-stat-value">${fmt(data.expires)} ${warnBadge}</div>
+      </div>
+      <div class="domain-stat domain-stat-full">
+        <div class="domain-stat-label">Nameservers</div>
+        <div class="domain-stat-value">${nameservers}</div>
+      </div>
+    </div>`;
 }
 
 // Initial load
