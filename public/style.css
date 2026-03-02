@@ -764,7 +764,7 @@ tr:hover .sticky-col { background: #f8fafc; }
   overflow-y: auto;
 }
 #admin-panel {
-  background: var(--card);
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 12px;
   width: 100%;
