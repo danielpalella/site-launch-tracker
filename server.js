@@ -1,26 +1,32 @@
 import express from 'express';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import db from './database.js';
+import { initializeApp, getApps } from 'firebase-admin/app';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// ── Firebase init ──
+if (!getApps().length) initializeApp();
+const db = getFirestore();
+
+// ── Google OAuth config ──
 const GOOGLE_CLIENT_ID     = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 const GOOGLE_REDIRECT_URI  = process.env.GOOGLE_REDIRECT_URI || `http://localhost:${PORT}/auth/google/callback`;
 const ALLOWED_DOMAIN       = 'realworklabs.com';
 
 if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
-  console.warn('\n  ⚠️  GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be set in your .env file.\n');
+  console.warn('\n  ⚠️  GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be set.\n');
 }
 
 function generateToken() {
   return Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
 
-// Short-lived in-memory store for OAuth state (CSRF protection)
+// ── OAuth state (CSRF) ──
 const oauthStates = new Map();
 function createState() {
   const state = crypto.randomUUID();
@@ -44,12 +50,50 @@ function getCookies(req) {
   return cookies;
 }
 
-function requireAuth(req, res, next) {
+// ── Session cache (in-memory, 5 min TTL) to reduce Firestore reads ──
+const sessionCache = new Map();
+
+async function requireAuth(req, res, next) {
   const { auth_token } = getCookies(req);
-  const valid = auth_token && db.prepare('SELECT token FROM sessions WHERE token = ?').get(auth_token);
-  if (valid) return next();
-  if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'Unauthorized' });
-  res.redirect('/login');
+  const fail = () => {
+    if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'Unauthorized' });
+    res.redirect('/login');
+  };
+  if (!auth_token) return fail();
+  if ((sessionCache.get(auth_token) || 0) > Date.now()) return next();
+  try {
+    const session = await db.collection('sessions').doc(auth_token).get();
+    if (!session.exists) { sessionCache.delete(auth_token); return fail(); }
+    sessionCache.set(auth_token, Date.now() + 300_000);
+    next();
+  } catch { fail(); }
+}
+
+// ── Firestore helpers ──
+function fmtTs(timestamp) {
+  if (!timestamp) return null;
+  const d = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+  return d.toISOString().replace('T', ' ').slice(0, 19);
+}
+
+function formatLaunch(doc) {
+  const d = doc.data();
+  return {
+    id:               doc.id,
+    department:       d.department       || '',
+    account_name:     d.account_name     || '',
+    domain_name:      d.domain_name      || '',
+    contact_name:     d.contact_name     || '',
+    email:            d.email            || '',
+    phone:            d.phone            || '',
+    status:           d.status           || 'new',
+    notes:            d.notes            || '',
+    industry:         d.industry         || '',
+    owner:            d.owner            || '',
+    created_at:       fmtTs(d.created_at),
+    updated_at:       fmtTs(d.updated_at),
+    status_changed_at: fmtTs(d.status_changed_at),
+  };
 }
 
 app.use(express.json());
@@ -72,9 +116,7 @@ app.get('/auth/google', (_req, res) => {
 
 app.get('/auth/google/callback', async (req, res) => {
   const { code, state, error } = req.query;
-  if (error || !code || !consumeState(state)) {
-    return res.redirect('/login?error=cancelled');
-  }
+  if (error || !code || !consumeState(state)) return res.redirect('/login?error=cancelled');
   try {
     const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
@@ -95,13 +137,10 @@ app.get('/auth/google/callback', async (req, res) => {
     });
     const user = await userRes.json();
     if (!userRes.ok) throw new Error('userinfo fetch failed');
-
-    if (!user.email?.endsWith(`@${ALLOWED_DOMAIN}`)) {
-      return res.redirect('/login?error=domain');
-    }
+    if (!user.email?.endsWith(`@${ALLOWED_DOMAIN}`)) return res.redirect('/login?error=domain');
 
     const token = generateToken();
-    db.prepare('INSERT INTO sessions (token) VALUES (?)').run(token);
+    await db.collection('sessions').doc(token).set({ created_at: FieldValue.serverTimestamp() });
     res.setHeader('Set-Cookie', `auth_token=${token}; Path=/; HttpOnly; SameSite=Lax`);
     res.redirect('/dashboard');
   } catch (err) {
@@ -110,58 +149,64 @@ app.get('/auth/google/callback', async (req, res) => {
   }
 });
 
-app.post('/api/auth/login', (req, res) => {
-  if (req.body.password !== 'duda') {
-    return res.status(401).json({ error: 'Incorrect password.' });
-  }
+app.post('/api/auth/login', async (req, res) => {
+  if (req.body.password !== 'duda') return res.status(401).json({ error: 'Incorrect password.' });
   const token = generateToken();
-  db.prepare('INSERT INTO sessions (token) VALUES (?)').run(token);
+  await db.collection('sessions').doc(token).set({ created_at: FieldValue.serverTimestamp() });
   res.setHeader('Set-Cookie', `auth_token=${token}; Path=/; HttpOnly; SameSite=Lax`);
   res.json({ ok: true });
 });
 
-app.post('/api/auth/logout', (req, res) => {
+app.post('/api/auth/logout', async (req, res) => {
   const { auth_token } = getCookies(req);
-  if (auth_token) db.prepare('DELETE FROM sessions WHERE token = ?').run(auth_token);
+  if (auth_token) {
+    sessionCache.delete(auth_token);
+    await db.collection('sessions').doc(auth_token).delete().catch(() => {});
+  }
   res.setHeader('Set-Cookie', 'auth_token=; Path=/; Max-Age=0');
   res.json({ ok: true });
 });
 
-// ── Launches API (protected except POST — form submissions are public) ──
-const VALID_STATUSES = [
-  'new', 'in_progress', 'awaiting_dns',
-  'awaiting_approval', 'launched'
-];
+// ── Launches API ──
+const VALID_STATUSES = ['new', 'in_progress', 'awaiting_dns', 'awaiting_approval', 'launched'];
 
-app.get('/api/launches', requireAuth, (req, res) => {
-  const { status, search, department, industry, owner } = req.query;
-  let query = 'SELECT * FROM launches';
-  const params = [];
-  const conditions = [];
+app.get('/api/launches', requireAuth, async (req, res) => {
+  try {
+    const { status, search, department, industry, owner } = req.query;
+    const snapshot = await db.collection('launches').orderBy('created_at', 'desc').get();
+    let launches = snapshot.docs.map(formatLaunch);
 
-  if (status && status !== 'all') { conditions.push('status = ?'); params.push(status); }
-  if (department && department !== 'all') { conditions.push('department = ?'); params.push(department); }
-  if (industry && industry !== 'all') { conditions.push('industry = ?'); params.push(industry); }
-  if (owner && owner !== 'all') { conditions.push('owner = ?'); params.push(owner); }
-  if (search) {
-    conditions.push('(account_name LIKE ? OR domain_name LIKE ? OR contact_name LIKE ?)');
-    const term = `%${search}%`;
-    params.push(term, term, term);
+    if (status     && status     !== 'all') launches = launches.filter(r => r.status     === status);
+    if (department && department !== 'all') launches = launches.filter(r => r.department === department);
+    if (industry   && industry   !== 'all') launches = launches.filter(r => r.industry   === industry);
+    if (owner      && owner      !== 'all') launches = launches.filter(r => r.owner      === owner);
+    if (search) {
+      const term = search.toLowerCase();
+      launches = launches.filter(r =>
+        r.account_name.toLowerCase().includes(term) ||
+        r.domain_name.toLowerCase().includes(term)  ||
+        r.contact_name.toLowerCase().includes(term)
+      );
+    }
+    res.json(launches);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch launches.' });
   }
-  if (conditions.length) query += ' WHERE ' + conditions.join(' AND ');
-  query += ' ORDER BY created_at DESC';
-
-  res.json(db.prepare(query).all(...params));
 });
 
-app.get('/api/launches/:id', requireAuth, (req, res) => {
-  const row = db.prepare('SELECT * FROM launches WHERE id = ?').get(req.params.id);
-  if (!row) return res.status(404).json({ error: 'Not found' });
-  res.json(row);
+app.get('/api/launches/:id', requireAuth, async (req, res) => {
+  try {
+    const doc = await db.collection('launches').doc(req.params.id).get();
+    if (!doc.exists) return res.status(404).json({ error: 'Not found' });
+    res.json(formatLaunch(doc));
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch launch.' });
+  }
 });
 
-// POST is public — the submission form doesn't require a login
-app.post('/api/launches', (req, res) => {
+// POST is public — form submissions don't require login
+app.post('/api/launches', async (req, res) => {
   const { department, account_name, domain_name, contact_name, email, phone, industry, notes } = req.body;
   if (!department || !account_name || !domain_name || !contact_name || !email || !phone || !industry) {
     return res.status(400).json({ error: 'All fields are required.' });
@@ -169,57 +214,104 @@ app.post('/api/launches', (req, res) => {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return res.status(400).json({ error: 'Invalid email address.' });
   }
-  const result = db.prepare(`
-    INSERT INTO launches (department, account_name, domain_name, contact_name, email, phone, industry, notes, status)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'new')
-  `).run(department, account_name.trim(), domain_name.trim().toLowerCase(), contact_name.trim(), email.trim().toLowerCase(), phone.trim(), industry, (notes || '').trim());
-  db.prepare('INSERT INTO status_history (launch_id, status) VALUES (?, ?)').run(result.lastInsertRowid, 'new');
-  res.status(201).json(db.prepare('SELECT * FROM launches WHERE id = ?').get(result.lastInsertRowid));
-});
-
-app.patch('/api/launches/:id', requireAuth, (req, res) => {
-  const { status, notes, department, industry, account_name, domain_name, contact_name, email, phone, owner } = req.body;
-  const row = db.prepare('SELECT * FROM launches WHERE id = ?').get(req.params.id);
-  if (!row) return res.status(404).json({ error: 'Not found' });
-  if (status && !VALID_STATUSES.includes(status)) return res.status(400).json({ error: 'Invalid status.' });
-
-  const newStatus   = status       || row.status;
-  const newNotes    = notes        !== undefined ? notes               : row.notes;
-  const newDept     = department   || row.department;
-  const newIndustry = industry     !== undefined ? industry            : row.industry;
-  const newAccount  = account_name ? account_name.trim()              : row.account_name;
-  const newDomain   = domain_name  ? domain_name.trim().toLowerCase() : row.domain_name;
-  const newContact  = contact_name ? contact_name.trim()              : row.contact_name;
-  const newEmail    = email        ? email.trim().toLowerCase()        : row.email;
-  const newPhone    = phone        ? phone.trim()                      : row.phone;
-  const newOwner    = owner        !== undefined ? owner               : row.owner;
-  const statusChanged = newStatus !== row.status;
-
-  const changedAt = statusChanged ? `, status_changed_at = datetime('now')` : '';
-  db.prepare(`UPDATE launches SET status=?, notes=?, department=?, industry=?, account_name=?, domain_name=?, contact_name=?, email=?, phone=?, owner=?, updated_at=datetime('now')${changedAt} WHERE id=?`)
-    .run(newStatus, newNotes, newDept, newIndustry, newAccount, newDomain, newContact, newEmail, newPhone, newOwner, Number(req.params.id));
-
-  if (statusChanged) {
-    db.prepare('INSERT INTO status_history (launch_id, status) VALUES (?, ?)').run(Number(req.params.id), newStatus);
+  try {
+    const now = FieldValue.serverTimestamp();
+    const ref = await db.collection('launches').add({
+      department,
+      account_name:      account_name.trim(),
+      domain_name:       domain_name.trim().toLowerCase(),
+      contact_name:      contact_name.trim(),
+      email:             email.trim().toLowerCase(),
+      phone:             phone.trim(),
+      industry,
+      notes:             (notes || '').trim(),
+      status:            'new',
+      owner:             '',
+      created_at:        now,
+      updated_at:        now,
+      status_changed_at: now,
+    });
+    await ref.collection('history').add({ status: 'new', entered_at: now });
+    const doc = await ref.get();
+    res.status(201).json(formatLaunch(doc));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to create launch.' });
   }
-
-  res.json(db.prepare('SELECT * FROM launches WHERE id = ?').get(req.params.id));
 });
 
-app.get('/api/launches/:id/history', requireAuth, (req, res) => {
-  const rows = db.prepare('SELECT * FROM status_history WHERE launch_id = ? ORDER BY entered_at ASC').all(Number(req.params.id));
-  res.json(rows);
+app.patch('/api/launches/:id', requireAuth, async (req, res) => {
+  try {
+    const { status, notes, department, industry, account_name, domain_name, contact_name, email, phone, owner } = req.body;
+    const ref = db.collection('launches').doc(req.params.id);
+    const doc = await ref.get();
+    if (!doc.exists) return res.status(404).json({ error: 'Not found' });
+    const row = doc.data();
+    if (status && !VALID_STATUSES.includes(status)) return res.status(400).json({ error: 'Invalid status.' });
+
+    const newStatus     = status || row.status;
+    const statusChanged = newStatus !== row.status;
+
+    const updates = {
+      status:       newStatus,
+      notes:        notes        !== undefined ? notes               : (row.notes || ''),
+      department:   department   || row.department,
+      industry:     industry     !== undefined ? industry            : (row.industry || ''),
+      account_name: account_name ? account_name.trim()              : row.account_name,
+      domain_name:  domain_name  ? domain_name.trim().toLowerCase() : row.domain_name,
+      contact_name: contact_name ? contact_name.trim()              : row.contact_name,
+      email:        email        ? email.trim().toLowerCase()        : row.email,
+      phone:        phone        ? phone.trim()                      : row.phone,
+      owner:        owner        !== undefined ? owner               : (row.owner || ''),
+      updated_at:   FieldValue.serverTimestamp(),
+    };
+    if (statusChanged) updates.status_changed_at = FieldValue.serverTimestamp();
+
+    await ref.update(updates);
+    if (statusChanged) {
+      await ref.collection('history').add({ status: newStatus, entered_at: FieldValue.serverTimestamp() });
+    }
+
+    const updated = await ref.get();
+    res.json(formatLaunch(updated));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to update launch.' });
+  }
 });
 
-app.delete('/api/launches/:id', requireAuth, (req, res) => {
-  const row = db.prepare('SELECT * FROM launches WHERE id = ?').get(req.params.id);
-  if (!row) return res.status(404).json({ error: 'Not found' });
-  db.prepare('DELETE FROM launches WHERE id = ?').run(Number(req.params.id));
-  res.json({ success: true });
+app.get('/api/launches/:id/history', requireAuth, async (req, res) => {
+  try {
+    const snapshot = await db.collection('launches').doc(req.params.id)
+      .collection('history').orderBy('entered_at', 'asc').get();
+    res.json(snapshot.docs.map(doc => ({
+      id:         doc.id,
+      launch_id:  req.params.id,
+      status:     doc.data().status,
+      entered_at: fmtTs(doc.data().entered_at),
+    })));
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch history.' });
+  }
+});
+
+app.delete('/api/launches/:id', requireAuth, async (req, res) => {
+  try {
+    const ref = db.collection('launches').doc(req.params.id);
+    const doc = await ref.get();
+    if (!doc.exists) return res.status(404).json({ error: 'Not found' });
+    const history = await ref.collection('history').get();
+    const batch = db.batch();
+    history.docs.forEach(d => batch.delete(d.ref));
+    batch.delete(ref);
+    await batch.commit();
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete launch.' });
+  }
 });
 
 // ── RDAP / Domain Info ──
-// Cache the IANA bootstrap (which RDAP server handles each TLD) for 24h
 let rdapBootstrap = null;
 let rdapBootstrapExpiry = 0;
 
@@ -240,48 +332,35 @@ async function getRdapBaseUrl(tld) {
   return null;
 }
 
-// Cache domain results server-side for 1 hour
 const domainCache = new Map();
 
 app.get('/api/domain-info/:domain', requireAuth, async (req, res) => {
   const domain = req.params.domain.toLowerCase().replace(/^https?:\/\//, '').split('/')[0];
-
   const cached = domainCache.get(domain);
   if (cached && Date.now() < cached.expiry) return res.json(cached.data);
-
   try {
     const tld = domain.split('.').pop();
     const baseUrl = await getRdapBaseUrl(tld);
     if (!baseUrl) return res.status(404).json({ error: `No RDAP server found for .${tld}` });
-
     const rdapRes = await fetch(`${baseUrl}domain/${domain}`, {
       headers: { Accept: 'application/json' },
       signal: AbortSignal.timeout(10000),
     });
     if (!rdapRes.ok) return res.status(404).json({ error: 'Domain not found.' });
     const data = await rdapRes.json();
-
-    // Registrar
     let registrar = null;
     const regEntity = data.entities?.find(e => e.roles?.includes('registrar'));
     if (regEntity?.vcardArray?.[1]) {
       const fn = regEntity.vcardArray[1].find(p => p[0] === 'fn');
       if (fn) registrar = fn[3];
     }
-
-    // Key dates
     const dates = {};
     for (const ev of data.events || []) {
       if (ev.eventAction === 'registration') dates.created = ev.eventDate;
       if (ev.eventAction === 'expiration')   dates.expires = ev.eventDate;
       if (ev.eventAction === 'last changed') dates.updated = ev.eventDate;
     }
-
-    // Nameservers
-    const nameservers = (data.nameservers || [])
-      .map(ns => ns.ldhName?.toLowerCase())
-      .filter(Boolean);
-
+    const nameservers = (data.nameservers || []).map(ns => ns.ldhName?.toLowerCase()).filter(Boolean);
     const result = { registrar, nameservers, ...dates };
     domainCache.set(domain, { data: result, expiry: Date.now() + 3600000 });
     res.json(result);
