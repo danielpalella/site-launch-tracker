@@ -149,13 +149,6 @@ app.get('/auth/google/callback', async (req, res) => {
   }
 });
 
-app.post('/api/auth/login', async (req, res) => {
-  if (req.body.password !== 'duda') return res.status(401).json({ error: 'Incorrect password.' });
-  const token = generateToken();
-  await db.collection('sessions').doc(token).set({ created_at: FieldValue.serverTimestamp() });
-  res.setHeader('Set-Cookie', `auth_token=${token}; Path=/; HttpOnly; SameSite=Lax`);
-  res.json({ ok: true });
-});
 
 app.post('/api/auth/logout', async (req, res) => {
   const { auth_token } = getCookies(req);

@@ -15,24 +15,10 @@
       justify-content: center;
       padding: 1.5rem;
     }
-    .login-box {
-      width: 100%;
-      max-width: 380px;
-    }
-    .login-logo {
-      text-align: center;
-      margin-bottom: 2rem;
-    }
-    .login-logo img {
-      height: 48px;
-      width: auto;
-      object-fit: contain;
-    }
-    .login-logo .text-brand {
-      font-size: 1.4rem;
-      font-weight: 700;
-      color: var(--primary);
-    }
+    .login-box { width: 100%; max-width: 380px; }
+    .login-logo { text-align: center; margin-bottom: 2rem; }
+    .login-logo img { height: 48px; width: auto; object-fit: contain; }
+    .login-logo .text-brand { font-size: 1.4rem; font-weight: 700; color: var(--primary); }
     .login-logo .text-brand span { color: var(--text); }
     .login-box h1 { font-size: 1.2rem; margin-bottom: .25rem; }
     .login-box .subtitle { margin-bottom: 1.5rem; }
@@ -64,37 +50,10 @@
       transition: background .15s, box-shadow .15s;
       box-shadow: 0 1px 3px rgba(0,0,0,.08);
     }
-    .btn-google:hover {
-      background: #f8f9fa;
-      box-shadow: 0 2px 8px rgba(0,0,0,.12);
-    }
-    [data-theme="dark"] .btn-google {
-      background: #1e293b;
-      color: #f1f5f9;
-      border-color: #334155;
-    }
+    .btn-google:hover { background: #f8f9fa; box-shadow: 0 2px 8px rgba(0,0,0,.12); }
+    [data-theme="dark"] .btn-google { background: #1e293b; color: #f1f5f9; border-color: #334155; }
     [data-theme="dark"] .btn-google:hover { background: #263347; }
-    .login-domain {
-      text-align: center;
-      font-size: .75rem;
-      color: var(--text-muted);
-      margin-top: 1rem;
-    }
-    .login-divider {
-      display: flex;
-      align-items: center;
-      gap: .75rem;
-      margin: 1.25rem 0;
-      font-size: .75rem;
-      color: var(--text-muted);
-    }
-    .login-divider::before, .login-divider::after {
-      content: '';
-      flex: 1;
-      height: 1px;
-      background: var(--border);
-    }
-    .login-box .btn-primary { width: 100%; justify-content: center; }
+    .login-domain { text-align: center; font-size: .75rem; color: var(--text-muted); margin-top: 1rem; }
   </style>
 </head>
 <body>
@@ -118,17 +77,6 @@
         Sign in with Google
       </a>
       <p class="login-domain">Restricted to @realworklabs.com accounts</p>
-      <div class="login-divider">or</div>
-      <form id="login-form" novalidate>
-        <div>
-          <label for="password">Password</label>
-          <input type="password" id="password" name="password" placeholder="Enter password" />
-          <div class="field-error" id="err-password"></div>
-        </div>
-        <div class="form-actions">
-          <button type="submit" class="btn btn-primary" id="login-btn">Sign In</button>
-        </div>
-      </form>
     </div>
   </div>
 </div>
@@ -158,36 +106,6 @@ function toggleDark() {
     el.style.display = 'block';
   }
 })();
-
-document.getElementById('login-form').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const password = document.getElementById('password').value;
-  const errEl = document.getElementById('err-password');
-  const btn = document.getElementById('login-btn');
-  errEl.textContent = '';
-  if (!password) { errEl.textContent = 'Password is required.'; return; }
-  btn.disabled = true;
-  btn.textContent = 'Signing in…';
-  try {
-    const res = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password })
-    });
-    const json = await res.json();
-    if (!res.ok) {
-      errEl.textContent = json.error || 'Incorrect password.';
-      btn.disabled = false;
-      btn.textContent = 'Sign In';
-      return;
-    }
-    window.location.href = '/dashboard';
-  } catch {
-    errEl.textContent = 'Something went wrong. Try again.';
-    btn.disabled = false;
-    btn.textContent = 'Sign In';
-  }
-});
 </script>
 </body>
 </html>
