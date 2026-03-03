@@ -209,6 +209,9 @@ document.getElementById('submit-another').addEventListener('click', () => {
   document.getElementById('launch-form').reset();
   document.getElementById('success-card').style.display = 'none';
   document.getElementById('form-card').style.display = 'block';
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = false;
+  btn.textContent = 'Submit Launch Request';
 });
 </script>
 </body>
