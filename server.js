@@ -538,6 +538,7 @@ function formatEditRequest(doc) {
     phone:        d.phone        || '',
     requests:     d.requests     || [],
     status:       d.status       || 'new',
+    owner:        d.owner        || '',
     notes:        d.notes        || '',
     created_at:   fmtTs(d.created_at),
     updated_at:   fmtTs(d.updated_at),
@@ -576,6 +577,7 @@ app.post('/api/edit-requests', upload.any(), async (req, res) => {
       phone:        phone.trim(),
       requests,
       status:    'new',
+      owner:     '',
       notes:     '',
       created_at: now,
       updated_at: now,
@@ -609,7 +611,7 @@ app.get('/api/edit-requests/:id', requireAuth, async (req, res) => {
 
 app.patch('/api/edit-requests/:id', requireAuth, async (req, res) => {
   try {
-    const { status, notes } = req.body;
+    const { status, notes, owner } = req.body;
     const ref = db.collection('edit_requests').doc(req.params.id);
     const doc = await ref.get();
     if (!doc.exists) return res.status(404).json({ error: 'Not found' });
@@ -617,6 +619,7 @@ app.patch('/api/edit-requests/:id', requireAuth, async (req, res) => {
     const updates = { updated_at: FieldValue.serverTimestamp() };
     if (status !== undefined) updates.status = status;
     if (notes  !== undefined) updates.notes  = notes;
+    if (owner  !== undefined) updates.owner  = owner;
     await ref.update(updates);
     const updated = await ref.get();
     res.json(formatEditRequest(updated));

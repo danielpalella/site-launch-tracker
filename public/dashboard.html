@@ -178,12 +178,13 @@
             <th>Company</th>
             <th>Contact</th>
             <th>Requests</th>
+            <th>Owner</th>
             <th>Status</th>
             <th>Submitted</th>
           </tr>
         </thead>
         <tbody id="er-table-body">
-          <tr><td colspan="5"><div class="empty"><p>Loading…</p></div></td></tr>
+          <tr><td colspan="6"><div class="empty"><p>Loading…</p></div></td></tr>
         </tbody>
       </table>
     </div>
@@ -348,17 +349,27 @@
     <!-- Request blocks -->
     <div class="crm-section" id="er-modal-requests"></div>
 
-    <!-- Status + Notes -->
+    <!-- Status + Owner + Notes -->
     <div class="crm-section">
-      <div class="crm-field" style="max-width:220px">
-        <label for="er-modal-status">Status</label>
-        <select id="er-modal-status" onchange="updateErStatusBadge(this.value)">
-          <option value="new">New</option>
-          <option value="in_progress">In Progress</option>
-          <option value="need_info">Need Info</option>
-          <option value="completed">Completed</option>
-          <option value="rejected">Rejected</option>
-        </select>
+      <div class="crm-row">
+        <div class="crm-field">
+          <label for="er-modal-status">Status</label>
+          <select id="er-modal-status" onchange="updateErStatusBadge(this.value)">
+            <option value="new">New</option>
+            <option value="in_progress">In Progress</option>
+            <option value="need_info">Need Info</option>
+            <option value="completed">Completed</option>
+            <option value="rejected">Rejected</option>
+          </select>
+        </div>
+        <div class="crm-field">
+          <label for="er-modal-owner">Owner</label>
+          <select id="er-modal-owner">
+            <option value="">— Unassigned —</option>
+            <option value="Daniel">Daniel</option>
+            <option value="Thierry">Thierry</option>
+          </select>
+        </div>
       </div>
       <div class="crm-field" style="margin-top:.65rem">
         <label for="er-modal-notes">Internal Notes</label>
@@ -1209,10 +1220,12 @@ function showContactPopup(e, el) {
 }
 
 // ── Claim / Owner Popup ──
-let claimingId = null;
+let claimingId   = null;
+let claimingType = 'launch'; // 'launch' | 'edit-request'
 function showClaimPopup(e, el) {
   e.stopPropagation();
-  claimingId = el.dataset.id;
+  claimingId   = el.dataset.id;
+  claimingType = el.dataset.type || 'launch';
   const popup = document.getElementById('claim-popup');
   const rect = el.getBoundingClientRect();
   popup.style.top  = (rect.bottom + 6) + 'px';
@@ -1223,14 +1236,18 @@ function showClaimPopup(e, el) {
 async function assignOwner(name) {
   document.getElementById('claim-popup').classList.remove('open');
   if (!claimingId) return;
+  const url = claimingType === 'edit-request'
+    ? `/api/edit-requests/${claimingId}`
+    : `/api/launches/${claimingId}`;
   try {
-    const res = await fetch(`/api/launches/${claimingId}`, {
+    const res = await fetch(url, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ owner: name })
     });
     if (!res.ok) throw new Error();
-    fetchLaunches();
+    if (claimingType === 'edit-request') fetchEditRequests();
+    else fetchLaunches();
   } catch {
     showToast('Failed to assign owner.', 'error');
   }
@@ -1369,7 +1386,7 @@ function renderEditRequests() {
   document.getElementById('er-row-count').textContent = `${data.length} request${data.length !== 1 ? 's' : ''}`;
 
   if (!data.length) {
-    tbody.innerHTML = `<tr><td colspan="5"><div class="empty">
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty">
       <svg width="48" height="48" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
           d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
@@ -1387,6 +1404,11 @@ function renderEditRequests() {
         <div class="contact-email">${esc(r.email)}</div>
       </td>
       <td style="font-size:.8rem;color:var(--text-muted)">${r.requests.length} request${r.requests.length !== 1 ? 's' : ''}</td>
+      <td style="white-space:nowrap">
+        ${r.owner
+          ? `<span class="owner-badge" data-id="${r.id}" data-type="edit-request" onclick="showClaimPopup(event,this)">${esc(r.owner)}</span>`
+          : `<button class="claim-btn" data-id="${r.id}" data-type="edit-request" onclick="showClaimPopup(event,this)">Claim</button>`}
+      </td>
       <td><span class="badge er-status-${esc(r.status)}">${esc(ER_STATUS_LABELS[r.status] || r.status)}</span></td>
       <td style="font-size:.8rem;color:var(--text-muted);white-space:nowrap">${formatDate(r.created_at)}</td>
     </tr>
@@ -1402,6 +1424,7 @@ function openEditRequest(id) {
   document.getElementById('er-modal-contact').textContent   = `${r.first_name} ${r.last_name}  ·  ${r.email}  ·  ${r.phone}`;
   document.getElementById('er-modal-submitted').textContent = `Submitted ${formatDate(r.created_at)}`;
   document.getElementById('er-modal-status').value          = r.status;
+  document.getElementById('er-modal-owner').value           = r.owner || '';
   document.getElementById('er-modal-notes').value           = r.notes || '';
   updateErStatusBadge(r.status);
 
@@ -1446,6 +1469,7 @@ document.getElementById('er-modal-save').addEventListener('click', async () => {
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({
         status: document.getElementById('er-modal-status').value,
+        owner:  document.getElementById('er-modal-owner').value,
         notes:  document.getElementById('er-modal-notes').value,
       }),
     });
