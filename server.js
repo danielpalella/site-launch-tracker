@@ -144,6 +144,7 @@ function formatLaunch(doc) {
     notes:            d.notes            || '',
     industry:         d.industry         || '',
     owner:            d.owner            || '',
+    is_renewal:       d.is_renewal       || false,
     created_at:       fmtTs(d.created_at),
     updated_at:       fmtTs(d.updated_at),
     status_changed_at: fmtTs(d.status_changed_at),
@@ -258,7 +259,7 @@ app.get('/api/launches/:id', requireAuth, async (req, res) => {
 
 // POST is public — form submissions don't require login
 app.post('/api/launches', async (req, res) => {
-  const { department, account_name, domain_name, contact_name, email, phone, industry, notes } = req.body;
+  const { department, account_name, domain_name, contact_name, email, phone, industry, notes, is_renewal } = req.body;
   if (!department || !account_name || !domain_name || !contact_name || !email || !phone || !industry) {
     return res.status(400).json({ error: 'All fields are required.' });
   }
@@ -276,6 +277,7 @@ app.post('/api/launches', async (req, res) => {
       phone:             phone.trim(),
       industry,
       notes:             (notes || '').trim(),
+      is_renewal:        is_renewal === true || is_renewal === 'true',
       status:            'new',
       owner:             '',
       created_at:        now,
@@ -293,7 +295,7 @@ app.post('/api/launches', async (req, res) => {
 
 app.patch('/api/launches/:id', requireAuth, async (req, res) => {
   try {
-    const { status, notes, department, industry, account_name, domain_name, contact_name, email, phone, owner } = req.body;
+    const { status, notes, department, industry, account_name, domain_name, contact_name, email, phone, owner, is_renewal } = req.body;
     const ref = db.collection('launches').doc(req.params.id);
     const doc = await ref.get();
     if (!doc.exists) return res.status(404).json({ error: 'Not found' });
@@ -316,6 +318,7 @@ app.patch('/api/launches/:id', requireAuth, async (req, res) => {
       email:        email        ? email.trim().toLowerCase()        : row.email,
       phone:        phone        ? phone.trim()                      : row.phone,
       owner:        owner        !== undefined ? owner               : (row.owner || ''),
+      is_renewal:   is_renewal   !== undefined ? Boolean(is_renewal) : (row.is_renewal || false),
       updated_at:   FieldValue.serverTimestamp(),
     };
     if (statusChanged) updates.status_changed_at = FieldValue.serverTimestamp();

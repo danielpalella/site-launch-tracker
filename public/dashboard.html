@@ -67,6 +67,7 @@
               <button class="fp-chip" data-filter="industry" data-value="Restoration" onclick="setFilter('industry','Restoration',this)">Restoration</button>
               <button class="fp-chip" data-filter="industry" data-value="Solar" onclick="setFilter('industry','Solar',this)">Solar</button>
               <button class="fp-chip" data-filter="industry" data-value="Flooring" onclick="setFilter('industry','Flooring',this)">Flooring</button>
+              <button class="fp-chip" data-filter="industry" data-value="Other" onclick="setFilter('industry','Other',this)">Other</button>
             </div>
           </div>
           <div class="fp-group">
@@ -146,7 +147,10 @@
     <!-- Header -->
     <div class="crm-header">
       <div>
-        <h2 id="modal-title" class="crm-title">Edit Record</h2>
+        <div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap">
+          <h2 id="modal-title" class="crm-title">Edit Record</h2>
+          <span id="modal-renewal-badge" class="renewal-badge" style="display:none">Renewal</span>
+        </div>
         <div id="modal-domain-sub" class="crm-domain-sub"></div>
       </div>
       <span id="modal-submitted" class="crm-submitted"></span>
@@ -178,6 +182,12 @@
         </div>
         <div class="crm-field"><label for="modal-account_name">Account Name</label><input type="text" id="modal-account_name" /></div>
         <div class="crm-field"><label for="modal-domain_name">Domain</label><input type="text" id="modal-domain_name" /></div>
+        <div id="modal-renewal-wrap" style="display:none">
+          <label class="checkbox-label">
+            <input type="checkbox" id="modal-is_renewal" />
+            Is this a renewal?
+          </label>
+        </div>
         <div class="crm-row">
           <div class="crm-field">
             <label for="modal-industry">Industry</label>
@@ -192,6 +202,7 @@
               <option value="Restoration">Restoration</option>
               <option value="Solar">Solar</option>
               <option value="Flooring">Flooring</option>
+              <option value="Other">Other</option>
             </select>
           </div>
           <div class="crm-field">
@@ -840,10 +851,27 @@ function openEdit(id) {
   document.getElementById('modal-owner').value        = r.owner || '';
   document.getElementById('modal-status').value       = r.status;
   document.getElementById('modal-notes').value        = r.notes || '';
+  document.getElementById('modal-is_renewal').checked = r.is_renewal || false;
+  const isCS = r.department === 'Customer Success';
+  document.getElementById('modal-renewal-wrap').style.display  = isCS ? 'block' : 'none';
+  document.getElementById('modal-renewal-badge').style.display = (r.is_renewal && isCS) ? 'inline-flex' : 'none';
   document.getElementById('modal').classList.add('open');
   loadTimeline(id);
   lookupDomain(r.domain_name);
 }
+
+document.getElementById('modal-department').addEventListener('change', function() {
+  const isCS = this.value === 'Customer Success';
+  document.getElementById('modal-renewal-wrap').style.display = isCS ? 'block' : 'none';
+  if (!isCS) {
+    document.getElementById('modal-is_renewal').checked = false;
+    document.getElementById('modal-renewal-badge').style.display = 'none';
+  }
+});
+
+document.getElementById('modal-is_renewal').addEventListener('change', function() {
+  document.getElementById('modal-renewal-badge').style.display = this.checked ? 'inline-flex' : 'none';
+});
 
 document.getElementById('modal-cancel').addEventListener('click', () => {
   document.getElementById('modal').classList.remove('open');
@@ -869,6 +897,7 @@ document.getElementById('modal-save').addEventListener('click', async () => {
     owner:        document.getElementById('modal-owner').value,
     status:       document.getElementById('modal-status').value,
     notes:        document.getElementById('modal-notes').value,
+    is_renewal:   document.getElementById('modal-is_renewal').checked,
   };
 
   try {
