@@ -509,8 +509,11 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 
 const EDIT_REQUEST_STATUSES = ['new', 'in_progress', 'completed', 'need_info', 'rejected'];
 
 async function uploadToStorage(buffer, filename, mimetype) {
-  const bucketName = process.env.STORAGE_BUCKET;
-  if (!bucketName) return null;
+  // STORAGE_BUCKET can be set explicitly; if not, derive from the project ID
+  // that Cloud Run / Firebase App Hosting injects automatically.
+  const projectId  = process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT;
+  const bucketName = process.env.STORAGE_BUCKET || (projectId ? `${projectId}.firebasestorage.app` : null);
+  if (!bucketName) { console.warn('uploadToStorage: no bucket name available'); return null; }
   try {
     const token       = crypto.randomUUID();
     const safeName    = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
