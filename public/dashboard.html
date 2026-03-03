@@ -21,6 +21,17 @@
 </nav>
 
 <div class="page-wide">
+  <!-- Tab bar -->
+  <div class="dash-tabs">
+    <button class="dash-tab dash-tab-active" id="tab-launches" onclick="switchTab('launches')">Site Launches</button>
+    <button class="dash-tab" id="tab-edit-requests" onclick="switchTab('edit-requests')">
+      Edit Requests
+      <span class="dash-tab-badge" id="er-badge" style="display:none">0</span>
+    </button>
+  </div>
+
+  <!-- ── LAUNCHES VIEW ── -->
+  <div id="view-launches">
   <div class="dashboard-header">
     <div>
       <h1>Site Launch Dashboard</h1>
@@ -138,7 +149,48 @@
       </div>
     </div>
   </div>
-</div>
+  </div><!-- /view-launches -->
+
+  <!-- ── EDIT REQUESTS VIEW ── -->
+  <div id="view-edit-requests" style="display:none">
+  <div class="dashboard-header">
+    <div>
+      <h1>Edit Requests</h1>
+      <p class="subtitle" style="margin-bottom:0">Website edit requests submitted by existing customers.</p>
+    </div>
+  </div>
+  <div class="card">
+    <div class="toolbar">
+      <span class="count" id="er-row-count"></span>
+      <div style="margin-left:auto;display:flex;gap:.5rem;flex-wrap:wrap">
+        <button class="er-status-chip er-chip-active" data-status="all"  onclick="setErStatus('all',this)">All</button>
+        <button class="er-status-chip" data-status="new"         onclick="setErStatus('new',this)">New</button>
+        <button class="er-status-chip" data-status="in_progress" onclick="setErStatus('in_progress',this)">In Progress</button>
+        <button class="er-status-chip" data-status="need_info"   onclick="setErStatus('need_info',this)">Need Info</button>
+        <button class="er-status-chip" data-status="completed"   onclick="setErStatus('completed',this)">Completed</button>
+        <button class="er-status-chip" data-status="rejected"    onclick="setErStatus('rejected',this)">Rejected</button>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table id="er-table">
+        <thead>
+          <tr>
+            <th>Company</th>
+            <th>Contact</th>
+            <th>Requests</th>
+            <th>Status</th>
+            <th>Submitted</th>
+          </tr>
+        </thead>
+        <tbody id="er-table-body">
+          <tr><td colspan="5"><div class="empty"><p>Loading…</p></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  </div><!-- /view-edit-requests -->
+
+</div><!-- /page-wide -->
 
 <!-- Edit Modal -->
 <div class="modal-backdrop" id="modal">
@@ -275,6 +327,48 @@
     <div class="modal-actions">
       <button class="btn btn-ghost" id="confirm-cancel">Cancel</button>
       <button class="btn btn-danger" id="confirm-delete">Yes, Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Request Detail Modal -->
+<div class="modal-backdrop" id="er-modal">
+  <div class="modal crm-modal">
+    <div class="crm-header">
+      <div>
+        <h2 id="er-modal-company" class="crm-title"></h2>
+        <div id="er-modal-contact" class="crm-domain-sub"></div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:.4rem">
+        <span id="er-modal-submitted" class="crm-submitted"></span>
+        <span id="er-modal-status-badge" class="badge"></span>
+      </div>
+    </div>
+
+    <!-- Request blocks -->
+    <div class="crm-section" id="er-modal-requests"></div>
+
+    <!-- Status + Notes -->
+    <div class="crm-section">
+      <div class="crm-field" style="max-width:220px">
+        <label for="er-modal-status">Status</label>
+        <select id="er-modal-status" onchange="updateErStatusBadge(this.value)">
+          <option value="new">New</option>
+          <option value="in_progress">In Progress</option>
+          <option value="need_info">Need Info</option>
+          <option value="completed">Completed</option>
+          <option value="rejected">Rejected</option>
+        </select>
+      </div>
+      <div class="crm-field" style="margin-top:.65rem">
+        <label for="er-modal-notes">Internal Notes</label>
+        <textarea id="er-modal-notes" rows="3" placeholder="Internal notes…" style="resize:vertical"></textarea>
+      </div>
+    </div>
+
+    <div class="modal-actions crm-actions">
+      <button class="btn btn-ghost" id="er-modal-cancel">Close</button>
+      <button class="btn btn-primary" id="er-modal-save">Save Changes</button>
     </div>
   </div>
 </div>
@@ -1221,8 +1315,155 @@ function renderDomainInfo(data) {
     </div>`;
 }
 
+// ── Tab Switching ──
+let currentTab = 'launches';
+
+function switchTab(tab) {
+  currentTab = tab;
+  document.getElementById('view-launches').style.display      = tab === 'launches'      ? '' : 'none';
+  document.getElementById('view-edit-requests').style.display = tab === 'edit-requests' ? '' : 'none';
+  document.getElementById('tab-launches').classList.toggle('dash-tab-active',      tab === 'launches');
+  document.getElementById('tab-edit-requests').classList.toggle('dash-tab-active', tab === 'edit-requests');
+  if (tab === 'edit-requests') fetchEditRequests();
+}
+
+// ── Edit Requests ──
+let allEditRequests = [];
+let erStatusFilter  = 'all';
+let editingErId     = null;
+
+const ER_STATUS_LABELS = {
+  new:         'New',
+  in_progress: 'In Progress',
+  need_info:   'Need Info',
+  completed:   'Completed',
+  rejected:    'Rejected',
+};
+
+function setErStatus(status, btn) {
+  erStatusFilter = status;
+  document.querySelectorAll('.er-status-chip').forEach(c => c.classList.remove('er-chip-active'));
+  btn.classList.add('er-chip-active');
+  renderEditRequests();
+}
+
+async function fetchEditRequests() {
+  try {
+    const res = await fetch('/api/edit-requests');
+    if (res.status === 401) { window.location.href = '/login'; return; }
+    allEditRequests = await res.json();
+    renderEditRequests();
+    // Badge: count "new" requests
+    const newCount = allEditRequests.filter(r => r.status === 'new').length;
+    const badge = document.getElementById('er-badge');
+    if (newCount > 0) { badge.textContent = newCount; badge.style.display = 'inline-flex'; }
+    else { badge.style.display = 'none'; }
+  } catch {
+    if (currentTab === 'edit-requests') showToast('Failed to load edit requests.', 'error');
+  }
+}
+
+function renderEditRequests() {
+  const tbody = document.getElementById('er-table-body');
+  let data = erStatusFilter === 'all' ? allEditRequests : allEditRequests.filter(r => r.status === erStatusFilter);
+  document.getElementById('er-row-count').textContent = `${data.length} request${data.length !== 1 ? 's' : ''}`;
+
+  if (!data.length) {
+    tbody.innerHTML = `<tr><td colspan="5"><div class="empty">
+      <svg width="48" height="48" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+          d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+      </svg>
+      <p>No edit requests found.</p>
+    </div></td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = data.map(r => `
+    <tr data-id="${r.id}" ondblclick="openEditRequest('${r.id}')" style="cursor:pointer">
+      <td><div class="account-name">${esc(r.company_name)}</div></td>
+      <td>
+        <div style="font-weight:600">${esc(r.first_name)} ${esc(r.last_name)}</div>
+        <div class="contact-email">${esc(r.email)}</div>
+      </td>
+      <td style="font-size:.8rem;color:var(--text-muted)">${r.requests.length} request${r.requests.length !== 1 ? 's' : ''}</td>
+      <td><span class="badge er-status-${esc(r.status)}">${esc(ER_STATUS_LABELS[r.status] || r.status)}</span></td>
+      <td style="font-size:.8rem;color:var(--text-muted);white-space:nowrap">${formatDate(r.created_at)}</td>
+    </tr>
+  `).join('');
+}
+
+function openEditRequest(id) {
+  const r = allEditRequests.find(x => x.id === id);
+  if (!r) return;
+  editingErId = id;
+
+  document.getElementById('er-modal-company').textContent   = r.company_name;
+  document.getElementById('er-modal-contact').textContent   = `${r.first_name} ${r.last_name}  ·  ${r.email}  ·  ${r.phone}`;
+  document.getElementById('er-modal-submitted').textContent = `Submitted ${formatDate(r.created_at)}`;
+  document.getElementById('er-modal-status').value          = r.status;
+  document.getElementById('er-modal-notes').value           = r.notes || '';
+  updateErStatusBadge(r.status);
+
+  // Render request blocks
+  const reqsEl = document.getElementById('er-modal-requests');
+  reqsEl.innerHTML = `<div class="crm-section-label" style="margin-bottom:.75rem">Edit Requests (${r.requests.length})</div>` +
+    r.requests.map((req, i) => `
+      <div style="${i < r.requests.length - 1 ? 'margin-bottom:1.1rem;padding-bottom:1rem;border-bottom:1px solid var(--border)' : ''}">
+        <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);margin-bottom:.35rem">Request ${i + 1}</div>
+        <p style="font-size:.9rem;line-height:1.65;margin:0 0 .4rem;white-space:pre-wrap">${esc(req.description)}</p>
+        ${req.image_url ? `<a href="${esc(req.image_url)}" target="_blank" rel="noopener" style="font-size:.78rem;color:var(--primary);display:inline-flex;align-items:center;gap:.3rem;text-decoration:none;margin-top:.2rem">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          ${esc(req.image_name || 'View Image')}
+        </a>` : ''}
+      </div>
+    `).join('');
+
+  document.getElementById('er-modal').classList.add('open');
+}
+
+function updateErStatusBadge(status) {
+  const badge = document.getElementById('er-modal-status-badge');
+  badge.textContent = ER_STATUS_LABELS[status] || status;
+  badge.className   = `badge er-status-${status}`;
+}
+
+document.getElementById('er-modal-cancel').addEventListener('click', () => {
+  document.getElementById('er-modal').classList.remove('open');
+});
+
+document.getElementById('er-modal').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) e.currentTarget.classList.remove('open');
+});
+
+document.getElementById('er-modal-save').addEventListener('click', async () => {
+  const btn = document.getElementById('er-modal-save');
+  btn.disabled    = true;
+  btn.textContent = 'Saving…';
+  try {
+    const res = await fetch(`/api/edit-requests/${editingErId}`, {
+      method:  'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({
+        status: document.getElementById('er-modal-status').value,
+        notes:  document.getElementById('er-modal-notes').value,
+      }),
+    });
+    if (!res.ok) throw new Error();
+    document.getElementById('er-modal').classList.remove('open');
+    showToast('Changes saved.');
+    fetchEditRequests();
+  } catch {
+    showToast('Failed to save changes.', 'error');
+  } finally {
+    btn.disabled    = false;
+    btn.textContent = 'Save Changes';
+  }
+});
+
 // Initial load
 fetchLaunches();
+fetchEditRequests(); // populate badge count
 
 // ── Admin portal ──
 (function() {

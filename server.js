@@ -1,5 +1,7 @@
 import express from 'express';
 import nodemailer from 'nodemailer';
+import multer from 'multer';
+import { getStorage } from 'firebase-admin/storage';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { initializeApp, getApps } from 'firebase-admin/app';
@@ -501,7 +503,130 @@ app.get('/api/domain-info/:domain', requireAuth, async (req, res) => {
   }
 });
 
+// ── Edit Requests ──
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024, files: 3 } });
+
+const EDIT_REQUEST_STATUSES = ['new', 'in_progress', 'completed', 'need_info', 'rejected'];
+
+async function uploadToStorage(buffer, filename, mimetype) {
+  const bucketName = process.env.STORAGE_BUCKET;
+  if (!bucketName) return null;
+  try {
+    const token       = crypto.randomUUID();
+    const safeName    = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const path        = `edit-requests/${Date.now()}-${safeName}`;
+    const bucket      = getStorage().bucket(bucketName);
+    const file        = bucket.file(path);
+    await file.save(buffer, {
+      metadata: { contentType: mimetype, metadata: { firebaseStorageDownloadTokens: token } },
+    });
+    return `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/${encodeURIComponent(path)}?alt=media&token=${token}`;
+  } catch (err) {
+    console.error('Storage upload error:', err.message);
+    return null;
+  }
+}
+
+function formatEditRequest(doc) {
+  const d = doc.data();
+  return {
+    id:           doc.id,
+    company_name: d.company_name || '',
+    first_name:   d.first_name   || '',
+    last_name:    d.last_name    || '',
+    email:        d.email        || '',
+    phone:        d.phone        || '',
+    requests:     d.requests     || [],
+    status:       d.status       || 'new',
+    notes:        d.notes        || '',
+    created_at:   fmtTs(d.created_at),
+    updated_at:   fmtTs(d.updated_at),
+  };
+}
+
+app.post('/api/edit-requests', upload.any(), async (req, res) => {
+  const { company_name, first_name, last_name, email, phone } = req.body || {};
+  if (!company_name || !first_name || !last_name || !email || !phone) {
+    return res.status(400).json({ error: 'All contact fields are required.' });
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ error: 'Invalid email address.' });
+  }
+  const requests = [];
+  for (let i = 0; i < 3; i++) {
+    const description = (req.body[`request_${i}_description`] || '').trim();
+    if (!description) continue;
+    const fileField = `request_${i}_image`;
+    const file = (req.files || []).find(f => f.fieldname === fileField);
+    let image_url = null, image_name = null;
+    if (file) {
+      image_url  = await uploadToStorage(file.buffer, file.originalname, file.mimetype);
+      image_name = file.originalname;
+    }
+    requests.push({ description, image_url, image_name });
+  }
+  if (!requests.length) return res.status(400).json({ error: 'At least one edit request is required.' });
+  try {
+    const now = FieldValue.serverTimestamp();
+    const ref = await db.collection('edit_requests').add({
+      company_name: company_name.trim(),
+      first_name:   first_name.trim(),
+      last_name:    last_name.trim(),
+      email:        email.trim().toLowerCase(),
+      phone:        phone.trim(),
+      requests,
+      status:    'new',
+      notes:     '',
+      created_at: now,
+      updated_at: now,
+    });
+    const doc = await ref.get();
+    res.status(201).json(formatEditRequest(doc));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to submit request.' });
+  }
+});
+
+app.get('/api/edit-requests', requireAuth, async (req, res) => {
+  try {
+    const snapshot = await db.collection('edit_requests').orderBy('created_at', 'desc').get();
+    res.json(snapshot.docs.map(formatEditRequest));
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch edit requests.' });
+  }
+});
+
+app.get('/api/edit-requests/:id', requireAuth, async (req, res) => {
+  try {
+    const doc = await db.collection('edit_requests').doc(req.params.id).get();
+    if (!doc.exists) return res.status(404).json({ error: 'Not found' });
+    res.json(formatEditRequest(doc));
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch edit request.' });
+  }
+});
+
+app.patch('/api/edit-requests/:id', requireAuth, async (req, res) => {
+  try {
+    const { status, notes } = req.body;
+    const ref = db.collection('edit_requests').doc(req.params.id);
+    const doc = await ref.get();
+    if (!doc.exists) return res.status(404).json({ error: 'Not found' });
+    if (status && !EDIT_REQUEST_STATUSES.includes(status)) return res.status(400).json({ error: 'Invalid status.' });
+    const updates = { updated_at: FieldValue.serverTimestamp() };
+    if (status !== undefined) updates.status = status;
+    if (notes  !== undefined) updates.notes  = notes;
+    await ref.update(updates);
+    const updated = await ref.get();
+    res.json(formatEditRequest(updated));
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update edit request.' });
+  }
+});
+
 // ── Pages ──
+app.get('/edit-request', (_req, res) => res.sendFile(join(__dirname, 'public', 'edit-request.html')));
 app.get('/dashboard', requireAuth, (_req, res) => res.sendFile(join(__dirname, 'public', 'dashboard.html')));
 
 app.listen(PORT, () => {
