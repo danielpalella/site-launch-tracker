@@ -106,6 +106,7 @@
         <button class="view-btn view-btn-active" id="view-table-btn" onclick="setView('table')">Table</button>
         <button class="view-btn" id="view-graph-btn" onclick="setView('graph')">Graph</button>
       </div>
+      <button class="btn btn-ghost" id="archived-launches-btn" onclick="toggleArchivedLaunches()">Archived</button>
       <button class="btn btn-ghost" id="export-btn" onclick="handleExportClick(this)">⬇ Export CSV</button>
     </div>
 
@@ -170,6 +171,8 @@
         <button class="er-status-chip" data-status="need_info"   onclick="setErStatus('need_info',this)">Need Info</button>
         <button class="er-status-chip" data-status="completed"   onclick="setErStatus('completed',this)">Completed</button>
         <button class="er-status-chip" data-status="rejected"    onclick="setErStatus('rejected',this)">Rejected</button>
+        <span style="width:1px;background:var(--border);height:18px;align-self:center;flex-shrink:0"></span>
+        <button class="er-status-chip" data-status="archived"    onclick="setErStatus('archived',this)">Archived</button>
       </div>
     </div>
     <div class="table-wrap">
@@ -311,6 +314,7 @@
 
     <div class="modal-actions crm-actions">
       <button class="btn btn-danger" id="modal-delete">Delete</button>
+      <button class="btn btn-ghost" id="modal-archive">Archive</button>
       <div style="display:flex;gap:.75rem;margin-left:auto">
         <button class="btn btn-ghost" id="modal-cancel">Cancel</button>
         <button class="btn btn-primary" id="modal-save">Save Changes</button>
@@ -379,8 +383,11 @@
     </div>
 
     <div class="modal-actions crm-actions">
-      <button class="btn btn-ghost" id="er-modal-cancel">Close</button>
-      <button class="btn btn-primary" id="er-modal-save">Save Changes</button>
+      <button class="btn btn-ghost" id="er-modal-archive">Archive</button>
+      <div style="display:flex;gap:.75rem;margin-left:auto">
+        <button class="btn btn-ghost" id="er-modal-cancel">Close</button>
+        <button class="btn btn-primary" id="er-modal-save">Save Changes</button>
+      </div>
     </div>
   </div>
 </div>
@@ -458,6 +465,7 @@ const STATUS_LABELS = {
 let allLaunches = [];
 let editingId = null;
 let deletingId = null;
+let showArchivedLaunches = false;
 const STATUS_ORDER = ['new', 'in_progress', 'awaiting_approval', 'awaiting_dns', 'launched'];
 
 // ── Chart / View State ──
@@ -961,6 +969,7 @@ function openEdit(id) {
   const isCS = r.department === 'Customer Success';
   document.getElementById('modal-renewal-wrap').style.display  = isCS ? 'block' : 'none';
   document.getElementById('modal-renewal-badge').style.display = (r.is_renewal && isCS) ? 'inline-flex' : 'none';
+  document.getElementById('modal-archive').textContent = r.archived ? 'Unarchive' : 'Archive';
   document.getElementById('modal').classList.add('open');
   loadTimeline(id);
   lookupDomain(r.domain_name);
@@ -986,6 +995,31 @@ document.getElementById('modal-cancel').addEventListener('click', () => {
 document.getElementById('modal-delete').addEventListener('click', () => {
   document.getElementById('modal').classList.remove('open');
   openDelete(editingId);
+});
+
+document.getElementById('modal-archive').addEventListener('click', async () => {
+  const r = allLaunches.find(x => x.id === editingId);
+  if (!r) return;
+  const archiving = !r.archived;
+  const btn = document.getElementById('modal-archive');
+  btn.disabled = true;
+  btn.textContent = archiving ? 'Archiving…' : 'Unarchiving…';
+  try {
+    const res = await fetch(`/api/launches/${editingId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ archived: archiving }),
+    });
+    if (!res.ok) throw new Error();
+    document.getElementById('modal').classList.remove('open');
+    showToast(archiving ? 'Launch archived.' : 'Launch unarchived.');
+    fetchLaunches();
+  } catch {
+    showToast('Failed to archive.', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = archiving ? 'Unarchive' : 'Archive';
+  }
 });
 
 document.getElementById('modal-save').addEventListener('click', async () => {
@@ -1075,10 +1109,14 @@ async function fetchLaunches() {
   const search = document.getElementById('search').value.trim();
   const params = new URLSearchParams();
   if (search) params.set('search', search);
-  if (fpState.status !== 'all') params.set('status', fpState.status);
-  if (fpState.department !== 'all') params.set('department', fpState.department);
-  if (fpState.industry !== 'all') params.set('industry', fpState.industry);
-  if (fpState.owner !== 'all') params.set('owner', fpState.owner);
+  if (showArchivedLaunches) {
+    params.set('archived', 'true');
+  } else {
+    if (fpState.status !== 'all') params.set('status', fpState.status);
+    if (fpState.department !== 'all') params.set('department', fpState.department);
+    if (fpState.industry !== 'all') params.set('industry', fpState.industry);
+    if (fpState.owner !== 'all') params.set('owner', fpState.owner);
+  }
 
   try {
     const res = await fetch('/api/launches?' + params.toString());
@@ -1333,6 +1371,18 @@ function renderDomainInfo(data) {
     </div>`;
 }
 
+// ── Archived Launches Toggle ──
+function toggleArchivedLaunches() {
+  showArchivedLaunches = !showArchivedLaunches;
+  const btn = document.getElementById('archived-launches-btn');
+  btn.style.background   = showArchivedLaunches ? 'var(--primary)' : '';
+  btn.style.color        = showArchivedLaunches ? '#fff'           : '';
+  btn.style.borderColor  = showArchivedLaunches ? 'var(--primary)' : '';
+  // Switch back to table view when browsing archived
+  if (showArchivedLaunches && viewMode === 'graph') setView('table');
+  fetchLaunches();
+}
+
 // ── Tab Switching ──
 let currentTab = 'launches';
 
@@ -1348,6 +1398,7 @@ function switchTab(tab) {
 // ── Edit Requests ──
 let allEditRequests = [];
 let erStatusFilter  = 'all';
+let erShowArchived  = false;
 let editingErId     = null;
 
 const ER_STATUS_LABELS = {
@@ -1360,22 +1411,26 @@ const ER_STATUS_LABELS = {
 
 function setErStatus(status, btn) {
   erStatusFilter = status;
+  erShowArchived  = (status === 'archived');
   document.querySelectorAll('.er-status-chip').forEach(c => c.classList.remove('er-chip-active'));
   btn.classList.add('er-chip-active');
-  renderEditRequests();
+  fetchEditRequests();
 }
 
 async function fetchEditRequests() {
   try {
-    const res = await fetch('/api/edit-requests');
+    const url = erShowArchived ? '/api/edit-requests?archived=true' : '/api/edit-requests';
+    const res = await fetch(url);
     if (res.status === 401) { window.location.href = '/login'; return; }
     allEditRequests = await res.json();
     renderEditRequests();
-    // Badge: count "new" requests
-    const newCount = allEditRequests.filter(r => r.status === 'new').length;
-    const badge = document.getElementById('er-badge');
-    if (newCount > 0) { badge.textContent = newCount; badge.style.display = 'inline-flex'; }
-    else { badge.style.display = 'none'; }
+    // Badge: count "new" non-archived requests (only update when not in archived view)
+    if (!erShowArchived) {
+      const newCount = allEditRequests.filter(r => r.status === 'new').length;
+      const badge = document.getElementById('er-badge');
+      if (newCount > 0) { badge.textContent = newCount; badge.style.display = 'inline-flex'; }
+      else { badge.style.display = 'none'; }
+    }
   } catch {
     if (currentTab === 'edit-requests') showToast('Failed to load edit requests.', 'error');
   }
@@ -1383,7 +1438,7 @@ async function fetchEditRequests() {
 
 function renderEditRequests() {
   const tbody = document.getElementById('er-table-body');
-  let data = erStatusFilter === 'all' ? allEditRequests : allEditRequests.filter(r => r.status === erStatusFilter);
+  let data = (erShowArchived || erStatusFilter === 'all') ? allEditRequests : allEditRequests.filter(r => r.status === erStatusFilter);
   document.getElementById('er-row-count').textContent = `${data.length} request${data.length !== 1 ? 's' : ''}`;
 
   if (!data.length) {
@@ -1427,6 +1482,7 @@ function openEditRequest(id) {
   document.getElementById('er-modal-status').value          = r.status;
   document.getElementById('er-modal-owner').value           = r.owner || '';
   document.getElementById('er-modal-notes').value           = r.notes || '';
+  document.getElementById('er-modal-archive').textContent   = r.archived ? 'Unarchive' : 'Archive';
   updateErStatusBadge(r.status);
 
   // Render request blocks
@@ -1460,6 +1516,31 @@ function updateErStatusBadge(status) {
   badge.textContent = ER_STATUS_LABELS[status] || status;
   badge.className   = `badge er-status-${status}`;
 }
+
+document.getElementById('er-modal-archive').addEventListener('click', async () => {
+  const r = allEditRequests.find(x => x.id === editingErId);
+  if (!r) return;
+  const archiving = !r.archived;
+  const btn = document.getElementById('er-modal-archive');
+  btn.disabled = true;
+  btn.textContent = archiving ? 'Archiving…' : 'Unarchiving…';
+  try {
+    const res = await fetch(`/api/edit-requests/${editingErId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ archived: archiving }),
+    });
+    if (!res.ok) throw new Error();
+    document.getElementById('er-modal').classList.remove('open');
+    showToast(archiving ? 'Request archived.' : 'Request unarchived.');
+    fetchEditRequests();
+  } catch {
+    showToast('Failed to archive.', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = archiving ? 'Unarchive' : 'Archive';
+  }
+});
 
 document.getElementById('er-modal-cancel').addEventListener('click', () => {
   document.getElementById('er-modal').classList.remove('open');

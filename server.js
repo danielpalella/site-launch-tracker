@@ -147,6 +147,7 @@ function formatLaunch(doc) {
     industry:         d.industry         || '',
     owner:            d.owner            || '',
     is_renewal:       d.is_renewal       || false,
+    archived:         d.archived         || false,
     created_at:       fmtTs(d.created_at),
     updated_at:       fmtTs(d.updated_at),
     status_changed_at: fmtTs(d.status_changed_at),
@@ -230,6 +231,10 @@ app.get('/api/launches', requireAuth, async (req, res) => {
     const snapshot = await db.collection('launches').orderBy('created_at', 'desc').get();
     let launches = snapshot.docs.map(formatLaunch);
 
+    // Archived filter: default shows active only; ?archived=true shows archived only
+    if (req.query.archived === 'true') launches = launches.filter(r => r.archived);
+    else launches = launches.filter(r => !r.archived);
+
     if (status     && status     !== 'all') launches = launches.filter(r => r.status     === status);
     if (department && department !== 'all') launches = launches.filter(r => r.department === department);
     if (industry   && industry   !== 'all') launches = launches.filter(r => r.industry   === industry);
@@ -297,7 +302,7 @@ app.post('/api/launches', async (req, res) => {
 
 app.patch('/api/launches/:id', requireAuth, async (req, res) => {
   try {
-    const { status, notes, department, industry, account_name, domain_name, contact_name, email, phone, owner, is_renewal } = req.body;
+    const { status, notes, department, industry, account_name, domain_name, contact_name, email, phone, owner, is_renewal, archived } = req.body;
     const ref = db.collection('launches').doc(req.params.id);
     const doc = await ref.get();
     if (!doc.exists) return res.status(404).json({ error: 'Not found' });
@@ -323,6 +328,7 @@ app.patch('/api/launches/:id', requireAuth, async (req, res) => {
       is_renewal:   is_renewal   !== undefined ? Boolean(is_renewal) : (row.is_renewal || false),
       updated_at:   FieldValue.serverTimestamp(),
     };
+    if (archived  !== undefined) updates.archived = Boolean(archived);
     if (statusChanged) updates.status_changed_at = FieldValue.serverTimestamp();
 
     await ref.update(updates);
@@ -542,6 +548,7 @@ function formatEditRequest(doc) {
     requests:     d.requests     || [],
     status:       d.status       || 'new',
     owner:        d.owner        || '',
+    archived:     d.archived     || false,
     notes:        d.notes        || '',
     created_at:   fmtTs(d.created_at),
     updated_at:   fmtTs(d.updated_at),
@@ -596,7 +603,10 @@ app.post('/api/edit-requests', upload.any(), async (req, res) => {
 app.get('/api/edit-requests', requireAuth, async (req, res) => {
   try {
     const snapshot = await db.collection('edit_requests').orderBy('created_at', 'desc').get();
-    res.json(snapshot.docs.map(formatEditRequest));
+    let requests = snapshot.docs.map(formatEditRequest);
+    if (req.query.archived === 'true') requests = requests.filter(r => r.archived);
+    else requests = requests.filter(r => !r.archived);
+    res.json(requests);
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch edit requests.' });
   }
@@ -614,15 +624,16 @@ app.get('/api/edit-requests/:id', requireAuth, async (req, res) => {
 
 app.patch('/api/edit-requests/:id', requireAuth, async (req, res) => {
   try {
-    const { status, notes, owner } = req.body;
+    const { status, notes, owner, archived } = req.body;
     const ref = db.collection('edit_requests').doc(req.params.id);
     const doc = await ref.get();
     if (!doc.exists) return res.status(404).json({ error: 'Not found' });
     if (status && !EDIT_REQUEST_STATUSES.includes(status)) return res.status(400).json({ error: 'Invalid status.' });
     const updates = { updated_at: FieldValue.serverTimestamp() };
-    if (status !== undefined) updates.status = status;
-    if (notes  !== undefined) updates.notes  = notes;
-    if (owner  !== undefined) updates.owner  = owner;
+    if (status   !== undefined) updates.status   = status;
+    if (notes    !== undefined) updates.notes    = notes;
+    if (owner    !== undefined) updates.owner    = owner;
+    if (archived !== undefined) updates.archived = Boolean(archived);
     await ref.update(updates);
     const updated = await ref.get();
     res.json(formatEditRequest(updated));
