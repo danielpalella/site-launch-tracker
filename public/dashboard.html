@@ -1486,8 +1486,9 @@ function openEditRequest(id) {
   if (!r) return;
   editingErId = id;
 
-  document.getElementById('er-modal-company').textContent   = r.company_name;
-  document.getElementById('er-modal-contact').textContent   = `${r.first_name} ${r.last_name}  ·  ${r.email}  ·  ${r.phone}`;
+  document.getElementById('er-modal-company').textContent = r.company_name;
+  document.getElementById('er-modal-contact').innerHTML =
+    `${esc(r.first_name)} ${esc(r.last_name)}&ensp;·&ensp;<a href="mailto:${esc(r.email)}" style="color:var(--primary);text-decoration:none" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${esc(r.email)}</a>&ensp;·&ensp;${esc(r.phone)}`;
   document.getElementById('er-modal-submitted').textContent = `Submitted ${formatDate(r.created_at)}`;
   document.getElementById('er-modal-status').value          = r.status;
   document.getElementById('er-modal-owner').value           = r.owner || '';
