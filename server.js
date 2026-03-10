@@ -394,6 +394,18 @@ app.delete('/api/launches/:id', requireAuth, async (req, res) => {
   }
 });
 
+app.delete('/api/edit-requests/:id', requireAuth, async (req, res) => {
+  try {
+    const ref = db.collection('edit_requests').doc(req.params.id);
+    const doc = await ref.get();
+    if (!doc.exists) return res.status(404).json({ error: 'Not found' });
+    await ref.delete();
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete edit request.' });
+  }
+});
+
 // ── Admin audit log ──
 app.get('/api/admin/logs', requireAuth, async (req, res) => {
   try {

@@ -326,7 +326,7 @@
 <!-- Delete Confirm Modal -->
 <div class="modal-backdrop" id="confirm-modal">
   <div class="modal">
-    <h2>Delete this launch?</h2>
+    <h2 id="confirm-title">Delete this record?</h2>
     <p style="color:var(--text-muted);font-size:.9rem;margin-top:.5rem">
       This will permanently remove the record. This action cannot be undone.
     </p>
@@ -383,6 +383,7 @@
     </div>
 
     <div class="modal-actions crm-actions">
+      <button class="btn btn-danger" id="er-modal-delete">Delete</button>
       <button class="btn btn-ghost" id="er-modal-archive">Archive</button>
       <div style="display:flex;gap:.75rem;margin-left:auto">
         <button class="btn btn-ghost" id="er-modal-cancel">Close</button>
@@ -465,6 +466,7 @@ const STATUS_LABELS = {
 let allLaunches = [];
 let editingId = null;
 let deletingId = null;
+let deletingType = 'launch'; // 'launch' | 'edit-request'
 let showArchivedLaunches = false;
 const STATUS_ORDER = ['new', 'in_progress', 'awaiting_approval', 'awaiting_dns', 'launched'];
 
@@ -1062,8 +1064,11 @@ document.getElementById('modal-save').addEventListener('click', async () => {
 });
 
 // ── Delete Modal ──
-function openDelete(id) {
-  deletingId = id;
+function openDelete(id, type = 'launch') {
+  deletingId   = id;
+  deletingType = type;
+  document.getElementById('confirm-title').textContent =
+    type === 'edit-request' ? 'Delete this edit request?' : 'Delete this launch?';
   document.getElementById('confirm-modal').classList.add('open');
 }
 
@@ -1076,12 +1081,17 @@ document.getElementById('confirm-delete').addEventListener('click', async () => 
   btn.disabled = true;
   btn.textContent = 'Deleting…';
 
+  const url = deletingType === 'edit-request'
+    ? `/api/edit-requests/${deletingId}`
+    : `/api/launches/${deletingId}`;
+
   try {
-    const res = await fetch(`/api/launches/${deletingId}`, { method: 'DELETE' });
+    const res = await fetch(url, { method: 'DELETE' });
     if (!res.ok) throw new Error();
     document.getElementById('confirm-modal').classList.remove('open');
-    showToast('Launch deleted.');
-    fetchLaunches();
+    showToast(deletingType === 'edit-request' ? 'Edit request deleted.' : 'Launch deleted.');
+    if (deletingType === 'edit-request') fetchEditRequests();
+    else fetchLaunches();
   } catch {
     showToast('Failed to delete.', 'error');
   } finally {
@@ -1516,6 +1526,11 @@ function updateErStatusBadge(status) {
   badge.textContent = ER_STATUS_LABELS[status] || status;
   badge.className   = `badge er-status-${status}`;
 }
+
+document.getElementById('er-modal-delete').addEventListener('click', () => {
+  document.getElementById('er-modal').classList.remove('open');
+  openDelete(editingErId, 'edit-request');
+});
 
 document.getElementById('er-modal-archive').addEventListener('click', async () => {
   const r = allEditRequests.find(x => x.id === editingErId);
