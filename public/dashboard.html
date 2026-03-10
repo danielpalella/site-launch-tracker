@@ -210,7 +210,10 @@
         </div>
         <div id="modal-domain-sub" class="crm-domain-sub"></div>
       </div>
-      <span id="modal-submitted" class="crm-submitted"></span>
+      <div style="text-align:right">
+        <div id="modal-submitted" class="crm-submitted"></div>
+        <div id="modal-submitted-by" class="crm-submitted"></div>
+      </div>
     </div>
 
     <!-- Pipeline -->
@@ -956,7 +959,8 @@ function openEdit(id) {
   editingId = id;
   document.getElementById('modal-title').textContent = r.account_name;
   document.getElementById('modal-domain-sub').textContent = r.domain_name ? `🌐 ${r.domain_name}` : '';
-  document.getElementById('modal-submitted').textContent = `Submitted ${formatDate(r.created_at)}`;
+  document.getElementById('modal-submitted').textContent    = `Submitted ${formatDate(r.created_at)}`;
+  document.getElementById('modal-submitted-by').textContent = r.submitted_by ? `by ${r.submitted_by}` : '';
   document.getElementById('modal-industry').value     = r.industry || '';
   document.getElementById('modal-department').value   = r.department || '';
   document.getElementById('modal-account_name').value = r.account_name || '';

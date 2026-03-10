@@ -79,6 +79,26 @@ async function requireAuth(req, res, next) {
   } catch { fail(); }
 }
 
+// Like requireAuth but never blocks — attaches req.userEmail if session is valid
+async function optionalAuth(req, res, next) {
+  const { auth_token } = getCookies(req);
+  if (!auth_token) return next();
+  const cached = sessionCache.get(auth_token);
+  if (cached && cached.expiry > Date.now()) {
+    req.userEmail = cached.email;
+    return next();
+  }
+  try {
+    const session = await db.collection('sessions').doc(auth_token).get();
+    if (session.exists) {
+      const email = session.data().email || '';
+      sessionCache.set(auth_token, { expiry: Date.now() + 300_000, email });
+      req.userEmail = email;
+    }
+  } catch { /* silent */ }
+  next();
+}
+
 // ── Email (Gmail SMTP via nodemailer) ──
 function getMailTransport() {
   const user = process.env.GMAIL_USER;
@@ -148,6 +168,7 @@ function formatLaunch(doc) {
     owner:            d.owner            || '',
     is_renewal:       d.is_renewal       || false,
     archived:         d.archived         || false,
+    submitted_by:     d.submitted_by     || '',
     created_at:       fmtTs(d.created_at),
     updated_at:       fmtTs(d.updated_at),
     status_changed_at: fmtTs(d.status_changed_at),
@@ -264,8 +285,8 @@ app.get('/api/launches/:id', requireAuth, async (req, res) => {
   }
 });
 
-// POST is public — form submissions don't require login
-app.post('/api/launches', async (req, res) => {
+// POST uses optionalAuth — captures submitter email if they're logged in
+app.post('/api/launches', optionalAuth, async (req, res) => {
   const { department, account_name, domain_name, contact_name, email, phone, industry, notes, is_renewal } = req.body;
   if (!department || !account_name || !domain_name || !contact_name || !email || !phone || !industry) {
     return res.status(400).json({ error: 'All fields are required.' });
@@ -285,6 +306,7 @@ app.post('/api/launches', async (req, res) => {
       industry,
       notes:             (notes || '').trim(),
       is_renewal:        is_renewal === true || is_renewal === 'true',
+      submitted_by:      req.userEmail || '',
       status:            'new',
       owner:             '',
       created_at:        now,
