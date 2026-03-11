@@ -1641,6 +1641,10 @@ async function loadLighthouseHistory(id) {
     const res = await fetch(`/api/launches/${id}/lighthouse`);
     if (!res.ok) throw new Error();
     const audits = await res.json();
+    if (!audits.length) {
+      body.innerHTML = '<p style="color:var(--text-muted);font-size:.8rem">No audits yet. Click Run Audit to get scores.</p>';
+      return;
+    }
     renderLighthouseHistory(audits);
   } catch {
     body.innerHTML = '<p style="color:var(--text-muted);font-size:.8rem">Failed to load history.</p>';

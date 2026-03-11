@@ -824,15 +824,19 @@ app.post('/api/launches/:id/lighthouse', requireAuth, async (req, res) => {
 
     const url    = `https://${domain}`;
     const apiKey = process.env.PAGESPEED_API_KEY;
-    const params = new URLSearchParams({ url, strategy: 'mobile', category: ['performance','accessibility','best-practices','seo'] });
-    if (apiKey) params.set('key', apiKey);
+    if (!apiKey) return res.status(400).json({ error: 'PAGESPEED_API_KEY is not configured. Add it in Firebase App Hosting environment settings.' });
+
+    const params = new URLSearchParams({ url, strategy: 'mobile', key: apiKey });
+    for (const cat of ['performance', 'accessibility', 'best-practices', 'seo']) params.append('category', cat);
 
     const psiRes = await fetch(`https://www.googleapis.com/pagespeedonline/v5/runPagespeed?${params}`, {
       signal: AbortSignal.timeout(60_000),
     });
     if (!psiRes.ok) {
       const err = await psiRes.json().catch(() => ({}));
-      return res.status(psiRes.status).json({ error: err.error?.message || 'PageSpeed API error' });
+      const msg = err.error?.message || 'PageSpeed API error';
+      const isQuota = psiRes.status === 429 || msg.toLowerCase().includes('quota');
+      return res.status(psiRes.status).json({ error: isQuota ? 'API quota exceeded. Check your PAGESPEED_API_KEY quota in Google Cloud Console.' : msg });
     }
     const psi = await psiRes.json();
     const cats = psi.lighthouseResult?.categories || {};
