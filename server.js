@@ -186,8 +186,9 @@ app.get('/auth/google', (_req, res) => {
     client_id:     GOOGLE_CLIENT_ID,
     redirect_uri:  GOOGLE_REDIRECT_URI,
     response_type: 'code',
-    scope:         'openid email profile',
-    access_type:   'online',
+    scope:         'openid email profile https://www.googleapis.com/auth/gmail.readonly',
+    access_type:   'offline',
+    prompt:        'consent',
     state:         createState(),
   });
   res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`);
@@ -217,6 +218,14 @@ app.get('/auth/google/callback', async (req, res) => {
     const user = await userRes.json();
     if (!userRes.ok) throw new Error('userinfo fetch failed');
     if (!user.email?.endsWith(`@${ALLOWED_DOMAIN}`)) return res.redirect('/login?error=domain');
+
+    // Persist OAuth tokens for Gmail API use (refresh_token only present on first auth)
+    const tokenData = {
+      access_token: tokens.access_token,
+      expiry:       Date.now() + (tokens.expires_in || 3600) * 1000,
+    };
+    if (tokens.refresh_token) tokenData.refresh_token = tokens.refresh_token;
+    await db.collection('tokens').doc(user.email).set(tokenData, { merge: true });
 
     const token = generateToken();
     await db.collection('sessions').doc(token).set({
@@ -268,6 +277,12 @@ app.get('/api/launches', requireAuth, async (req, res) => {
         r.contact_name.toLowerCase().includes(term)
       );
     }
+    // Launched items always sink to the bottom
+    launches.sort((a, b) => {
+      if (a.status === 'launched' && b.status !== 'launched') return 1;
+      if (b.status === 'launched' && a.status !== 'launched') return -1;
+      return 0;
+    });
     res.json(launches);
   } catch (err) {
     console.error(err);
@@ -673,6 +688,129 @@ app.patch('/api/edit-requests/:id', requireAuth, async (req, res) => {
     res.json(formatEditRequest(updated));
   } catch (err) {
     res.status(500).json({ error: 'Failed to update edit request.' });
+  }
+});
+
+// ── Gmail API ──
+async function getGmailAccessToken(email) {
+  const doc = await db.collection('tokens').doc(email).get();
+  if (!doc.exists) return null;
+  const { access_token, refresh_token, expiry } = doc.data();
+  if (!refresh_token) return null;
+  if (Date.now() < expiry - 60_000) return access_token;
+  // Refresh expired token
+  const res = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type:    'refresh_token',
+      refresh_token,
+      client_id:     GOOGLE_CLIENT_ID,
+      client_secret: GOOGLE_CLIENT_SECRET,
+    }),
+  });
+  const data = await res.json();
+  if (!res.ok || !data.access_token) return null;
+  await db.collection('tokens').doc(email).update({
+    access_token: data.access_token,
+    expiry:       Date.now() + (data.expires_in || 3600) * 1000,
+  });
+  return data.access_token;
+}
+
+function decodeBase64Url(encoded) {
+  if (!encoded) return '';
+  return Buffer.from(encoded.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf-8');
+}
+
+function extractMessageBody(payload) {
+  if (!payload) return { text: '', html: '' };
+  if (payload.body?.data) {
+    const content = decodeBase64Url(payload.body.data);
+    return payload.mimeType === 'text/html' ? { text: '', html: content } : { text: content, html: '' };
+  }
+  if (payload.parts) {
+    let text = '', html = '';
+    for (const part of payload.parts) {
+      const result = extractMessageBody(part);
+      if (result.html) html = result.html;
+      if (result.text) text = result.text;
+    }
+    return { text, html };
+  }
+  return { text: '', html: '' };
+}
+
+// List threads for a contact email
+app.get('/api/gmail/threads', requireAuth, async (req, res) => {
+  const { email: contactEmail } = req.query;
+  if (!contactEmail) return res.status(400).json({ error: 'email param required' });
+  const accessToken = await getGmailAccessToken(req.userEmail);
+  if (!accessToken) return res.status(403).json({ error: 'gmail_not_connected' });
+  try {
+    const q = `from:${contactEmail} OR to:${contactEmail}`;
+    const listRes = await fetch(
+      `https://gmail.googleapis.com/gmail/v1/users/me/threads?q=${encodeURIComponent(q)}&maxResults=10`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    if (listRes.status === 401) return res.status(403).json({ error: 'gmail_not_connected' });
+    if (!listRes.ok) return res.status(listRes.status).json({ error: 'Gmail API error' });
+    const listData = await listRes.json();
+    const threads = listData.threads || [];
+    const getHeader = (msg, name) => msg?.payload?.headers?.find(h => h.name.toLowerCase() === name.toLowerCase())?.value || '';
+    const detailed = await Promise.all(threads.map(async (t) => {
+      const tRes = await fetch(
+        `https://gmail.googleapis.com/gmail/v1/users/me/threads/${t.id}?format=metadata&metadataHeaders=Subject&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Date`,
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      if (!tRes.ok) return { id: t.id, snippet: t.snippet, subject: '(error)', from: '', date: '', messageCount: 1 };
+      const tData = await tRes.json();
+      const msgs = tData.messages || [];
+      return {
+        id:           t.id,
+        snippet:      t.snippet,
+        subject:      getHeader(msgs[0], 'Subject') || '(no subject)',
+        from:         getHeader(msgs[msgs.length - 1], 'From'),
+        date:         getHeader(msgs[msgs.length - 1], 'Date'),
+        messageCount: msgs.length,
+      };
+    }));
+    res.json(detailed);
+  } catch (err) {
+    console.error('Gmail threads error:', err);
+    res.status(500).json({ error: 'Failed to fetch Gmail threads.' });
+  }
+});
+
+// Get full thread messages
+app.get('/api/gmail/threads/:threadId', requireAuth, async (req, res) => {
+  const accessToken = await getGmailAccessToken(req.userEmail);
+  if (!accessToken) return res.status(403).json({ error: 'gmail_not_connected' });
+  try {
+    const tRes = await fetch(
+      `https://gmail.googleapis.com/gmail/v1/users/me/threads/${req.params.threadId}?format=full`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    if (tRes.status === 401) return res.status(403).json({ error: 'gmail_not_connected' });
+    if (!tRes.ok) return res.status(tRes.status).json({ error: 'Gmail API error' });
+    const thread = await tRes.json();
+    const getHeader = (msg, name) => msg?.payload?.headers?.find(h => h.name.toLowerCase() === name.toLowerCase())?.value || '';
+    const messages = (thread.messages || []).map(msg => {
+      const { text, html } = extractMessageBody(msg.payload);
+      return {
+        id:      msg.id,
+        from:    getHeader(msg, 'From'),
+        to:      getHeader(msg, 'To'),
+        date:    getHeader(msg, 'Date'),
+        subject: getHeader(msg, 'Subject'),
+        bodyHtml: html,
+        bodyText: text,
+      };
+    });
+    res.json(messages);
+  } catch (err) {
+    console.error('Gmail thread detail error:', err);
+    res.status(500).json({ error: 'Failed to fetch thread.' });
   }
 });
 

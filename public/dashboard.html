@@ -315,6 +315,17 @@
       <div id="domain-info-body"></div>
     </div>
 
+    <!-- Gmail -->
+    <div class="crm-section" id="modal-gmail">
+      <div class="crm-section-header">
+        <div class="crm-section-label" style="display:flex;align-items:center;gap:.4rem">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 7l10 7 10-7"/></svg>
+          Gmail
+        </div>
+      </div>
+      <div id="gmail-threads-body" style="font-size:.82rem"></div>
+    </div>
+
     <div class="modal-actions crm-actions">
       <button class="btn btn-danger" id="modal-delete">Delete</button>
       <button class="btn btn-ghost" id="modal-archive">Archive</button>
@@ -867,15 +878,27 @@ function updateSortHeaders() {
 function renderTable(data) {
   const tbody = document.getElementById('table-body');
   document.getElementById('row-count').textContent = `${data.length} record${data.length !== 1 ? 's' : ''}`;
+
+  // Separate launched from non-launched so launched always sink to the bottom
+  let active = data.filter(r => r.status !== 'launched');
+  let launched = data.filter(r => r.status === 'launched');
+
   if (sortState.col === 'status') {
-    data = [...data].sort((a, b) =>
+    active = active.sort((a, b) =>
       (STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status)) * sortState.dir
     );
   } else if (sortState.col === 'created_at') {
-    data = [...data].sort((a, b) =>
+    active = active.sort((a, b) =>
       ((toDate(a.created_at) || 0) - (toDate(b.created_at) || 0)) * sortState.dir
     );
   }
+
+  // Launched items always sorted by launch date ascending (oldest first)
+  launched = launched.sort((a, b) =>
+    (toDate(a.status_changed_at || a.created_at) || 0) - (toDate(b.status_changed_at || b.created_at) || 0)
+  );
+
+  data = [...active, ...launched];
 
   if (!data.length) {
     tbody.innerHTML = `<tr><td colspan="9"><div class="empty">
@@ -979,6 +1002,7 @@ function openEdit(id) {
   document.getElementById('modal').classList.add('open');
   loadTimeline(id);
   lookupDomain(r.domain_name);
+  loadGmailThreads(r.email);
 }
 
 document.getElementById('modal-department').addEventListener('change', function() {
@@ -1595,6 +1619,128 @@ document.getElementById('er-modal-save').addEventListener('click', async () => {
     btn.textContent = 'Save Changes';
   }
 });
+
+// ── Gmail ──
+let gmailExpandedThread = null;
+
+async function loadGmailThreads(contactEmail) {
+  const body = document.getElementById('gmail-threads-body');
+  if (!contactEmail) {
+    body.innerHTML = '<p style="color:var(--text-muted)">No email address on this record.</p>';
+    return;
+  }
+  body.innerHTML = '<p style="color:var(--text-muted)">Loading…</p>';
+  gmailExpandedThread = null;
+  try {
+    const res = await fetch(`/api/gmail/threads?email=${encodeURIComponent(contactEmail)}`);
+    if (res.status === 403) {
+      const data = await res.json();
+      if (data.error === 'gmail_not_connected') {
+        body.innerHTML = `<div style="display:flex;align-items:center;gap:.75rem;padding:.5rem 0">
+          <span style="color:var(--text-muted)">Gmail not connected for your account.</span>
+          <a href="/auth/google" class="btn btn-ghost" style="padding:.25rem .6rem;font-size:.75rem;text-decoration:none">Connect Gmail</a>
+        </div>`;
+        return;
+      }
+    }
+    if (!res.ok) throw new Error();
+    const threads = await res.json();
+    if (!threads.length) {
+      body.innerHTML = '<p style="color:var(--text-muted)">No emails found for this contact.</p>';
+      return;
+    }
+    renderGmailThreadList(threads);
+  } catch {
+    body.innerHTML = '<p style="color:var(--text-muted)">Failed to load Gmail threads.</p>';
+  }
+}
+
+function renderGmailThreadList(threads) {
+  const body = document.getElementById('gmail-threads-body');
+  body.innerHTML = threads.map(t => `
+    <div class="gmail-thread-row" data-thread-id="${esc(t.id)}" onclick="toggleGmailThread('${esc(t.id)}',this)">
+      <div class="gmail-thread-meta">
+        <span class="gmail-thread-subject">${esc(t.subject)}</span>
+        <span class="gmail-thread-count" title="${t.messageCount} message${t.messageCount !== 1 ? 's' : ''}">${t.messageCount}</span>
+      </div>
+      <div class="gmail-thread-sub">
+        <span class="gmail-thread-from">${esc(formatGmailSender(t.from))}</span>
+        <span class="gmail-thread-date">${esc(formatGmailDate(t.date))}</span>
+      </div>
+      <div class="gmail-thread-snippet">${esc(t.snippet)}</div>
+      <div class="gmail-messages-wrap" id="gmail-msgs-${esc(t.id)}" style="display:none"></div>
+    </div>
+  `).join('');
+}
+
+async function toggleGmailThread(threadId, row) {
+  const wrap = document.getElementById(`gmail-msgs-${threadId}`);
+  if (gmailExpandedThread === threadId) {
+    wrap.style.display = 'none';
+    gmailExpandedThread = null;
+    return;
+  }
+  // Collapse previously expanded
+  if (gmailExpandedThread) {
+    const prev = document.getElementById(`gmail-msgs-${gmailExpandedThread}`);
+    if (prev) prev.style.display = 'none';
+  }
+  gmailExpandedThread = threadId;
+  wrap.style.display = 'block';
+  if (wrap.dataset.loaded) return;
+  wrap.innerHTML = '<p style="color:var(--text-muted);padding:.5rem 0 0">Loading messages…</p>';
+  try {
+    const res = await fetch(`/api/gmail/threads/${encodeURIComponent(threadId)}`);
+    if (!res.ok) throw new Error();
+    const messages = await res.json();
+    wrap.dataset.loaded = '1';
+    wrap.innerHTML = messages.map((msg, i) => `
+      <div class="gmail-msg ${i > 0 ? 'gmail-msg-border' : ''}">
+        <div class="gmail-msg-header">
+          <span class="gmail-msg-from">${esc(formatGmailSender(msg.from))}</span>
+          <span class="gmail-msg-date">${esc(formatGmailDate(msg.date))}</span>
+        </div>
+        <div class="gmail-msg-to" style="color:var(--text-muted)">to ${esc(msg.to)}</div>
+        <div class="gmail-msg-body">${renderGmailBody(msg)}</div>
+      </div>
+    `).join('');
+    // Auto-resize iframes after render
+    wrap.querySelectorAll('iframe.gmail-iframe').forEach(f => {
+      f.onload = () => { f.style.height = (f.contentDocument?.body?.scrollHeight || 200) + 24 + 'px'; };
+    });
+  } catch {
+    wrap.innerHTML = '<p style="color:var(--text-muted);padding:.5rem 0 0">Failed to load messages.</p>';
+  }
+}
+
+function renderGmailBody(msg) {
+  if (msg.bodyHtml) {
+    return `<iframe class="gmail-iframe" srcdoc="${escAttr(msg.bodyHtml)}" sandbox="allow-same-origin" style="width:100%;min-height:80px;border:none;display:block;margin-top:.4rem"></iframe>`;
+  }
+  if (msg.bodyText) {
+    return `<pre style="white-space:pre-wrap;margin:.4rem 0 0;font-family:inherit;font-size:.8rem">${esc(msg.bodyText)}</pre>`;
+  }
+  return '<span style="color:var(--text-muted)">(empty)</span>';
+}
+
+function formatGmailSender(from) {
+  if (!from) return '';
+  const m = from.match(/^"?([^"<]+)"?\s*</);
+  return m ? m[1].trim() : from.replace(/<[^>]+>/, '').trim() || from;
+}
+
+function formatGmailDate(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (isNaN(d)) return dateStr;
+  const now = new Date();
+  const sameYear = d.getFullYear() === now.getFullYear();
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: sameYear ? undefined : 'numeric' });
+}
+
+function escAttr(str) {
+  return (str || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+}
 
 // Initial load
 fetchLaunches();
