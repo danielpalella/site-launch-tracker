@@ -180,6 +180,7 @@ app.use(express.static(join(__dirname, 'public')));
 
 // ── Auth (public) ──
 app.get('/login', (_req, res) => res.sendFile(join(__dirname, 'public', 'login.html')));
+app.get('/', requireAuth, (_req, res) => res.sendFile(join(__dirname, 'public', 'index.html')));
 
 app.get('/auth/google', (_req, res) => {
   const params = new URLSearchParams({
@@ -300,8 +301,7 @@ app.get('/api/launches/:id', requireAuth, async (req, res) => {
   }
 });
 
-// POST uses optionalAuth — captures submitter email if they're logged in
-app.post('/api/launches', optionalAuth, async (req, res) => {
+app.post('/api/launches', requireAuth, async (req, res) => {
   const { department, account_name, domain_name, contact_name, email, phone, industry, notes, is_renewal } = req.body;
   if (!department || !account_name || !domain_name || !contact_name || !email || !phone || !industry) {
     return res.status(400).json({ error: 'All fields are required.' });
