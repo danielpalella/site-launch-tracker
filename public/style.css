@@ -1220,3 +1220,21 @@ tr:hover .sticky-col { background: #f8fafc; }
 .lh-history-table th { text-align: left; color: var(--text-muted); font-weight: 500; padding: .2rem .4rem .2rem 0; }
 .lh-history-table td { padding: .25rem .4rem .25rem 0; }
 .lh-history-table .lh-score { width: 30px; height: 30px; font-size: .75rem; }
+
+/* ── GMAIL UNREAD BADGE ── */
+.gmail-unread-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #ef4444;
+  color: #fff;
+  font-size: .6rem;
+  font-weight: 700;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  padding: 0 4px;
+  margin-left: .35rem;
+  vertical-align: middle;
+  line-height: 1;
+}

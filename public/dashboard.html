@@ -926,7 +926,7 @@ function renderTable(data) {
   tbody.innerHTML = data.map(r => `
     <tr data-id="${r.id}" ondblclick="handleRowDblClick(event,'${r.id}')" style="cursor:pointer" ${r.status === 'launched' ? 'class="row-launched"' : ''}>
       <td class="sticky-col">
-        <div class="account-name">${esc(r.account_name)}</div>
+        <div class="account-name">${esc(r.account_name)}<span class="gmail-unread-badge" id="gmail-badge-${r.id}" data-email="${esc(r.email)}" style="display:none"></span></div>
         <div class="domain">🌐 <a href="https://${esc(r.domain_name)}" target="_blank" rel="noopener" style="color:var(--primary);text-decoration:none" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${esc(r.domain_name)}</a></div>
       </td>
       <td>${esc(r.industry || '—')}</td>
@@ -956,6 +956,8 @@ function renderTable(data) {
       <td style="font-size:.8rem;color:var(--text-muted)">${esc(r.department)}</td>
     </tr>
   `).join('');
+
+  loadGmailUnreadBadges(data);
 }
 
 function esc(str) {
@@ -1730,6 +1732,26 @@ function renderLighthouseHistory(audits) {
 
 // ── Gmail ──
 let gmailExpandedThread = null;
+
+async function loadGmailUnreadBadges(rows) {
+  const withEmail = rows.filter(r => r.email);
+  if (!withEmail.length) return;
+  const emails = [...new Set(withEmail.map(r => r.email))];
+  try {
+    const res = await fetch(`/api/gmail/unread?emails=${encodeURIComponent(emails.join(','))}`);
+    if (!res.ok) return;
+    const counts = await res.json(); // { email: count }
+    for (const r of withEmail) {
+      const count = counts[r.email];
+      if (!count) continue;
+      const badge = document.getElementById(`gmail-badge-${r.id}`);
+      if (!badge) continue;
+      badge.textContent = count > 9 ? '9+' : count;
+      badge.title = `${count} unread email${count !== 1 ? 's' : ''}`;
+      badge.style.display = 'inline-flex';
+    }
+  } catch { /* silently ignore */ }
+}
 
 async function loadGmailThreads(contactEmail) {
   const body = document.getElementById('gmail-threads-body');

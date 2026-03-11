@@ -741,6 +741,30 @@ function extractMessageBody(payload) {
   return { text: '', html: '' };
 }
 
+// Batch unread-thread check for dashboard badges
+app.get('/api/gmail/unread', requireAuth, async (req, res) => {
+  const emails = (req.query.emails || '').split(',').map(e => e.trim()).filter(Boolean).slice(0, 50);
+  if (!emails.length) return res.json({});
+  const accessToken = await getGmailAccessToken(req.userEmail);
+  if (!accessToken) return res.json({}); // silently skip if not connected
+  try {
+    const results = await Promise.all(emails.map(async (email) => {
+      const q = `(from:${email} OR to:${email}) is:unread`;
+      const r = await fetch(
+        `https://gmail.googleapis.com/gmail/v1/users/me/threads?q=${encodeURIComponent(q)}&maxResults=10`,
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      if (!r.ok) return [email, 0];
+      const data = await r.json();
+      return [email, data.threads?.length || 0];
+    }));
+    res.json(Object.fromEntries(results.filter(([, n]) => n > 0)));
+  } catch (err) {
+    console.error('Gmail unread error:', err);
+    res.json({});
+  }
+});
+
 // List threads for a contact email
 app.get('/api/gmail/threads', requireAuth, async (req, res) => {
   const { email: contactEmail } = req.query;
