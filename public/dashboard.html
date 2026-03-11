@@ -315,6 +315,18 @@
       <div id="domain-info-body"></div>
     </div>
 
+    <!-- Lighthouse -->
+    <div class="crm-section" id="modal-lighthouse">
+      <div class="crm-section-header">
+        <div class="crm-section-label" style="display:flex;align-items:center;gap:.4rem">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+          Lighthouse
+        </div>
+        <button class="btn btn-ghost" id="lighthouse-run-btn" onclick="runLighthouse()" style="padding:.2rem .6rem;font-size:.72rem">Run Audit</button>
+      </div>
+      <div id="lighthouse-body"></div>
+    </div>
+
     <!-- Gmail -->
     <div class="crm-section" id="modal-gmail">
       <div class="crm-section-header">
@@ -1002,6 +1014,7 @@ function openEdit(id) {
   document.getElementById('modal').classList.add('open');
   loadTimeline(id);
   lookupDomain(r.domain_name);
+  loadLighthouseHistory(id);
   loadGmailThreads(r.email);
 }
 
@@ -1619,6 +1632,97 @@ document.getElementById('er-modal-save').addEventListener('click', async () => {
     btn.textContent = 'Save Changes';
   }
 });
+
+// ── Lighthouse ──
+async function loadLighthouseHistory(id) {
+  const body = document.getElementById('lighthouse-body');
+  body.innerHTML = '<p style="color:var(--text-muted);font-size:.8rem">Loading…</p>';
+  try {
+    const res = await fetch(`/api/launches/${id}/lighthouse`);
+    if (!res.ok) throw new Error();
+    const audits = await res.json();
+    renderLighthouseHistory(audits);
+  } catch {
+    body.innerHTML = '<p style="color:var(--text-muted);font-size:.8rem">Failed to load history.</p>';
+  }
+}
+
+async function runLighthouse() {
+  if (!editingId) return;
+  const btn  = document.getElementById('lighthouse-run-btn');
+  const body = document.getElementById('lighthouse-body');
+  btn.disabled    = true;
+  btn.textContent = 'Running…';
+  body.innerHTML  = '<p style="color:var(--text-muted);font-size:.8rem">Running audit — this can take up to 30s…</p>';
+  try {
+    const res = await fetch(`/api/launches/${editingId}/lighthouse`, { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) { showToast(data.error || 'Audit failed.', 'error'); await loadLighthouseHistory(editingId); return; }
+    await loadLighthouseHistory(editingId);
+    showToast('Lighthouse audit complete.');
+  } catch {
+    showToast('Lighthouse audit failed.', 'error');
+    await loadLighthouseHistory(editingId);
+  } finally {
+    btn.disabled    = false;
+    btn.textContent = 'Run Audit';
+  }
+}
+
+function lighthouseColor(score) {
+  if (score >= 90) return '#22c55e';
+  if (score >= 50) return '#f97316';
+  return '#ef4444';
+}
+
+function lighthouseScoreBadge(score) {
+  const color = lighthouseColor(score);
+  return `<span class="lh-score" style="background:${color}">${score}</span>`;
+}
+
+function renderLighthouseHistory(audits) {
+  const body = document.getElementById('lighthouse-body');
+  if (!audits.length) {
+    body.innerHTML = '<p style="color:var(--text-muted);font-size:.8rem">No audits yet. Click Run Audit to get scores.</p>';
+    return;
+  }
+  const latest = audits[0];
+  const history = audits.slice(1);
+  const cats = [
+    { key: 'performance',    label: 'Performance' },
+    { key: 'accessibility',  label: 'Accessibility' },
+    { key: 'best_practices', label: 'Best Practices' },
+    { key: 'seo',            label: 'SEO' },
+  ];
+  body.innerHTML = `
+    <div class="lh-latest">
+      ${cats.map(c => `
+        <div class="lh-cat">
+          ${lighthouseScoreBadge(latest[c.key] ?? '—')}
+          <span class="lh-cat-label">${c.label}</span>
+        </div>
+      `).join('')}
+    </div>
+    <div class="lh-timestamp">Last run ${formatDate(latest.created_at)}</div>
+    ${history.length ? `
+      <details class="lh-history">
+        <summary>History (${history.length} previous)</summary>
+        <table class="lh-history-table">
+          <thead><tr><th>Date</th><th>Perf</th><th>A11y</th><th>BP</th><th>SEO</th></tr></thead>
+          <tbody>
+            ${history.map(a => `<tr>
+              <td style="color:var(--text-muted)">${formatDate(a.created_at)}</td>
+              <td>${lighthouseScoreBadge(a.performance ?? '—')}</td>
+              <td>${lighthouseScoreBadge(a.accessibility ?? '—')}</td>
+              <td>${lighthouseScoreBadge(a.best_practices ?? '—')}</td>
+              <td>${lighthouseScoreBadge(a.seo ?? '—')}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </details>
+    ` : ''}
+  `;
+}
 
 // ── Gmail ──
 let gmailExpandedThread = null;

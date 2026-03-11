@@ -814,6 +814,59 @@ app.get('/api/gmail/threads/:threadId', requireAuth, async (req, res) => {
   }
 });
 
+// ── Lighthouse / PageSpeed Insights ──
+app.post('/api/launches/:id/lighthouse', requireAuth, async (req, res) => {
+  try {
+    const doc = await db.collection('launches').doc(req.params.id).get();
+    if (!doc.exists) return res.status(404).json({ error: 'Not found' });
+    const domain = doc.data().domain_name;
+    if (!domain) return res.status(400).json({ error: 'No domain on this launch.' });
+
+    const url    = `https://${domain}`;
+    const apiKey = process.env.PAGESPEED_API_KEY;
+    const params = new URLSearchParams({ url, strategy: 'mobile', category: ['performance','accessibility','best-practices','seo'] });
+    if (apiKey) params.set('key', apiKey);
+
+    const psiRes = await fetch(`https://www.googleapis.com/pagespeedonline/v5/runPagespeed?${params}`, {
+      signal: AbortSignal.timeout(60_000),
+    });
+    if (!psiRes.ok) {
+      const err = await psiRes.json().catch(() => ({}));
+      return res.status(psiRes.status).json({ error: err.error?.message || 'PageSpeed API error' });
+    }
+    const psi = await psiRes.json();
+    const cats = psi.lighthouseResult?.categories || {};
+    const audit = {
+      performance:   Math.round((cats.performance?.score    ?? 0) * 100),
+      accessibility: Math.round((cats.accessibility?.score  ?? 0) * 100),
+      best_practices:Math.round((cats['best-practices']?.score ?? 0) * 100),
+      seo:           Math.round((cats.seo?.score            ?? 0) * 100),
+      url,
+      created_at: FieldValue.serverTimestamp(),
+    };
+    const ref = await db.collection('launches').doc(req.params.id).collection('lighthouse_audits').add(audit);
+    const saved = await ref.get();
+    res.json({ id: saved.id, ...audit, created_at: new Date().toISOString() });
+  } catch (err) {
+    if (err.name === 'TimeoutError') return res.status(504).json({ error: 'PageSpeed timed out.' });
+    console.error('Lighthouse error:', err);
+    res.status(500).json({ error: 'Lighthouse audit failed.' });
+  }
+});
+
+app.get('/api/launches/:id/lighthouse', requireAuth, async (req, res) => {
+  try {
+    const snapshot = await db.collection('launches').doc(req.params.id)
+      .collection('lighthouse_audits').orderBy('created_at', 'desc').limit(10).get();
+    res.json(snapshot.docs.map(d => {
+      const data = d.data();
+      return { id: d.id, ...data, created_at: fmtTs(data.created_at) };
+    }));
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch Lighthouse history.' });
+  }
+});
+
 // ── Pages ──
 app.get('/edit-request', (_req, res) => res.sendFile(join(__dirname, 'public', 'edit-request.html')));
 app.get('/dashboard', requireAuth, (_req, res) => res.sendFile(join(__dirname, 'public', 'dashboard.html')));
