@@ -854,7 +854,7 @@ app.post('/api/launches/:id/lighthouse', requireAuth, async (req, res) => {
     for (const cat of ['performance', 'accessibility', 'best-practices', 'seo']) params.append('category', cat);
 
     const psiRes = await fetch(`https://www.googleapis.com/pagespeedonline/v5/runPagespeed?${params}`, {
-      signal: AbortSignal.timeout(60_000),
+      signal: AbortSignal.timeout(110_000),
     });
     if (!psiRes.ok) {
       const err = await psiRes.json().catch(() => ({}));
