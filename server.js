@@ -31,22 +31,17 @@ function generateToken() {
 
 // ── OAuth state (CSRF) ──
 const oauthStates = new Map();
-function createState(returnTo = '/dashboard') {
-  const uuid = crypto.randomUUID();
-  oauthStates.set(uuid, Date.now());
+function createState() {
+  const state = crypto.randomUUID();
+  oauthStates.set(state, Date.now());
   for (const [k, t] of oauthStates) if (Date.now() - t > 600_000) oauthStates.delete(k);
-  // Encode returnTo in the state value itself so it survives across instances
-  return `${uuid}.${Buffer.from(returnTo).toString('base64url')}`;
+  return state;
 }
 function consumeState(state) {
-  const dot = (state || '').indexOf('.');
-  if (dot === -1) return null;
-  const uuid     = state.slice(0, dot);
-  const returnTo = Buffer.from(state.slice(dot + 1), 'base64url').toString() || '/dashboard';
-  const t = oauthStates.get(uuid);
-  if (!t || Date.now() - t > 600_000) return null;
-  oauthStates.delete(uuid);
-  return returnTo;
+  const t = oauthStates.get(state);
+  if (!t || Date.now() - t > 600_000) return false;
+  oauthStates.delete(state);
+  return true;
 }
 
 function getCookies(req) {
@@ -66,7 +61,8 @@ async function requireAuth(req, res, next) {
   const { auth_token } = getCookies(req);
   const fail = () => {
     if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'Unauthorized' });
-    res.redirect(`/login?return_to=${encodeURIComponent(req.originalUrl)}`);
+    res.setHeader('Set-Cookie', `auth_return_to=${encodeURIComponent(req.originalUrl)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=600`);
+    res.redirect('/login');
   };
   if (!auth_token) return fail();
   const cached = sessionCache.get(auth_token);
@@ -202,8 +198,7 @@ app.get('/', requireAuth, (_req, res) => res.sendFile(join(__dirname, 'public', 
 
 app.use(express.static(join(__dirname, 'public')));
 
-app.get('/auth/google', (req, res) => {
-  const returnTo = req.query.return_to || '/dashboard';
+app.get('/auth/google', (_req, res) => {
   const params = new URLSearchParams({
     client_id:     GOOGLE_CLIENT_ID,
     redirect_uri:  GOOGLE_REDIRECT_URI,
@@ -211,15 +206,14 @@ app.get('/auth/google', (req, res) => {
     scope:         'openid email profile https://www.googleapis.com/auth/gmail.readonly',
     access_type:   'offline',
     prompt:        'consent',
-    state:         createState(returnTo),
+    state:         createState(),
   });
   res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`);
 });
 
 app.get('/auth/google/callback', async (req, res) => {
   const { code, state, error } = req.query;
-  const returnTo = consumeState(state);
-  if (error || !code || !returnTo) return res.redirect('/login?error=cancelled');
+  if (error || !code || !consumeState(state)) return res.redirect('/login?error=cancelled');
   try {
     const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
@@ -256,8 +250,12 @@ app.get('/auth/google/callback', async (req, res) => {
       created_at: FieldValue.serverTimestamp(),
     });
     await logAudit({ type: 'login', email: user.email });
-    res.setHeader('Set-Cookie', `auth_token=${token}; Path=/; HttpOnly; SameSite=Lax`);
-    res.redirect(returnTo);
+    const returnToCookie = decodeURIComponent(getCookies(req).auth_return_to || '') || '/dashboard';
+    res.setHeader('Set-Cookie', [
+      `auth_token=${token}; Path=/; HttpOnly; SameSite=Lax`,
+      `auth_return_to=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`,
+    ]);
+    res.redirect(returnToCookie);
   } catch (err) {
     console.error('OAuth callback error:', err.message);
     res.redirect('/login?error=failed');
