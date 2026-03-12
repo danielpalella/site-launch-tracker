@@ -191,11 +191,11 @@ function formatLaunch(doc) {
 }
 
 app.use(express.json());
-app.use(express.static(join(__dirname, 'public')));
-
 // ── Auth (public) ──
 app.get('/login', (_req, res) => res.sendFile(join(__dirname, 'public', 'login.html')));
 app.get('/', requireAuth, (_req, res) => res.sendFile(join(__dirname, 'public', 'index.html')));
+
+app.use(express.static(join(__dirname, 'public')));
 
 app.get('/auth/google', (_req, res) => {
   const params = new URLSearchParams({
