@@ -16,6 +16,7 @@
     <span id="nav-text" style="display:none"><span>Launch</span>Tracker</span>
   </a>
   <a href="/dashboard" title="Projects"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="12" width="4" height="8" rx="1"/><rect x="9" y="7" width="4" height="13" rx="1"/><rect x="16" y="3" width="4" height="17" rx="1"/></svg></a>
+  <button id="logout-btn" class="btn btn-ghost" style="margin-left:auto;padding:.3rem .9rem;font-size:.8rem">Sign Out</button>
 </nav>
 
 <div class="page">
@@ -119,6 +120,11 @@
 <button id="dark-toggle" title="Toggle dark mode" onclick="toggleDark()">🌙</button>
 
 <script>
+document.getElementById('logout-btn').addEventListener('click', async () => {
+  await fetch('/api/auth/logout', { method: 'POST' });
+  window.location.href = '/login';
+});
+
 const FIELDS = ['department','industry','account_name','domain_name','contact_name','email','phone'];
 
 function clearErrors() {

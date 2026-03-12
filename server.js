@@ -31,17 +31,17 @@ function generateToken() {
 
 // ── OAuth state (CSRF) ──
 const oauthStates = new Map();
-function createState() {
+function createState(returnTo = '/dashboard') {
   const state = crypto.randomUUID();
-  oauthStates.set(state, Date.now());
-  for (const [k, t] of oauthStates) if (Date.now() - t > 600_000) oauthStates.delete(k);
+  oauthStates.set(state, { t: Date.now(), returnTo });
+  for (const [k, v] of oauthStates) if (Date.now() - v.t > 600_000) oauthStates.delete(k);
   return state;
 }
 function consumeState(state) {
-  const t = oauthStates.get(state);
-  if (!t || Date.now() - t > 600_000) return false;
+  const v = oauthStates.get(state);
+  if (!v || Date.now() - v.t > 600_000) return null;
   oauthStates.delete(state);
-  return true;
+  return v.returnTo;
 }
 
 function getCookies(req) {
@@ -61,7 +61,7 @@ async function requireAuth(req, res, next) {
   const { auth_token } = getCookies(req);
   const fail = () => {
     if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'Unauthorized' });
-    res.redirect('/login');
+    res.redirect(`/login?return_to=${encodeURIComponent(req.originalUrl)}`);
   };
   if (!auth_token) return fail();
   const cached = sessionCache.get(auth_token);
@@ -197,7 +197,8 @@ app.get('/', requireAuth, (_req, res) => res.sendFile(join(__dirname, 'public', 
 
 app.use(express.static(join(__dirname, 'public')));
 
-app.get('/auth/google', (_req, res) => {
+app.get('/auth/google', (req, res) => {
+  const returnTo = req.query.return_to || '/dashboard';
   const params = new URLSearchParams({
     client_id:     GOOGLE_CLIENT_ID,
     redirect_uri:  GOOGLE_REDIRECT_URI,
@@ -205,14 +206,15 @@ app.get('/auth/google', (_req, res) => {
     scope:         'openid email profile https://www.googleapis.com/auth/gmail.readonly',
     access_type:   'offline',
     prompt:        'consent',
-    state:         createState(),
+    state:         createState(returnTo),
   });
   res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`);
 });
 
 app.get('/auth/google/callback', async (req, res) => {
   const { code, state, error } = req.query;
-  if (error || !code || !consumeState(state)) return res.redirect('/login?error=cancelled');
+  const returnTo = consumeState(state);
+  if (error || !code || !returnTo) return res.redirect('/login?error=cancelled');
   try {
     const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
@@ -250,7 +252,7 @@ app.get('/auth/google/callback', async (req, res) => {
     });
     await logAudit({ type: 'login', email: user.email });
     res.setHeader('Set-Cookie', `auth_token=${token}; Path=/; HttpOnly; SameSite=Lax`);
-    res.redirect('/dashboard');
+    res.redirect(returnTo);
   } catch (err) {
     console.error('OAuth callback error:', err.message);
     res.redirect('/login?error=failed');
