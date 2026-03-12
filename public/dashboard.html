@@ -96,6 +96,7 @@
               <button class="fp-chip" data-filter="department" data-value="Sales" onclick="setFilter('department','Sales',this)">Sales</button>
               <button class="fp-chip" data-filter="department" data-value="Retention" onclick="setFilter('department','Retention',this)">Retention</button>
               <button class="fp-chip" data-filter="department" data-value="Customer Success" onclick="setFilter('department','Customer Success',this)">Customer Success</button>
+              <button class="fp-chip" data-filter="department" data-value="CS-Renewal" onclick="setFilter('department','CS-Renewal',this)">CS-Renewal</button>
               <button class="fp-chip" data-filter="department" data-value="Other" onclick="setFilter('department','Other',this)">Other</button>
             </div>
           </div>
@@ -206,7 +207,6 @@
       <div>
         <div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap">
           <h2 id="modal-title" class="crm-title">Edit Record</h2>
-          <span id="modal-renewal-badge" class="renewal-badge" style="display:none">Renewal</span>
         </div>
         <div id="modal-domain-sub" class="crm-domain-sub"></div>
       </div>
@@ -242,12 +242,6 @@
         </div>
         <div class="crm-field"><label for="modal-account_name">Account Name</label><input type="text" id="modal-account_name" /></div>
         <div class="crm-field"><label for="modal-domain_name">Domain</label><input type="text" id="modal-domain_name" /></div>
-        <div id="modal-renewal-wrap" style="display:none">
-          <label class="checkbox-label">
-            <input type="checkbox" id="modal-is_renewal" />
-            Is this a renewal?
-          </label>
-        </div>
         <div class="crm-row">
           <div class="crm-field">
             <label for="modal-industry">Industry</label>
@@ -271,6 +265,7 @@
               <option value="Sales">Sales</option>
               <option value="Retention">Retention</option>
               <option value="Customer Success">Cust. Success</option>
+              <option value="CS-Renewal">CS-Renewal</option>
               <option value="Other">Other</option>
             </select>
           </div>
@@ -505,7 +500,7 @@ const STATUS_COLORS = {
   launched:          '#22c55e',
 };
 const GROUP_KEYS = {
-  department: ['Sales', 'Retention', 'Customer Success', 'Other'],
+  department: ['Sales', 'Retention', 'Customer Success', 'CS-Renewal', 'Other'],
   industry:   ['Roofing', 'Plumbing', 'Electrical', 'HVAC', 'Landscaping', 'Contracting', 'Restoration', 'Solar', 'Flooring'],
   owner:      ['Daniel', 'Thierry', 'Unassigned'],
 };
@@ -1008,10 +1003,6 @@ function openEdit(id) {
   document.getElementById('modal-owner').value        = r.owner || '';
   document.getElementById('modal-status').value       = r.status;
   document.getElementById('modal-notes').value        = r.notes || '';
-  document.getElementById('modal-is_renewal').checked = r.is_renewal || false;
-  const isCS = r.department === 'Customer Success';
-  document.getElementById('modal-renewal-wrap').style.display  = isCS ? 'block' : 'none';
-  document.getElementById('modal-renewal-badge').style.display = (r.is_renewal && isCS) ? 'inline-flex' : 'none';
   document.getElementById('modal-archive').textContent = r.archived ? 'Unarchive' : 'Archive';
   document.getElementById('modal').classList.add('open');
   loadTimeline(id);
@@ -1019,19 +1010,6 @@ function openEdit(id) {
   loadLighthouseHistory(id);
   loadGmailThreads(r.email);
 }
-
-document.getElementById('modal-department').addEventListener('change', function() {
-  const isCS = this.value === 'Customer Success';
-  document.getElementById('modal-renewal-wrap').style.display = isCS ? 'block' : 'none';
-  if (!isCS) {
-    document.getElementById('modal-is_renewal').checked = false;
-    document.getElementById('modal-renewal-badge').style.display = 'none';
-  }
-});
-
-document.getElementById('modal-is_renewal').addEventListener('change', function() {
-  document.getElementById('modal-renewal-badge').style.display = this.checked ? 'inline-flex' : 'none';
-});
 
 document.getElementById('modal-cancel').addEventListener('click', () => {
   document.getElementById('modal').classList.remove('open');
@@ -1082,7 +1060,6 @@ document.getElementById('modal-save').addEventListener('click', async () => {
     owner:        document.getElementById('modal-owner').value,
     status:       document.getElementById('modal-status').value,
     notes:        document.getElementById('modal-notes').value,
-    is_renewal:   document.getElementById('modal-is_renewal').checked,
   };
 
   try {

@@ -33,6 +33,7 @@
             <option value="Sales">Sales</option>
             <option value="Retention">Retention</option>
             <option value="Customer Success">Customer Success</option>
+            <option value="CS-Renewal">CS-Renewal</option>
             <option value="Other">Other</option>
           </select>
           <div class="field-error" id="err-department"></div>
@@ -54,13 +55,6 @@
             <option value="Other">Other</option>
           </select>
           <div class="field-error" id="err-industry"></div>
-        </div>
-
-        <div class="full" id="renewal-wrap" style="display:none">
-          <label class="checkbox-label">
-            <input type="checkbox" id="is_renewal" />
-            Is this a renewal?
-          </label>
         </div>
 
         <div class="full">
@@ -127,12 +121,6 @@
 <script>
 const FIELDS = ['department','industry','account_name','domain_name','contact_name','email','phone'];
 
-document.getElementById('department').addEventListener('change', function() {
-  document.getElementById('renewal-wrap').style.display =
-    this.value === 'Customer Success' ? 'block' : 'none';
-  if (this.value !== 'Customer Success') document.getElementById('is_renewal').checked = false;
-});
-
 function clearErrors() {
   FIELDS.forEach(f => {
     document.getElementById(f).classList.remove('error');
@@ -182,8 +170,7 @@ document.getElementById('launch-form').addEventListener('submit', async (e) => {
 
   const data = {};
   FIELDS.forEach(f => data[f] = document.getElementById(f).value);
-  data.notes       = document.getElementById('notes').value;
-  data.is_renewal  = document.getElementById('is_renewal').checked;
+  data.notes = document.getElementById('notes').value;
 
   if (!validate(data)) return;
 
@@ -222,7 +209,6 @@ function toggleDark() {
 
 document.getElementById('submit-another').addEventListener('click', () => {
   document.getElementById('launch-form').reset();
-  document.getElementById('renewal-wrap').style.display = 'none';
   document.getElementById('success-card').style.display = 'none';
   document.getElementById('form-card').style.display = 'block';
   const btn = document.getElementById('submit-btn');
