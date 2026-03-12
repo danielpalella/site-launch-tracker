@@ -133,6 +133,21 @@ async function sendClaimEmail(toEmail, accountName) {
   }
 }
 
+// ── Slack notifications ──
+async function sendSlack(blocks) {
+  const url = process.env.SLACK_WEBHOOK_URL;
+  if (!url) return;
+  try {
+    await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ blocks }),
+    });
+  } catch (err) {
+    console.error('Slack notify error:', err.message);
+  }
+}
+
 // ── Audit log ──
 async function logAudit(event) {
   try {
@@ -330,6 +345,17 @@ app.post('/api/launches', requireAuth, async (req, res) => {
     });
     await ref.collection('history').add({ status: 'new', entered_at: now });
     const doc = await ref.get();
+    sendSlack([
+      { type: 'header', text: { type: 'plain_text', text: '🌐 New Site Intake Submitted' } },
+      { type: 'section', fields: [
+        { type: 'mrkdwn', text: `*Account*\n${account_name.trim()}` },
+        { type: 'mrkdwn', text: `*Domain*\n${domain_name.trim().toLowerCase()}` },
+        { type: 'mrkdwn', text: `*Department*\n${department}` },
+        { type: 'mrkdwn', text: `*Industry*\n${industry}` },
+        { type: 'mrkdwn', text: `*Contact*\n${contact_name.trim()}` },
+        { type: 'mrkdwn', text: `*Submitted by*\n${req.userEmail || '—'}` },
+      ]},
+    ]); // fire-and-forget
     res.status(201).json(formatLaunch(doc));
   } catch (err) {
     console.error(err);
@@ -388,6 +414,20 @@ app.patch('/api/launches/:id', requireAuth, async (req, res) => {
       const ownerEmail = configDoc.exists ? configDoc.data()[newOwner] : null;
       const name       = updates.account_name || row.account_name || '';
       sendClaimEmail(ownerEmail, name); // fire-and-forget
+    }
+
+    if (statusChanged && newStatus === 'launched') {
+      const name   = updates.account_name || row.account_name || '';
+      const domain = updates.domain_name  || row.domain_name  || '';
+      sendSlack([
+        { type: 'header', text: { type: 'plain_text', text: '🚀 Site Launched!' } },
+        { type: 'section', fields: [
+          { type: 'mrkdwn', text: `*Account*\n${name}` },
+          { type: 'mrkdwn', text: `*Domain*\n<https://${domain}|${domain}>` },
+          { type: 'mrkdwn', text: `*Owner*\n${newOwner || '—'}` },
+          { type: 'mrkdwn', text: `*Marked by*\n${req.userEmail || '—'}` },
+        ]},
+      ]); // fire-and-forget
     }
 
     const updated = await ref.get();
