@@ -898,6 +898,11 @@ function renderTable(data) {
     active = active.sort((a, b) =>
       ((toDate(a.created_at) || 0) - (toDate(b.created_at) || 0)) * sortState.dir
     );
+  } else {
+    // Default: sort by status pipeline order
+    active = active.sort((a, b) =>
+      STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status)
+    );
   }
 
   // Launched items always sorted by launch date ascending (oldest first)
