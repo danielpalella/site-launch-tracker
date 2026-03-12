@@ -32,16 +32,21 @@ function generateToken() {
 // ── OAuth state (CSRF) ──
 const oauthStates = new Map();
 function createState(returnTo = '/dashboard') {
-  const state = crypto.randomUUID();
-  oauthStates.set(state, { t: Date.now(), returnTo });
-  for (const [k, v] of oauthStates) if (Date.now() - v.t > 600_000) oauthStates.delete(k);
-  return state;
+  const uuid = crypto.randomUUID();
+  oauthStates.set(uuid, Date.now());
+  for (const [k, t] of oauthStates) if (Date.now() - t > 600_000) oauthStates.delete(k);
+  // Encode returnTo in the state value itself so it survives across instances
+  return `${uuid}.${Buffer.from(returnTo).toString('base64url')}`;
 }
 function consumeState(state) {
-  const v = oauthStates.get(state);
-  if (!v || Date.now() - v.t > 600_000) return null;
-  oauthStates.delete(state);
-  return v.returnTo;
+  const dot = (state || '').indexOf('.');
+  if (dot === -1) return null;
+  const uuid     = state.slice(0, dot);
+  const returnTo = Buffer.from(state.slice(dot + 1), 'base64url').toString() || '/dashboard';
+  const t = oauthStates.get(uuid);
+  if (!t || Date.now() - t > 600_000) return null;
+  oauthStates.delete(uuid);
+  return returnTo;
 }
 
 function getCookies(req) {
