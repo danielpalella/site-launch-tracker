@@ -1,5 +1,4 @@
 import express from 'express';
-import nodemailer from 'nodemailer';
 import multer from 'multer';
 import { getStorage } from 'firebase-admin/storage';
 import { join, dirname } from 'path';
@@ -100,39 +99,6 @@ async function optionalAuth(req, res, next) {
   next();
 }
 
-// ── Email (Gmail SMTP via nodemailer) ──
-function getMailTransport() {
-  const user = process.env.GMAIL_USER;
-  const pass = process.env.GMAIL_APP_PASSWORD;
-  if (!user || !pass) return null;
-  return nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 587,
-    secure: false,
-    auth: { user, pass },
-  });
-}
-
-async function sendClaimEmail(toEmail, accountName) {
-  if (!toEmail) return;
-  const transport = getMailTransport();
-  if (!transport) {
-    console.warn('Email not sent: GMAIL_USER or GMAIL_APP_PASSWORD is not set.');
-    return;
-  }
-  try {
-    const info = await transport.sendMail({
-      from:    `"Launch Tracker" <${process.env.GMAIL_USER}>`,
-      to:      toEmail,
-      subject: `${accountName} / RealWork Website`,
-      text:    `${accountName} has been assigned to you.\n\nView the dashboard to get started.`,
-    });
-    console.log('Email sent:', info.messageId, '→', toEmail);
-  } catch (err) {
-    console.error('Email send error:', err.message);
-    throw err;
-  }
-}
 
 // ── Slack notifications ──
 async function sendSlack(blocks) {
@@ -203,7 +169,7 @@ app.get('/auth/google', (_req, res) => {
     client_id:     GOOGLE_CLIENT_ID,
     redirect_uri:  GOOGLE_REDIRECT_URI,
     response_type: 'code',
-    scope:         'openid email profile https://www.googleapis.com/auth/gmail.readonly',
+    scope:         'openid email profile',
     access_type:   'offline',
     prompt:        'consent',
     state:         createState(),
@@ -411,12 +377,6 @@ app.patch('/api/launches/:id', requireAuth, async (req, res) => {
     }
     await logAudit({ type: 'edit', email: req.userEmail || '', launch_id: req.params.id, changes: changedFields });
 
-    if (ownerChanged) {
-      const configDoc  = await db.collection('config').doc('ownerEmails').get();
-      const ownerEmail = configDoc.exists ? configDoc.data()[newOwner] : null;
-      const name       = updates.account_name || row.account_name || '';
-      sendClaimEmail(ownerEmail, name); // fire-and-forget
-    }
 
     if (statusChanged && newStatus === 'launched') {
       const name   = updates.account_name || row.account_name || '';
@@ -503,42 +463,6 @@ app.get('/api/admin/logs', requireAuth, async (req, res) => {
   }
 });
 
-// ── Admin test email ──
-app.post('/api/admin/test-email', requireAuth, async (req, res) => {
-  const { to } = req.body;
-  if (!to) return res.status(400).json({ error: 'Missing to address.' });
-  if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
-    return res.status(500).json({ error: 'GMAIL_USER or GMAIL_APP_PASSWORD is not set.' });
-  }
-  try {
-    await sendClaimEmail(to, 'Test Account');
-    res.json({ ok: true, to, from: process.env.GMAIL_USER });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ── Admin owner email config ──
-app.get('/api/admin/owner-emails', requireAuth, async (req, res) => {
-  try {
-    const doc = await db.collection('config').doc('ownerEmails').get();
-    res.json(doc.exists ? doc.data() : {});
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch emails.' });
-  }
-});
-
-app.post('/api/admin/owner-emails', requireAuth, async (req, res) => {
-  try {
-    const data = {};
-    if (typeof req.body.Daniel  === 'string') data.Daniel  = req.body.Daniel.trim();
-    if (typeof req.body.Thierry === 'string') data.Thierry = req.body.Thierry.trim();
-    await db.collection('config').doc('ownerEmails').set(data, { merge: true });
-    res.json({ ok: true });
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to save emails.' });
-  }
-});
 
 // ── RDAP / Domain Info ──
 let rdapBootstrap = null;

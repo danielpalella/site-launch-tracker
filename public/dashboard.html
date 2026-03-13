@@ -441,23 +441,6 @@
       <button id="admin-close" onclick="closeAdmin()" title="Close">&times;</button>
     </div>
 
-    <!-- Owner email settings -->
-    <div id="admin-email-section">
-      <div class="admin-sub-label">Owner Notification Emails</div>
-      <div id="admin-email-row">
-        <div class="admin-email-field">
-          <label>Daniel</label>
-          <input type="email" id="admin-email-daniel" placeholder="daniel@example.com" />
-        </div>
-        <div class="admin-email-field">
-          <label>Thierry</label>
-          <input type="email" id="admin-email-thierry" placeholder="thierry@example.com" />
-        </div>
-        <button class="btn btn-primary" id="admin-save-emails" onclick="saveOwnerEmails()" style="align-self:flex-end;font-size:.8rem;padding:.45rem .9rem;white-space:nowrap">Save</button>
-        <button class="btn btn-ghost" id="admin-test-email" onclick="sendTestEmail()" style="align-self:flex-end;font-size:.8rem;padding:.45rem .9rem;white-space:nowrap">Send Test</button>
-      </div>
-      <p class="admin-email-hint" id="admin-email-status">When a launch is claimed, an email is sent to that owner's address.</p>
-    </div>
 
     <div id="admin-body">
       <div class="admin-sub-label" style="padding:.75rem 1.25rem .4rem">Audit Log</div>
@@ -1879,74 +1862,9 @@ fetchEditRequests(); // populate badge count
 
 function openAdmin() {
   document.getElementById('admin-overlay').style.display = 'flex';
-  loadAdminOwnerEmails();
   loadAdminLogs();
 }
 
-async function loadAdminOwnerEmails() {
-  try {
-    const res  = await fetch('/api/admin/owner-emails');
-    const data = await res.json();
-    document.getElementById('admin-email-daniel').value  = data.Daniel  || '';
-    document.getElementById('admin-email-thierry').value = data.Thierry || '';
-  } catch { /* silent */ }
-}
-
-async function sendTestEmail() {
-  const btn    = document.getElementById('admin-test-email');
-  const status = document.getElementById('admin-email-status');
-  const daniel  = document.getElementById('admin-email-daniel').value.trim();
-  const thierry = document.getElementById('admin-email-thierry').value.trim();
-  const to = daniel || thierry;
-  if (!to) {
-    status.textContent = '⚠ Enter at least one email address above first.';
-    status.style.color = '#f97316';
-    return;
-  }
-  btn.disabled = true;
-  btn.textContent = 'Sending…';
-  status.style.color = 'var(--text-muted)';
-  status.textContent = `Sending test to ${to}…`;
-  try {
-    const res  = await fetch('/api/admin/test-email', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ to }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Unknown error');
-    status.textContent = `✓ Sent from ${data.from} → ${data.to}. Check inbox (and spam).`;
-    status.style.color = '#16a34a';
-  } catch (err) {
-    status.textContent = `✗ Failed: ${err.message}`;
-    status.style.color = '#dc2626';
-  } finally {
-    btn.textContent = 'Send Test';
-    btn.disabled = false;
-  }
-}
-
-async function saveOwnerEmails() {
-  const btn = document.getElementById('admin-save-emails');
-  btn.disabled = true;
-  btn.textContent = 'Saving…';
-  try {
-    const res = await fetch('/api/admin/owner-emails', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        Daniel:  document.getElementById('admin-email-daniel').value.trim(),
-        Thierry: document.getElementById('admin-email-thierry').value.trim(),
-      }),
-    });
-    if (!res.ok) throw new Error();
-    btn.textContent = 'Saved ✓';
-    setTimeout(() => { btn.textContent = 'Save'; btn.disabled = false; }, 1800);
-  } catch {
-    btn.textContent = 'Failed';
-    setTimeout(() => { btn.textContent = 'Save'; btn.disabled = false; }, 1800);
-  }
-}
 
 function closeAdmin() {
   document.getElementById('admin-overlay').style.display = 'none';

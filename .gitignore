@@ -2,3 +2,4 @@ node_modules/
 launches.db
 *.db
 .env
+firebase-key.json
