@@ -298,12 +298,9 @@ app.get('/api/launches', requireAuth, async (req, res) => {
         r.contact_name.toLowerCase().includes(term)
       );
     }
-    // Launched items always sink to the bottom
-    launches.sort((a, b) => {
-      if (a.status === 'launched' && b.status !== 'launched') return 1;
-      if (b.status === 'launched' && a.status !== 'launched') return -1;
-      return 0;
-    });
+    // Decommissioned always last, launched second-to-last
+    const sortWeight = s => s === 'decommissioned' ? 2 : s === 'launched' ? 1 : 0;
+    launches.sort((a, b) => sortWeight(a.status) - sortWeight(b.status));
     res.json(launches);
   } catch (err) {
     console.error(err);

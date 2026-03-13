@@ -890,10 +890,9 @@ function renderTable(data) {
   const tbody = document.getElementById('table-body');
   document.getElementById('row-count').textContent = `${data.length} record${data.length !== 1 ? 's' : ''}`;
 
-  // Separate active from completed statuses (launched/decommissioned sink to bottom)
-  const doneStatuses = new Set(['launched', 'decommissioned']);
-  let active = data.filter(r => !doneStatuses.has(r.status));
-  let launched = data.filter(r => doneStatuses.has(r.status));
+  let active        = data.filter(r => r.status !== 'launched' && r.status !== 'decommissioned');
+  let launched      = data.filter(r => r.status === 'launched');
+  let decommissioned = data.filter(r => r.status === 'decommissioned');
 
   if (sortState.col === 'status') {
     active = active.sort((a, b) =>
@@ -910,12 +909,12 @@ function renderTable(data) {
     );
   }
 
-  // Launched items always sorted by launch date ascending (oldest first)
-  launched = launched.sort((a, b) =>
-    (toDate(a.status_changed_at || a.created_at) || 0) - (toDate(b.status_changed_at || b.created_at) || 0)
-  );
+  const byDate = (a, b) =>
+    (toDate(a.status_changed_at || a.created_at) || 0) - (toDate(b.status_changed_at || b.created_at) || 0);
+  launched       = launched.sort(byDate);
+  decommissioned = decommissioned.sort(byDate);
 
-  data = [...active, ...launched];
+  data = [...active, ...launched, ...decommissioned];
 
   if (!data.length) {
     tbody.innerHTML = `<tr><td colspan="9"><div class="empty">
