@@ -1019,7 +1019,21 @@ function renderTable(data) {
     return;
   }
 
-  tbody.innerHTML = data.map(r => `
+  let html = '';
+  let lastStatus = null;
+  for (const r of data) {
+    if (r.status !== lastStatus) {
+      const count = data.filter(x => x.status === r.status).length;
+      html += `<tr class="status-separator">
+        <td colspan="8">
+          <span class="status-sep-dot" style="background:${STATUS_COLORS[r.status]}"></span>
+          <span class="status-sep-label">${STATUS_LABELS[r.status]}</span>
+          <span class="status-sep-count">${count}</span>
+        </td>
+      </tr>`;
+      lastStatus = r.status;
+    }
+    html += `
     <tr data-id="${r.id}" ondblclick="handleRowDblClick(event,'${r.id}')" style="cursor:pointer" ${r.status === 'launched' ? 'class="row-launched"' : r.status === 'decommissioned' ? 'class="row-decommissioned"' : ''}>
       <td class="sticky-col">
         <div class="account-name">${esc(r.account_name)}<span class="gmail-unread-badge" id="gmail-badge-${r.id}" data-email="${esc(r.email)}" style="display:none"></span></div>
@@ -1050,8 +1064,9 @@ function renderTable(data) {
       <td data-id="${r.id}" onmouseenter="showStatusAgeTooltip(event,this)" onmouseleave="hideNoteTooltip()" style="white-space:nowrap;font-size:.8rem;color:var(--text-muted);cursor:help">${r.status === 'launched' ? formatDate(r.status_changed_at || r.created_at) : (r.status_changed_at || r.created_at ? formatDuration(Date.now() - toDate(r.status_changed_at || r.created_at).getTime()) : '—')}</td>
       <td style="text-align:center">${r.notes ? `<span class="note-dot" data-note="${esc(r.notes)}" onmouseenter="showNoteTooltip(event,this)" onmouseleave="hideNoteTooltip()">···</span>` : '<span style="color:var(--text-muted);font-size:.8rem">—</span>'}</td>
       <td style="font-size:.8rem;color:var(--text-muted)">${esc(r.department)}</td>
-    </tr>
-  `).join('');
+    </tr>`;
+  }
+  tbody.innerHTML = html;
 
   loadGmailUnreadBadges(data);
 }

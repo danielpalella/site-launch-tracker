@@ -885,6 +885,42 @@ tr:hover .sticky-col { background: #f8fafc; }
 .view-btn:hover { background: var(--bg); color: var(--text); }
 .view-btn.view-btn-active { background: var(--primary); color: #fff; }
 
+/* ── LIST VIEW STATUS SEPARATORS ── */
+tr.status-separator td {
+  background: var(--bg);
+  padding: .4rem .75rem;
+  border-top: 1px solid var(--border);
+  border-bottom: none;
+}
+tr.status-separator:first-child td { border-top: none; }
+.status-sep-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: .45rem;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+.status-sep-label {
+  font-size: .72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  vertical-align: middle;
+}
+.status-sep-count {
+  margin-left: .45rem;
+  font-size: .7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--border);
+  padding: .1rem .42rem;
+  border-radius: 10px;
+  vertical-align: middle;
+}
+
 /* ── BOARD VIEW ── */
 .board-area {
   display: none;
