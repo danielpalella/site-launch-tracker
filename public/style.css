@@ -36,6 +36,10 @@
 [data-theme="dark"] tr.row-launched .sticky-col { background: #14352a; }
 [data-theme="dark"] tr.row-launched:hover td,
 [data-theme="dark"] tr.row-launched:hover .sticky-col { background: #1a4535; }
+[data-theme="dark"] tr.row-decommissioned td,
+[data-theme="dark"] tr.row-decommissioned .sticky-col { background: #3b0a0a; }
+[data-theme="dark"] tr.row-decommissioned:hover td,
+[data-theme="dark"] tr.row-decommissioned:hover .sticky-col { background: #4c1010; }
 [data-theme="dark"] nav a.active { background: #1e3a5f; }
 
 /* ── DARK MODE TOGGLE ── */
@@ -271,6 +275,8 @@ tr:last-child td { border-bottom: none; }
 tr:hover td { background: #f8fafc; }
 tr.row-launched td, tr.row-launched .sticky-col { background: #f0fdf4; }
 tr.row-launched:hover td, tr.row-launched:hover .sticky-col { background: #dcfce7; }
+tr.row-decommissioned td, tr.row-decommissioned .sticky-col { background: #fff1f2; }
+tr.row-decommissioned:hover td, tr.row-decommissioned:hover .sticky-col { background: #ffe4e6; }
 
 .sticky-col {
   position: sticky;

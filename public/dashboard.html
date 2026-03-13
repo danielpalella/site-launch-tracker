@@ -63,6 +63,7 @@
               <button class="fp-chip" data-filter="status" data-value="awaiting_approval" onclick="setFilter('status','awaiting_approval',this)">Approval</button>
               <button class="fp-chip" data-filter="status" data-value="awaiting_dns" onclick="setFilter('status','awaiting_dns',this)">DNS Access</button>
               <button class="fp-chip" data-filter="status" data-value="launched" onclick="setFilter('status','launched',this)">Launched</button>
+              <button class="fp-chip" data-filter="status" data-value="decommissioned" onclick="setFilter('status','decommissioned',this)">Decommissioned</button>
             </div>
           </div>
           <div class="fp-group">
@@ -284,6 +285,7 @@
             <option value="awaiting_approval">Awaiting Client Approval / Edits</option>
             <option value="awaiting_dns">Awaiting DNS Access</option>
             <option value="launched">Launched / Live</option>
+            <option value="decommissioned">Decommissioned</option>
           </select>
         </div>
         <div class="crm-field">
@@ -481,7 +483,8 @@ const STATUS_LABELS = {
   in_progress:       'In Progress',
   awaiting_approval: 'Approval',
   awaiting_dns:      'DNS Access',
-  launched:          'Launched'
+  launched:          'Launched',
+  decommissioned:    'Decommissioned',
 };
 
 let allLaunches = [];
@@ -489,7 +492,7 @@ let editingId = null;
 let deletingId = null;
 let deletingType = 'launch'; // 'launch' | 'edit-request'
 let showArchivedLaunches = false;
-const STATUS_ORDER = ['new', 'in_progress', 'awaiting_approval', 'awaiting_dns', 'launched'];
+const STATUS_ORDER = ['new', 'in_progress', 'awaiting_approval', 'awaiting_dns', 'launched', 'decommissioned'];
 
 // ── Chart / View State ──
 const STATUS_COLORS = {
@@ -498,6 +501,7 @@ const STATUS_COLORS = {
   awaiting_approval: '#f97316',
   awaiting_dns:      '#8b5cf6',
   launched:          '#22c55e',
+  decommissioned:    '#ef4444',
 };
 const GROUP_KEYS = {
   department: ['Sales', 'Retention', 'Customer Success', 'CS-Renewal', 'Other'],
@@ -886,9 +890,10 @@ function renderTable(data) {
   const tbody = document.getElementById('table-body');
   document.getElementById('row-count').textContent = `${data.length} record${data.length !== 1 ? 's' : ''}`;
 
-  // Separate launched from non-launched so launched always sink to the bottom
-  let active = data.filter(r => r.status !== 'launched');
-  let launched = data.filter(r => r.status === 'launched');
+  // Separate active from completed statuses (launched/decommissioned sink to bottom)
+  const doneStatuses = new Set(['launched', 'decommissioned']);
+  let active = data.filter(r => !doneStatuses.has(r.status));
+  let launched = data.filter(r => doneStatuses.has(r.status));
 
   if (sortState.col === 'status') {
     active = active.sort((a, b) =>
@@ -924,7 +929,7 @@ function renderTable(data) {
   }
 
   tbody.innerHTML = data.map(r => `
-    <tr data-id="${r.id}" ondblclick="handleRowDblClick(event,'${r.id}')" style="cursor:pointer" ${r.status === 'launched' ? 'class="row-launched"' : ''}>
+    <tr data-id="${r.id}" ondblclick="handleRowDblClick(event,'${r.id}')" style="cursor:pointer" ${r.status === 'launched' ? 'class="row-launched"' : r.status === 'decommissioned' ? 'class="row-decommissioned"' : ''}>
       <td class="sticky-col">
         <div class="account-name">${esc(r.account_name)}<span class="gmail-unread-badge" id="gmail-badge-${r.id}" data-email="${esc(r.email)}" style="display:none"></span></div>
         <div class="domain">🌐 <a href="https://${esc(r.domain_name)}" target="_blank" rel="noopener" style="color:var(--primary);text-decoration:none" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${esc(r.domain_name)}</a></div>
