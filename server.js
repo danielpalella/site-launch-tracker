@@ -862,48 +862,135 @@ app.get('/api/launches/:id/lighthouse', requireAuth, async (req, res) => {
   }
 });
 
-// ── Google Analytics & Search Console ──
-// Setup: create a service account in GCP, add it as a user in GSC + GA4 viewer,
-// download the JSON key, base64-encode it, and set GOOGLE_SERVICE_ACCOUNT_KEY env var.
+// ── Google Analytics & Search Console (OAuth) ──
+// User connects by clicking "Connect Analytics Account" in the Analytics tab.
+// Refresh token is stored in Firestore at config/analytics_oauth.
 
-let _analyticsAuth = null;
-function getAnalyticsAuth() {
-  if (_analyticsAuth) return _analyticsAuth;
-  const keyEnv = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
-  if (!keyEnv) throw new Error('GOOGLE_SERVICE_ACCOUNT_KEY is not configured');
-  const key = JSON.parse(Buffer.from(keyEnv, 'base64').toString('utf8'));
-  _analyticsAuth = new google.auth.JWT({
-    email: key.client_email,
-    key: key.private_key,
-    scopes: [
-      'https://www.googleapis.com/auth/webmasters.readonly',
-      'https://www.googleapis.com/auth/analytics.readonly',
-    ],
+const ANALYTICS_REDIRECT_URI = (() => {
+  const base = (process.env.OAUTH_REDIRECT_URI || `http://localhost:${PORT}/auth/google/callback`)
+    .replace(/\/auth\/google\/callback$/, '');
+  return `${base}/auth/analytics/callback`;
+})();
+
+const ANALYTICS_SCOPES = [
+  'email',
+  'https://www.googleapis.com/auth/webmasters.readonly',
+  'https://www.googleapis.com/auth/analytics.readonly',
+];
+
+// In-memory token cache (avoids Firestore read on every request)
+let _analyticsToken = null; // { access_token, expires_at }
+
+async function getAnalyticsAccessToken() {
+  if (_analyticsToken && Date.now() < _analyticsToken.expires_at - 60_000) {
+    return _analyticsToken.access_token;
+  }
+  const snap = await db.collection('config').doc('analytics_oauth').get();
+  if (!snap.exists) throw Object.assign(new Error('not_connected'), { code: 'not_connected' });
+  const { refresh_token } = snap.data();
+  const r = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id: GOOGLE_CLIENT_ID,
+      client_secret: GOOGLE_CLIENT_SECRET,
+      refresh_token,
+      grant_type: 'refresh_token',
+    }),
   });
-  return _analyticsAuth;
+  const data = await r.json();
+  if (!data.access_token) throw new Error('Failed to refresh analytics token');
+  _analyticsToken = { access_token: data.access_token, expires_at: Date.now() + (data.expires_in || 3600) * 1000 };
+  return _analyticsToken.access_token;
 }
+
+// OAuth connect flow
+app.get('/auth/analytics', requireAuth, (req, res) => {
+  const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+  url.searchParams.set('client_id', GOOGLE_CLIENT_ID);
+  url.searchParams.set('redirect_uri', ANALYTICS_REDIRECT_URI);
+  url.searchParams.set('response_type', 'code');
+  url.searchParams.set('scope', ANALYTICS_SCOPES.join(' '));
+  url.searchParams.set('access_type', 'offline');
+  url.searchParams.set('prompt', 'consent');
+  res.redirect(url.toString());
+});
+
+app.get('/auth/analytics/callback', requireAuth, async (req, res) => {
+  const { code, error } = req.query;
+  if (error) return res.redirect('/dashboard?analytics_error=' + encodeURIComponent(error));
+  try {
+    const r = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        code,
+        client_id: GOOGLE_CLIENT_ID,
+        client_secret: GOOGLE_CLIENT_SECRET,
+        redirect_uri: ANALYTICS_REDIRECT_URI,
+        grant_type: 'authorization_code',
+      }),
+    });
+    const tokens = await r.json();
+    if (!tokens.refresh_token) throw new Error('No refresh token returned — ensure prompt=consent');
+    // Get connected email
+    const userInfo = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: { Authorization: `Bearer ${tokens.access_token}` },
+    }).then(r => r.json());
+    await db.collection('config').doc('analytics_oauth').set({
+      refresh_token: tokens.refresh_token,
+      email: userInfo.email || '',
+      connected_at: new Date().toISOString(),
+    });
+    _analyticsToken = null; // bust cache
+    ga4Cache = null;
+    res.redirect('/dashboard?tab=analytics&analytics_connected=1');
+  } catch (err) {
+    console.error('Analytics OAuth callback error:', err.message);
+    res.redirect('/dashboard?analytics_error=' + encodeURIComponent(err.message));
+  }
+});
+
+app.get('/api/analytics/connection', requireAuth, async (req, res) => {
+  const snap = await db.collection('config').doc('analytics_oauth').get();
+  if (!snap.exists) return res.json({ connected: false });
+  const { email, connected_at } = snap.data();
+  res.json({ connected: true, email, connected_at });
+});
+
+app.delete('/api/analytics/connection', requireAuth, async (req, res) => {
+  await db.collection('config').doc('analytics_oauth').delete();
+  _analyticsToken = null;
+  ga4Cache = null;
+  res.json({ ok: true });
+});
 
 // GA4 property discovery cache: normalised domain → propertyId
 let ga4Cache = null; // { map: {domain: propertyId}, at: timestamp }
 
-async function refreshGa4Cache() {
-  const auth = getAnalyticsAuth();
-  const admin = google.analyticsadmin({ version: 'v1alpha', auth });
+async function refreshGa4Cache(token) {
   const map = {};
-  let pageToken;
   const allProps = [];
+  let pageToken;
   do {
-    const { data } = await admin.accountSummaries.list({ pageSize: 200, pageToken });
+    const r = await fetch(
+      `https://analyticsadmin.googleapis.com/v1alpha/accountSummaries?pageSize=200${pageToken ? '&pageToken=' + pageToken : ''}`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    const data = await r.json();
     for (const acc of data.accountSummaries || [])
       for (const p of acc.propertySummaries || []) allProps.push(p.property);
     pageToken = data.nextPageToken;
   } while (pageToken);
 
-  // Fetch web data streams for all properties in parallel (batches of 10)
   for (let i = 0; i < allProps.length; i += 10) {
     await Promise.all(allProps.slice(i, i + 10).map(async propResource => {
       try {
-        const { data } = await admin.properties.dataStreams.list({ parent: propResource });
+        const r = await fetch(
+          `https://analyticsadmin.googleapis.com/v1alpha/${propResource}/dataStreams?pageSize=50`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        const data = await r.json();
         const propId = propResource.replace('properties/', '');
         for (const s of data.dataStreams || []) {
           if (s.type === 'WEB_DATA_STREAM' && s.webStreamData?.defaultUri) {
@@ -912,15 +999,15 @@ async function refreshGa4Cache() {
             map[d] = propId;
           }
         }
-      } catch { /* skip inaccessible properties */ }
+      } catch { /* skip inaccessible */ }
     }));
   }
   return map;
 }
 
-async function getGa4PropertyId(domain) {
+async function getGa4PropertyId(domain, token) {
   if (!ga4Cache || Date.now() - ga4Cache.at > 3_600_000) {
-    ga4Cache = { map: await refreshGa4Cache(), at: Date.now() };
+    ga4Cache = { map: await refreshGa4Cache(token), at: Date.now() };
   }
   const clean = domain.replace(/^https?:\/\//, '').replace(/\/$/, '').replace(/^www\./, '');
   return ga4Cache.map[clean] || null;
@@ -928,7 +1015,6 @@ async function getGa4PropertyId(domain) {
 
 function isoDate(d) { return d.toISOString().slice(0, 10); }
 
-// Compares last N weeks vs previous N weeks, returns % change (1 decimal)
 function computePctChange(weeks, key) {
   if (weeks.length < 4) return null;
   const n = Math.min(4, Math.floor(weeks.length / 2));
@@ -938,39 +1024,40 @@ function computePctChange(weeks, key) {
   return Math.round((last - prev) / prev * 1000) / 10;
 }
 
-async function fetchGSC(domain, launchDate) {
-  const auth = getAnalyticsAuth();
-  const sc = google.webmasters({ version: 'v3', auth });
+async function fetchGSC(domain, launchDate, token) {
   const startDate = isoDate(new Date(launchDate));
   const endDate = isoDate(new Date());
   const cleanDomain = domain.replace(/^www\./, '');
 
+  async function querySC(siteUrl, body) {
+    const r = await fetch(
+      `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(siteUrl)}/searchAnalytics/query`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      }
+    );
+    if (!r.ok) throw new Error(`GSC ${r.status}`);
+    return r.json();
+  }
+
   let siteUrl = `sc-domain:${cleanDomain}`;
   let rows = [];
   try {
-    const res = await sc.searchanalytics.query({
-      siteUrl,
-      requestBody: { startDate, endDate, dimensions: ['date'], rowLimit: 500 },
-    });
-    rows = res.data.rows || [];
+    const data = await querySC(siteUrl, { startDate, endDate, dimensions: ['date'], rowLimit: 500 });
+    rows = data.rows || [];
   } catch {
     try {
       siteUrl = `https://${domain}/`;
-      const res = await sc.searchanalytics.query({
-        siteUrl,
-        requestBody: { startDate, endDate, dimensions: ['date'], rowLimit: 500 },
-      });
-      rows = res.data.rows || [];
+      const data = await querySC(siteUrl, { startDate, endDate, dimensions: ['date'], rowLimit: 500 });
+      rows = data.rows || [];
     } catch { return { available: false }; }
   }
 
-  // Top queries (separate call using same siteUrl)
-  const topRes = await sc.searchanalytics.query({
-    siteUrl,
-    requestBody: { startDate, endDate, dimensions: ['query'], rowLimit: 5 },
-  }).catch(() => ({ data: { rows: [] } }));
+  const topData = await querySC(siteUrl, { startDate, endDate, dimensions: ['query'], rowLimit: 5 })
+    .catch(() => ({ rows: [] }));
 
-  // Aggregate daily → weekly (week starting Sunday)
   const weekMap = {};
   let clicks = 0, impressions = 0, posSum = 0, posCount = 0;
   for (const row of rows) {
@@ -1001,7 +1088,7 @@ async function fetchGSC(domain, launchDate) {
       impressionsPct: computePctChange(weeks, 'impressions'),
     },
     weeks,
-    topQueries: (topRes.data.rows || []).map(r => ({
+    topQueries: (topData.rows || []).map(r => ({
       query: r.keys[0],
       clicks: r.clicks || 0,
       position: r.position ? Math.round(r.position * 10) / 10 : null,
@@ -1009,45 +1096,49 @@ async function fetchGSC(domain, launchDate) {
   };
 }
 
-async function fetchGA4(propertyId, launchDate) {
-  const auth = getAnalyticsAuth();
-  const adata = google.analyticsdata({ version: 'v1beta', auth });
+async function fetchGA4(propertyId, launchDate, token) {
   const property = `properties/${propertyId}`;
   const startDate = isoDate(new Date(launchDate));
 
-  const [dailyRes, channelRes] = await Promise.all([
-    adata.properties.runReport({
-      property,
-      requestBody: {
-        dateRanges: [{ startDate, endDate: 'today' }],
-        dimensions: [{ name: 'date' }],
-        metrics: [
-          { name: 'sessions' },
-          { name: 'activeUsers' },
-          { name: 'newUsers' },
-          { name: 'engagementRate' },
-        ],
-        orderBys: [{ dimension: { dimensionName: 'date' } }],
-        limit: 500,
-      },
+  async function runReport(body) {
+    const r = await fetch(
+      `https://analyticsdata.googleapis.com/v1beta/${property}:runReport`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      }
+    );
+    if (!r.ok) throw new Error(`GA4 ${r.status}`);
+    return r.json();
+  }
+
+  const [dailyData, channelData] = await Promise.all([
+    runReport({
+      dateRanges: [{ startDate, endDate: 'today' }],
+      dimensions: [{ name: 'date' }],
+      metrics: [
+        { name: 'sessions' },
+        { name: 'activeUsers' },
+        { name: 'newUsers' },
+        { name: 'engagementRate' },
+      ],
+      orderBys: [{ dimension: { dimensionName: 'date' } }],
+      limit: 500,
     }),
-    adata.properties.runReport({
-      property,
-      requestBody: {
-        dateRanges: [{ startDate, endDate: 'today' }],
-        dimensions: [{ name: 'sessionDefaultChannelGrouping' }],
-        metrics: [{ name: 'sessions' }],
-        orderBys: [{ metric: { metricName: 'sessions' }, desc: true }],
-        limit: 6,
-      },
+    runReport({
+      dateRanges: [{ startDate, endDate: 'today' }],
+      dimensions: [{ name: 'sessionDefaultChannelGrouping' }],
+      metrics: [{ name: 'sessions' }],
+      orderBys: [{ metric: { metricName: 'sessions' }, desc: true }],
+      limit: 6,
     }),
   ]);
 
-  // Aggregate daily → weekly
   const weekMap = {};
   let sessions = 0, users = 0, newUsers = 0, engSum = 0, engCount = 0;
-  for (const row of dailyRes.data.rows || []) {
-    const raw = row.dimensionValues[0].value; // YYYYMMDD
+  for (const row of dailyData.rows || []) {
+    const raw = row.dimensionValues[0].value;
     const d = new Date(`${raw.slice(0,4)}-${raw.slice(4,6)}-${raw.slice(6,8)}`);
     d.setDate(d.getDate() - d.getDay());
     const wk = isoDate(d);
@@ -1075,7 +1166,7 @@ async function fetchGA4(propertyId, launchDate) {
       usersPct: computePctChange(weeks, 'users'),
     },
     weeks,
-    channels: (channelRes.data.rows || []).map(r => ({
+    channels: (channelData.rows || []).map(r => ({
       channel: r.dimensionValues[0].value,
       sessions: parseInt(r.metricValues[0].value) || 0,
     })),
@@ -1084,6 +1175,7 @@ async function fetchGA4(propertyId, launchDate) {
 
 app.get('/api/analytics/:id', requireAuth, async (req, res) => {
   try {
+    const token = await getAnalyticsAccessToken();
     const doc = await db.collection('launches').doc(req.params.id).get();
     if (!doc.exists) return res.status(404).json({ error: 'Not found' });
     const launch = formatLaunch(doc);
@@ -1094,18 +1186,18 @@ app.get('/api/analytics/:id', requireAuth, async (req, res) => {
     const daysSince = Math.floor((Date.now() - new Date(launchDate.replace(' ', 'T') + 'Z')) / 86_400_000);
 
     const [gsc, ga4PropertyId] = await Promise.all([
-      fetchGSC(domain, launchDate).catch(() => ({ available: false })),
-      getGa4PropertyId(domain).catch(() => null),
+      fetchGSC(domain, launchDate, token).catch(() => ({ available: false })),
+      getGa4PropertyId(domain, token).catch(() => null),
     ]);
     const ga4 = ga4PropertyId
-      ? await fetchGA4(ga4PropertyId, launchDate).catch(() => ({ available: false }))
-      : { available: false, reason: 'GA4 property not found — verify service account has access' };
+      ? await fetchGA4(ga4PropertyId, launchDate, token).catch(() => ({ available: false }))
+      : { available: false, reason: 'GA4 property not found for this domain' };
 
     res.json({ id: launch.id, account_name: launch.account_name, domain, launchDate, daysSince, gsc, ga4 });
   } catch (err) {
     console.error('Analytics error:', err.message);
-    if (err.message?.includes('GOOGLE_SERVICE_ACCOUNT_KEY'))
-      return res.status(503).json({ error: 'not_configured' });
+    if (err.code === 'not_connected')
+      return res.status(503).json({ error: 'not_connected' });
     res.status(500).json({ error: err.message || 'Failed to fetch analytics' });
   }
 });

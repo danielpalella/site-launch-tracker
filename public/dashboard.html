@@ -210,7 +210,10 @@
         <h1>Site Analytics</h1>
         <p class="subtitle" style="margin-bottom:0">GSC &amp; GA4 performance since launch for all active sites.</p>
       </div>
-      <button class="btn btn-ghost" onclick="refreshAnalytics()">↻ Refresh</button>
+      <div style="display:flex;align-items:center;gap:.75rem">
+        <div id="analytics-connection-status" style="display:flex;align-items:center;gap:.6rem;font-size:.825rem"></div>
+        <button class="btn btn-ghost" onclick="refreshAnalytics()">↻ Refresh</button>
+      </div>
     </div>
     <div class="card analytics-card-outer">
       <div class="analytics-scroll">
@@ -1998,6 +2001,20 @@ function escAttr(str) {
 fetchLaunches();
 fetchEditRequests(); // populate badge count
 
+// Handle post-OAuth redirects
+(function() {
+  const p = new URLSearchParams(window.location.search);
+  if (p.get('tab') === 'analytics') {
+    switchTab('analytics');
+    if (p.get('analytics_connected')) showToast('Analytics account connected!');
+    window.history.replaceState({}, '', '/dashboard');
+  }
+  if (p.get('analytics_error')) {
+    showToast('Analytics connect failed: ' + decodeURIComponent(p.get('analytics_error')), 'error');
+    window.history.replaceState({}, '', '/dashboard');
+  }
+})();
+
 // ── Admin portal ──
 (function() {
   let clickTimes = [];
@@ -2218,10 +2235,49 @@ function renderAnalyticsCard(id, data) {
   }
 }
 
+async function loadAnalyticsConnectionStatus() {
+  const statusEl = document.getElementById('analytics-connection-status');
+  try {
+    const r = await fetch('/api/analytics/connection');
+    const d = await r.json();
+    if (d.connected) {
+      statusEl.innerHTML = `
+        <span style="color:var(--text-muted)">Connected:</span>
+        <span style="font-weight:600">${esc(d.email)}</span>
+        <button class="btn btn-ghost" style="padding:.2rem .6rem;font-size:.75rem" onclick="disconnectAnalytics()">Disconnect</button>`;
+      return true;
+    } else {
+      statusEl.innerHTML = `<a href="/auth/analytics" class="btn btn-primary" style="font-size:.8rem;padding:.35rem .85rem">Connect Analytics Account</a>`;
+      return false;
+    }
+  } catch {
+    statusEl.innerHTML = '';
+    return false;
+  }
+}
+
+async function disconnectAnalytics() {
+  if (!confirm('Disconnect the analytics account?')) return;
+  await fetch('/api/analytics/connection', { method: 'DELETE' });
+  analyticsLoaded = false;
+  loadAnalytics();
+}
+
 async function loadAnalytics() {
   if (analyticsLoaded) return;
   const grid = document.getElementById('analytics-grid');
   grid.innerHTML = '<div style="color:var(--text-muted);font-size:.875rem">Loading…</div>';
+
+  const connected = await loadAnalyticsConnectionStatus();
+  if (!connected) {
+    grid.innerHTML = `<div class="ac-empty" style="grid-column:1/-1;text-align:center;padding:3rem 1rem">
+      <div style="font-size:2rem;margin-bottom:.75rem">📊</div>
+      <div style="font-weight:600;margin-bottom:.4rem">Analytics not connected</div>
+      <div style="color:var(--text-muted);margin-bottom:1.25rem;font-size:.875rem">Connect your Google account that has access to GSC and GA4.</div>
+      <a href="/auth/analytics" class="btn btn-primary">Connect Analytics Account</a>
+    </div>`;
+    return;
+  }
 
   const res = await fetch('/api/launches?status=launched');
   if (res.status === 401) { window.location.href = '/login'; return; }
@@ -2246,8 +2302,8 @@ async function loadAnalytics() {
           const card = document.getElementById(`ac-card-${l.id}`);
           if (card) {
             const s = card.querySelector('.ac-skeleton-wrap');
-            const msg = d.error === 'not_configured'
-              ? 'Analytics not configured — set GOOGLE_SERVICE_ACCOUNT_KEY'
+            const msg = d.error === 'not_connected'
+              ? 'Analytics account not connected'
               : (d.error || 'Failed to load');
             if (s) s.innerHTML = `<div class="ac-unavailable">${esc(msg)}</div>`;
           }
