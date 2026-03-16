@@ -210,8 +210,13 @@
         <h1>Site Analytics</h1>
         <p class="subtitle" style="margin-bottom:0">GSC &amp; GA4 performance since launch for all active sites.</p>
       </div>
-      <div style="display:flex;align-items:center;gap:.75rem">
+      <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap">
         <div id="analytics-connection-status" style="display:flex;align-items:center;gap:.6rem;font-size:.825rem"></div>
+        <div class="ac-period-group">
+          <button class="ac-period-btn" data-period="wow" onclick="setAnalyticsPeriod('wow')">WoW</button>
+          <button class="ac-period-btn ac-period-active" data-period="mom" onclick="setAnalyticsPeriod('mom')">MoM</button>
+          <button class="ac-period-btn" data-period="all" onclick="setAnalyticsPeriod('all')">All time</button>
+        </div>
         <button class="btn btn-ghost" onclick="refreshAnalytics()">↻ Refresh</button>
       </div>
     </div>
@@ -2086,7 +2091,37 @@ async function loadAdminLogs() {
 
 // ── Analytics Tab ──
 const analyticsCharts = {};
-let analyticsLoaded = false;
+const analyticsData   = {}; // raw data keyed by launch id
+let analyticsLoaded   = false;
+let analyticsPeriod   = 'mom'; // 'wow' | 'mom' | 'all'
+
+function computeClientPct(weeks, key, period) {
+  if (!weeks || weeks.length < 2) return null;
+  if (period === 'wow') {
+    const last = weeks[weeks.length - 1]?.[key] || 0;
+    const prev = weeks[weeks.length - 2]?.[key] || 0;
+    if (prev === 0) return null;
+    return Math.round((last - prev) / prev * 1000) / 10;
+  }
+  if (period === 'mom') {
+    if (weeks.length < 4) return null;
+    const n = Math.min(4, Math.floor(weeks.length / 2));
+    const prev = weeks.slice(-n * 2, -n).reduce((s, w) => s + (w[key] || 0), 0);
+    const last = weeks.slice(-n).reduce((s, w) => s + (w[key] || 0), 0);
+    if (prev === 0) return null;
+    return Math.round((last - prev) / prev * 1000) / 10;
+  }
+  return null; // 'all' — show totals only, no comparison
+}
+
+function setAnalyticsPeriod(p) {
+  analyticsPeriod = p;
+  document.querySelectorAll('.ac-period-btn').forEach(b =>
+    b.classList.toggle('ac-period-active', b.dataset.period === p));
+  for (const [id, data] of Object.entries(analyticsData)) {
+    renderAnalyticsCard(id, data);
+  }
+}
 
 function fmtNum(n) {
   if (n == null || n === '') return '—';
@@ -2127,18 +2162,27 @@ function analyticsSkeletonHtml(launch) {
   </div>`;
 }
 
+function fmtAnalyticsDate(dateStr) {
+  if (!dateStr) return '—';
+  const d = new Date(dateStr.replace(' ', 'T').replace(/Z?$/, 'Z'));
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
 function renderAnalyticsCard(id, data) {
   const card = document.getElementById(`ac-card-${id}`);
   if (!card) return;
   if (analyticsCharts[id]) { analyticsCharts[id].destroy(); delete analyticsCharts[id]; }
 
-  const { gsc, ga4, daysSince, account_name, domain } = data;
+  analyticsData[id] = data; // store for period re-renders
+
+  const { gsc, ga4, daysSince, account_name, domain, analyticsStartDate, launchDate } = data;
+  const displayDate = analyticsStartDate || launchDate;
 
   const gscBlock = gsc.available ? `
     <div class="ac-section-label">Search Console</div>
     <div class="ac-metrics">
-      ${acMetric(fmtNum(gsc.total.clicks),       'Clicks',       gsc.comparison?.clicksPct)}
-      ${acMetric(fmtNum(gsc.total.impressions),  'Impressions',  gsc.comparison?.impressionsPct)}
+      ${acMetric(fmtNum(gsc.total.clicks),       'Clicks',       computeClientPct(gsc.weeks, 'clicks', analyticsPeriod))}
+      ${acMetric(fmtNum(gsc.total.impressions),  'Impressions',  computeClientPct(gsc.weeks, 'impressions', analyticsPeriod))}
       ${acMetric(gsc.total.position ?? '—',      'Avg Position', null)}
       ${acMetric((gsc.total.ctr ?? 0) + '%',     'CTR',          null)}
     </div>` : `<div class="ac-unavailable">Search Console unavailable</div>`;
@@ -2146,8 +2190,8 @@ function renderAnalyticsCard(id, data) {
   const ga4Block = ga4.available ? `
     <div class="ac-section-label">Google Analytics</div>
     <div class="ac-metrics">
-      ${acMetric(fmtNum(ga4.total.sessions),     'Sessions',    ga4.comparison?.sessionsPct)}
-      ${acMetric(fmtNum(ga4.total.users),        'Users',       ga4.comparison?.usersPct)}
+      ${acMetric(fmtNum(ga4.total.sessions),     'Sessions',    computeClientPct(ga4.weeks, 'sessions', analyticsPeriod))}
+      ${acMetric(fmtNum(ga4.total.users),        'Users',       computeClientPct(ga4.weeks, 'users', analyticsPeriod))}
       ${acMetric(fmtNum(ga4.total.newUsers),     'New Users',   null)}
       ${acMetric(ga4.total.engagementRate != null ? ga4.total.engagementRate + '%' : '—', 'Engagement', null)}
     </div>` : `<div class="ac-unavailable">${esc(ga4.reason || 'Google Analytics unavailable')}</div>`;
@@ -2183,7 +2227,13 @@ function renderAnalyticsCard(id, data) {
         <div class="ac-name">${esc(account_name)}</div>
         <a class="ac-domain" href="https://${esc(domain)}" target="_blank" rel="noopener">${esc(domain)}</a>
       </div>
-      <div class="ac-launched-badge">Launched ${daysSince}d ago</div>
+      <div style="text-align:right">
+        <div class="ac-launched-badge">${daysSince}d of data</div>
+        <div id="ac-date-${id}" class="ac-date-wrap">
+          <span class="ac-date-label">Since ${fmtAnalyticsDate(displayDate)}</span>
+          <button class="ac-date-edit-btn" title="Adjust start date" onclick="editAnalyticsStartDate('${esc(id)}', '${(analyticsStartDate || launchDate || '').slice(0,10)}')">✏️</button>
+        </div>
+      </div>
     </div>
     ${gscBlock}
     ${ga4Block}
@@ -2317,10 +2367,49 @@ async function loadAnalytics() {
   analyticsLoaded = true;
 }
 
+function editAnalyticsStartDate(id, currentVal) {
+  const el = document.getElementById(`ac-date-${id}`);
+  if (!el) return;
+  el.innerHTML = `
+    <input type="date" id="ac-date-input-${id}" value="${esc(currentVal)}"
+      style="font-size:.75rem;padding:.15rem .3rem;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text)">
+    <button class="btn btn-ghost" style="padding:.1rem .45rem;font-size:.7rem" onclick="saveAnalyticsStartDate('${esc(id)}')">Save</button>
+    <button class="btn btn-ghost" style="padding:.1rem .3rem;font-size:.7rem" onclick="cancelAnalyticsStartDate('${esc(id)}')">✕</button>`;
+  el.querySelector('input').focus();
+}
+
+function cancelAnalyticsStartDate(id) {
+  const data = analyticsData[id];
+  if (data) renderAnalyticsCard(id, data);
+}
+
+async function saveAnalyticsStartDate(id) {
+  const input = document.getElementById(`ac-date-input-${id}`);
+  const date = input?.value;
+  if (!date) return;
+  try {
+    await fetch(`/api/launches/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ analytics_start_date: date }),
+    });
+    // Re-fetch analytics for just this card
+    const card = document.getElementById(`ac-card-${id}`);
+    if (card) card.innerHTML = `<div class="ac-skeleton-wrap"><div class="ac-skeleton"></div><div class="ac-skeleton ac-skeleton-sm"></div></div>`;
+    const r = await fetch(`/api/analytics/${id}`);
+    const d = await r.json();
+    if (r.ok) renderAnalyticsCard(id, d);
+    else { if (card) card.innerHTML = `<div class="ac-unavailable">${esc(d.error || 'Failed to load')}</div>`; }
+  } catch {
+    showToast('Failed to save start date', 'error');
+  }
+}
+
 function refreshAnalytics() {
   analyticsLoaded = false;
   Object.values(analyticsCharts).forEach(c => c.destroy());
   for (const k in analyticsCharts) delete analyticsCharts[k];
+  for (const k in analyticsData) delete analyticsData[k];
   loadAnalytics();
 }
 </script>

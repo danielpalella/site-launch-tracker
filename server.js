@@ -155,6 +155,7 @@ function formatLaunch(doc) {
     created_at:       fmtTs(d.created_at),
     updated_at:       fmtTs(d.updated_at),
     status_changed_at: fmtTs(d.status_changed_at),
+    analytics_start_date: d.analytics_start_date || null,
   };
 }
 
@@ -334,7 +335,7 @@ app.post('/api/launches', requireAuth, async (req, res) => {
 
 app.patch('/api/launches/:id', requireAuth, async (req, res) => {
   try {
-    const { status, notes, department, industry, account_name, domain_name, contact_name, email, phone, owner, is_renewal, archived } = req.body;
+    const { status, notes, department, industry, account_name, domain_name, contact_name, email, phone, owner, is_renewal, archived, analytics_start_date } = req.body;
     const ref = db.collection('launches').doc(req.params.id);
     const doc = await ref.get();
     if (!doc.exists) return res.status(404).json({ error: 'Not found' });
@@ -361,6 +362,7 @@ app.patch('/api/launches/:id', requireAuth, async (req, res) => {
       updated_at:   FieldValue.serverTimestamp(),
     };
     if (archived  !== undefined) updates.archived = Boolean(archived);
+    if (analytics_start_date !== undefined) updates.analytics_start_date = analytics_start_date || null;
     if (statusChanged) updates.status_changed_at = FieldValue.serverTimestamp();
 
     await ref.update(updates);
@@ -1042,18 +1044,25 @@ async function fetchGSC(domain, launchDate, token) {
     return r.json();
   }
 
-  let siteUrl = `sc-domain:${cleanDomain}`;
+  // Try all common GSC siteUrl formats in order
+  const siteUrlCandidates = [
+    `sc-domain:${cleanDomain}`,
+    `https://www.${cleanDomain}/`,
+    `https://${cleanDomain}/`,
+    `http://www.${cleanDomain}/`,
+    `http://${cleanDomain}/`,
+  ];
+  let siteUrl = null;
   let rows = [];
-  try {
-    const data = await querySC(siteUrl, { startDate, endDate, dimensions: ['date'], rowLimit: 500 });
-    rows = data.rows || [];
-  } catch {
+  for (const candidate of siteUrlCandidates) {
     try {
-      siteUrl = `https://${domain}/`;
-      const data = await querySC(siteUrl, { startDate, endDate, dimensions: ['date'], rowLimit: 500 });
+      const data = await querySC(candidate, { startDate, endDate, dimensions: ['date'], rowLimit: 500 });
       rows = data.rows || [];
-    } catch { return { available: false }; }
+      siteUrl = candidate;
+      break;
+    } catch { /* try next */ }
   }
+  if (!siteUrl) return { available: false };
 
   const topData = await querySC(siteUrl, { startDate, endDate, dimensions: ['query'], rowLimit: 5 })
     .catch(() => ({ rows: [] }));
@@ -1182,18 +1191,21 @@ app.get('/api/analytics/:id', requireAuth, async (req, res) => {
     if (launch.status !== 'launched') return res.status(400).json({ error: 'Not a launched site' });
 
     const domain = launch.domain_name.replace(/^https?:\/\//, '').replace(/\/$/, '');
-    const launchDate = launch.status_changed_at || launch.created_at;
-    const daysSince = Math.floor((Date.now() - new Date(launchDate.replace(' ', 'T') + 'Z')) / 86_400_000);
+    const rawLaunchDate = launch.status_changed_at || launch.created_at;
+    // analytics_start_date overrides the status_changed_at for data range
+    const analyticsStartDate = launch.analytics_start_date || null;
+    const startDate = analyticsStartDate || rawLaunchDate;
+    const daysSince = Math.floor((Date.now() - new Date(startDate.replace(' ', 'T') + 'Z')) / 86_400_000);
 
     const [gsc, ga4PropertyId] = await Promise.all([
-      fetchGSC(domain, launchDate, token).catch(() => ({ available: false })),
+      fetchGSC(domain, startDate, token).catch(() => ({ available: false })),
       getGa4PropertyId(domain, token).catch(() => null),
     ]);
     const ga4 = ga4PropertyId
-      ? await fetchGA4(ga4PropertyId, launchDate, token).catch(() => ({ available: false }))
+      ? await fetchGA4(ga4PropertyId, startDate, token).catch(() => ({ available: false }))
       : { available: false, reason: 'GA4 property not found for this domain' };
 
-    res.json({ id: launch.id, account_name: launch.account_name, domain, launchDate, daysSince, gsc, ga4 });
+    res.json({ id: launch.id, account_name: launch.account_name, domain, launchDate: rawLaunchDate, analyticsStartDate, daysSince, gsc, ga4 });
   } catch (err) {
     console.error('Analytics error:', err.message);
     if (err.code === 'not_connected')
