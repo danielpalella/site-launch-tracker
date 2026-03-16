@@ -1,5 +1,6 @@
 import express from 'express';
 import multer from 'multer';
+import { google } from 'googleapis';
 import { getStorage } from 'firebase-admin/storage';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -858,6 +859,254 @@ app.get('/api/launches/:id/lighthouse', requireAuth, async (req, res) => {
     }));
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch Lighthouse history.' });
+  }
+});
+
+// ── Google Analytics & Search Console ──
+// Setup: create a service account in GCP, add it as a user in GSC + GA4 viewer,
+// download the JSON key, base64-encode it, and set GOOGLE_SERVICE_ACCOUNT_KEY env var.
+
+let _analyticsAuth = null;
+function getAnalyticsAuth() {
+  if (_analyticsAuth) return _analyticsAuth;
+  const keyEnv = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
+  if (!keyEnv) throw new Error('GOOGLE_SERVICE_ACCOUNT_KEY is not configured');
+  const key = JSON.parse(Buffer.from(keyEnv, 'base64').toString('utf8'));
+  _analyticsAuth = new google.auth.JWT({
+    email: key.client_email,
+    key: key.private_key,
+    scopes: [
+      'https://www.googleapis.com/auth/webmasters.readonly',
+      'https://www.googleapis.com/auth/analytics.readonly',
+    ],
+  });
+  return _analyticsAuth;
+}
+
+// GA4 property discovery cache: normalised domain → propertyId
+let ga4Cache = null; // { map: {domain: propertyId}, at: timestamp }
+
+async function refreshGa4Cache() {
+  const auth = getAnalyticsAuth();
+  const admin = google.analyticsadmin({ version: 'v1alpha', auth });
+  const map = {};
+  let pageToken;
+  const allProps = [];
+  do {
+    const { data } = await admin.accountSummaries.list({ pageSize: 200, pageToken });
+    for (const acc of data.accountSummaries || [])
+      for (const p of acc.propertySummaries || []) allProps.push(p.property);
+    pageToken = data.nextPageToken;
+  } while (pageToken);
+
+  // Fetch web data streams for all properties in parallel (batches of 10)
+  for (let i = 0; i < allProps.length; i += 10) {
+    await Promise.all(allProps.slice(i, i + 10).map(async propResource => {
+      try {
+        const { data } = await admin.properties.dataStreams.list({ parent: propResource });
+        const propId = propResource.replace('properties/', '');
+        for (const s of data.dataStreams || []) {
+          if (s.type === 'WEB_DATA_STREAM' && s.webStreamData?.defaultUri) {
+            const d = s.webStreamData.defaultUri
+              .replace(/^https?:\/\//, '').replace(/\/$/, '').replace(/^www\./, '');
+            map[d] = propId;
+          }
+        }
+      } catch { /* skip inaccessible properties */ }
+    }));
+  }
+  return map;
+}
+
+async function getGa4PropertyId(domain) {
+  if (!ga4Cache || Date.now() - ga4Cache.at > 3_600_000) {
+    ga4Cache = { map: await refreshGa4Cache(), at: Date.now() };
+  }
+  const clean = domain.replace(/^https?:\/\//, '').replace(/\/$/, '').replace(/^www\./, '');
+  return ga4Cache.map[clean] || null;
+}
+
+function isoDate(d) { return d.toISOString().slice(0, 10); }
+
+// Compares last N weeks vs previous N weeks, returns % change (1 decimal)
+function computePctChange(weeks, key) {
+  if (weeks.length < 4) return null;
+  const n = Math.min(4, Math.floor(weeks.length / 2));
+  const prev = weeks.slice(-n * 2, -n).reduce((s, w) => s + (w[key] || 0), 0);
+  const last = weeks.slice(-n).reduce((s, w) => s + (w[key] || 0), 0);
+  if (prev === 0) return null;
+  return Math.round((last - prev) / prev * 1000) / 10;
+}
+
+async function fetchGSC(domain, launchDate) {
+  const auth = getAnalyticsAuth();
+  const sc = google.webmasters({ version: 'v3', auth });
+  const startDate = isoDate(new Date(launchDate));
+  const endDate = isoDate(new Date());
+  const cleanDomain = domain.replace(/^www\./, '');
+
+  let siteUrl = `sc-domain:${cleanDomain}`;
+  let rows = [];
+  try {
+    const res = await sc.searchanalytics.query({
+      siteUrl,
+      requestBody: { startDate, endDate, dimensions: ['date'], rowLimit: 500 },
+    });
+    rows = res.data.rows || [];
+  } catch {
+    try {
+      siteUrl = `https://${domain}/`;
+      const res = await sc.searchanalytics.query({
+        siteUrl,
+        requestBody: { startDate, endDate, dimensions: ['date'], rowLimit: 500 },
+      });
+      rows = res.data.rows || [];
+    } catch { return { available: false }; }
+  }
+
+  // Top queries (separate call using same siteUrl)
+  const topRes = await sc.searchanalytics.query({
+    siteUrl,
+    requestBody: { startDate, endDate, dimensions: ['query'], rowLimit: 5 },
+  }).catch(() => ({ data: { rows: [] } }));
+
+  // Aggregate daily → weekly (week starting Sunday)
+  const weekMap = {};
+  let clicks = 0, impressions = 0, posSum = 0, posCount = 0;
+  for (const row of rows) {
+    const d = new Date(row.keys[0]);
+    d.setDate(d.getDate() - d.getDay());
+    const wk = isoDate(d);
+    if (!weekMap[wk]) weekMap[wk] = { clicks: 0, impressions: 0 };
+    weekMap[wk].clicks += row.clicks || 0;
+    weekMap[wk].impressions += row.impressions || 0;
+    clicks += row.clicks || 0;
+    impressions += row.impressions || 0;
+    if (row.position) { posSum += row.position; posCount++; }
+  }
+  const weeks = Object.entries(weekMap)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([week, d]) => ({ week, ...d }));
+
+  return {
+    available: true,
+    total: {
+      clicks,
+      impressions,
+      ctr: impressions > 0 ? Math.round(clicks / impressions * 10000) / 100 : 0,
+      position: posCount > 0 ? Math.round(posSum / posCount * 10) / 10 : null,
+    },
+    comparison: {
+      clicksPct: computePctChange(weeks, 'clicks'),
+      impressionsPct: computePctChange(weeks, 'impressions'),
+    },
+    weeks,
+    topQueries: (topRes.data.rows || []).map(r => ({
+      query: r.keys[0],
+      clicks: r.clicks || 0,
+      position: r.position ? Math.round(r.position * 10) / 10 : null,
+    })),
+  };
+}
+
+async function fetchGA4(propertyId, launchDate) {
+  const auth = getAnalyticsAuth();
+  const adata = google.analyticsdata({ version: 'v1beta', auth });
+  const property = `properties/${propertyId}`;
+  const startDate = isoDate(new Date(launchDate));
+
+  const [dailyRes, channelRes] = await Promise.all([
+    adata.properties.runReport({
+      property,
+      requestBody: {
+        dateRanges: [{ startDate, endDate: 'today' }],
+        dimensions: [{ name: 'date' }],
+        metrics: [
+          { name: 'sessions' },
+          { name: 'activeUsers' },
+          { name: 'newUsers' },
+          { name: 'engagementRate' },
+        ],
+        orderBys: [{ dimension: { dimensionName: 'date' } }],
+        limit: 500,
+      },
+    }),
+    adata.properties.runReport({
+      property,
+      requestBody: {
+        dateRanges: [{ startDate, endDate: 'today' }],
+        dimensions: [{ name: 'sessionDefaultChannelGrouping' }],
+        metrics: [{ name: 'sessions' }],
+        orderBys: [{ metric: { metricName: 'sessions' }, desc: true }],
+        limit: 6,
+      },
+    }),
+  ]);
+
+  // Aggregate daily → weekly
+  const weekMap = {};
+  let sessions = 0, users = 0, newUsers = 0, engSum = 0, engCount = 0;
+  for (const row of dailyRes.data.rows || []) {
+    const raw = row.dimensionValues[0].value; // YYYYMMDD
+    const d = new Date(`${raw.slice(0,4)}-${raw.slice(4,6)}-${raw.slice(6,8)}`);
+    d.setDate(d.getDate() - d.getDay());
+    const wk = isoDate(d);
+    const [s, u, n, e] = row.metricValues.map(m => parseFloat(m.value) || 0);
+    if (!weekMap[wk]) weekMap[wk] = { sessions: 0, users: 0 };
+    weekMap[wk].sessions += s;
+    weekMap[wk].users += u;
+    sessions += s; users += u; newUsers += n;
+    if (e > 0) { engSum += e; engCount++; }
+  }
+  const weeks = Object.entries(weekMap)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([week, d]) => ({ week, sessions: Math.round(d.sessions), users: Math.round(d.users) }));
+
+  return {
+    available: true,
+    total: {
+      sessions: Math.round(sessions),
+      users: Math.round(users),
+      newUsers: Math.round(newUsers),
+      engagementRate: engCount > 0 ? Math.round(engSum / engCount * 1000) / 10 : null,
+    },
+    comparison: {
+      sessionsPct: computePctChange(weeks, 'sessions'),
+      usersPct: computePctChange(weeks, 'users'),
+    },
+    weeks,
+    channels: (channelRes.data.rows || []).map(r => ({
+      channel: r.dimensionValues[0].value,
+      sessions: parseInt(r.metricValues[0].value) || 0,
+    })),
+  };
+}
+
+app.get('/api/analytics/:id', requireAuth, async (req, res) => {
+  try {
+    const doc = await db.collection('launches').doc(req.params.id).get();
+    if (!doc.exists) return res.status(404).json({ error: 'Not found' });
+    const launch = formatLaunch(doc);
+    if (launch.status !== 'launched') return res.status(400).json({ error: 'Not a launched site' });
+
+    const domain = launch.domain_name.replace(/^https?:\/\//, '').replace(/\/$/, '');
+    const launchDate = launch.status_changed_at || launch.created_at;
+    const daysSince = Math.floor((Date.now() - new Date(launchDate.replace(' ', 'T') + 'Z')) / 86_400_000);
+
+    const [gsc, ga4PropertyId] = await Promise.all([
+      fetchGSC(domain, launchDate).catch(() => ({ available: false })),
+      getGa4PropertyId(domain).catch(() => null),
+    ]);
+    const ga4 = ga4PropertyId
+      ? await fetchGA4(ga4PropertyId, launchDate).catch(() => ({ available: false }))
+      : { available: false, reason: 'GA4 property not found — verify service account has access' };
+
+    res.json({ id: launch.id, account_name: launch.account_name, domain, launchDate, daysSince, gsc, ga4 });
+  } catch (err) {
+    console.error('Analytics error:', err.message);
+    if (err.message?.includes('GOOGLE_SERVICE_ACCOUNT_KEY'))
+      return res.status(503).json({ error: 'not_configured' });
+    res.status(500).json({ error: err.message || 'Failed to fetch analytics' });
   }
 });
 

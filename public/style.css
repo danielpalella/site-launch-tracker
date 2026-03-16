@@ -1433,3 +1433,190 @@ tr.status-separator:first-child td { border-top: none; }
   vertical-align: middle;
   line-height: 1;
 }
+
+/* ── ANALYTICS TAB ── */
+#view-analytics {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.analytics-card-outer {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 1.25rem 1.5rem;
+}
+.analytics-scroll {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+.analytics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1rem;
+  padding-bottom: 1.5rem;
+}
+.ac-empty {
+  color: var(--text-muted);
+  font-size: .875rem;
+  text-align: center;
+  padding: 3rem 0;
+}
+
+/* Account analytics card */
+.ac-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: .65rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,.04);
+}
+.ac-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: .5rem;
+}
+.ac-name {
+  font-size: .88rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: .15rem;
+}
+.ac-domain {
+  font-size: .72rem;
+  color: var(--primary);
+  text-decoration: none;
+}
+.ac-domain:hover { text-decoration: underline; }
+.ac-launched-badge {
+  font-size: .67rem;
+  color: var(--text-muted);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: .18rem .48rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.ac-section-label {
+  font-size: .63rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+/* Metrics grid */
+.ac-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: .35rem;
+}
+.ac-metric {
+  display: flex;
+  flex-direction: column;
+  gap: .1rem;
+}
+.ac-metric-value {
+  font-size: .92rem;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.1;
+}
+.ac-metric-label {
+  font-size: .61rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.ac-delta {
+  font-size: .66rem;
+  font-weight: 600;
+}
+.ac-delta-up   { color: #22c55e; }
+.ac-delta-down { color: #ef4444; }
+
+/* Trend chart */
+.ac-chart-wrap {
+  height: 110px;
+  position: relative;
+}
+.ac-chart-wrap canvas { width: 100% !important; height: 100% !important; }
+
+/* Top queries */
+.ac-queries { display: flex; flex-direction: column; gap: .28rem; }
+.ac-query-row {
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+  font-size: .72rem;
+}
+.ac-query-text {
+  color: var(--text);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ac-query-meta { color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
+
+/* Traffic sources */
+.ac-channels { display: flex; flex-direction: column; gap: .28rem; }
+.ac-channel-row {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  font-size: .72rem;
+}
+.ac-channel-name {
+  color: var(--text);
+  width: 110px;
+  flex-shrink: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ac-channel-bar-wrap {
+  flex: 1;
+  height: 5px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.ac-channel-bar {
+  display: block;
+  height: 100%;
+  background: var(--primary);
+  border-radius: 3px;
+  transition: width .3s ease;
+}
+.ac-channel-count { color: var(--text-muted); white-space: nowrap; flex-shrink: 0; width: 28px; text-align: right; }
+
+/* Unavailable state */
+.ac-unavailable {
+  font-size: .75rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* Skeleton loading */
+.ac-skeleton-wrap { display: flex; flex-direction: column; gap: .5rem; padding: .25rem 0; }
+.ac-skeleton {
+  height: 52px;
+  background: var(--bg);
+  border-radius: 6px;
+  animation: ac-pulse 1.4s ease-in-out infinite;
+}
+.ac-skeleton.ac-skeleton-sm { height: 36px; }
+@keyframes ac-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .45; }
+}

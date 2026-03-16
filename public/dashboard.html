@@ -28,6 +28,7 @@
       Edit Requests
       <span class="dash-tab-badge" id="er-badge" style="display:none">0</span>
     </button>
+    <button class="dash-tab" id="tab-analytics" onclick="switchTab('analytics')">Analytics</button>
   </div>
 
   <!-- ── LAUNCHES VIEW ── -->
@@ -201,6 +202,24 @@
     </div>
   </div>
   </div><!-- /view-edit-requests -->
+
+  <!-- ── ANALYTICS VIEW ── -->
+  <div id="view-analytics" style="display:none">
+    <div class="dashboard-header">
+      <div>
+        <h1>Site Analytics</h1>
+        <p class="subtitle" style="margin-bottom:0">GSC &amp; GA4 performance since launch for all active sites.</p>
+      </div>
+      <button class="btn btn-ghost" onclick="refreshAnalytics()">↻ Refresh</button>
+    </div>
+    <div class="card analytics-card-outer">
+      <div class="analytics-scroll">
+        <div id="analytics-grid" class="analytics-grid">
+          <div style="color:var(--text-muted);font-size:.875rem">Loading…</div>
+        </div>
+      </div>
+    </div>
+  </div><!-- /view-analytics -->
 
 </div><!-- /page-wide -->
 
@@ -1543,9 +1562,12 @@ function switchTab(tab) {
   currentTab = tab;
   document.getElementById('view-launches').style.display      = tab === 'launches'      ? '' : 'none';
   document.getElementById('view-edit-requests').style.display = tab === 'edit-requests' ? '' : 'none';
+  document.getElementById('view-analytics').style.display     = tab === 'analytics'     ? '' : 'none';
   document.getElementById('tab-launches').classList.toggle('dash-tab-active',      tab === 'launches');
   document.getElementById('tab-edit-requests').classList.toggle('dash-tab-active', tab === 'edit-requests');
+  document.getElementById('tab-analytics').classList.toggle('dash-tab-active',     tab === 'analytics');
   if (tab === 'edit-requests') fetchEditRequests();
+  if (tab === 'analytics') loadAnalytics();
 }
 
 // ── Edit Requests ──
@@ -2043,6 +2065,207 @@ async function loadAdminLogs() {
   } catch (err) {
     loading.textContent = 'Failed to load logs.';
   }
+}
+
+// ── Analytics Tab ──
+const analyticsCharts = {};
+let analyticsLoaded = false;
+
+function fmtNum(n) {
+  if (n == null || n === '') return '—';
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
+  if (n >= 1_000)     return (n / 1_000).toFixed(1) + 'K';
+  return String(Math.round(n));
+}
+
+function acDelta(pct) {
+  if (pct == null) return '';
+  const up = pct >= 0;
+  return `<span class="ac-delta ${up ? 'ac-delta-up' : 'ac-delta-down'}">${up ? '▲' : '▼'} ${Math.abs(pct)}%</span>`;
+}
+
+function acMetric(value, label, pct) {
+  return `<div class="ac-metric">
+    <div class="ac-metric-value">${value}</div>
+    <div class="ac-metric-label">${label}</div>
+    ${acDelta(pct)}
+  </div>`;
+}
+
+function analyticsSkeletonHtml(launch) {
+  const launched = launch.status_changed_at || launch.created_at;
+  const days = Math.floor((Date.now() - toDate(launched).getTime()) / 86_400_000);
+  return `<div class="ac-card" id="ac-card-${launch.id}">
+    <div class="ac-card-header">
+      <div>
+        <div class="ac-name">${esc(launch.account_name)}</div>
+        <a class="ac-domain" href="https://${esc(launch.domain_name)}" target="_blank" rel="noopener">${esc(launch.domain_name)}</a>
+      </div>
+      <div class="ac-launched-badge">Launched ${days}d ago</div>
+    </div>
+    <div class="ac-skeleton-wrap">
+      <div class="ac-skeleton"></div>
+      <div class="ac-skeleton ac-skeleton-sm"></div>
+    </div>
+  </div>`;
+}
+
+function renderAnalyticsCard(id, data) {
+  const card = document.getElementById(`ac-card-${id}`);
+  if (!card) return;
+  if (analyticsCharts[id]) { analyticsCharts[id].destroy(); delete analyticsCharts[id]; }
+
+  const { gsc, ga4, daysSince, account_name, domain } = data;
+
+  const gscBlock = gsc.available ? `
+    <div class="ac-section-label">Search Console</div>
+    <div class="ac-metrics">
+      ${acMetric(fmtNum(gsc.total.clicks),       'Clicks',       gsc.comparison?.clicksPct)}
+      ${acMetric(fmtNum(gsc.total.impressions),  'Impressions',  gsc.comparison?.impressionsPct)}
+      ${acMetric(gsc.total.position ?? '—',      'Avg Position', null)}
+      ${acMetric((gsc.total.ctr ?? 0) + '%',     'CTR',          null)}
+    </div>` : `<div class="ac-unavailable">Search Console unavailable</div>`;
+
+  const ga4Block = ga4.available ? `
+    <div class="ac-section-label">Google Analytics</div>
+    <div class="ac-metrics">
+      ${acMetric(fmtNum(ga4.total.sessions),     'Sessions',    ga4.comparison?.sessionsPct)}
+      ${acMetric(fmtNum(ga4.total.users),        'Users',       ga4.comparison?.usersPct)}
+      ${acMetric(fmtNum(ga4.total.newUsers),     'New Users',   null)}
+      ${acMetric(ga4.total.engagementRate != null ? ga4.total.engagementRate + '%' : '—', 'Engagement', null)}
+    </div>` : `<div class="ac-unavailable">${esc(ga4.reason || 'Google Analytics unavailable')}</div>`;
+
+  const hasChart = (gsc.available && gsc.weeks?.length > 2) || (ga4.available && ga4.weeks?.length > 2);
+  const chartBlock = hasChart ? `<div class="ac-chart-wrap"><canvas id="ac-chart-${id}"></canvas></div>` : '';
+
+  const queriesBlock = gsc.available && gsc.topQueries?.length ? `
+    <div class="ac-section-label" style="margin-top:.15rem">Top Queries</div>
+    <div class="ac-queries">
+      ${gsc.topQueries.map(q => `
+        <div class="ac-query-row">
+          <span class="ac-query-text">${esc(q.query)}</span>
+          <span class="ac-query-meta">${q.clicks} clicks</span>
+          <span class="ac-query-meta">pos ${q.position ?? '—'}</span>
+        </div>`).join('')}
+    </div>` : '';
+
+  const channelsBlock = ga4.available && ga4.channels?.length ? `
+    <div class="ac-section-label" style="margin-top:.15rem">Traffic Sources</div>
+    <div class="ac-channels">
+      ${ga4.channels.map(c => `
+        <div class="ac-channel-row">
+          <span class="ac-channel-name">${esc(c.channel)}</span>
+          <span class="ac-channel-bar-wrap"><span class="ac-channel-bar" style="width:${Math.round(c.sessions / ga4.channels[0].sessions * 100)}%"></span></span>
+          <span class="ac-channel-count">${fmtNum(c.sessions)}</span>
+        </div>`).join('')}
+    </div>` : '';
+
+  card.innerHTML = `
+    <div class="ac-card-header">
+      <div>
+        <div class="ac-name">${esc(account_name)}</div>
+        <a class="ac-domain" href="https://${esc(domain)}" target="_blank" rel="noopener">${esc(domain)}</a>
+      </div>
+      <div class="ac-launched-badge">Launched ${daysSince}d ago</div>
+    </div>
+    ${gscBlock}
+    ${ga4Block}
+    ${chartBlock}
+    ${queriesBlock}
+    ${channelsBlock}
+  `;
+
+  if (hasChart) {
+    const allWeeks = [...new Set([
+      ...(gsc.available ? gsc.weeks.map(w => w.week) : []),
+      ...(ga4.available ? ga4.weeks.map(w => w.week) : []),
+    ])].sort();
+    const gscMap = Object.fromEntries((gsc.weeks || []).map(w => [w.week, w.clicks]));
+    const ga4Map = Object.fromEntries((ga4.weeks || []).map(w => [w.week, w.sessions]));
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const gridC  = isDark ? '#334155' : '#e2e8f0';
+    const textC  = isDark ? '#94a3b8' : '#64748b';
+    const datasets = [];
+    if (gsc.available && gsc.weeks?.length > 2) datasets.push({
+      label: 'GSC Clicks', yAxisID: 'y',
+      data: allWeeks.map(w => gscMap[w] ?? 0),
+      borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,.08)',
+      fill: true, tension: 0.35, pointRadius: 2, borderWidth: 1.5,
+    });
+    if (ga4.available && ga4.weeks?.length > 2) datasets.push({
+      label: 'GA4 Sessions', yAxisID: datasets.length ? 'y1' : 'y',
+      data: allWeeks.map(w => ga4Map[w] ?? 0),
+      borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,.08)',
+      fill: true, tension: 0.35, pointRadius: 2, borderWidth: 1.5,
+    });
+    const scales = {
+      x: { ticks: { color: textC, font: { size: 9 }, maxTicksLimit: 6 }, grid: { display: false }, border: { display: false } },
+      y: { position: 'left', ticks: { color: textC, font: { size: 9 }, maxTicksLimit: 4 }, grid: { color: gridC }, border: { display: false } },
+    };
+    if (datasets.length > 1) scales.y1 = { position: 'right', ticks: { color: textC, font: { size: 9 }, maxTicksLimit: 4 }, grid: { display: false }, border: { display: false } };
+    analyticsCharts[id] = new Chart(document.getElementById(`ac-chart-${id}`), {
+      type: 'line',
+      data: { labels: allWeeks.map(w => new Date(w).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })), datasets },
+      options: {
+        responsive: true, maintainAspectRatio: false, animation: { duration: 250 },
+        plugins: {
+          legend: { position: 'top', labels: { color: textC, font: { size: 10 }, boxWidth: 8, padding: 8 } },
+          tooltip: { mode: 'index', intersect: false },
+        },
+        scales,
+      },
+    });
+  }
+}
+
+async function loadAnalytics() {
+  if (analyticsLoaded) return;
+  const grid = document.getElementById('analytics-grid');
+  grid.innerHTML = '<div style="color:var(--text-muted);font-size:.875rem">Loading…</div>';
+
+  const res = await fetch('/api/launches?status=launched');
+  if (res.status === 401) { window.location.href = '/login'; return; }
+  const launched = await res.json();
+
+  if (!launched.length) {
+    grid.innerHTML = '<div class="ac-empty">No launched accounts yet.</div>';
+    return;
+  }
+
+  launched.sort((a, b) => toDate(b.status_changed_at || b.created_at) - toDate(a.status_changed_at || a.created_at));
+  grid.innerHTML = launched.map(l => analyticsSkeletonHtml(l)).join('');
+
+  for (let i = 0; i < launched.length; i += 4) {
+    await Promise.all(launched.slice(i, i + 4).map(async l => {
+      try {
+        const r = await fetch(`/api/analytics/${l.id}`);
+        const d = await r.json();
+        if (r.ok) {
+          renderAnalyticsCard(l.id, d);
+        } else {
+          const card = document.getElementById(`ac-card-${l.id}`);
+          if (card) {
+            const s = card.querySelector('.ac-skeleton-wrap');
+            const msg = d.error === 'not_configured'
+              ? 'Analytics not configured — set GOOGLE_SERVICE_ACCOUNT_KEY'
+              : (d.error || 'Failed to load');
+            if (s) s.innerHTML = `<div class="ac-unavailable">${esc(msg)}</div>`;
+          }
+        }
+      } catch {
+        const card = document.getElementById(`ac-card-${l.id}`);
+        if (card) { const s = card.querySelector('.ac-skeleton-wrap'); if (s) s.innerHTML = '<div class="ac-unavailable">Failed to load</div>'; }
+      }
+    }));
+  }
+  analyticsLoaded = true;
+}
+
+function refreshAnalytics() {
+  analyticsLoaded = false;
+  Object.values(analyticsCharts).forEach(c => c.destroy());
+  for (const k in analyticsCharts) delete analyticsCharts[k];
+  loadAnalytics();
 }
 </script>
 </body>
