@@ -508,6 +508,9 @@ function setView(mode) {
   document.getElementById('table-wrap').style.display = mode === 'table' ? '' : 'none';
   document.getElementById('chart-area').classList.toggle('visible', mode === 'graph');
   document.getElementById('board-area').classList.toggle('visible', mode === 'board');
+  // Tighten card padding in board mode so columns use the full height
+  const card = document.querySelector('#view-launches .card');
+  if (card) card.classList.toggle('board-mode', mode === 'board');
   if (mode === 'graph') renderChart();
   if (mode === 'board') renderBoard();
 }
@@ -650,21 +653,24 @@ function renderBoard() {
   }
 
   area.innerHTML = STATUS_ORDER.map(status => {
+    const color = STATUS_COLORS[status];
     const cards = byStatus[status] || [];
     return `<div class="board-column" data-status="${status}"
+      style="border-top-color:${color}"
       ondragover="boardDragOver(event,this)"
       ondragleave="boardDragLeave(this)"
       ondrop="boardDrop(event,this,'${status}')">
       <div class="board-col-header">
-        <div class="board-col-dot" style="background:${STATUS_COLORS[status]}"></div>
+        <div class="board-col-dot" style="background:${color}"></div>
         <span class="board-col-title">${STATUS_LABELS[status]}</span>
         <span class="board-col-count">${cards.length}</span>
       </div>
       <div class="board-col-body">
         ${cards.length === 0
-          ? `<div class="board-col-empty">No items</div>`
+          ? `<div class="board-col-empty">Drop items here</div>`
           : cards.map(r => `
             <div class="board-card" draggable="true" data-id="${r.id}"
+              style="border-left-color:${color}"
               ondragstart="boardDragStart(event,this)"
               ondragend="boardDragEnd(this)"
               ondblclick="handleRowDblClick(event,'${r.id}')">
@@ -672,8 +678,8 @@ function renderBoard() {
               <div class="board-card-domain">🌐 ${esc(r.domain_name)}</div>
               <div class="board-card-meta">
                 ${r.owner
-                  ? `<span class="owner-badge" style="font-size:.68rem;padding:.15rem .45rem">${esc(r.owner)}</span>`
-                  : `<span style="font-size:.68rem;color:var(--text-muted)">Unassigned</span>`}
+                  ? `<span class="owner-badge" style="font-size:.67rem;padding:.12rem .42rem">${esc(r.owner)}</span>`
+                  : `<span style="font-size:.67rem;color:var(--text-muted)">—</span>`}
                 <span class="board-card-age">${r.status === 'launched'
                   ? formatDate(r.status_changed_at || r.created_at)
                   : (r.status_changed_at || r.created_at

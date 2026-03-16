@@ -921,61 +921,74 @@ tr.status-separator:first-child td { border-top: none; }
   vertical-align: middle;
 }
 
+/* Card padding override in board mode */
+.dashboard-page .card.board-mode {
+  padding-left: .75rem;
+  padding-right: .75rem;
+  padding-bottom: .75rem;
+}
+
 /* ── BOARD VIEW ── */
 .board-area {
   display: none;
   overflow-x: auto;
+  overflow-y: hidden;
   gap: .65rem;
-  padding-bottom: .75rem;
-  align-items: flex-start;
   flex: 1;
+  align-items: stretch;   /* columns fill the full height */
+  min-height: 0;
 }
 .board-area.visible { display: flex; }
+
 .board-column {
-  flex: 0 0 220px;
+  flex: 0 0 252px;
   display: flex;
   flex-direction: column;
   background: var(--bg);
   border-radius: var(--radius);
   border: 1.5px solid var(--border);
-  max-height: calc(100vh - 270px);
-  min-height: 120px;
+  border-top-width: 3px;          /* thicker top accent set inline per-status */
   overflow: hidden;
   transition: border-color .12s, background .12s;
 }
 .board-column.drag-over {
   border-color: var(--primary);
-  background: rgba(37,99,235,.05);
+  background: rgba(37,99,235,.06);
 }
-[data-theme="dark"] .board-column.drag-over { background: rgba(37,99,235,.12); }
+[data-theme="dark"] .board-column.drag-over { background: rgba(37,99,235,.13); }
+
 .board-col-header {
   display: flex;
   align-items: center;
   gap: .45rem;
-  padding: .55rem .7rem;
-  border-bottom: 1.5px solid var(--border);
+  padding: .6rem .75rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
 .board-col-dot {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   flex-shrink: 0;
 }
 .board-col-title {
-  font-size: .76rem;
+  font-size: .74rem;
   font-weight: 700;
   color: var(--text);
   flex: 1;
+  letter-spacing: .01em;
 }
 .board-col-count {
-  font-size: .7rem;
+  font-size: .69rem;
   font-weight: 600;
   color: var(--text-muted);
   background: var(--border);
-  padding: .1rem .42rem;
+  padding: .08rem .4rem;
   border-radius: 10px;
+  flex-shrink: 0;
 }
+
 .board-col-body {
   overflow-y: auto;
   display: flex;
@@ -983,37 +996,45 @@ tr.status-separator:first-child td { border-top: none; }
   gap: .4rem;
   padding: .5rem;
   flex: 1;
+  min-height: 0;          /* critical: lets flex children scroll */
 }
 .board-col-empty {
-  font-size: .75rem;
+  font-size: .73rem;
   color: var(--text-muted);
   text-align: center;
-  padding: .75rem 0;
+  padding: 1rem 0;
 }
+
 .board-card {
+  position: relative;
   background: var(--surface);
-  border: 1.5px solid var(--border);
+  border: 1px solid var(--border);
+  border-left-width: 3px;         /* accent set inline per-status */
   border-radius: 7px;
-  padding: .55rem .65rem;
+  padding: .6rem .7rem .5rem;
   cursor: grab;
-  transition: box-shadow .1s, border-color .1s, opacity .1s;
+  transition: box-shadow .12s, border-color .12s, opacity .1s, transform .1s;
   user-select: none;
 }
-.board-card:hover { box-shadow: var(--shadow); border-color: var(--text-muted); }
-.board-card.dragging { opacity: .35; cursor: grabbing; }
+.board-card:hover {
+  box-shadow: 0 2px 8px rgba(0,0,0,.1);
+  transform: translateY(-1px);
+}
+.board-card.dragging { opacity: .3; cursor: grabbing; transform: none; }
+
 .board-card-name {
   font-size: .8rem;
   font-weight: 600;
   color: var(--text);
-  margin-bottom: .2rem;
+  margin-bottom: .18rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .board-card-domain {
-  font-size: .7rem;
+  font-size: .69rem;
   color: var(--primary);
-  margin-bottom: .35rem;
+  margin-bottom: .4rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1023,12 +1044,25 @@ tr.status-separator:first-child td { border-top: none; }
   align-items: center;
   justify-content: space-between;
   gap: .35rem;
-  margin-bottom: .35rem;
 }
 .board-card-age {
-  font-size: .67rem;
+  font-size: .66rem;
   color: var(--text-muted);
   white-space: nowrap;
+}
+
+/* Status select hidden until card is hovered */
+.board-card-status-wrap {
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transition: max-height .15s ease, opacity .15s ease, margin-top .15s ease;
+  margin-top: 0;
+}
+.board-card:hover .board-card-status-wrap {
+  max-height: 40px;
+  opacity: 1;
+  margin-top: .4rem;
 }
 .board-card-status-wrap .status-select {
   width: 100%;
