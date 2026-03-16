@@ -335,7 +335,7 @@ app.post('/api/launches', requireAuth, async (req, res) => {
 
 app.patch('/api/launches/:id', requireAuth, async (req, res) => {
   try {
-    const { status, notes, department, industry, account_name, domain_name, contact_name, email, phone, owner, is_renewal, archived, analytics_start_date } = req.body;
+    const { status, notes, department, industry, account_name, domain_name, contact_name, email, phone, owner, is_renewal, archived, analytics_start_date, launch_date } = req.body;
     const ref = db.collection('launches').doc(req.params.id);
     const doc = await ref.get();
     if (!doc.exists) return res.status(404).json({ error: 'Not found' });
@@ -363,7 +363,12 @@ app.patch('/api/launches/:id', requireAuth, async (req, res) => {
     };
     if (archived  !== undefined) updates.archived = Boolean(archived);
     if (analytics_start_date !== undefined) updates.analytics_start_date = analytics_start_date || null;
-    if (statusChanged) updates.status_changed_at = FieldValue.serverTimestamp();
+    if (statusChanged) {
+      updates.status_changed_at = FieldValue.serverTimestamp();
+    } else if (launch_date) {
+      // Manual override of the launch date (e.g. site was live before it was added here)
+      updates.status_changed_at = new Date(launch_date);
+    }
 
     await ref.update(updates);
     if (statusChanged) {

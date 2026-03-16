@@ -311,7 +311,7 @@
       <div class="crm-row">
         <div class="crm-field">
           <label for="modal-status">Status</label>
-          <select id="modal-status">
+          <select id="modal-status" onchange="document.getElementById('modal-launch-date-wrap').style.display = this.value === 'launched' ? '' : 'none'">
             <option value="new">New</option>
             <option value="in_progress">In Progress</option>
             <option value="awaiting_approval">Awaiting Client Approval / Edits</option>
@@ -328,6 +328,11 @@
             <option value="Thierry">Thierry</option>
           </select>
         </div>
+      </div>
+      <div class="crm-field" id="modal-launch-date-wrap" style="margin-top:.65rem;display:none">
+        <label for="modal-launch-date">Launch Date</label>
+        <input type="date" id="modal-launch-date" />
+        <div style="font-size:.7rem;color:var(--text-muted);margin-top:.2rem">Used for analytics — set this to when the site actually went live.</div>
       </div>
       <div class="crm-field" style="margin-top:.65rem">
         <label for="modal-notes">Internal Notes</label>
@@ -1152,6 +1157,11 @@ function openEdit(id) {
   document.getElementById('modal-owner').value        = r.owner || '';
   document.getElementById('modal-status').value       = r.status;
   document.getElementById('modal-notes').value        = r.notes || '';
+  // Launch date field — show only for launched status
+  const launchDateWrap = document.getElementById('modal-launch-date-wrap');
+  const launchDateInput = document.getElementById('modal-launch-date');
+  launchDateWrap.style.display = r.status === 'launched' ? '' : 'none';
+  launchDateInput.value = r.status_changed_at ? r.status_changed_at.slice(0, 10) : '';
   document.getElementById('modal-archive').textContent = r.archived ? 'Unarchive' : 'Archive';
   document.getElementById('modal').classList.add('open');
   loadTimeline(id);
@@ -1209,6 +1219,7 @@ document.getElementById('modal-save').addEventListener('click', async () => {
     owner:        document.getElementById('modal-owner').value,
     status:       document.getElementById('modal-status').value,
     notes:        document.getElementById('modal-notes').value,
+    launch_date:  document.getElementById('modal-launch-date').value || undefined,
   };
 
   try {
@@ -2229,10 +2240,7 @@ function renderAnalyticsCard(id, data) {
       </div>
       <div style="text-align:right">
         <div class="ac-launched-badge">${daysSince}d of data</div>
-        <div id="ac-date-${id}" class="ac-date-wrap">
-          <span class="ac-date-label">Since ${fmtAnalyticsDate(displayDate)}</span>
-          <button class="ac-date-edit-btn" title="Adjust start date" onclick="editAnalyticsStartDate('${esc(id)}', '${(analyticsStartDate || launchDate || '').slice(0,10)}')">✏️</button>
-        </div>
+        <div class="ac-date-label" style="font-size:.7rem;color:var(--text-muted);margin-top:.2rem">Since ${fmtAnalyticsDate(displayDate)}</div>
       </div>
     </div>
     ${gscBlock}
