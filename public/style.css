@@ -754,6 +754,11 @@ tr:hover .sticky-col { background: #f8fafc; }
 .fp-chip:hover { border-color: var(--primary); color: var(--primary); }
 .fp-chip.fp-chip-active { background: var(--primary); border-color: var(--primary); color: #fff; }
 
+/* Analytics filter chips sit on --bg so need --surface bg to stand out */
+.ac-filter-bar .fp-chip { background: var(--surface); color: var(--text); }
+.ac-filter-bar .fp-chip:hover { border-color: var(--primary); color: var(--primary); background: var(--surface); }
+.ac-filter-bar .fp-chip.fp-chip-active { background: var(--primary); border-color: var(--primary); color: #fff; }
+
 /* ── CONTACT POPUP ── */
 .contact-name-btn {
   font-weight: 600;

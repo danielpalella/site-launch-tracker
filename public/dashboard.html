@@ -211,7 +211,7 @@
       </div>
       <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap">
         <div id="analytics-connection-status" style="display:flex;align-items:center;gap:.6rem;font-size:.825rem"></div>
-        <div style="display:flex;gap:.3rem">
+        <div class="ac-filter-bar" style="display:flex;gap:.3rem">
           <button class="fp-chip ac-period-btn" data-period="wow" onclick="setAnalyticsPeriod('wow')">WoW</button>
           <button class="fp-chip ac-period-btn fp-chip-active" data-period="mom" onclick="setAnalyticsPeriod('mom')">MoM</button>
           <button class="fp-chip ac-period-btn" data-period="all" onclick="setAnalyticsPeriod('all')">All time</button>
@@ -219,7 +219,7 @@
         <button class="btn btn-ghost" onclick="refreshAnalytics()">↻ Refresh</button>
       </div>
     </div>
-    <div id="analytics-industry-bar" style="display:none;flex-wrap:wrap;gap:.4rem;margin-bottom:.75rem"></div>
+    <div id="analytics-industry-bar" class="ac-filter-bar" style="display:none;flex-wrap:wrap;gap:.4rem;margin-bottom:.75rem"></div>
     <div class="card analytics-card-outer">
       <div class="analytics-scroll">
         <div id="analytics-grid" class="analytics-grid">
