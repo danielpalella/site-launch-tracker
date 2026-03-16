@@ -2128,6 +2128,47 @@ function buildAnalyticsIndustryBar(launches) {
   `).join('');
 }
 
+// Returns the slice of weeks for the current period
+function periodWeeks(weeks, period) {
+  if (!weeks?.length) return weeks || [];
+  if (period === 'wow') return weeks.slice(-2);  // last 2 weeks (current + prev for comparison)
+  if (period === 'mom') return weeks.slice(-8);  // last 8 weeks (current 4 + prev 4 for comparison)
+  return weeks; // all time
+}
+
+// Sum a key across a slice of weeks
+function sumWeeks(weeks, key) {
+  return weeks.reduce((s, w) => s + (w[key] || 0), 0);
+}
+
+// Compute period-specific totals for GSC from weekly data
+function periodGscTotals(gsc, period) {
+  if (!gsc.available || period === 'all') return gsc.total;
+  const n = period === 'wow' ? 1 : 4;
+  const slice = gsc.weeks.slice(-n);
+  const clicks = sumWeeks(slice, 'clicks');
+  const impressions = sumWeeks(slice, 'impressions');
+  return {
+    clicks,
+    impressions,
+    ctr: impressions > 0 ? Math.round(clicks / impressions * 10000) / 100 : 0,
+    position: gsc.total.position, // avg position not available per-week
+  };
+}
+
+// Compute period-specific totals for GA4 from weekly data
+function periodGa4Totals(ga4, period) {
+  if (!ga4.available || period === 'all') return ga4.total;
+  const n = period === 'wow' ? 1 : 4;
+  const slice = ga4.weeks.slice(-n);
+  return {
+    sessions: Math.round(sumWeeks(slice, 'sessions')),
+    users:    Math.round(sumWeeks(slice, 'users')),
+    newUsers: null,       // not available per-week
+    engagementRate: null, // not available per-week
+  };
+}
+
 function computeClientPct(weeks, key, period) {
   if (!weeks || weeks.length < 2) return null;
   if (period === 'wow') {
@@ -2144,7 +2185,7 @@ function computeClientPct(weeks, key, period) {
     if (prev === 0) return null;
     return Math.round((last - prev) / prev * 1000) / 10;
   }
-  return null; // 'all' — show totals only, no comparison
+  return null; // 'all' — no comparison badge
 }
 
 function setAnalyticsPeriod(p) {
@@ -2211,25 +2252,33 @@ function renderAnalyticsCard(id, data) {
   const { gsc, ga4, daysSince, account_name, domain, analyticsStartDate, launchDate } = data;
   const displayDate = analyticsStartDate || launchDate;
 
+  const gscT = periodGscTotals(gsc, analyticsPeriod);
+  const ga4T = periodGa4Totals(ga4, analyticsPeriod);
+  const periodLabel = analyticsPeriod === 'wow' ? 'Last 7 days' : analyticsPeriod === 'mom' ? 'Last 30 days' : 'Since launch';
+
   const gscBlock = gsc.available ? `
-    <div class="ac-section-label">Search Console</div>
+    <div class="ac-section-label">Search Console <span style="font-weight:400;color:var(--text-muted);font-size:.65rem;text-transform:none;letter-spacing:0">${periodLabel}</span></div>
     <div class="ac-metrics">
-      ${acMetric(fmtNum(gsc.total.clicks),       'Clicks',       computeClientPct(gsc.weeks, 'clicks', analyticsPeriod))}
-      ${acMetric(fmtNum(gsc.total.impressions),  'Impressions',  computeClientPct(gsc.weeks, 'impressions', analyticsPeriod))}
-      ${acMetric(gsc.total.position ?? '—',      'Avg Position', null)}
-      ${acMetric((gsc.total.ctr ?? 0) + '%',     'CTR',          null)}
+      ${acMetric(fmtNum(gscT.clicks),                               'Clicks',       computeClientPct(gsc.weeks, 'clicks', analyticsPeriod))}
+      ${acMetric(fmtNum(gscT.impressions),                          'Impressions',  computeClientPct(gsc.weeks, 'impressions', analyticsPeriod))}
+      ${acMetric(gscT.position ?? '—',                              'Avg Position', null)}
+      ${acMetric((gscT.ctr ?? 0) + '%',                             'CTR',          null)}
     </div>` : `<div class="ac-unavailable">Search Console unavailable</div>`;
 
   const ga4Block = ga4.available ? `
-    <div class="ac-section-label">Google Analytics</div>
+    <div class="ac-section-label">Google Analytics <span style="font-weight:400;color:var(--text-muted);font-size:.65rem;text-transform:none;letter-spacing:0">${periodLabel}</span></div>
     <div class="ac-metrics">
-      ${acMetric(fmtNum(ga4.total.sessions),     'Sessions',    computeClientPct(ga4.weeks, 'sessions', analyticsPeriod))}
-      ${acMetric(fmtNum(ga4.total.users),        'Users',       computeClientPct(ga4.weeks, 'users', analyticsPeriod))}
-      ${acMetric(fmtNum(ga4.total.newUsers),     'New Users',   null)}
-      ${acMetric(ga4.total.engagementRate != null ? ga4.total.engagementRate + '%' : '—', 'Engagement', null)}
+      ${acMetric(fmtNum(ga4T.sessions),                             'Sessions',   computeClientPct(ga4.weeks, 'sessions', analyticsPeriod))}
+      ${acMetric(fmtNum(ga4T.users),                                'Users',      computeClientPct(ga4.weeks, 'users', analyticsPeriod))}
+      ${acMetric(ga4T.newUsers != null ? fmtNum(ga4T.newUsers) : '—',   'New Users',  null)}
+      ${acMetric(ga4T.engagementRate != null ? ga4T.engagementRate + '%' : '—', 'Engagement', null)}
     </div>` : `<div class="ac-unavailable">${esc(ga4.reason || 'Google Analytics unavailable')}</div>`;
 
-  const hasChart = (gsc.available && gsc.weeks?.length > 2) || (ga4.available && ga4.weeks?.length > 2);
+  // Chart shows the weeks relevant to the period
+  const chartWeeks = analyticsPeriod === 'all' ? null : periodWeeks(gsc.available ? gsc.weeks : ga4.weeks, analyticsPeriod);
+  const gscChartWeeks = analyticsPeriod === 'all' ? (gsc.weeks || []) : periodWeeks(gsc.weeks, analyticsPeriod);
+  const ga4ChartWeeks = analyticsPeriod === 'all' ? (ga4.weeks || []) : periodWeeks(ga4.weeks, analyticsPeriod);
+  const hasChart = (gsc.available && gscChartWeeks.length > 1) || (ga4.available && ga4ChartWeeks.length > 1);
   const chartBlock = hasChart ? `<div class="ac-chart-wrap"><canvas id="ac-chart-${id}"></canvas></div>` : '';
 
   const queriesBlock = gsc.available && gsc.topQueries?.length ? `
@@ -2274,22 +2323,22 @@ function renderAnalyticsCard(id, data) {
 
   if (hasChart) {
     const allWeeks = [...new Set([
-      ...(gsc.available ? gsc.weeks.map(w => w.week) : []),
-      ...(ga4.available ? ga4.weeks.map(w => w.week) : []),
+      ...gscChartWeeks.map(w => w.week),
+      ...ga4ChartWeeks.map(w => w.week),
     ])].sort();
-    const gscMap = Object.fromEntries((gsc.weeks || []).map(w => [w.week, w.clicks]));
-    const ga4Map = Object.fromEntries((ga4.weeks || []).map(w => [w.week, w.sessions]));
+    const gscMap = Object.fromEntries(gscChartWeeks.map(w => [w.week, w.clicks]));
+    const ga4Map = Object.fromEntries(ga4ChartWeeks.map(w => [w.week, w.sessions]));
     const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
     const gridC  = isDark ? '#334155' : '#e2e8f0';
     const textC  = isDark ? '#94a3b8' : '#64748b';
     const datasets = [];
-    if (gsc.available && gsc.weeks?.length > 2) datasets.push({
+    if (gsc.available && gscChartWeeks.length > 1) datasets.push({
       label: 'GSC Clicks', yAxisID: 'y',
       data: allWeeks.map(w => gscMap[w] ?? 0),
-      borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,.08)',
+      borderColor: '#1259FF', backgroundColor: 'rgba(18,89,255,.08)',
       fill: true, tension: 0.35, pointRadius: 2, borderWidth: 1.5,
     });
-    if (ga4.available && ga4.weeks?.length > 2) datasets.push({
+    if (ga4.available && ga4ChartWeeks.length > 1) datasets.push({
       label: 'GA4 Sessions', yAxisID: datasets.length ? 'y1' : 'y',
       data: allWeeks.map(w => ga4Map[w] ?? 0),
       borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,.08)',
