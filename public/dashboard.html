@@ -220,6 +220,7 @@
         <button class="btn btn-ghost" onclick="refreshAnalytics()">↻ Refresh</button>
       </div>
     </div>
+    <div id="analytics-industry-bar" style="display:none;flex-wrap:wrap;gap:.4rem;margin-bottom:.75rem"></div>
     <div class="card analytics-card-outer">
       <div class="analytics-scroll">
         <div id="analytics-grid" class="analytics-grid">
@@ -2101,10 +2102,32 @@ async function loadAdminLogs() {
 }
 
 // ── Analytics Tab ──
-const analyticsCharts = {};
-const analyticsData   = {}; // raw data keyed by launch id
-let analyticsLoaded   = false;
-let analyticsPeriod   = 'mom'; // 'wow' | 'mom' | 'all'
+const analyticsCharts  = {};
+const analyticsData    = {}; // raw data keyed by launch id
+let analyticsLoaded    = false;
+let analyticsPeriod    = 'mom'; // 'wow' | 'mom' | 'all'
+let analyticsIndustry  = 'all';
+
+function filterAnalyticsIndustry(val) {
+  analyticsIndustry = val;
+  document.querySelectorAll('.ac-ind-btn').forEach(b =>
+    b.classList.toggle('ac-period-active', b.dataset.industry === val));
+  document.querySelectorAll('#analytics-grid .ac-card').forEach(card => {
+    card.style.display = (val === 'all' || card.dataset.industry === val) ? '' : 'none';
+  });
+}
+
+function buildAnalyticsIndustryBar(launches) {
+  const bar = document.getElementById('analytics-industry-bar');
+  const industries = [...new Set(launches.map(l => l.industry).filter(Boolean))].sort();
+  if (!industries.length) { bar.style.display = 'none'; return; }
+  bar.style.display = 'flex';
+  bar.innerHTML = ['all', ...industries].map(ind => `
+    <button class="ac-period-btn ac-ind-btn${ind === 'all' ? ' ac-period-active' : ''}"
+      data-industry="${esc(ind)}"
+      onclick="filterAnalyticsIndustry('${esc(ind)}')">${ind === 'all' ? 'All Industries' : esc(ind)}</button>
+  `).join('');
+}
 
 function computeClientPct(weeks, key, period) {
   if (!weeks || weeks.length < 2) return null;
@@ -2158,7 +2181,7 @@ function acMetric(value, label, pct) {
 function analyticsSkeletonHtml(launch) {
   const launched = launch.status_changed_at || launch.created_at;
   const days = Math.floor((Date.now() - toDate(launched).getTime()) / 86_400_000);
-  return `<div class="ac-card" id="ac-card-${launch.id}">
+  return `<div class="ac-card" id="ac-card-${launch.id}" data-industry="${esc(launch.industry || '')}"
     <div class="ac-card-header">
       <div>
         <div class="ac-name">${esc(launch.account_name)}</div>
@@ -2347,6 +2370,8 @@ async function loadAnalytics() {
   }
 
   launched.sort((a, b) => toDate(b.status_changed_at || b.created_at) - toDate(a.status_changed_at || a.created_at));
+  analyticsIndustry = 'all';
+  buildAnalyticsIndustryBar(launched);
   grid.innerHTML = launched.map(l => analyticsSkeletonHtml(l)).join('');
 
   for (let i = 0; i < launched.length; i += 4) {
@@ -2415,6 +2440,8 @@ async function saveAnalyticsStartDate(id) {
 
 function refreshAnalytics() {
   analyticsLoaded = false;
+  analyticsIndustry = 'all';
+  document.getElementById('analytics-industry-bar').style.display = 'none';
   Object.values(analyticsCharts).forEach(c => c.destroy());
   for (const k in analyticsCharts) delete analyticsCharts[k];
   for (const k in analyticsData) delete analyticsData[k];
