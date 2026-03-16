@@ -2180,7 +2180,7 @@ function acMetric(value, label, pct) {
 function analyticsSkeletonHtml(launch) {
   const launched = launch.status_changed_at || launch.created_at;
   const days = Math.floor((Date.now() - toDate(launched).getTime()) / 86_400_000);
-  return `<div class="ac-card" id="ac-card-${launch.id}" data-industry="${esc(launch.industry || '')}"
+  return `<div class="ac-card" id="ac-card-${launch.id}" data-industry="${esc(launch.industry || '')}">
     <div class="ac-card-header">
       <div>
         <div class="ac-name">${esc(launch.account_name)}</div>
