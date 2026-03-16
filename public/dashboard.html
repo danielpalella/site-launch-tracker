@@ -2309,10 +2309,7 @@ function renderAnalyticsCard(id, data) {
         <div class="ac-name">${esc(account_name)}</div>
         <a class="ac-domain" href="https://${esc(domain)}" target="_blank" rel="noopener">${esc(domain)}</a>
       </div>
-      <div style="text-align:right">
-        <div class="ac-launched-badge">${daysSince}d of data</div>
-        <div class="ac-date-label" style="font-size:.7rem;color:var(--text-muted);margin-top:.2rem">Since ${fmtAnalyticsDate(displayDate)}</div>
-      </div>
+      <div style="font-size:.7rem;color:var(--text-muted);text-align:right">Since ${fmtAnalyticsDate(displayDate)}</div>
     </div>
     ${gscBlock}
     ${ga4Block}
