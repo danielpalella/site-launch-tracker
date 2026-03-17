@@ -250,9 +250,10 @@ app.get('/api/launches', requireAuth, async (req, res) => {
     const snapshot = await db.collection('launches').orderBy('created_at', 'desc').get();
     let launches = snapshot.docs.map(formatLaunch);
 
-    // Archived filter: default shows active only; ?archived=true shows archived only
-    if (req.query.archived === 'true') launches = launches.filter(r => r.archived);
-    else launches = launches.filter(r => !r.archived);
+    // Archived filter: default shows active (non-archived, non-decommissioned) only
+    // archived=true shows explicitly archived records AND decommissioned sites
+    if (req.query.archived === 'true') launches = launches.filter(r => r.archived || r.status === 'decommissioned');
+    else launches = launches.filter(r => !r.archived && r.status !== 'decommissioned');
 
     if (status     && status     !== 'all') launches = launches.filter(r => r.status     === status);
     if (department && department !== 'all') launches = launches.filter(r => r.department === department);

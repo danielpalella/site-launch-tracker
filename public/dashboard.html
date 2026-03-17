@@ -63,7 +63,6 @@
               <button class="fp-chip" data-filter="status" data-value="awaiting_approval" onclick="setFilter('status','awaiting_approval',this)">Approval</button>
               <button class="fp-chip" data-filter="status" data-value="awaiting_dns" onclick="setFilter('status','awaiting_dns',this)">DNS Access</button>
               <button class="fp-chip" data-filter="status" data-value="launched" onclick="setFilter('status','launched',this)">Launched</button>
-              <button class="fp-chip" data-filter="status" data-value="decommissioned" onclick="setFilter('status','decommissioned',this)">Decommissioned</button>
             </div>
           </div>
           <div class="fp-group">
@@ -678,30 +677,40 @@ function renderChart() {
 }
 
 // ── Board View ──
+const BOARD_STATUS_ORDER = STATUS_ORDER.filter(s => s !== 'decommissioned');
+const boardCollapsed = {};
 let boardDragId = null;
+
+function toggleBoardColumn(status) {
+  boardCollapsed[status] = !boardCollapsed[status];
+  const col = document.querySelector(`.board-column[data-status="${status}"]`);
+  if (col) col.classList.toggle('collapsed', boardCollapsed[status]);
+}
 
 function renderBoard() {
   if (viewMode !== 'board') return;
   const area = document.getElementById('board-area');
 
   const byStatus = {};
-  for (const s of STATUS_ORDER) byStatus[s] = [];
+  for (const s of BOARD_STATUS_ORDER) byStatus[s] = [];
   for (const r of allLaunches) {
-    if (byStatus[r.status]) byStatus[r.status].push(r);
+    if (byStatus[r.status] !== undefined) byStatus[r.status].push(r);
   }
 
-  area.innerHTML = STATUS_ORDER.map(status => {
+  area.innerHTML = BOARD_STATUS_ORDER.map(status => {
     const color = STATUS_COLORS[status];
     const cards = byStatus[status] || [];
-    return `<div class="board-column" data-status="${status}"
+    const collapsed = !!boardCollapsed[status];
+    return `<div class="board-column${collapsed ? ' collapsed' : ''}" data-status="${status}"
       style="border-top-color:${color}"
       ondragover="boardDragOver(event,this)"
       ondragleave="boardDragLeave(this)"
       ondrop="boardDrop(event,this,'${status}')">
-      <div class="board-col-header">
+      <div class="board-col-header" onclick="toggleBoardColumn('${status}')">
         <div class="board-col-dot" style="background:${color}"></div>
         <span class="board-col-title">${STATUS_LABELS[status]}</span>
         <span class="board-col-count">${cards.length}</span>
+        <span class="board-col-toggle"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></span>
       </div>
       <div class="board-col-body">
         ${cards.length === 0
@@ -1610,8 +1619,8 @@ function toggleArchivedLaunches() {
   btn.style.background   = showArchivedLaunches ? 'var(--primary)' : '';
   btn.style.color        = showArchivedLaunches ? '#fff'           : '';
   btn.style.borderColor  = showArchivedLaunches ? 'var(--primary)' : '';
-  // Switch back to table view when browsing archived
-  if (showArchivedLaunches && viewMode === 'graph') setView('table');
+  // Board and graph views don't make sense for archived — switch to list
+  if (showArchivedLaunches && (viewMode === 'graph' || viewMode === 'board')) setView('table');
   fetchLaunches();
 }
 
