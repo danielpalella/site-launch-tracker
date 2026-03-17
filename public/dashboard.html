@@ -219,7 +219,12 @@
         <button class="btn btn-ghost" onclick="refreshAnalytics()">↻ Refresh</button>
       </div>
     </div>
-    <div id="analytics-industry-bar" class="ac-filter-bar" style="display:none;flex-wrap:wrap;gap:.4rem;margin-bottom:.75rem"></div>
+    <div style="display:flex;align-items:center;gap:.65rem;margin-bottom:.6rem">
+      <input type="search" id="analytics-search" placeholder="Search accounts…"
+        oninput="filterAnalyticsSearch(this.value)"
+        style="flex:0 0 220px;padding:.3rem .7rem;font-size:.825rem;border:1.5px solid var(--border);border-radius:99px;background:var(--surface);color:var(--text);outline:none">
+      <div id="analytics-industry-bar" class="ac-filter-bar" style="display:none;flex-wrap:wrap;gap:.4rem"></div>
+    </div>
     <div class="card analytics-card-outer">
       <div class="analytics-scroll">
         <div id="analytics-grid" class="analytics-grid">
@@ -2107,24 +2112,44 @@ let analyticsLoaded    = false;
 let analyticsPeriod    = 'mom'; // 'wow' | 'mom' | 'all'
 let analyticsIndustry  = 'all';
 
+function applyAnalyticsFilters() {
+  const search = (document.getElementById('analytics-search')?.value || '').toLowerCase().trim();
+  document.querySelectorAll('#analytics-grid .ac-card').forEach(card => {
+    const industryMatch = analyticsIndustry === 'all' || card.dataset.industry === analyticsIndustry;
+    const searchMatch   = !search || card.dataset.name?.includes(search) || card.dataset.domain?.includes(search);
+    card.style.display  = (industryMatch && searchMatch) ? '' : 'none';
+  });
+}
+
 function filterAnalyticsIndustry(val) {
   analyticsIndustry = val;
   document.querySelectorAll('.ac-ind-btn').forEach(b =>
     b.classList.toggle('fp-chip-active', b.dataset.industry === val));
-  document.querySelectorAll('#analytics-grid .ac-card').forEach(card => {
-    card.style.display = (val === 'all' || card.dataset.industry === val) ? '' : 'none';
-  });
+  applyAnalyticsFilters();
+}
+
+function filterAnalyticsSearch(val) {
+  applyAnalyticsFilters();
 }
 
 function buildAnalyticsIndustryBar(launches) {
   const bar = document.getElementById('analytics-industry-bar');
-  const industries = [...new Set(launches.map(l => l.industry).filter(Boolean))].sort();
+  // Count per industry, sort by count desc, "Other" always last
+  const counts = {};
+  for (const l of launches) if (l.industry) counts[l.industry] = (counts[l.industry] || 0) + 1;
+  const industries = Object.keys(counts).sort((a, b) => {
+    if (a === 'Other') return 1;
+    if (b === 'Other') return -1;
+    return counts[b] - counts[a];
+  });
   if (!industries.length) { bar.style.display = 'none'; return; }
   bar.style.display = 'flex';
   bar.innerHTML = ['all', ...industries].map(ind => `
     <button class="fp-chip ac-ind-btn${ind === 'all' ? ' fp-chip-active' : ''}"
       data-industry="${esc(ind)}"
-      onclick="filterAnalyticsIndustry('${esc(ind)}')">${ind === 'all' ? 'All Industries' : esc(ind)}</button>
+      onclick="filterAnalyticsIndustry('${esc(ind)}')">
+      ${ind === 'all' ? 'All' : esc(ind)}${ind !== 'all' ? ` <span style="opacity:.6;font-size:.7em">${counts[ind]}</span>` : ''}
+    </button>
   `).join('');
 }
 
@@ -2221,7 +2246,7 @@ function acMetric(value, label, pct) {
 function analyticsSkeletonHtml(launch) {
   const launched = launch.status_changed_at || launch.created_at;
   const days = Math.floor((Date.now() - toDate(launched).getTime()) / 86_400_000);
-  return `<div class="ac-card" id="ac-card-${launch.id}" data-industry="${esc(launch.industry || '')}">
+  return `<div class="ac-card" id="ac-card-${launch.id}" data-industry="${esc(launch.industry || '')}" data-name="${esc((launch.account_name || '').toLowerCase())}" data-domain="${esc((launch.domain_name || '').toLowerCase())}">
     <div class="ac-card-header">
       <div>
         <div class="ac-name">${esc(launch.account_name)}</div>
@@ -2486,6 +2511,7 @@ async function saveAnalyticsStartDate(id) {
 function refreshAnalytics() {
   analyticsLoaded = false;
   analyticsIndustry = 'all';
+  document.getElementById('analytics-search').value = '';
   document.getElementById('analytics-industry-bar').style.display = 'none';
   Object.values(analyticsCharts).forEach(c => c.destroy());
   for (const k in analyticsCharts) delete analyticsCharts[k];
