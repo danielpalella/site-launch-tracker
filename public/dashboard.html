@@ -2334,7 +2334,13 @@ function renderAnalyticsCard(id, data) {
         <div class="ac-name">${esc(account_name)}</div>
         <a class="ac-domain" href="https://${esc(domain)}" target="_blank" rel="noopener">${esc(domain)}</a>
       </div>
-      <div style="font-size:.7rem;color:var(--text-muted);text-align:right">Since ${fmtAnalyticsDate(displayDate)}</div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:.3rem">
+        <button class="ac-copy-btn" onclick="copyAnalyticsCard('${esc(id)}')" title="Copy to clipboard">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          Copy
+        </button>
+        <div style="font-size:.7rem;color:var(--text-muted)">Since ${fmtAnalyticsDate(displayDate)}</div>
+      </div>
     </div>
     ${gscBlock}
     ${ga4Block}
@@ -2505,6 +2511,94 @@ async function saveAnalyticsStartDate(id) {
     else { if (card) card.innerHTML = `<div class="ac-unavailable">${esc(d.error || 'Failed to load')}</div>`; }
   } catch {
     showToast('Failed to save start date', 'error');
+  }
+}
+
+async function copyAnalyticsCard(id) {
+  const data = analyticsData[id];
+  if (!data) return;
+  const { account_name, domain, gsc, ga4, analyticsStartDate, launchDate } = data;
+  const gscT = periodGscTotals(gsc, analyticsPeriod);
+  const ga4T = periodGa4Totals(ga4, analyticsPeriod);
+  const periodLabel = analyticsPeriod === 'wow' ? 'Last 7 days' : analyticsPeriod === 'mom' ? 'Last 30 days' : 'Since launch';
+  const displayDate = fmtAnalyticsDate(analyticsStartDate || launchDate);
+
+  function deltaHtml(pct) {
+    if (pct == null) return '';
+    const up = pct >= 0;
+    return `<span style="font-size:11px;color:${up ? '#22c55e' : '#ef4444'}">${up ? '▲' : '▼'} ${Math.abs(pct)}%</span>`;
+  }
+  function metricCell(val, label, pct) {
+    return `<td style="padding:6px 10px;text-align:center;min-width:72px">
+      <div style="font-size:18px;font-weight:700;color:#06102A">${val}</div>
+      <div style="font-size:10px;color:#5a6a8a;text-transform:uppercase;letter-spacing:.04em">${label}</div>
+      ${pct != null ? deltaHtml(pct) : ''}
+    </td>`;
+  }
+
+  const gscRows = gsc.available ? `
+    <tr><td colspan="4" style="padding:8px 10px 4px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#5a6a8a;border-top:1px solid #dde3f0">
+      Search Console &nbsp;<span style="font-weight:400;text-transform:none;letter-spacing:0">${periodLabel}</span>
+    </td></tr>
+    <tr>
+      ${metricCell(fmtNum(gscT.clicks), 'Clicks', computeClientPct(gsc.weeks,'clicks',analyticsPeriod))}
+      ${metricCell(fmtNum(gscT.impressions), 'Impressions', computeClientPct(gsc.weeks,'impressions',analyticsPeriod))}
+      ${metricCell(gscT.position ?? '—', 'Avg Pos', null)}
+      ${metricCell((gscT.ctr ?? 0) + '%', 'CTR', null)}
+    </tr>` : '';
+
+  const ga4Rows = ga4.available ? `
+    <tr><td colspan="4" style="padding:8px 10px 4px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#5a6a8a;border-top:1px solid #dde3f0">
+      Google Analytics &nbsp;<span style="font-weight:400;text-transform:none;letter-spacing:0">${periodLabel}</span>
+    </td></tr>
+    <tr>
+      ${metricCell(fmtNum(ga4T.sessions), 'Sessions', computeClientPct(ga4.weeks,'sessions',analyticsPeriod))}
+      ${metricCell(fmtNum(ga4T.users), 'Users', computeClientPct(ga4.weeks,'users',analyticsPeriod))}
+      ${metricCell(ga4T.newUsers != null ? fmtNum(ga4T.newUsers) : '—', 'New Users', null)}
+      ${metricCell(ga4T.engagementRate != null ? ga4T.engagementRate + '%' : '—', 'Engagement', null)}
+    </tr>` : '';
+
+  const queryRows = gsc.available && gsc.topQueries?.length ? `
+    <tr><td colspan="4" style="padding:8px 10px 4px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#5a6a8a;border-top:1px solid #dde3f0">Top Queries</td></tr>
+    ${gsc.topQueries.map(q => `<tr>
+      <td colspan="3" style="padding:3px 10px;font-size:12px;color:#06102A">${esc(q.query)}</td>
+      <td style="padding:3px 10px;font-size:12px;color:#5a6a8a;text-align:right">${q.clicks} clicks · pos ${q.position ?? '—'}</td>
+    </tr>`).join('')}` : '';
+
+  const html = `<table style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;border-collapse:collapse;border:1px solid #dde3f0;border-radius:10px;overflow:hidden;width:420px">
+    <tr style="background:#06102A">
+      <td colspan="4" style="padding:12px 14px">
+        <div style="font-size:15px;font-weight:700;color:#fff">${esc(account_name)}</div>
+        <div style="font-size:12px;color:rgba(255,255,255,.6);margin-top:2px">${esc(domain)} &nbsp;·&nbsp; Since ${displayDate}</div>
+      </td>
+    </tr>
+    ${gscRows}${ga4Rows}${queryRows}
+  </table>`;
+
+  // Plain text fallback
+  const lines = [`${account_name} — ${domain}`, `${periodLabel} | Since ${displayDate}`, ''];
+  if (gsc.available) {
+    lines.push('Search Console');
+    lines.push(`Clicks: ${fmtNum(gscT.clicks)}  Impressions: ${fmtNum(gscT.impressions)}  Avg Pos: ${gscT.position ?? '—'}  CTR: ${(gscT.ctr ?? 0)}%`);
+    if (gsc.topQueries?.length) { lines.push('Top Queries: ' + gsc.topQueries.map(q => `${q.query} (${q.clicks} clicks)`).join(', ')); }
+    lines.push('');
+  }
+  if (ga4.available) {
+    lines.push('Google Analytics');
+    lines.push(`Sessions: ${fmtNum(ga4T.sessions)}  Users: ${fmtNum(ga4T.users)}  New Users: ${ga4T.newUsers != null ? fmtNum(ga4T.newUsers) : '—'}  Engagement: ${ga4T.engagementRate != null ? ga4T.engagementRate + '%' : '—'}`);
+  }
+  const plain = lines.join('\n');
+
+  try {
+    await navigator.clipboard.write([new ClipboardItem({
+      'text/html':  new Blob([html],  { type: 'text/html' }),
+      'text/plain': new Blob([plain], { type: 'text/plain' }),
+    })]);
+    const btn = document.querySelector(`#ac-card-${id} .ac-copy-btn`);
+    if (btn) { const orig = btn.innerHTML; btn.textContent = '✓ Copied!'; setTimeout(() => { btn.innerHTML = orig; }, 2000); }
+  } catch {
+    await navigator.clipboard.writeText(plain);
+    showToast('Copied as plain text');
   }
 }
 

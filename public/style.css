@@ -1633,6 +1633,25 @@ tr.status-separator:first-child td { border-top: none; }
 }
 
 
+/* Analytics copy button */
+.ac-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  opacity: 0;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: 6px;
+  padding: .2rem .55rem;
+  font-size: .72rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: opacity .15s, border-color .15s, color .15s;
+}
+.ac-card:hover .ac-copy-btn { opacity: 1; }
+.ac-copy-btn:hover { border-color: var(--primary); color: var(--primary); }
+
 /* Analytics card date/edit */
 .ac-date-wrap {
   display: flex;
