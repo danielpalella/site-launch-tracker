@@ -145,7 +145,7 @@
           <button class="chart-group-btn" onclick="setGroupBy('industry',this)">Industry</button>
           <button class="chart-group-btn" onclick="setGroupBy('owner',this)">Owner</button>
         </div>
-        <div class="chart-summary" id="chart-summary"></div>
+        <div class="chart-status-chips" id="chart-status-chips"></div>
       </div>
       <div class="chart-canvas-wrap" id="chart-canvas-wrap">
         <canvas id="progress-chart"></canvas>
@@ -528,6 +528,14 @@ const STATUS_COLORS = {
   launched:          '#22c55e',
   decommissioned:    '#ef4444',
 };
+const CHART_STATUS_ORDER = STATUS_ORDER.filter(s => s !== 'decommissioned');
+const chartHiddenStatuses = new Set();
+
+function toggleChartStatus(status) {
+  if (chartHiddenStatuses.has(status)) chartHiddenStatuses.delete(status);
+  else chartHiddenStatuses.add(status);
+  renderChart();
+}
 const GROUP_KEYS = {
   department: ['Sales', 'Retention', 'Customer Success', 'CS-Renewal', 'Other'],
   industry:   ['Roofing', 'Plumbing', 'Electrical', 'HVAC', 'Landscaping', 'Contracting', 'Restoration', 'Solar', 'Flooring'],
@@ -562,41 +570,44 @@ function setGroupBy(dim, btn) {
 function renderChart() {
   if (viewMode !== 'graph') return;
 
-  // Build groups
+  // Build groups (only active statuses)
+  const emptyGroup = () => Object.fromEntries(CHART_STATUS_ORDER.map(s => [s, 0]));
   const groups = {};
-  for (const key of GROUP_KEYS[groupByDim]) {
-    groups[key] = { new: 0, in_progress: 0, awaiting_approval: 0, awaiting_dns: 0, launched: 0 };
-  }
+  for (const key of GROUP_KEYS[groupByDim]) groups[key] = emptyGroup();
   for (const r of allLaunches) {
     const key = groupByDim === 'owner' ? (r.owner || 'Unassigned') : (r[groupByDim] || '—');
-    if (!groups[key]) groups[key] = { new: 0, in_progress: 0, awaiting_approval: 0, awaiting_dns: 0, launched: 0 };
+    if (!groups[key]) groups[key] = emptyGroup();
     if (r.status in groups[key]) groups[key][r.status]++;
   }
 
   // Only show groups with at least one record, sorted by total desc
   const labels = Object.keys(groups)
-    .filter(k => STATUS_ORDER.some(s => groups[k][s] > 0))
+    .filter(k => CHART_STATUS_ORDER.some(s => groups[k][s] > 0))
     .sort((a, b) => {
-      const totA = STATUS_ORDER.reduce((n, s) => n + groups[a][s], 0);
-      const totB = STATUS_ORDER.reduce((n, s) => n + groups[b][s], 0);
+      const totA = CHART_STATUS_ORDER.reduce((n, s) => n + groups[a][s], 0);
+      const totB = CHART_STATUS_ORDER.reduce((n, s) => n + groups[b][s], 0);
       return totB - totA;
     });
 
-  // Summary stats
-  const summaryEl = document.getElementById('chart-summary');
-  summaryEl.innerHTML = STATUS_ORDER.map(s => {
+  // Status filter chips
+  const chipsEl = document.getElementById('chart-status-chips');
+  chipsEl.innerHTML = CHART_STATUS_ORDER.map(s => {
     const cnt = allLaunches.filter(r => r.status === s).length;
     if (!cnt) return '';
-    return `<div class="chart-stat">
-      <div class="chart-stat-dot" style="background:${STATUS_COLORS[s]}"></div>
-      <span>${STATUS_LABELS[s]}</span>
-      <span class="chart-stat-count">${cnt}</span>
-    </div>`;
+    const hidden = chartHiddenStatuses.has(s);
+    const color  = STATUS_COLORS[s];
+    const activeStyle = hidden ? `border-color:${color};color:${color}` : `background:${color};border-color:${color};color:#fff`;
+    return `<button class="chart-status-chip" style="${activeStyle}" onclick="toggleChartStatus('${s}')">
+      <span class="chip-dot" style="background:${hidden ? color : 'rgba(255,255,255,.8)'}"></span>
+      ${STATUS_LABELS[s]}
+      <span class="chip-cnt">${cnt}</span>
+    </button>`;
   }).join('');
 
   const wrap = document.getElementById('chart-canvas-wrap');
+  const visibleStatuses = CHART_STATUS_ORDER.filter(s => !chartHiddenStatuses.has(s));
 
-  if (!labels.length) {
+  if (!labels.length || !visibleStatuses.length) {
     if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
     wrap.innerHTML = '<div class="chart-empty">No data matches the current filters.</div>';
     return;
@@ -611,9 +622,9 @@ function renderChart() {
   const textColor = isDark ? '#94a3b8' : '#64748b';
   const gridColor = isDark ? '#334155' : '#e2e8f0';
 
-  const datasets = STATUS_ORDER.map(status => ({
+  const datasets = visibleStatuses.map(status => ({
     label:           STATUS_LABELS[status],
-    data:            labels.map(l => groups[l][status]),
+    data:            labels.map(l => groups[l][status] || 0),
     backgroundColor: STATUS_COLORS[status],
     borderRadius:    3,
     borderSkipped:   false,
