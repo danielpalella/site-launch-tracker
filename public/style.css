@@ -1638,7 +1638,7 @@ tr.status-separator:first-child td { border-top: none; }
 }
 
 
-/* Analytics metric tooltip */
+/* Analytics metric tooltip badge */
 .ac-tip {
   display: inline-flex;
   align-items: center;
@@ -1652,35 +1652,30 @@ tr.status-separator:first-child td { border-top: none; }
   font-weight: 700;
   cursor: default;
   margin-left: .2rem;
-  position: relative;
   vertical-align: middle;
   line-height: 1;
   flex-shrink: 0;
 }
-.ac-tip::after {
-  content: attr(data-tip);
-  position: absolute;
-  bottom: calc(100% + 5px);
-  left: 0;
-  transform: none;
+
+/* JS-positioned tooltip rendered in <body> */
+#ac-tooltip {
+  position: fixed;
   background: #06102A;
   color: #fff;
-  font-size: .68rem;
+  font-size: .7rem;
   font-weight: 400;
-  line-height: 1.35;
-  padding: .3rem .45rem;
+  line-height: 1.4;
+  padding: .28rem .5rem;
   border-radius: 5px;
   white-space: normal;
-  width: 160px;
-  max-width: 160px;
-  text-align: left;
+  max-width: 190px;
   pointer-events: none;
   opacity: 0;
-  transition: opacity .15s;
-  z-index: 200;
-  box-shadow: 0 3px 8px rgba(0,0,0,.25);
+  transition: opacity .12s;
+  z-index: 9999;
+  box-shadow: 0 3px 10px rgba(0,0,0,.3);
 }
-.ac-tip:hover::after { opacity: 1; }
+#ac-tooltip.tip-visible { opacity: 1; }
 
 /* Analytics copy button */
 .ac-copy-btn {

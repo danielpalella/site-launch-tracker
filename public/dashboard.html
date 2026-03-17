@@ -459,6 +459,7 @@
 </div>
 
 <div id="toast"></div>
+<div id="ac-tooltip"></div>
 <div id="note-tooltip" class="note-tooltip"></div>
 
 <div id="contact-popup" class="contact-popup">
@@ -1496,6 +1497,41 @@ function toggleDark() {
   document.getElementById('dark-toggle').textContent = next === 'dark' ? '☀️' : '🌙';
   if (viewMode === 'graph') renderChart();
 }
+
+// ── Analytics tooltips (fixed-position, escapes overflow containers) ──
+(function() {
+  const tip = document.getElementById('ac-tooltip');
+  let hideTimer;
+  document.addEventListener('mouseover', e => {
+    const badge = e.target.closest('.ac-tip');
+    if (!badge) return;
+    clearTimeout(hideTimer);
+    tip.textContent = badge.dataset.tip || '';
+    tip.classList.add('tip-visible');
+    const r = badge.getBoundingClientRect();
+    // Position above the badge, left-aligned, clamped to viewport
+    let left = r.left;
+    let top = r.top - 6;
+    tip.style.left = '0px';
+    tip.style.top = '-9999px';
+    // Measure after paint to get tooltip dimensions
+    requestAnimationFrame(() => {
+      const tw = tip.offsetWidth;
+      const th = tip.offsetHeight;
+      left = Math.min(left, window.innerWidth - tw - 8);
+      left = Math.max(left, 8);
+      top = top - th;
+      if (top < 8) top = r.bottom + 6; // flip below if no room above
+      tip.style.left = left + 'px';
+      tip.style.top = top + 'px';
+    });
+  });
+  document.addEventListener('mouseout', e => {
+    if (e.target.closest('.ac-tip')) {
+      hideTimer = setTimeout(() => tip.classList.remove('tip-visible'), 80);
+    }
+  });
+})();
 (function() {
   const saved = localStorage.getItem('theme') || 'light';
   document.getElementById('dark-toggle').textContent = saved === 'dark' ? '☀️' : '🌙';
@@ -2284,19 +2320,19 @@ function renderAnalyticsCard(id, data) {
   const gscBlock = gsc.available ? `
     <div class="ac-section-label">Search Console <span style="font-weight:400;color:var(--text-muted);font-size:.65rem;text-transform:none;letter-spacing:0">${periodLabel}</span></div>
     <div class="ac-metrics">
-      ${acMetric(fmtNum(gscT.clicks),      'Clicks',       computeClientPct(gsc.weeks, 'clicks', analyticsPeriod),      'How many times users clicked the site link in Google search results.')}
-      ${acMetric(fmtNum(gscT.impressions), 'Impressions',  computeClientPct(gsc.weeks, 'impressions', analyticsPeriod), 'How many times the site appeared in Google search results, whether clicked or not.')}
-      ${acMetric(gscT.position ?? '—',     'Avg Position', null,                                                        'The average ranking position in Google search results. Lower is better — position 1 is the top result.')}
-      ${acMetric((gscT.ctr ?? 0) + '%',    'CTR',          null,                                                        'Click-through rate: the % of impressions that resulted in a click. Higher means the listing is compelling.')}
+      ${acMetric(fmtNum(gscT.clicks),      'Clicks',       computeClientPct(gsc.weeks, 'clicks', analyticsPeriod),      'Times users clicked this site in Google search results.')}
+      ${acMetric(fmtNum(gscT.impressions), 'Impressions',  computeClientPct(gsc.weeks, 'impressions', analyticsPeriod), 'Times the site appeared in Google search results.')}
+      ${acMetric(gscT.position ?? '—',     'Avg Position', null,                                                        'Average rank in Google search results (1 = top result).')}
+      ${acMetric((gscT.ctr ?? 0) + '%',    'CTR',          null,                                                        'Percentage of impressions that resulted in a click.')}
     </div>` : `<div class="ac-unavailable">Search Console unavailable</div>`;
 
   const ga4Block = ga4.available ? `
     <div class="ac-section-label">Google Analytics <span style="font-weight:400;color:var(--text-muted);font-size:.65rem;text-transform:none;letter-spacing:0">${periodLabel}</span></div>
     <div class="ac-metrics">
-      ${acMetric(fmtNum(ga4T.sessions),                                              'Sessions',   computeClientPct(ga4.weeks, 'sessions', analyticsPeriod), 'Total visits to the site. One user can have multiple sessions if they return after 30+ minutes of inactivity.')}
-      ${acMetric(fmtNum(ga4T.users),                                                 'Users',      computeClientPct(ga4.weeks, 'users', analyticsPeriod),    'Unique visitors to the site, identified by device/browser. Counts each person once regardless of how many times they visit.')}
-      ${acMetric(ga4T.newUsers != null ? fmtNum(ga4T.newUsers) : '—',                'New Users',  null,                                                     'First-time visitors who have never been to the site before. A healthy sign of growing reach.')}
-      ${acMetric(ga4T.engagementRate != null ? ga4T.engagementRate + '%' : '—',      'Engagement', null,                                                     'The % of sessions where the user actively interacted with the site (scrolled, clicked, or stayed 10+ seconds). Higher is better.')}
+      ${acMetric(fmtNum(ga4T.sessions),                                              'Sessions',   computeClientPct(ga4.weeks, 'sessions', analyticsPeriod), 'Total site visits, including repeat visits from the same person.')}
+      ${acMetric(fmtNum(ga4T.users),                                                 'Users',      computeClientPct(ga4.weeks, 'users', analyticsPeriod),    'Unique visitors, counted once regardless of how many times they visit.')}
+      ${acMetric(ga4T.newUsers != null ? fmtNum(ga4T.newUsers) : '—',                'New Users',  null,                                                     'Visitors who have never been to the site before.')}
+      ${acMetric(ga4T.engagementRate != null ? ga4T.engagementRate + '%' : '—',      'Engagement', null,                                                     'Percentage of visits where the user scrolled, clicked, or stayed 10+ seconds.')}
     </div>` : `<div class="ac-unavailable">${esc(ga4.reason || 'Google Analytics unavailable')}</div>`;
 
   // Chart shows the weeks relevant to the period
