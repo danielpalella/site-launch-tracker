@@ -1024,7 +1024,7 @@ async function refreshGa4Cache(token) {
 }
 
 async function getGa4PropertyId(domain, token) {
-  if (!ga4Cache || Date.now() - ga4Cache.at > 3_600_000) {
+  if (!ga4Cache || Date.now() - ga4Cache.at > 600_000) {
     ga4Cache = { map: await refreshGa4Cache(token), at: Date.now() };
   }
   const clean = domain.replace(/^https?:\/\//, '').replace(/\/$/, '').replace(/^www\./, '');
