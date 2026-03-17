@@ -958,6 +958,17 @@ app.get('/auth/analytics/callback', requireAuth, async (req, res) => {
   }
 });
 
+app.get('/api/analytics/debug-domains', requireAuth, async (req, res) => {
+  try {
+    const token = await getAnalyticsAccessToken();
+    ga4Cache = null; // force fresh fetch
+    const map = await refreshGa4Cache(token);
+    res.json({ domains: Object.keys(map).sort(), map });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/analytics/connection', requireAuth, async (req, res) => {
   const snap = await db.collection('config').doc('analytics_oauth').get();
   if (!snap.exists) return res.json({ connected: false });
