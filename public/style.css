@@ -1633,6 +1633,48 @@ tr.status-separator:first-child td { border-top: none; }
 }
 
 
+/* Analytics metric tooltip */
+.ac-tip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--border);
+  color: var(--text-muted);
+  font-size: .6rem;
+  font-weight: 700;
+  cursor: default;
+  margin-left: .25rem;
+  position: relative;
+  vertical-align: middle;
+  line-height: 1;
+}
+.ac-tip::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #06102A;
+  color: #fff;
+  font-size: .72rem;
+  font-weight: 400;
+  line-height: 1.4;
+  padding: .4rem .6rem;
+  border-radius: 6px;
+  white-space: normal;
+  width: 200px;
+  text-align: left;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .15s;
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(0,0,0,.2);
+}
+.ac-tip:hover::after { opacity: 1; }
+
 /* Analytics copy button */
 .ac-copy-btn {
   display: inline-flex;
