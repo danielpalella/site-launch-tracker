@@ -1214,6 +1214,11 @@ async function getDudaCredentials() {
 const dudaCache = {};
 const DUDA_TTL  = 10 * 60 * 1000; // 10 minutes
 
+app.post('/api/analytics/duda/clear-cache', requireAuth, (_req, res) => {
+  Object.keys(dudaCache).forEach(k => delete dudaCache[k]);
+  res.json({ ok: true });
+});
+
 async function fetchDuda(siteName, launchDate) {
   const cacheKey = `${siteName}`;
   const cached   = dudaCache[cacheKey];
@@ -1226,7 +1231,7 @@ async function fetchDuda(siteName, launchDate) {
 
   const from = launchDate ? launchDate.slice(0, 10) : undefined;
   const to   = new Date().toISOString().slice(0, 10);
-  const dateParams = from ? `?from=${from}&to=${to}&dateGranularity=WEEKS` : `?to=${to}&dateGranularity=WEEKS`;
+  const dateParams = from ? `?from=${from}&to=${to}` : `?to=${to}`;
 
   const [trafficRes, activityRes] = await Promise.all([
     fetch(`${base}/analytics/site/${siteName}${dateParams}&result=traffic`, { headers }),
