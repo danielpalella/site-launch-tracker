@@ -346,9 +346,11 @@
         <div style="font-size:.7rem;color:var(--text-muted);margin-top:.2rem">Used for analytics — set this to when the site actually went live.</div>
       </div>
       <div class="crm-field" style="margin-top:.65rem">
-        <label for="modal-duda-site-name">Duda Site ID</label>
+        <label for="modal-duda-site-name">
+          <img src="/duda-icon.png" style="width:12px;height:12px;border-radius:2px;vertical-align:middle;margin-right:.3rem;margin-bottom:1px">Duda Site ID
+        </label>
         <input type="text" id="modal-duda-site-name" placeholder="e.g. a1b2c3d4e5" />
-        <div style="font-size:.7rem;color:var(--text-muted);margin-top:.2rem">Found in the Duda dashboard URL when editing the site. Enables Duda activity stats on the analytics tab.</div>
+        <div style="font-size:.7rem;color:var(--text-muted);margin-top:.2rem">In your Duda dashboard, open the site editor — the Site ID is in the URL: <code style="background:var(--bg);padding:.1rem .3rem;border-radius:3px;font-size:.68rem">dashboard.duda.co/home/site/<strong>SITE-ID-HERE</strong></code></div>
       </div>
       <div class="crm-field" style="margin-top:.65rem">
         <label for="modal-notes">Internal Notes</label>
@@ -2391,7 +2393,10 @@ function renderAnalyticsCard(id, data) {
     </div>` : `<div class="ac-unavailable">${esc(ga4.reason || 'Google Analytics unavailable')}</div>`;
 
   const dudaBlock = duda?.available ? `
-    <div class="ac-section-label">Duda Site Activity <span style="font-weight:400;color:var(--text-muted);font-size:.65rem;text-transform:none;letter-spacing:0">${periodLabel}</span></div>
+    <div class="ac-section-label">
+      <img src="/duda-icon.png" style="width:13px;height:13px;border-radius:3px;vertical-align:middle;margin-right:.35rem;margin-bottom:1px">Duda
+      <span style="font-weight:400;color:var(--text-muted);font-size:.65rem;text-transform:none;letter-spacing:0">${periodLabel}</span>
+    </div>
     <div class="ac-metrics">
       ${acMetric(fmtNum(duda.visitors),   'Visitors',     null, 'Unique visitors tracked by Duda.')}
       ${acMetric(fmtNum(duda.pageViews),  'Page Views',   null, 'Total pages viewed across all visits.')}
