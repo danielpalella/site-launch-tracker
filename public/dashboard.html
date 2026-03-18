@@ -2272,15 +2272,15 @@ function periodGa4Totals(ga4, period) {
 
 function periodDudaTotals(duda, period) {
   if (!duda?.available) return {};
-  if (period === 'all' || !duda.weeks?.length) return duda.total;
-  const n = period === 'wow' ? 1 : 4;
-  const slice = duda.weeks.slice(-n);
-  return slice.reduce((acc, w) => {
-    acc.visitors    += w.visitors    || 0;
-    acc.visits      += w.visits      || 0;
-    acc.pageViews   += w.pageViews   || 0;
-    acc.formSubmits += w.formSubmits || 0;
-    acc.callClicks  += w.callClicks  || 0;
+  if (period === 'all' || !duda.days?.length) return duda.total;
+  const n = period === 'wow' ? 7 : 30;
+  const slice = duda.days.slice(-n);
+  return slice.reduce((acc, d) => {
+    acc.visitors    += d.visitors    || 0;
+    acc.visits      += d.visits      || 0;
+    acc.pageViews   += d.pageViews   || 0;
+    acc.formSubmits += d.formSubmits || 0;
+    acc.callClicks  += d.callClicks  || 0;
     return acc;
   }, { visitors: 0, visits: 0, pageViews: 0, formSubmits: 0, callClicks: 0 });
 }

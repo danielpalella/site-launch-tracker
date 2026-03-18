@@ -1232,7 +1232,7 @@ async function fetchDuda(siteName, launchDate) {
 
   const from = launchDate ? launchDate.slice(0, 10) : undefined;
   const to   = new Date().toISOString().slice(0, 10);
-  const dateParams = from ? `?from=${from}&to=${to}&dateGranularity=WEEKS` : `?to=${to}&dateGranularity=WEEKS`;
+  const dateParams = from ? `?from=${from}&to=${to}&dateGranularity=DAYS` : `?to=${to}&dateGranularity=DAYS`;
 
   const [trafficRes, activityRes] = await Promise.all([
     fetch(`${base}/analytics/site/${siteName}${dateParams}&result=traffic`,     { headers }),
@@ -1244,45 +1244,66 @@ async function fetchDuda(siteName, launchDate) {
     throw new Error(`Duda API error ${trafficRes.status}: ${err}`);
   }
 
-  const trafficWeekly  = await trafficRes.json();
-  const activityWeekly = activityRes.ok ? await activityRes.json() : {};
+  const trafficDaily  = await trafficRes.json();
+  const activityDaily = activityRes.ok ? await activityRes.json() : {};
 
-  // Parse {"2026-03-16": [{VISITORS:4,...}]} into sorted week arrays
-  function parseWeekly(obj, keyMap) {
-    return Object.entries(obj).map(([week, rows]) => {
+  // Parse {"2026-03-18": [{VISITORS:4,...}]} into sorted day arrays
+  function parseDaily(obj, keyMap) {
+    return Object.entries(obj).map(([day, rows]) => {
       const row = rows[0] || {};
-      const entry = { week };
+      const entry = { day };
       for (const [src, dst] of Object.entries(keyMap)) entry[dst] = row[src] ?? 0;
       return entry;
-    }).sort((a, b) => a.week.localeCompare(b.week));
+    }).sort((a, b) => a.day.localeCompare(b.day));
   }
 
-  const tWeeks = parseWeekly(trafficWeekly,  { VISITORS: 'visitors', VISITS: 'visits', PAGE_VIEWS: 'pageViews' });
-  const aWeeks = parseWeekly(activityWeekly, { FORM_SUBMITS: 'formSubmits', CLICK_TO_CALLS: 'callClicks', CLICK_TO_EMAILS: 'emailClicks', CLICK_TO_MAPS: 'mapClicks' });
+  const tDays = parseDaily(trafficDaily,  { VISITORS: 'visitors', VISITS: 'visits', PAGE_VIEWS: 'pageViews' });
+  const aDays = parseDaily(activityDaily, { FORM_SUBMITS: 'formSubmits', CLICK_TO_CALLS: 'callClicks', CLICK_TO_EMAILS: 'emailClicks', CLICK_TO_MAPS: 'mapClicks' });
 
-  // Merge traffic + activity by week key
-  const weekMap = {};
+  // Merge traffic + activity by day key
+  const dayMap = {};
   const zeroActivity = { formSubmits: 0, callClicks: 0, emailClicks: 0, mapClicks: 0 };
-  for (const w of tWeeks) weekMap[w.week] = { ...zeroActivity, ...w };
-  for (const w of aWeeks) {
-    if (weekMap[w.week]) Object.assign(weekMap[w.week], w);
-    else weekMap[w.week] = { week: w.week, visitors: 0, visits: 0, pageViews: 0, ...w };
+  for (const d of tDays) dayMap[d.day] = { ...zeroActivity, ...d };
+  for (const d of aDays) {
+    if (dayMap[d.day]) Object.assign(dayMap[d.day], d);
+    else dayMap[d.day] = { day: d.day, visitors: 0, visits: 0, pageViews: 0, ...d };
+  }
+  const days = Object.values(dayMap).sort((a, b) => a.day.localeCompare(b.day));
+
+  // Group daily data into ISO weeks (Mon start) for charting
+  function isoWeekStart(dateStr) {
+    const d = new Date(dateStr + 'T00:00:00Z');
+    const dow = d.getUTCDay(); // 0=Sun
+    d.setUTCDate(d.getUTCDate() - (dow === 0 ? 6 : dow - 1));
+    return d.toISOString().slice(0, 10);
+  }
+  const weekMap = {};
+  for (const d of days) {
+    const wk = isoWeekStart(d.day);
+    if (!weekMap[wk]) weekMap[wk] = { week: wk, visitors: 0, visits: 0, pageViews: 0, formSubmits: 0, callClicks: 0, emailClicks: 0, mapClicks: 0 };
+    weekMap[wk].visitors    += d.visitors    || 0;
+    weekMap[wk].visits      += d.visits      || 0;
+    weekMap[wk].pageViews   += d.pageViews   || 0;
+    weekMap[wk].formSubmits += d.formSubmits || 0;
+    weekMap[wk].callClicks  += d.callClicks  || 0;
+    weekMap[wk].emailClicks += d.emailClicks || 0;
+    weekMap[wk].mapClicks   += d.mapClicks   || 0;
   }
   const weeks = Object.values(weekMap).sort((a, b) => a.week.localeCompare(b.week));
 
-  // Full-range totals
-  const total = weeks.reduce((acc, w) => {
-    acc.visitors    += w.visitors    || 0;
-    acc.visits      += w.visits      || 0;
-    acc.pageViews   += w.pageViews   || 0;
-    acc.formSubmits += w.formSubmits || 0;
-    acc.callClicks  += w.callClicks  || 0;
-    acc.emailClicks += w.emailClicks || 0;
-    acc.mapClicks   += w.mapClicks   || 0;
+  // Full-range totals from daily data
+  const total = days.reduce((acc, d) => {
+    acc.visitors    += d.visitors    || 0;
+    acc.visits      += d.visits      || 0;
+    acc.pageViews   += d.pageViews   || 0;
+    acc.formSubmits += d.formSubmits || 0;
+    acc.callClicks  += d.callClicks  || 0;
+    acc.emailClicks += d.emailClicks || 0;
+    acc.mapClicks   += d.mapClicks   || 0;
     return acc;
   }, { visitors: 0, visits: 0, pageViews: 0, formSubmits: 0, callClicks: 0, emailClicks: 0, mapClicks: 0 });
 
-  const data = { available: true, weeks, total };
+  const data = { available: true, days, weeks, total };
 
   dudaCache[cacheKey] = { ts: Date.now(), data };
   return data;
