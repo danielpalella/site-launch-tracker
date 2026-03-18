@@ -156,6 +156,7 @@ function formatLaunch(doc) {
     updated_at:       fmtTs(d.updated_at),
     status_changed_at: fmtTs(d.status_changed_at),
     analytics_start_date: d.analytics_start_date || null,
+    duda_site_name:       d.duda_site_name       || null,
   };
 }
 
@@ -336,7 +337,7 @@ app.post('/api/launches', requireAuth, async (req, res) => {
 
 app.patch('/api/launches/:id', requireAuth, async (req, res) => {
   try {
-    const { status, notes, department, industry, account_name, domain_name, contact_name, email, phone, owner, is_renewal, archived, analytics_start_date, launch_date } = req.body;
+    const { status, notes, department, industry, account_name, domain_name, contact_name, email, phone, owner, is_renewal, archived, analytics_start_date, launch_date, duda_site_name } = req.body;
     const ref = db.collection('launches').doc(req.params.id);
     const doc = await ref.get();
     if (!doc.exists) return res.status(404).json({ error: 'Not found' });
@@ -364,6 +365,7 @@ app.patch('/api/launches/:id', requireAuth, async (req, res) => {
     };
     if (archived  !== undefined) updates.archived = Boolean(archived);
     if (analytics_start_date !== undefined) updates.analytics_start_date = analytics_start_date || null;
+    if (duda_site_name       !== undefined) updates.duda_site_name       = duda_site_name       || null;
     if (statusChanged) {
       updates.status_changed_at = FieldValue.serverTimestamp();
     } else if (launch_date) {
@@ -1199,6 +1201,61 @@ async function fetchGA4(propertyId, launchDate, token) {
   };
 }
 
+// ── Duda Analytics ──
+let dudaCredsCache = null;
+async function getDudaCredentials() {
+  if (dudaCredsCache) return dudaCredsCache;
+  const snap = await db.collection('config').doc('duda_credentials').get();
+  if (!snap.exists) throw new Error('Duda credentials not configured');
+  dudaCredsCache = snap.data();
+  return dudaCredsCache;
+}
+
+const dudaCache = {};
+const DUDA_TTL  = 10 * 60 * 1000; // 10 minutes
+
+async function fetchDuda(siteName, launchDate) {
+  const cacheKey = `${siteName}`;
+  const cached   = dudaCache[cacheKey];
+  if (cached && Date.now() - cached.ts < DUDA_TTL) return cached.data;
+
+  const creds  = await getDudaCredentials();
+  const token  = Buffer.from(`${creds.api_user}:${creds.api_pass}`).toString('base64');
+  const base   = 'https://api.duda.co/api';
+  const headers = { Authorization: `Basic ${token}`, 'Content-Type': 'application/json' };
+
+  const from = launchDate ? launchDate.slice(0, 10) : undefined;
+  const to   = new Date().toISOString().slice(0, 10);
+  const dateParams = from ? `?from=${from}&to=${to}&dateGranularity=WEEKS` : `?to=${to}&dateGranularity=WEEKS`;
+
+  const [trafficRes, activityRes] = await Promise.all([
+    fetch(`${base}/analytics/site/${siteName}${dateParams}&result=traffic`, { headers }),
+    fetch(`${base}/analytics/site/${siteName}${dateParams}&result=activities`, { headers }),
+  ]);
+
+  if (!trafficRes.ok) {
+    const err = await trafficRes.text();
+    throw new Error(`Duda API error ${trafficRes.status}: ${err}`);
+  }
+
+  const traffic  = await trafficRes.json();
+  const activity = activityRes.ok ? await activityRes.json() : {};
+
+  const data = {
+    available:    true,
+    visitors:     traffic.VISITORS    ?? null,
+    visits:       traffic.VISITS      ?? null,
+    pageViews:    traffic.PAGE_VIEWS  ?? null,
+    formSubmits:  activity.FORM_SUBMITS    ?? null,
+    callClicks:   activity.CLICK_TO_CALLS  ?? null,
+    emailClicks:  activity.CLICK_TO_EMAILS ?? null,
+    mapClicks:    activity.CLICK_TO_MAPS   ?? null,
+  };
+
+  dudaCache[cacheKey] = { ts: Date.now(), data };
+  return data;
+}
+
 app.get('/api/analytics/:id', requireAuth, async (req, res) => {
   try {
     const token = await getAnalyticsAccessToken();
@@ -1214,15 +1271,18 @@ app.get('/api/analytics/:id', requireAuth, async (req, res) => {
     const startDate = analyticsStartDate || rawLaunchDate;
     const daysSince = Math.floor((Date.now() - new Date(startDate.replace(' ', 'T') + 'Z')) / 86_400_000);
 
-    const [gsc, ga4PropertyId] = await Promise.all([
+    const [gsc, ga4PropertyId, duda] = await Promise.all([
       fetchGSC(domain, startDate, token).catch(() => ({ available: false })),
       getGa4PropertyId(domain, token).catch(() => null),
+      launch.duda_site_name
+        ? fetchDuda(launch.duda_site_name, startDate).catch(e => ({ available: false, reason: e.message }))
+        : Promise.resolve({ available: false, reason: 'No Duda site ID set' }),
     ]);
     const ga4 = ga4PropertyId
       ? await fetchGA4(ga4PropertyId, startDate, token).catch(() => ({ available: false }))
       : { available: false, reason: 'GA4 property not found for this domain' };
 
-    res.json({ id: launch.id, account_name: launch.account_name, domain, launchDate: rawLaunchDate, analyticsStartDate, daysSince, gsc, ga4 });
+    res.json({ id: launch.id, account_name: launch.account_name, domain, launchDate: rawLaunchDate, analyticsStartDate, daysSince, gsc, ga4, duda });
   } catch (err) {
     console.error('Analytics error:', err.message);
     if (err.code === 'not_connected')

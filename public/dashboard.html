@@ -346,6 +346,11 @@
         <div style="font-size:.7rem;color:var(--text-muted);margin-top:.2rem">Used for analytics — set this to when the site actually went live.</div>
       </div>
       <div class="crm-field" style="margin-top:.65rem">
+        <label for="modal-duda-site-name">Duda Site ID</label>
+        <input type="text" id="modal-duda-site-name" placeholder="e.g. a1b2c3d4e5" />
+        <div style="font-size:.7rem;color:var(--text-muted);margin-top:.2rem">Found in the Duda dashboard URL when editing the site. Enables Duda activity stats on the analytics tab.</div>
+      </div>
+      <div class="crm-field" style="margin-top:.65rem">
         <label for="modal-notes">Internal Notes</label>
         <textarea id="modal-notes" rows="3" placeholder="Internal notes…" style="resize:vertical"></textarea>
       </div>
@@ -1189,7 +1194,8 @@ function openEdit(id) {
   document.getElementById('modal-phone').value        = r.phone || '';
   document.getElementById('modal-owner').value        = r.owner || '';
   document.getElementById('modal-status').value       = r.status;
-  document.getElementById('modal-notes').value        = r.notes || '';
+  document.getElementById('modal-notes').value          = r.notes || '';
+  document.getElementById('modal-duda-site-name').value = r.duda_site_name || '';
   // Launch date field — show only for launched status
   const launchDateWrap = document.getElementById('modal-launch-date-wrap');
   const launchDateInput = document.getElementById('modal-launch-date');
@@ -1252,7 +1258,8 @@ document.getElementById('modal-save').addEventListener('click', async () => {
     owner:        document.getElementById('modal-owner').value,
     status:       document.getElementById('modal-status').value,
     notes:        document.getElementById('modal-notes').value,
-    launch_date:  document.getElementById('modal-launch-date').value || undefined,
+    launch_date:      document.getElementById('modal-launch-date').value || undefined,
+    duda_site_name:   document.getElementById('modal-duda-site-name').value.trim() || null,
   };
 
   try {
@@ -2358,7 +2365,7 @@ function renderAnalyticsCard(id, data) {
 
   analyticsData[id] = data; // store for period re-renders
 
-  const { gsc, ga4, daysSince, account_name, domain, analyticsStartDate, launchDate } = data;
+  const { gsc, ga4, duda, daysSince, account_name, domain, analyticsStartDate, launchDate } = data;
   const displayDate = analyticsStartDate || launchDate;
 
   const gscT = periodGscTotals(gsc, analyticsPeriod);
@@ -2382,6 +2389,15 @@ function renderAnalyticsCard(id, data) {
       ${acMetric(ga4T.newUsers != null ? fmtNum(ga4T.newUsers) : '—',                'New Users',  null,                                                     'Visitors who have never been to the site before.')}
       ${acMetric(ga4T.engagementRate != null ? ga4T.engagementRate + '%' : '—',      'Engagement', null,                                                     'Percentage of visits where the user scrolled, clicked, or stayed 10+ seconds.')}
     </div>` : `<div class="ac-unavailable">${esc(ga4.reason || 'Google Analytics unavailable')}</div>`;
+
+  const dudaBlock = duda?.available ? `
+    <div class="ac-section-label">Duda Site Activity <span style="font-weight:400;color:var(--text-muted);font-size:.65rem;text-transform:none;letter-spacing:0">${periodLabel}</span></div>
+    <div class="ac-metrics">
+      ${acMetric(fmtNum(duda.visitors),   'Visitors',     null, 'Unique visitors tracked by Duda.')}
+      ${acMetric(fmtNum(duda.pageViews),  'Page Views',   null, 'Total pages viewed across all visits.')}
+      ${acMetric(fmtNum(duda.formSubmits),'Form Submits', null, 'Times a contact or lead form was submitted.')}
+      ${acMetric(fmtNum(duda.callClicks), 'Call Clicks',  null, 'Times a visitor clicked a phone number link.')}
+    </div>` : (duda && duda.reason !== 'No Duda site ID set' ? `<div class="ac-unavailable">Duda unavailable</div>` : '');
 
   // Chart shows the weeks relevant to the period
   const chartWeeks = analyticsPeriod === 'all' ? null : periodWeeks(gsc.available ? gsc.weeks : ga4.weeks, analyticsPeriod);
@@ -2428,6 +2444,7 @@ function renderAnalyticsCard(id, data) {
     </div>
     ${gscBlock}
     ${ga4Block}
+    ${dudaBlock}
     ${chartBlock}
     ${queriesBlock}
     ${channelsBlock}
