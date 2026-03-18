@@ -2375,7 +2375,7 @@ function renderAnalyticsCard(id, data) {
   const periodLabel = analyticsPeriod === 'wow' ? 'Last 7 days' : analyticsPeriod === 'mom' ? 'Last 30 days' : 'Since launch';
 
   const gscBlock = gsc.available ? `
-    <div class="ac-section-label">Search Console <span style="font-weight:400;color:var(--text-muted);font-size:.65rem;text-transform:none;letter-spacing:0">${periodLabel}</span></div>
+    <div class="ac-section-label"><img src="/gsc-icon.png" style="width:13px;height:13px;vertical-align:middle;margin-right:.35rem;margin-bottom:1px">Search Console <span style="font-weight:400;color:var(--text-muted);font-size:.65rem;text-transform:none;letter-spacing:0">${periodLabel}</span></div>
     <div class="ac-metrics">
       ${acMetric(fmtNum(gscT.clicks),      'Clicks',       computeClientPct(gsc.weeks, 'clicks', analyticsPeriod),      'Times users clicked this site in Google search results.')}
       ${acMetric(fmtNum(gscT.impressions), 'Impressions',  computeClientPct(gsc.weeks, 'impressions', analyticsPeriod), 'Times the site appeared in Google search results.')}
@@ -2384,7 +2384,7 @@ function renderAnalyticsCard(id, data) {
     </div>` : `<div class="ac-unavailable">Search Console unavailable</div>`;
 
   const ga4Block = ga4.available ? `
-    <div class="ac-section-label">Google Analytics <span style="font-weight:400;color:var(--text-muted);font-size:.65rem;text-transform:none;letter-spacing:0">${periodLabel}</span></div>
+    <div class="ac-section-label"><img src="/ga4-icon.png" style="width:13px;height:13px;vertical-align:middle;margin-right:.35rem;margin-bottom:1px">Google Analytics <span style="font-weight:400;color:var(--text-muted);font-size:.65rem;text-transform:none;letter-spacing:0">${periodLabel}</span></div>
     <div class="ac-metrics">
       ${acMetric(fmtNum(ga4T.sessions),                                              'Sessions',   computeClientPct(ga4.weeks, 'sessions', analyticsPeriod), 'Total site visits, including repeat visits from the same person.')}
       ${acMetric(fmtNum(ga4T.users),                                                 'Users',      computeClientPct(ga4.weeks, 'users', analyticsPeriod),    'Unique visitors, counted once regardless of how many times they visit.')}
