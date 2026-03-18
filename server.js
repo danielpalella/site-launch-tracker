@@ -842,11 +842,12 @@ app.post('/api/launches/:id/lighthouse', requireAuth, async (req, res) => {
     const psi = await psiRes.json();
     const cats = psi.lighthouseResult?.categories || {};
     const audit = {
-      performance:   Math.round((cats.performance?.score    ?? 0) * 100),
-      accessibility: Math.round((cats.accessibility?.score  ?? 0) * 100),
-      best_practices:Math.round((cats['best-practices']?.score ?? 0) * 100),
-      seo:           Math.round((cats.seo?.score            ?? 0) * 100),
+      performance:    Math.round((cats.performance?.score    ?? 0) * 100),
+      accessibility:  Math.round((cats.accessibility?.score  ?? 0) * 100),
+      best_practices: Math.round((cats['best-practices']?.score ?? 0) * 100),
+      seo:            Math.round((cats.seo?.score            ?? 0) * 100),
       url,
+      is_post_launch: doc.data().status === 'launched',
       created_at: FieldValue.serverTimestamp(),
     };
     const ref = await db.collection('launches').doc(req.params.id).collection('lighthouse_audits').add(audit);
