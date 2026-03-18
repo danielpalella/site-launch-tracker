@@ -1231,11 +1231,11 @@ async function fetchDuda(siteName, launchDate) {
 
   const from = launchDate ? launchDate.slice(0, 10) : undefined;
   const to   = new Date().toISOString().slice(0, 10);
-  const dateParams = from ? `?from=${from}&to=${to}` : `?to=${to}`;
+  const dateParams = from ? `?from=${from}&to=${to}&dateGranularity=WEEKS` : `?to=${to}&dateGranularity=WEEKS`;
 
   const [trafficRes, activityRes] = await Promise.all([
-    fetch(`${base}/analytics/site/${siteName}${dateParams}&result=traffic`, { headers }),
-    fetch(`${base}/analytics/site/${siteName}${dateParams}&result=activities`, { headers }),
+    fetch(`${base}/analytics/site/${siteName}${dateParams}&result=traffic`,     { headers }),
+    fetch(`${base}/analytics/site/${siteName}${dateParams}&result=activities`,  { headers }),
   ]);
 
   if (!trafficRes.ok) {
@@ -1243,19 +1243,45 @@ async function fetchDuda(siteName, launchDate) {
     throw new Error(`Duda API error ${trafficRes.status}: ${err}`);
   }
 
-  const traffic  = await trafficRes.json();
-  const activity = activityRes.ok ? await activityRes.json() : {};
+  const trafficWeekly  = await trafficRes.json();
+  const activityWeekly = activityRes.ok ? await activityRes.json() : {};
 
-  const data = {
-    available:    true,
-    visitors:     traffic.VISITORS    ?? null,
-    visits:       traffic.VISITS      ?? null,
-    pageViews:    traffic.PAGE_VIEWS  ?? null,
-    formSubmits:  activity.FORM_SUBMITS    ?? null,
-    callClicks:   activity.CLICK_TO_CALLS  ?? null,
-    emailClicks:  activity.CLICK_TO_EMAILS ?? null,
-    mapClicks:    activity.CLICK_TO_MAPS   ?? null,
-  };
+  // Parse {"2026-03-16": [{VISITORS:4,...}]} into sorted week arrays
+  function parseWeekly(obj, keyMap) {
+    return Object.entries(obj).map(([week, rows]) => {
+      const row = rows[0] || {};
+      const entry = { week };
+      for (const [src, dst] of Object.entries(keyMap)) entry[dst] = row[src] ?? 0;
+      return entry;
+    }).sort((a, b) => a.week.localeCompare(b.week));
+  }
+
+  const tWeeks = parseWeekly(trafficWeekly,  { VISITORS: 'visitors', VISITS: 'visits', PAGE_VIEWS: 'pageViews' });
+  const aWeeks = parseWeekly(activityWeekly, { FORM_SUBMITS: 'formSubmits', CLICK_TO_CALLS: 'callClicks', CLICK_TO_EMAILS: 'emailClicks', CLICK_TO_MAPS: 'mapClicks' });
+
+  // Merge traffic + activity by week key
+  const weekMap = {};
+  const zeroActivity = { formSubmits: 0, callClicks: 0, emailClicks: 0, mapClicks: 0 };
+  for (const w of tWeeks) weekMap[w.week] = { ...zeroActivity, ...w };
+  for (const w of aWeeks) {
+    if (weekMap[w.week]) Object.assign(weekMap[w.week], w);
+    else weekMap[w.week] = { week: w.week, visitors: 0, visits: 0, pageViews: 0, ...w };
+  }
+  const weeks = Object.values(weekMap).sort((a, b) => a.week.localeCompare(b.week));
+
+  // Full-range totals
+  const total = weeks.reduce((acc, w) => {
+    acc.visitors    += w.visitors    || 0;
+    acc.visits      += w.visits      || 0;
+    acc.pageViews   += w.pageViews   || 0;
+    acc.formSubmits += w.formSubmits || 0;
+    acc.callClicks  += w.callClicks  || 0;
+    acc.emailClicks += w.emailClicks || 0;
+    acc.mapClicks   += w.mapClicks   || 0;
+    return acc;
+  }, { visitors: 0, visits: 0, pageViews: 0, formSubmits: 0, callClicks: 0, emailClicks: 0, mapClicks: 0 });
+
+  const data = { available: true, weeks, total };
 
   dudaCache[cacheKey] = { ts: Date.now(), data };
   return data;

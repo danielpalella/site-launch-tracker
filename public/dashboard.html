@@ -2266,6 +2266,21 @@ function periodGa4Totals(ga4, period) {
   };
 }
 
+function periodDudaTotals(duda, period) {
+  if (!duda?.available) return {};
+  if (period === 'all' || !duda.weeks?.length) return duda.total;
+  const n = period === 'wow' ? 1 : 4;
+  const slice = duda.weeks.slice(-n);
+  return slice.reduce((acc, w) => {
+    acc.visitors    += w.visitors    || 0;
+    acc.visits      += w.visits      || 0;
+    acc.pageViews   += w.pageViews   || 0;
+    acc.formSubmits += w.formSubmits || 0;
+    acc.callClicks  += w.callClicks  || 0;
+    return acc;
+  }, { visitors: 0, visits: 0, pageViews: 0, formSubmits: 0, callClicks: 0 });
+}
+
 function computeClientPct(weeks, key, period) {
   if (!weeks || weeks.length < 2) return null;
   if (period === 'wow') {
@@ -2392,16 +2407,17 @@ function renderAnalyticsCard(id, data) {
       ${acMetric(ga4T.engagementRate != null ? ga4T.engagementRate + '%' : '—',      'Engagement', null,                                                     'Percentage of visits where the user scrolled, clicked, or stayed 10+ seconds.')}
     </div>` : `<div class="ac-unavailable">${esc(ga4.reason || 'Google Analytics unavailable')}</div>`;
 
+  const dudaT = periodDudaTotals(duda, analyticsPeriod);
   const dudaBlock = duda?.available ? `
     <div class="ac-section-label">
       <img src="/duda-icon.png" style="width:13px;height:13px;border-radius:3px;vertical-align:middle;margin-right:.35rem;margin-bottom:1px">Duda
       <span style="font-weight:400;color:var(--text-muted);font-size:.65rem;text-transform:none;letter-spacing:0">${periodLabel}</span>
     </div>
     <div class="ac-metrics">
-      ${acMetric(fmtNum(duda.visitors),   'Visitors',     null, 'Unique visitors tracked by Duda.')}
-      ${acMetric(fmtNum(duda.pageViews),  'Page Views',   null, 'Total pages viewed across all visits.')}
-      ${acMetric(fmtNum(duda.formSubmits),'Form Submits', null, 'Times a contact or lead form was submitted.')}
-      ${acMetric(fmtNum(duda.callClicks), 'Call Clicks',  null, 'Times a visitor clicked a phone number link.')}
+      ${acMetric(fmtNum(dudaT.visitors),   'Visitors',     null, 'Unique visitors tracked by Duda.')}
+      ${acMetric(fmtNum(dudaT.pageViews),  'Page Views',   null, 'Total pages viewed across all visits.')}
+      ${acMetric(fmtNum(dudaT.formSubmits),'Form Submits', null, 'Times a contact or lead form was submitted.')}
+      ${acMetric(fmtNum(dudaT.callClicks), 'Call Clicks',  null, 'Times a visitor clicked a phone number link.')}
     </div>` : (duda && duda.reason !== 'No Duda site ID set' ? `<div class="ac-unavailable">Duda unavailable</div>` : '');
 
   // Chart shows the weeks relevant to the period
