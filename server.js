@@ -1273,8 +1273,7 @@ async function fetchDuda(siteName, launchDate) {
   // Group daily data into ISO weeks (Mon start) for charting
   function isoWeekStart(dateStr) {
     const d = new Date(dateStr + 'T00:00:00Z');
-    const dow = d.getUTCDay(); // 0=Sun
-    d.setUTCDate(d.getUTCDate() - (dow === 0 ? 6 : dow - 1));
+    d.setUTCDate(d.getUTCDate() - d.getUTCDay()); // back to Sunday, matching GSC/GA4
     return d.toISOString().slice(0, 10);
   }
   const weekMap = {};
