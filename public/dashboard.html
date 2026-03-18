@@ -210,10 +210,17 @@
       </div>
       <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap">
         <div id="analytics-connection-status" style="display:flex;align-items:center;gap:.6rem;font-size:.825rem"></div>
-        <div class="ac-filter-bar" style="display:flex;gap:.3rem">
-          <button class="fp-chip ac-period-btn" data-period="wow" onclick="setAnalyticsPeriod('wow')">WoW</button>
-          <button class="fp-chip ac-period-btn fp-chip-active" data-period="mom" onclick="setAnalyticsPeriod('mom')">MoM</button>
-          <button class="fp-chip ac-period-btn" data-period="all" onclick="setAnalyticsPeriod('all')">Since Launch</button>
+        <div class="ac-timeframe-wrap">
+          <span class="ac-timeframe-label">Timeframe</span>
+          <button class="ac-timeframe-btn" id="ac-timeframe-btn" onclick="toggleTimeframeDropdown(event)">
+            <span id="ac-timeframe-value">Last 30 days</span>
+            <svg id="ac-timeframe-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transition:transform .15s"><polyline points="18 15 12 9 6 15"/></svg>
+          </button>
+          <div class="ac-timeframe-dropdown" id="ac-timeframe-dropdown">
+            <label class="ac-timeframe-option"><input type="radio" name="ac-tf" value="wow" onchange="setAnalyticsPeriod('wow')"> Last 7 days</label>
+            <label class="ac-timeframe-option"><input type="radio" name="ac-tf" value="mom" checked onchange="setAnalyticsPeriod('mom')"> Last 30 days</label>
+            <label class="ac-timeframe-option"><input type="radio" name="ac-tf" value="all" onchange="setAnalyticsPeriod('all')"> Since Launch</label>
+          </div>
         </div>
         <button class="btn btn-ghost" onclick="refreshAnalytics()">↻ Refresh</button>
       </div>
@@ -2269,14 +2276,35 @@ function computeClientPct(weeks, key, period) {
   return null; // 'all' — no comparison badge
 }
 
+const PERIOD_LABELS = { wow: 'Last 7 days', mom: 'Last 30 days', all: 'Since Launch' };
+
 function setAnalyticsPeriod(p) {
   analyticsPeriod = p;
-  document.querySelectorAll('.ac-period-btn').forEach(b =>
-    b.classList.toggle('fp-chip-active', b.dataset.period === p));
+  document.getElementById('ac-timeframe-value').textContent = PERIOD_LABELS[p];
+  const radio = document.querySelector(`input[name="ac-tf"][value="${p}"]`);
+  if (radio) radio.checked = true;
+  closeTimeframeDropdown();
   for (const [id, data] of Object.entries(analyticsData)) {
     renderAnalyticsCard(id, data);
   }
 }
+
+function toggleTimeframeDropdown(e) {
+  e.stopPropagation();
+  const dd = document.getElementById('ac-timeframe-dropdown');
+  const chevron = document.getElementById('ac-timeframe-chevron');
+  const open = dd.classList.toggle('open');
+  chevron.style.transform = open ? 'rotate(180deg)' : '';
+}
+
+function closeTimeframeDropdown() {
+  document.getElementById('ac-timeframe-dropdown').classList.remove('open');
+  document.getElementById('ac-timeframe-chevron').style.transform = '';
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.ac-timeframe-wrap')) closeTimeframeDropdown();
+});
 
 function fmtNum(n) {
   if (n == null || n === '') return '—';
