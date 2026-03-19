@@ -18,24 +18,21 @@
 
   <div class="nav-tabs">
     <!-- Intake -->
-    <a href="/" class="nav-tab">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>
-      <span>Intake</span>
+    <a href="/" class="nav-tab" title="Intake">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>
     </a>
     <!-- Site Launches In Progress -->
-    <button class="nav-tab nav-tab-active" id="tab-launches" onclick="switchTab('launches')">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/><path d="M7 12h3m3 0h3"/><path d="M17 10l2 2-2 2"/></svg>
-      <span class="nav-tab-text">Site Launches<br>In Progress</span>
+    <button class="nav-tab nav-tab-active" id="tab-launches" onclick="switchTab('launches')" title="Site Launches In Progress">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" style="display:none"/><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
     </button>
     <!-- Post-Launch Edits -->
-    <button class="nav-tab" id="tab-edit-requests" onclick="switchTab('edit-requests')">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="9" y1="18" x2="15" y2="18"/></svg>
-      <span class="nav-tab-text">Post-Launch<br>Edits <span class="nav-tab-badge" id="er-badge" style="display:none">0</span></span>
+    <button class="nav-tab" id="tab-edit-requests" onclick="switchTab('edit-requests')" title="Post-Launch Edits" style="position:relative">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      <span class="nav-tab-badge" id="er-badge" style="display:none;position:absolute;top:4px;right:4px">0</span>
     </button>
     <!-- Insights -->
-    <button class="nav-tab" id="tab-analytics" onclick="switchTab('analytics')">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="12" width="4" height="8" rx="1"/><rect x="9" y="7" width="4" height="13" rx="1"/><rect x="16" y="3" width="4" height="17" rx="1"/></svg>
-      <span>Insights</span>
+    <button class="nav-tab" id="tab-analytics" onclick="switchTab('analytics')" title="Insights">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
     </button>
   </div>
 
