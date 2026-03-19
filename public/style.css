@@ -146,7 +146,7 @@ nav {
 .nav-tab:hover { color: rgba(255,255,255,.85); background: rgba(255,255,255,.07); }
 .nav-tab-active,
 .nav-tab-active svg { color: #cbff4d !important; }
-.nav-tab-active { background: rgba(203,255,77,.1) !important; }
+.nav-tab-active { background: rgba(255,255,255,.14) !important; }
 .nav-tab-badge {
   background: #cbff4d;
   color: #0a1628;
@@ -368,7 +368,7 @@ tr:hover .sticky-col { background: #f8fafc; }
   max-width: 130px;
   width: auto;
 }
-.status-wrap { position: relative; display: inline-block; max-width: 130px; }
+.status-wrap { position: relative; display: inline-flex; align-items: center; max-width: 160px; }
 .status-wrap::after {
   content: '▾';
   position: absolute;
@@ -384,6 +384,35 @@ tr:hover .sticky-col { background: #f8fafc; }
 .status-select.awaiting_dns    { background: #ede9fe; color: #5b21b6; }
 .status-select.awaiting_approval { background: #ffedd5; color: #9a3412; }
 .status-select.launched        { background: #dcfce7; color: #166534; }
+.status-select.in_progress_frozen     { background: #e0f0ff; color: #3b5fa0; opacity: .85; }
+.status-select.awaiting_approval_frozen { background: #fff3e8; color: #8a4a20; opacity: .85; }
+.status-select.awaiting_dns_frozen    { background: #f0eeff; color: #5a3e8a; opacity: .85; }
+[data-theme="dark"] .status-select.in_progress_frozen     { background: #1a2d4a; color: #93c5fd; }
+[data-theme="dark"] .status-select.awaiting_approval_frozen { background: #2d1e0e; color: #fdba74; }
+[data-theme="dark"] .status-select.awaiting_dns_frozen    { background: #1e1630; color: #c4b5fd; }
+
+/* Freeze dot — the small indicator before the status select */
+.sf-dot {
+  display: none;
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: transform .15s, opacity .15s;
+  margin-right: .3rem;
+  vertical-align: middle;
+}
+.sf-freezable { display: inline-block; }
+.sf-freezable:hover { transform: scale(1.4); opacity: .8; }
+.sf-frozen { display: inline-block; width: auto; height: auto; background: transparent !important; font-size: .85rem; line-height: 1; }
+.sf-frozen:hover { transform: scale(1.2); }
+
+/* Frozen row tint */
+tr.row-frozen td { background: rgba(147,197,253,.05); }
+tr.row-frozen .sticky-col { background: rgba(147,197,253,.05); }
+[data-theme="dark"] tr.row-frozen td { background: rgba(30,50,80,.35); }
+[data-theme="dark"] tr.row-frozen .sticky-col { background: rgba(30,50,80,.35); }
 
 /* ── EMPTY STATE ── */
 .empty {
@@ -1510,6 +1539,13 @@ tr.status-separator:first-child td { border-top: none; }
 }
 
 /* ── ANALYTICS TAB ── */
+#ac-sites-panel {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
 #view-analytics {
   flex: 1;
   overflow: hidden;
@@ -1775,6 +1811,34 @@ tr.status-separator:first-child td { border-top: none; }
 .ac-view-active { background: var(--primary); color: #fff !important; }
 
 /* ── Overview panel ── */
+.ov-loading-tag {
+  font-size: .72rem;
+  font-weight: 600;
+  background: rgba(59,130,246,.12);
+  color: var(--primary);
+  border-radius: 99px;
+  padding: .15rem .55rem;
+  animation: ov-pulse 1.4s ease-in-out infinite;
+}
+@keyframes ov-pulse { 0%,100% { opacity:1 } 50% { opacity:.5 } }
+.ac-overview-loading {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  padding: 2rem 1rem;
+  color: var(--text-muted);
+  font-size: .875rem;
+}
+.ac-ov-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 .ov-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: .85rem; }
 .ov-title { font-size: 1rem; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: .5rem; }
 .ov-chart-wrap {

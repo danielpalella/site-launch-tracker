@@ -247,7 +247,7 @@ app.post('/api/auth/logout', async (req, res) => {
 });
 
 // ── Launches API ──
-const VALID_STATUSES = ['new', 'in_progress', 'awaiting_dns', 'awaiting_approval', 'launched', 'decommissioned'];
+const VALID_STATUSES = ['new', 'in_progress', 'awaiting_dns', 'awaiting_approval', 'launched', 'in_progress_frozen', 'awaiting_dns_frozen', 'awaiting_approval_frozen', 'decommissioned'];
 
 app.get('/api/launches', requireAuth, async (req, res) => {
   try {

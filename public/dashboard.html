@@ -18,19 +18,19 @@
 
   <div class="nav-tabs">
     <!-- Intake -->
-    <a href="/" class="nav-tab" title="Website Intake">
+    <a href="/" class="nav-tab" title="Intake">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>
-      <span class="nav-label">Website Intake</span>
+      <span class="nav-label">Intake</span>
     </a>
-    <!-- Site Pipeline -->
-    <button class="nav-tab nav-tab-active" id="tab-launches" onclick="switchTab('launches')" title="Site Pipeline">
+    <!-- Pipeline -->
+    <button class="nav-tab nav-tab-active" id="tab-launches" onclick="switchTab('launches')" title="Pipeline">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-      <span class="nav-label">Site Pipeline</span>
+      <span class="nav-label">Pipeline</span>
     </button>
-    <!-- Edit Requests -->
-    <button class="nav-tab" id="tab-edit-requests" onclick="switchTab('edit-requests')" title="Edit Requests" style="position:relative">
+    <!-- Edits -->
+    <button class="nav-tab" id="tab-edit-requests" onclick="switchTab('edit-requests')" title="Edits" style="position:relative">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-      <span class="nav-label">Edit Requests</span>
+      <span class="nav-label">Edits</span>
       <span class="nav-tab-badge" id="er-badge" style="display:none;position:absolute;top:3px;right:3px">0</span>
     </button>
     <!-- Insights -->
@@ -568,12 +568,15 @@
 
 <script>
 const STATUS_LABELS = {
-  new:               'New',
-  in_progress:       'In Progress',
-  awaiting_approval: 'Approval',
-  awaiting_dns:      'DNS Access',
-  launched:          'Launched',
-  decommissioned:    'Decommissioned',
+  new:                        'New',
+  in_progress:                'In Progress',
+  awaiting_approval:          'Approval',
+  awaiting_dns:               'DNS Access',
+  launched:                   'Launched',
+  in_progress_frozen:         '🧊 In Progress',
+  awaiting_approval_frozen:   '🧊 Approval',
+  awaiting_dns_frozen:        '🧊 DNS Access',
+  decommissioned:             'Decommissioned',
 };
 
 let allLaunches = [];
@@ -581,16 +584,19 @@ let editingId = null;
 let deletingId = null;
 let deletingType = 'launch'; // 'launch' | 'edit-request'
 let showArchivedLaunches = false;
-const STATUS_ORDER = ['new', 'in_progress', 'awaiting_approval', 'awaiting_dns', 'launched', 'decommissioned'];
+const STATUS_ORDER = ['new', 'in_progress', 'awaiting_approval', 'awaiting_dns', 'launched', 'in_progress_frozen', 'awaiting_approval_frozen', 'awaiting_dns_frozen', 'decommissioned'];
 
 // ── Chart / View State ──
 const STATUS_COLORS = {
-  new:               '#ec4899',
-  in_progress:       '#3b82f6',
-  awaiting_approval: '#f97316',
-  awaiting_dns:      '#8b5cf6',
-  launched:          '#22c55e',
-  decommissioned:    '#ef4444',
+  new:                        '#ec4899',
+  in_progress:                '#3b82f6',
+  awaiting_approval:          '#f97316',
+  awaiting_dns:               '#8b5cf6',
+  launched:                   '#22c55e',
+  in_progress_frozen:         '#93c5fd',
+  awaiting_approval_frozen:   '#fdba74',
+  awaiting_dns_frozen:        '#c4b5fd',
+  decommissioned:             '#ef4444',
 };
 const CHART_STATUS_ORDER = STATUS_ORDER.filter(s => s !== 'decommissioned');
 const chartHiddenStatuses = new Set();
@@ -1162,7 +1168,7 @@ function renderTable(data) {
       lastStatus = r.status;
     }
     html += `
-    <tr data-id="${r.id}" ondblclick="handleRowDblClick(event,'${r.id}')" style="cursor:pointer" ${r.status === 'launched' ? 'class="row-launched"' : r.status === 'decommissioned' ? 'class="row-decommissioned"' : ''}>
+    <tr data-id="${r.id}" ondblclick="handleRowDblClick(event,'${r.id}')" style="cursor:pointer" ${r.status === 'launched' ? 'class="row-launched"' : r.status === 'decommissioned' ? 'class="row-decommissioned"' : r.status.endsWith('_frozen') ? 'class="row-frozen"' : ''}>
       <td class="sticky-col">
         <div class="account-name">${esc(r.account_name)}<span class="gmail-unread-badge" id="gmail-badge-${r.id}" data-email="${esc(r.email)}" style="display:none"></span></div>
         <div class="domain">🌐 <a href="https://${esc(r.domain_name)}" target="_blank" rel="noopener" style="color:var(--primary);text-decoration:none" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${esc(r.domain_name)}</a></div>
@@ -1182,6 +1188,11 @@ function renderTable(data) {
       </td>
       <td>
         <div class="status-wrap">
+          ${['in_progress','awaiting_approval','awaiting_dns'].includes(r.status)
+            ? `<span class="sf-dot sf-freezable" title="Double-click to freeze" data-id="${r.id}" data-status="${r.status}" style="background:${STATUS_COLORS[r.status]}" ondblclick="toggleFreezeStatus('${r.id}','${r.status}')"></span>`
+            : r.status.endsWith('_frozen')
+              ? `<span class="sf-dot sf-frozen" title="Double-click to unfreeze" data-id="${r.id}" data-status="${r.status}" ondblclick="toggleFreezeStatus('${r.id}','${r.status}')">🧊</span>`
+              : ''}
           <select class="status-select ${r.status}" data-id="${r.id}" onchange="quickStatus(this)">
             ${Object.entries(STATUS_LABELS).map(([v,l]) =>
               `<option value="${v}"${v === r.status ? ' selected' : ''}>${l}</option>`
@@ -1202,6 +1213,35 @@ function renderTable(data) {
 function esc(str) {
   if (!str) return '';
   return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+const FREEZE_MAP = {
+  in_progress:       'in_progress_frozen',
+  awaiting_approval: 'awaiting_approval_frozen',
+  awaiting_dns:      'awaiting_dns_frozen',
+};
+const UNFREEZE_MAP = {
+  in_progress_frozen:       'in_progress',
+  awaiting_approval_frozen: 'awaiting_approval',
+  awaiting_dns_frozen:      'awaiting_dns',
+};
+
+async function toggleFreezeStatus(id, currentStatus) {
+  const newStatus = FREEZE_MAP[currentStatus] || UNFREEZE_MAP[currentStatus];
+  if (!newStatus) return;
+  try {
+    const res = await fetch(`/api/launches/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: newStatus })
+    });
+    if (!res.ok) throw new Error();
+    delete historyCache[id];
+    showToast(newStatus.endsWith('_frozen') ? 'Status frozen ❄️' : 'Status unfrozen.');
+    fetchLaunches();
+  } catch {
+    showToast('Failed to update status.', 'error');
+  }
 }
 
 // Quick status change directly in the table dropdown
@@ -2247,6 +2287,8 @@ async function loadAdminLogs() {
 const analyticsCharts  = {};
 const analyticsData    = {}; // raw data keyed by launch id
 let analyticsLoaded    = false;
+let analyticsTotal     = 0;   // total launched sites expected
+let analyticsLoadedCount = 0; // how many have resolved (ok or error)
 let analyticsPeriod    = 'mom'; // 'wow' | 'mom' | 'all'
 let analyticsIndustry  = 'all';
 let analyticsView      = 'sites'; // 'sites' | 'overview'
@@ -2340,9 +2382,13 @@ function renderAnalyticsOverview(industryFilter) {
   if (overviewChart) { overviewChart.destroy(); overviewChart = null; }
   const entries = getAnalyticsEntries(industryFilter || analyticsIndustry);
   if (!entries.length) {
-    document.getElementById('ac-overview').innerHTML = '<div class="ac-empty">No data loaded yet. Switch to All Sites view first.</div>';
+    const isLoading = analyticsTotal > 0 && analyticsLoadedCount < analyticsTotal;
+    document.getElementById('ac-overview').innerHTML = isLoading
+      ? `<div class="ac-overview-loading"><div class="ac-ov-spinner"></div><div>Loading sites… <strong>${analyticsLoadedCount}</strong> of <strong>${analyticsTotal}</strong> loaded</div></div>`
+      : '<div class="ac-empty">No data loaded yet. Switch to All Sites view first.</div>';
     return;
   }
+  const isPartial = analyticsLoadedCount < analyticsTotal;
   const period = analyticsPeriod;
   const periodLabel = PERIOD_LABELS[period];
   const agg = computeAggregate(entries, period);
@@ -2365,7 +2411,7 @@ function renderAnalyticsOverview(industryFilter) {
 
   document.getElementById('ac-overview').innerHTML = `
     <div class="ov-header">
-      <div class="ov-title">${entries.length} Active Sites <span class="acd-period-tag">${periodLabel}</span></div>
+      <div class="ov-title">${entries.length} Active Sites <span class="acd-period-tag">${periodLabel}</span>${isPartial ? `<span class="ov-loading-tag">Loading ${analyticsLoadedCount}/${analyticsTotal}</span>` : ''}</div>
     </div>
 
     <div class="acd-sources-row" style="margin-bottom:1rem">
@@ -2889,7 +2935,9 @@ function renderAnalyticsCard(id, data) {
   if (!card) return;
   if (analyticsCharts[id]) { analyticsCharts[id].destroy(); delete analyticsCharts[id]; }
 
+  const isFirstLoad = !analyticsData[id];
   analyticsData[id] = data; // store for period re-renders
+  if (isFirstLoad) analyticsLoadedCount++;
 
   const { gsc, ga4, duda, daysSince, account_name, domain, analyticsStartDate, launchDate } = data;
   const displayDate = analyticsStartDate || launchDate;
@@ -3095,6 +3143,8 @@ async function loadAnalytics() {
 
   launched.sort((a, b) => toDate(b.status_changed_at || b.created_at) - toDate(a.status_changed_at || a.created_at));
   analyticsIndustry = 'all';
+  analyticsTotal = launched.length;
+  analyticsLoadedCount = 0;
   buildAnalyticsIndustryBar(launched);
   grid.innerHTML = launched.map(l => analyticsSkeletonHtml(l)).join('');
 
@@ -3114,11 +3164,14 @@ async function loadAnalytics() {
               : (d.error || 'Failed to load');
             if (s) s.innerHTML = `<div class="ac-unavailable">${esc(msg)}</div>`;
           }
+          analyticsLoadedCount++;
         }
       } catch {
         const card = document.getElementById(`ac-card-${l.id}`);
         if (card) { const s = card.querySelector('.ac-skeleton-wrap'); if (s) s.innerHTML = '<div class="ac-unavailable">Failed to load</div>'; }
+        analyticsLoadedCount++;
       }
+      if (analyticsView === 'overview') renderAnalyticsOverview(null);
     }));
   }
   analyticsLoaded = true;
