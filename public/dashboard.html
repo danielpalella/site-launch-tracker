@@ -830,7 +830,7 @@ function renderBoard() {
               </div>
               <div class="board-card-status-wrap">
                 <select class="status-select ${r.status}" data-id="${r.id}" onchange="quickStatus(this)" onclick="event.stopPropagation()">
-                  ${Object.entries(STATUS_LABELS).map(([v,l]) =>
+                  ${Object.entries(STATUS_LABELS).filter(([v]) => !(v in FROZEN_PARENT)).map(([v,l]) =>
                     `<option value="${v}"${v === r.status ? ' selected' : ''}>${l}</option>`
                   ).join('')}
                 </select>
@@ -1207,7 +1207,7 @@ function renderTable(data) {
               ? `<span class="sf-dot sf-frozen" title="Click to unfreeze" data-id="${r.id}" data-status="${r.status}" onclick="event.stopPropagation();toggleFreezeStatus('${r.id}','${r.status}')">🧊</span>`
               : ''}
           <select class="status-select ${r.status}" data-id="${r.id}" onchange="quickStatus(this)">
-            ${Object.entries(STATUS_LABELS).map(([v,l]) =>
+            ${Object.entries(STATUS_LABELS).filter(([v]) => !(v in FROZEN_PARENT)).map(([v,l]) =>
               `<option value="${v}"${v === r.status ? ' selected' : ''}>${l}</option>`
             ).join('')}
           </select>
