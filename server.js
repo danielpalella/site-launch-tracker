@@ -1394,14 +1394,14 @@ Provide exactly 4 specific, actionable SEO recommendations to improve this site'
     const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
     const body = JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] });
     let r;
-    for (let attempt = 0; attempt < 3; attempt++) {
-      if (attempt > 0) await new Promise(resolve => setTimeout(resolve, attempt * 2000));
+    for (let attempt = 0; attempt < 4; attempt++) {
+      if (attempt > 0) await new Promise(resolve => setTimeout(resolve, attempt * 5000));
       r = await fetch(geminiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
       if (r.status !== 429) break;
     }
     if (!r.ok) {
       const status = r.status;
-      throw new Error(status === 429 ? 'Rate limit reached — please try again in a few seconds.' : `Gemini API error: ${status}`);
+      throw new Error(status === 429 ? 'Rate limit reached — please wait a moment and try again.' : `Gemini API error: ${status}`);
     }
     const data = await r.json();
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();

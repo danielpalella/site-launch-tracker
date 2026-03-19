@@ -3580,7 +3580,10 @@ async function openSeoSuggestions(siteId) {
       </div>`;
   } catch (err) {
     document.getElementById('seo-modal-body').innerHTML =
-      `<div style="color:#ef4444;font-size:.82rem;padding:.5rem 0">Failed to generate suggestions: ${esc(err.message)}</div>`;
+      `<div style="display:flex;flex-direction:column;gap:.6rem;padding:.5rem 0">
+        <div style="color:#ef4444;font-size:.82rem">${esc(err.message)}</div>
+        <button class="btn btn-ghost" style="align-self:flex-start;font-size:.8rem" onclick="openSeoSuggestions('${esc(siteId)}')">Try again</button>
+       </div>`;
   }
 }
 
