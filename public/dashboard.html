@@ -242,6 +242,23 @@
 
 </div><!-- /page-wide -->
 
+<!-- Analytics Detail Modal -->
+<div class="modal-backdrop" id="ac-detail-backdrop" onclick="closeAnalyticsModal(event)">
+  <div class="modal ac-detail-modal" onclick="event.stopPropagation()">
+    <div class="ac-detail-header">
+      <div>
+        <div id="acd-name" style="font-size:1rem;font-weight:700;color:var(--text)"></div>
+        <a id="acd-domain" class="ac-domain" target="_blank" rel="noopener" style="font-size:.8rem"></a>
+      </div>
+      <div style="display:flex;align-items:center;gap:.75rem">
+        <span id="acd-since" style="font-size:.72rem;color:var(--text-muted)"></span>
+        <button class="btn btn-ghost" style="padding:.2rem .55rem;font-size:.85rem;line-height:1" onclick="closeAnalyticsModal()">✕</button>
+      </div>
+    </div>
+    <div id="acd-body" style="margin-top:1.1rem"></div>
+  </div>
+</div>
+
 <!-- Edit Modal -->
 <div class="modal-backdrop" id="modal">
   <div class="modal crm-modal">
@@ -2355,10 +2372,206 @@ function acMetric(value, label, pct, tip) {
   </div>`;
 }
 
+// ── Analytics Detail Modal ──
+document.addEventListener('dblclick', e => {
+  const card = e.target.closest('#analytics-grid .ac-card');
+  if (!card) return;
+  const id = card.id.replace('ac-card-', '');
+  if (analyticsData[id]) openAnalyticsModal(id);
+});
+
+function closeAnalyticsModal(e) {
+  if (e && e.target !== document.getElementById('ac-detail-backdrop')) return;
+  document.getElementById('ac-detail-backdrop').classList.remove('open');
+  document.body.style.overflow = '';
+  if (window._acdChart) { window._acdChart.destroy(); window._acdChart = null; }
+}
+
+async function openAnalyticsModal(id) {
+  const data = analyticsData[id];
+  if (!data) return;
+  document.getElementById('acd-name').textContent = data.account_name;
+  const domainEl = document.getElementById('acd-domain');
+  domainEl.textContent = data.domain;
+  domainEl.href = 'https://' + data.domain;
+  document.getElementById('acd-since').textContent = 'Since ' + fmtAnalyticsDate(data.analyticsStartDate || data.launchDate);
+  document.getElementById('ac-detail-backdrop').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  renderAnalyticsModalBody(id, data, null);
+  try {
+    const r = await fetch('/api/launches/' + id + '/forms');
+    const forms = r.ok ? await r.json() : { available: false };
+    renderAnalyticsModalBody(id, data, forms);
+  } catch {
+    renderAnalyticsModalBody(id, data, { available: false });
+  }
+}
+
+function renderAnalyticsModalBody(id, data, forms) {
+  if (window._acdChart) { window._acdChart.destroy(); window._acdChart = null; }
+  const { gsc, ga4, duda } = data;
+  const period = analyticsPeriod;
+  const periodLabel = PERIOD_LABELS[period] || 'Last 30 days';
+  const gscT  = periodGscTotals(gsc, period);
+  const ga4T  = periodGa4Totals(ga4, period);
+  const dudaT = periodDudaTotals(duda, period);
+
+  // GSC block
+  const gscSection = gsc.available ? `
+    <div class="acd-section">
+      <div class="acd-section-title"><img src="/gsc-icon.png" style="width:13px;height:13px;vertical-align:middle;margin-right:.35rem">Search Console <span class="acd-period-tag">${periodLabel}</span></div>
+      <div class="acd-metrics-row">
+        ${acdMetric(fmtNum(gscT.clicks),          'Clicks')}
+        ${acdMetric(fmtNum(gscT.impressions),     'Impressions')}
+        ${acdMetric(gscT.position ?? '—',         'Avg Position')}
+        ${acdMetric((gscT.ctr ?? 0) + '%',        'CTR')}
+      </div>
+    </div>` : '';
+
+  // GA4 block
+  const ga4Section = ga4.available ? `
+    <div class="acd-section">
+      <div class="acd-section-title"><img src="/ga4-icon.png" style="width:13px;height:13px;vertical-align:middle;margin-right:.35rem">Google Analytics <span class="acd-period-tag">${periodLabel}</span></div>
+      <div class="acd-metrics-row">
+        ${acdMetric(fmtNum(ga4T.sessions),                                       'Sessions')}
+        ${acdMetric(fmtNum(ga4T.users),                                          'Users')}
+        ${acdMetric(ga4T.newUsers != null ? fmtNum(ga4T.newUsers) : '—',         'New Users')}
+        ${acdMetric(ga4T.engagementRate != null ? ga4T.engagementRate + '%' : '—','Engagement')}
+      </div>
+    </div>` : '';
+
+  // Duda block
+  const dudaSection = duda?.available ? `
+    <div class="acd-section">
+      <div class="acd-section-title"><img src="/duda-icon.png" style="width:13px;height:13px;border-radius:3px;vertical-align:middle;margin-right:.35rem">Duda Analytics <span class="acd-period-tag">${periodLabel}</span></div>
+      <div class="acd-metrics-row">
+        ${acdMetric(fmtNum(dudaT.visitors),    'Visitors')}
+        ${acdMetric(fmtNum(dudaT.pageViews),   'Page Views')}
+        ${acdMetric(fmtNum(dudaT.formSubmits), 'Form Submits')}
+        ${acdMetric(fmtNum(dudaT.callClicks),  'Call Clicks')}
+      </div>
+    </div>` : '';
+
+  // Top Queries
+  const queriesSection = gsc.available && gsc.topQueries?.length ? `
+    <div class="acd-section">
+      <div class="acd-section-title">Top Queries</div>
+      <div class="ac-queries" style="max-height:220px;overflow-y:auto">
+        ${gsc.topQueries.map(q => `
+          <div class="ac-query-row">
+            <span class="ac-query-text">${esc(q.query)}</span>
+            <span class="ac-query-meta">${q.clicks} clicks</span>
+            <span class="ac-query-meta">pos ${q.position ?? '—'}</span>
+          </div>`).join('')}
+      </div>
+    </div>` : '';
+
+  // Traffic Sources
+  const channelsSection = ga4.available && ga4.channels?.length ? `
+    <div class="acd-section">
+      <div class="acd-section-title">Traffic Sources</div>
+      <div class="ac-channels">
+        ${ga4.channels.map(c => `
+          <div class="ac-channel-row">
+            <span class="ac-channel-name">${esc(c.channel)}</span>
+            <span class="ac-channel-bar-wrap"><span class="ac-channel-bar" style="width:${Math.round(c.sessions / ga4.channels[0].sessions * 100)}%"></span></span>
+            <span class="ac-channel-count">${fmtNum(c.sessions)}</span>
+          </div>`).join('')}
+      </div>
+    </div>` : '';
+
+  // Form Submissions
+  let formsSection = '';
+  if (forms === null) {
+    formsSection = `<div class="acd-section"><div class="acd-section-title">Form Submissions</div><div style="font-size:.8rem;color:var(--text-muted)">Loading…</div></div>`;
+  } else if (forms.available && forms.submissions?.length) {
+    formsSection = `
+      <div class="acd-section">
+        <div class="acd-section-title">Form Submissions <span class="acd-period-tag">${forms.submissions.length} total</span></div>
+        <div class="acd-forms-list">
+          ${forms.submissions.slice(0, 20).map(s => {
+            const fields = s.fields || s.form_data || [];
+            const name  = fields.find(f => /name/i.test(f.label || f.key))?.value || '—';
+            const email = fields.find(f => /email/i.test(f.label || f.key))?.value || '—';
+            const phone = fields.find(f => /phone/i.test(f.label || f.key))?.value || '';
+            const msg   = fields.find(f => /message|comment|note/i.test(f.label || f.key))?.value || '';
+            const dateStr = s.date ? new Date(s.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+            return `<div class="acd-form-row">
+              <div class="acd-form-meta">
+                <span class="acd-form-name">${esc(name)}</span>
+                <span class="acd-form-date">${dateStr}</span>
+              </div>
+              <div class="acd-form-contact">${esc(email)}${phone ? ' · ' + esc(phone) : ''}</div>
+              ${msg ? `<div class="acd-form-msg">${esc(msg)}</div>` : ''}
+            </div>`;
+          }).join('')}
+          ${forms.submissions.length > 20 ? `<div style="font-size:.72rem;color:var(--text-muted);padding:.4rem 0">+ ${forms.submissions.length - 20} more submissions</div>` : ''}
+        </div>
+      </div>`;
+  } else if (forms.available && !forms.submissions?.length) {
+    formsSection = `<div class="acd-section"><div class="acd-section-title">Form Submissions</div><div style="font-size:.8rem;color:var(--text-muted)">No submissions yet.</div></div>`;
+  }
+
+  const gscChartWks  = period === 'all' ? (gsc.weeks || [])   : periodWeeks(gsc.weeks, period);
+  const ga4ChartWks  = period === 'all' ? (ga4.weeks || [])   : periodWeeks(ga4.weeks, period);
+  const dudaChartWks = period === 'all' ? (duda?.weeks || []) : periodWeeks(duda?.weeks || [], period);
+  const hasDudaWks   = duda?.available && dudaChartWks.length > 1;
+  const hasModalChart = (gsc.available && gscChartWks.length > 1) || (ga4.available && ga4ChartWks.length > 1) || hasDudaWks;
+
+  document.getElementById('acd-body').innerHTML = `
+    ${gscSection}${ga4Section}${dudaSection}
+    ${hasModalChart ? '<div class="acd-chart-wrap"><canvas id="acd-canvas"></canvas></div>' : ''}
+    <div class="acd-two-col">
+      ${queriesSection}
+      ${channelsSection}
+    </div>
+    ${formsSection}
+  `;
+
+  if (hasModalChart) {
+    const allWks = [...new Set([
+      ...gscChartWks.map(w => w.week),
+      ...ga4ChartWks.map(w => w.week),
+      ...(hasDudaWks ? dudaChartWks.map(w => w.week) : []),
+    ])].sort();
+    const gscMap  = Object.fromEntries(gscChartWks.map(w => [w.week, w.clicks]));
+    const ga4Map  = Object.fromEntries(ga4ChartWks.map(w => [w.week, w.sessions]));
+    const dudaMap = Object.fromEntries(dudaChartWks.map(w => [w.week, w.visitors]));
+    const isDark  = document.documentElement.getAttribute('data-theme') === 'dark';
+    const gridC   = isDark ? '#334155' : '#e2e8f0';
+    const textC   = isDark ? '#94a3b8' : '#64748b';
+    const datasets = [];
+    if (gsc.available && gscChartWks.length > 1)  datasets.push({ label: 'GSC Clicks',    yAxisID: 'y',  data: allWks.map(w => gscMap[w]  ?? 0), borderColor: '#1259FF', backgroundColor: 'rgba(18,89,255,.08)',  fill: true, tension: 0.35, pointRadius: 3, borderWidth: 2 });
+    if (ga4.available && ga4ChartWks.length > 1)  datasets.push({ label: 'GA4 Sessions',  yAxisID: datasets.length ? 'y1' : 'y', data: allWks.map(w => ga4Map[w]  ?? 0), borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,.08)',  fill: true, tension: 0.35, pointRadius: 3, borderWidth: 2 });
+    if (hasDudaWks)                               datasets.push({ label: 'Duda Visitors', yAxisID: datasets.length ? 'y1' : 'y', data: allWks.map(w => dudaMap[w] ?? 0), borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,.08)', fill: true, tension: 0.35, pointRadius: 3, borderWidth: 2 });
+    const scales = {
+      x: { ticks: { color: textC, font: { size: 10 }, maxTicksLimit: 10 }, grid: { display: false }, border: { display: false } },
+      y: { position: 'left', ticks: { color: textC, font: { size: 10 }, maxTicksLimit: 5 }, grid: { color: gridC }, border: { display: false } },
+    };
+    if (datasets.length > 1) scales.y1 = { position: 'right', ticks: { color: textC, font: { size: 10 }, maxTicksLimit: 5 }, grid: { display: false }, border: { display: false } };
+    window._acdChart = new Chart(document.getElementById('acd-canvas'), {
+      type: 'line',
+      data: { labels: allWks.map(w => new Date(w).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })), datasets },
+      options: {
+        responsive: true, maintainAspectRatio: false, animation: { duration: 200 },
+        plugins: {
+          legend: { position: 'top', labels: { color: textC, font: { size: 11 }, boxWidth: 10, padding: 10 } },
+          tooltip: { mode: 'index', intersect: false },
+        },
+        scales,
+      },
+    });
+  }
+}
+
+function acdMetric(value, label) {
+  return `<div class="acd-metric"><div class="acd-metric-val">${value}</div><div class="acd-metric-label">${label}</div></div>`;
+}
+
 function analyticsSkeletonHtml(launch) {
   const launched = launch.status_changed_at || launch.created_at;
   const days = Math.floor((Date.now() - toDate(launched).getTime()) / 86_400_000);
-  return `<div class="ac-card" id="ac-card-${launch.id}" data-industry="${esc(launch.industry || '')}" data-name="${esc((launch.account_name || '').toLowerCase())}" data-domain="${esc((launch.domain_name || '').toLowerCase())}">
+  return `<div class="ac-card" id="ac-card-${launch.id}" data-industry="${esc(launch.industry || '')}" data-name="${esc((launch.account_name || '').toLowerCase())}" data-domain="${esc((launch.domain_name || '').toLowerCase())}" title="Double-click to view full analytics">
     <div class="ac-card-header">
       <div>
         <div class="ac-name">${esc(launch.account_name)}</div>
@@ -2482,8 +2695,6 @@ function renderAnalyticsCard(id, data) {
     ${ga4Block}
     ${dudaBlock}
     ${chartBlock}
-    ${queriesBlock}
-    ${channelsBlock}
   `;
 
   if (hasChart) {

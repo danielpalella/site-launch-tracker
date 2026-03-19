@@ -1308,6 +1308,27 @@ async function fetchDuda(siteName, launchDate) {
   return data;
 }
 
+app.get('/api/launches/:id/forms', requireAuth, async (req, res) => {
+  try {
+    const doc = await db.collection('launches').doc(req.params.id).get();
+    if (!doc.exists) return res.status(404).json({ error: 'Not found' });
+    const siteName = doc.data().duda_site_name;
+    if (!siteName) return res.json({ available: false, reason: 'No Duda site ID set' });
+    const creds = await getDudaCredentials();
+    const token = Buffer.from(`${creds.api_user}:${creds.api_pass}`).toString('base64');
+    const r = await fetch(`https://api.duda.co/api/sites/multiscreen/get-forms/${siteName}`, {
+      headers: { Authorization: `Basic ${token}`, 'Content-Type': 'application/json' },
+    });
+    if (!r.ok) return res.json({ available: false, reason: `Duda error ${r.status}` });
+    const data = await r.json();
+    // data may be an array or { results: [...] }
+    const submissions = Array.isArray(data) ? data : (data.results || []);
+    res.json({ available: true, submissions });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/api/analytics/:id', requireAuth, async (req, res) => {
   try {
     const token = await getAnalyticsAccessToken();
