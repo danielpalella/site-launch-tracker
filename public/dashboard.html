@@ -2488,34 +2488,30 @@ function renderAnalyticsModalBody(id, data, forms) {
     // Sort newest first
     const subs = [...forms.submissions].sort((a, b) => new Date(b.date) - new Date(a.date));
     const renderSub = s => {
-      // Duda field data can live at multiple paths depending on API version
-      const fields = s.message?.fieldsData         // documented shape
-                  || s.message?.fields             // alternate
-                  || (Array.isArray(s.message) ? s.message : null)  // flat array
-                  || s.fields || s.form_data || [];
-      // Field accessors: try field_label/field_value first, then label/value
-      const fLabel = f => f.field_label || f.label || f.key || '';
-      const fValue = f => f.field_value ?? f.value ?? '';
-      const fType  = f => f.field_type  || f.type  || '';
-      const find = (rx, type) => fields.find(f => rx.test(fLabel(f)) || (type && fType(f) === type));
-      const name  = fValue(find(/\bname\b/i)       || {}) || '—';
-      const email = fValue(find(/email/i, 'email') || {}) || '—';
-      const phone = fValue(find(/phone/i, 'phone') || {}) || '';
-      const msg   = fValue(find(/message|comment|note/i, 'message') || {}) || '';
+      // Duda actual response: message is a flat {label: value} object
+      const entries = (s.message && typeof s.message === 'object' && !Array.isArray(s.message))
+        ? Object.entries(s.message).filter(([, v]) => v !== '' && v != null)
+        : [];
+      const match = (...pats) => entries.find(([k]) => pats.some(p => new RegExp(p, 'i').test(k)));
+      const namePair  = match('\\bname\\b', 'full.?name', 'first.?name');
+      const emailPair = match('email');
+      const phonePair = match('phone');
+      const msgPair   = match('message', 'comment', 'note', 'how can we help', 'details');
+      const shown = new Set([namePair?.[0], emailPair?.[0], phonePair?.[0], msgPair?.[0]].filter(Boolean));
+      const others = entries.filter(([k]) => !shown.has(k));
+      const name  = namePair?.[1]  || '—';
+      const email = emailPair?.[1] || '—';
+      const phone = phonePair?.[1] || '';
+      const msg   = msgPair?.[1]   || '';
       const dateStr = s.date ? new Date(s.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
-      // If name and email are both blank, fall back to showing all raw fields
-      const rawFields = (name === '—' && email === '—' && fields.length)
-        ? fields.filter(f => fType(f) !== 'form_title' && fValue(f)).map(f =>
-            `<div class="acd-form-field"><span class="acd-form-field-label">${esc(fLabel(f) || fType(f))}</span> ${esc(fValue(f))}</div>`
-          ).join('')
-        : '';
       return `<div class="acd-form-row">
         <div class="acd-form-meta">
-          <span class="acd-form-name">${rawFields ? '' : esc(name)}</span>
+          <span class="acd-form-name">${esc(name)}</span>
           <span class="acd-form-date">${dateStr}</span>
         </div>
-        ${rawFields || `<div class="acd-form-contact">${esc(email)}${phone ? ' · ' + esc(phone) : ''}</div>
-        ${msg ? `<div class="acd-form-msg">${esc(msg)}</div>` : ''}`}
+        <div class="acd-form-contact">${esc(email)}${phone ? ' · ' + esc(phone) : ''}</div>
+        ${msg ? `<div class="acd-form-msg">${esc(msg)}</div>` : ''}
+        ${others.map(([k, v]) => `<div class="acd-form-field"><span class="acd-form-field-label">${esc(k)}:</span> ${esc(String(v))}</div>`).join('')}
       </div>`;
     };
     const first5 = subs.slice(0, 5).map(renderSub).join('');
