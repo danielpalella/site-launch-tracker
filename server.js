@@ -162,6 +162,10 @@ function formatLaunch(doc) {
 
 app.use(express.json());
 // ── Auth (public) ──
+app.get('/api/auth/me', requireAuth, (req, res) => {
+  res.json({ email: req.userEmail || '' });
+});
+
 app.get('/login', (_req, res) => res.sendFile(join(__dirname, 'public', 'login.html')));
 app.get('/', requireAuth, (_req, res) => res.sendFile(join(__dirname, 'public', 'index.html')));
 

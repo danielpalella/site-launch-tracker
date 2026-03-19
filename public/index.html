@@ -14,8 +14,30 @@
   <a class="nav-brand" href="/">
     <img src="/logo.svg" alt="RealWork Labs" class="nav-logo" />
   </a>
-  <a href="/dashboard" title="Projects"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="12" width="4" height="8" rx="1"/><rect x="9" y="7" width="4" height="13" rx="1"/><rect x="16" y="3" width="4" height="17" rx="1"/></svg></a>
-  <button id="logout-btn" class="btn btn-ghost" style="margin-left:auto;padding:.3rem .9rem;font-size:.8rem">Sign Out</button>
+
+  <div class="nav-tabs">
+    <a href="/" class="nav-tab nav-tab-active">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>
+      <span>Intake</span>
+    </a>
+    <a href="/dashboard" class="nav-tab">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/><path d="M7 12h3m3 0h3"/><path d="M17 10l2 2-2 2"/></svg>
+      <span class="nav-tab-text">Site Launches<br>In Progress</span>
+    </a>
+    <a href="/dashboard?tab=edit-requests" class="nav-tab">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="9" y1="18" x2="15" y2="18"/></svg>
+      <span class="nav-tab-text">Post-Launch<br>Edits</span>
+    </a>
+    <a href="/dashboard?tab=analytics" class="nav-tab">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="12" width="4" height="8" rx="1"/><rect x="9" y="7" width="4" height="13" rx="1"/><rect x="16" y="3" width="4" height="17" rx="1"/></svg>
+      <span>Insights</span>
+    </a>
+  </div>
+
+  <div class="nav-right">
+    <span id="nav-user-email" class="nav-user-email"></span>
+    <button id="logout-btn" class="btn btn-ghost" style="padding:.3rem .9rem;font-size:.8rem">Sign Out</button>
+  </div>
 </nav>
 
 <div class="page">
@@ -220,6 +242,17 @@ document.getElementById('submit-another').addEventListener('click', () => {
   btn.disabled = false;
   btn.textContent = 'Submit Launch Request';
 });
+
+(async () => {
+  try {
+    const r = await fetch('/api/auth/me');
+    if (r.ok) {
+      const { email } = await r.json();
+      const el = document.getElementById('nav-user-email');
+      if (el && email) el.textContent = email;
+    }
+  } catch {}
+})();
 </script>
 </body>
 </html>

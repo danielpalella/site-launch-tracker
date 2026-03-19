@@ -15,26 +15,43 @@
   <a class="nav-brand" href="/">
     <img src="/logo.svg" alt="RealWork Labs" class="nav-logo" />
   </a>
-  <a href="/dashboard" class="active" title="Projects"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="12" width="4" height="8" rx="1"/><rect x="9" y="7" width="4" height="13" rx="1"/><rect x="16" y="3" width="4" height="17" rx="1"/></svg></a>
-  <button id="logout-btn" class="btn btn-ghost" style="margin-left:auto;padding:.3rem .9rem;font-size:.8rem">Sign Out</button>
+
+  <div class="nav-tabs">
+    <!-- Intake -->
+    <a href="/" class="nav-tab">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>
+      <span>Intake</span>
+    </a>
+    <!-- Site Launches In Progress -->
+    <button class="nav-tab nav-tab-active" id="tab-launches" onclick="switchTab('launches')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/><path d="M7 12h3m3 0h3"/><path d="M17 10l2 2-2 2"/></svg>
+      <span class="nav-tab-text">Site Launches<br>In Progress</span>
+    </button>
+    <!-- Post-Launch Edits -->
+    <button class="nav-tab" id="tab-edit-requests" onclick="switchTab('edit-requests')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="9" y1="18" x2="15" y2="18"/></svg>
+      <span class="nav-tab-text">Post-Launch<br>Edits <span class="nav-tab-badge" id="er-badge" style="display:none">0</span></span>
+    </button>
+    <!-- Insights -->
+    <button class="nav-tab" id="tab-analytics" onclick="switchTab('analytics')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="12" width="4" height="8" rx="1"/><rect x="9" y="7" width="4" height="13" rx="1"/><rect x="16" y="3" width="4" height="17" rx="1"/></svg>
+      <span>Insights</span>
+    </button>
+  </div>
+
+  <div class="nav-right">
+    <span id="nav-user-email" class="nav-user-email"></span>
+    <button id="logout-btn" class="btn btn-ghost" style="padding:.3rem .9rem;font-size:.8rem">Sign Out</button>
+  </div>
 </nav>
 
 <div class="page-wide">
-  <!-- Tab bar -->
-  <div class="dash-tabs">
-    <button class="dash-tab dash-tab-active" id="tab-launches" onclick="switchTab('launches')">Site Launches</button>
-    <button class="dash-tab" id="tab-edit-requests" onclick="switchTab('edit-requests')">
-      Edit Requests
-      <span class="dash-tab-badge" id="er-badge" style="display:none">0</span>
-    </button>
-    <button class="dash-tab" id="tab-analytics" onclick="switchTab('analytics')">Analytics</button>
-  </div>
 
   <!-- ── LAUNCHES VIEW ── -->
   <div id="view-launches">
   <div class="dashboard-header">
     <div>
-      <h1>Site Launch Dashboard</h1>
+      <h1>Site Launches in Progress</h1>
       <p class="subtitle" style="margin-bottom:0">Track and update the status of every customer site launch.</p>
     </div>
     <a href="/" class="btn btn-primary">+ Submit</a>
@@ -206,7 +223,7 @@
     <div class="dashboard-header">
       <div>
         <h1>Site Analytics</h1>
-        <p class="subtitle" style="margin-bottom:0">GSC &amp; GA4 performance since launch for all active sites.</p>
+        <p class="subtitle" style="margin-bottom:0">GSC, GA4 &amp; Duda performance insights for all active sites.</p>
       </div>
       <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap">
         <div id="analytics-connection-status" style="display:flex;align-items:center;gap:.6rem;font-size:.825rem"></div>
@@ -1385,6 +1402,18 @@ document.getElementById('logout-btn').addEventListener('click', async () => {
   window.location.href = '/login';
 });
 
+// Show logged-in user email in nav
+(async () => {
+  try {
+    const r = await fetch('/api/auth/me');
+    if (r.ok) {
+      const { email } = await r.json();
+      const el = document.getElementById('nav-user-email');
+      if (el && email) el.textContent = email;
+    }
+  } catch {}
+})();
+
 // ── Export CSV ──
 async function exportCSV() {
   const res = await fetch('/api/launches');
@@ -1676,9 +1705,9 @@ function switchTab(tab) {
   document.getElementById('view-launches').style.display      = tab === 'launches'      ? '' : 'none';
   document.getElementById('view-edit-requests').style.display = tab === 'edit-requests' ? '' : 'none';
   document.getElementById('view-analytics').style.display     = tab === 'analytics'     ? '' : 'none';
-  document.getElementById('tab-launches').classList.toggle('dash-tab-active',      tab === 'launches');
-  document.getElementById('tab-edit-requests').classList.toggle('dash-tab-active', tab === 'edit-requests');
-  document.getElementById('tab-analytics').classList.toggle('dash-tab-active',     tab === 'analytics');
+  document.getElementById('tab-launches').classList.toggle('nav-tab-active',      tab === 'launches');
+  document.getElementById('tab-edit-requests').classList.toggle('nav-tab-active', tab === 'edit-requests');
+  document.getElementById('tab-analytics').classList.toggle('nav-tab-active',     tab === 'analytics');
   if (tab === 'edit-requests') fetchEditRequests();
   if (tab === 'analytics') loadAnalytics();
 }
