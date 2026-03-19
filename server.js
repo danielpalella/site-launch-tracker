@@ -1363,6 +1363,45 @@ app.get('/api/analytics/:id', requireAuth, async (req, res) => {
       : { available: false, reason: 'GA4 property not found for this domain' };
 
     res.json({ id: launch.id, account_name: launch.account_name, domain, industry: launch.industry || '', launchDate: rawLaunchDate, analyticsStartDate, daysSince, gsc, ga4, duda });
+
+    // Fire-and-forget weekly snapshot
+    (async () => {
+      try {
+        const weekStart = new Date();
+        weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1); // Monday
+        const weekKey = weekStart.toISOString().slice(0, 10);
+        const snapRef = db.collection('launches').doc(req.params.id).collection('snapshots').doc(weekKey);
+        const existing = await snapRef.get();
+        if (!existing.exists) {
+          const isBaseline = daysSince <= 7;
+          const milestone = daysSince >= 88 ? '90day' : daysSince >= 58 ? '60day' : daysSince >= 28 ? '30day' : null;
+          await snapRef.set({
+            weekKey,
+            daysSince,
+            capturedAt: new Date().toISOString(),
+            isBaseline,
+            milestone,
+            gsc: gsc.available ? {
+              clicks: gsc.total?.clicks || 0,
+              impressions: gsc.total?.impressions || 0,
+              ctr: gsc.total?.ctr || 0,
+              position: gsc.total?.position || null,
+              topQueries: (gsc.topQueries || []).slice(0, 10)
+            } : null,
+            ga4: ga4.available ? {
+              sessions: ga4.total?.sessions || 0,
+              users: ga4.total?.users || 0
+            } : null,
+            duda: duda?.available ? {
+              visitors: duda.total?.visitors || 0,
+              pageViews: duda.total?.pageViews || 0
+            } : null
+          });
+        }
+      } catch (e) {
+        console.error('Snapshot error:', e.message);
+      }
+    })();
   } catch (err) {
     console.error('Analytics error:', err.message);
     if (err.code === 'not_connected')
@@ -1402,6 +1441,41 @@ app.get('/api/analytics/:id/cwv', requireAuth, async (req, res) => {
     res.json({ url, mobile, desktop });
   } catch (err) {
     console.error('CWV error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/analytics/:id/snapshots', requireAuth, async (req, res) => {
+  try {
+    const snaps = await db.collection('launches').doc(req.params.id)
+      .collection('snapshots').orderBy('weekKey', 'desc').limit(16).get();
+    res.json(snaps.docs.map(d => ({ id: d.id, ...d.data() })));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Milestone Thresholds Config ──
+const DEFAULT_MILESTONES = {
+  '30day': { gscImpressions: 500,  gscClicks: 20,  ga4Sessions: 100 },
+  '60day': { gscImpressions: 1500, gscClicks: 60,  ga4Sessions: 300 },
+  '90day': { gscImpressions: 3000, gscClicks: 120, ga4Sessions: 600 }
+};
+
+app.get('/api/milestones/thresholds', requireAuth, async (req, res) => {
+  try {
+    const doc = await db.collection('config').doc('milestones').get();
+    res.json(doc.exists ? doc.data() : DEFAULT_MILESTONES);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/milestones/thresholds', requireAuth, async (req, res) => {
+  try {
+    await db.collection('config').doc('milestones').set(req.body, { merge: true });
+    res.json({ ok: true });
+  } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });

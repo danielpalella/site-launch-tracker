@@ -2318,6 +2318,18 @@ let analyticsLoaded    = false;
 let analyticsTotal     = 0;   // total launched sites expected
 let analyticsLoadedCount = 0; // how many have resolved (ok or error)
 let analyticsPeriod    = 'mom'; // 'wow' | 'mom' | 'all'
+let milestoneThresholds = {
+  '30day': { gscImpressions: 500,  gscClicks: 20,  ga4Sessions: 100 },
+  '60day': { gscImpressions: 1500, gscClicks: 60,  ga4Sessions: 300 },
+  '90day': { gscImpressions: 3000, gscClicks: 120, ga4Sessions: 600 }
+};
+
+async function loadMilestoneThresholds() {
+  try {
+    const r = await fetch('/api/milestones/thresholds');
+    if (r.ok) milestoneThresholds = await r.json();
+  } catch {}
+}
 let analyticsIndustry  = 'all';
 let analyticsView      = 'sites'; // 'sites' | 'overview'
 let overviewChart      = null;
@@ -2523,6 +2535,31 @@ function computeIndustryBenchmarks(entries) {
     .sort((a, b) => b.count - a.count);
 }
 
+function computeMilestoneFlags(entries) {
+  const flags = [];
+  for (const [id, d] of entries) {
+    const days = d.daysSince;
+    if (!days) continue;
+    const milestone = days >= 88 ? '90day' : days >= 58 ? '60day' : days >= 28 ? '30day' : null;
+    if (!milestone) continue;
+    const t = milestoneThresholds[milestone];
+    if (!t) continue;
+    const issues = [];
+    const gscT = d.gsc?.total || {};
+    const ga4T = d.ga4?.total || {};
+    if (gscT.impressions != null && gscT.impressions < t.gscImpressions)
+      issues.push({ metric: 'Impressions', actual: gscT.impressions, target: t.gscImpressions });
+    if (gscT.clicks != null && gscT.clicks < t.gscClicks)
+      issues.push({ metric: 'Clicks', actual: gscT.clicks, target: t.gscClicks });
+    if (ga4T.sessions != null && ga4T.sessions < t.ga4Sessions)
+      issues.push({ metric: 'Sessions', actual: ga4T.sessions, target: t.ga4Sessions });
+    if (issues.length) {
+      flags.push({ id, account_name: d.account_name, domain: d.domain, days, milestone, issues });
+    }
+  }
+  return flags.sort((a, b) => b.days - a.days);
+}
+
 function renderAnalyticsOverview(industryFilter) {
   if (overviewChart) { overviewChart.destroy(); overviewChart = null; }
   const entries = getAnalyticsEntries(industryFilter || analyticsIndustry);
@@ -2540,6 +2577,7 @@ function renderAnalyticsOverview(industryFilter) {
   const { top, bottom } = topBottomPerformers(entries, period, 'sessions');
   const trafficDrops = computeTrafficDrops(entries);
   const industryBenchmarks = computeIndustryBenchmarks(entries);
+  const milestoneFlags = computeMilestoneFlags(entries);
 
   const ovMetric = (val, lbl, tip) =>
     `<div class="acd-metric"><div class="acd-metric-val">${val}</div><div class="acd-metric-label">${lbl}${tip ? `<span class="ac-tip" data-tip="${esc(tip)}">?</span>` : ''}</div></div>`;
@@ -2700,6 +2738,33 @@ function renderAnalyticsOverview(industryFilter) {
         ${bottom.length ? bottom.map((s, i) => attentionRow(s, i + 1)).join('') : '<div style="font-size:.8rem;color:var(--text-muted);padding:.5rem 0">All established sites look healthy.</div>'}
       </div>
     </div>
+
+    ${milestoneFlags.length ? `
+<div class="card" style="margin-top:.85rem;padding:1rem 1.25rem">
+  <div class="gsh-header">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    <span style="font-weight:700;font-size:.88rem">Milestone Flags</span>
+    <span style="color:var(--text-muted);font-size:.75rem;margin-left:.4rem">sites below expected thresholds</span>
+  </div>
+  ${milestoneFlags.map(f => {
+    const milestoneColor = f.milestone === '90day' ? '#ef4444' : f.milestone === '60day' ? '#f97316' : '#f59e0b';
+    return `<div class="ov-att-row" style="border-left:3px solid ${milestoneColor}" onclick="openAnalyticsModal('${esc(f.id)}')">
+      <div class="ov-att-top">
+        <div class="ov-att-name">
+          <div class="ov-att-title">${esc(f.account_name)}</div>
+          <div class="ov-att-domain">${esc(f.domain)}</div>
+        </div>
+        <div class="ov-att-score-wrap">
+          <span class="ov-att-score" style="color:${milestoneColor}">${f.days}d</span>
+          <span class="ov-att-label" style="color:${milestoneColor}">${f.milestone} milestone</span>
+        </div>
+      </div>
+      <div class="ov-att-issues" style="margin-top:.3rem">
+        ${f.issues.map(i => `<span class="ov-issue-tag" style="background:${milestoneColor}18;color:${milestoneColor};border:1px solid ${milestoneColor}40">${esc(i.metric)}: ${fmtNum(i.actual)} / ${fmtNum(i.target)}</span>`).join('')}
+      </div>
+    </div>`;
+  }).join('')}
+</div>` : ''}
 
     ${trafficDrops.length ? `
 <div class="card" style="margin-top:.85rem;padding:1rem 1.25rem">
@@ -2995,6 +3060,42 @@ document.addEventListener('dblclick', e => {
   if (analyticsData[id]) openAnalyticsModal(id);
 });
 
+async function loadKeywordSnapshots(id, data) {
+  // Store latest keyword positions for movement comparison
+  const kwEl = document.getElementById(`kw-list-${id}`);
+  if (!kwEl || !data.gsc?.topQueries?.length) return;
+  try {
+    const r = await fetch(`/api/analytics/${id}/snapshots`);
+    if (!r.ok) return;
+    const snapshots = await r.json();
+    // Find a snapshot from 1-4 weeks ago that has keyword data
+    const prior = snapshots.slice(1).find(s => s.gsc?.topQueries?.length);
+    if (!prior) return;
+    const priorMap = {};
+    for (const kw of prior.gsc.topQueries) priorMap[kw.query] = kw.position;
+    // Re-render keyword list with movement
+    const current = data.gsc.topQueries;
+    kwEl.innerHTML = current.map(q => {
+      const pos = q.position ? Math.round(q.position) : null;
+      const priorPos = priorMap[q.query] ? Math.round(priorMap[q.query]) : null;
+      const posColor = !pos ? '#94a3b8' : pos <= 3 ? '#22c55e' : pos <= 10 ? '#f59e0b' : pos <= 20 ? '#f97316' : '#ef4444';
+      let movement = '';
+      if (pos && priorPos) {
+        const diff = priorPos - pos; // positive = improved (moved up)
+        if (diff > 0) movement = `<span style="color:#22c55e;font-size:.68rem;font-weight:700">▲${diff}</span>`;
+        else if (diff < 0) movement = `<span style="color:#ef4444;font-size:.68rem;font-weight:700">▼${Math.abs(diff)}</span>`;
+        else movement = `<span style="color:var(--text-muted);font-size:.68rem">→</span>`;
+      }
+      return `<div class="kw-row">
+        <span class="kw-query">${esc(q.query)}</span>
+        ${movement}
+        <span class="kw-clicks">${q.clicks} clk</span>
+        <span class="kw-pos" style="background:${posColor}18;color:${posColor};border:1px solid ${posColor}35">${pos ? '#' + pos : '—'}</span>
+      </div>`;
+    }).join('');
+  } catch {}
+}
+
 function closeAnalyticsModal(e) {
   if (e && e.target !== document.getElementById('ac-detail-backdrop')) return;
   document.getElementById('ac-detail-backdrop').classList.remove('open');
@@ -3014,14 +3115,17 @@ async function openAnalyticsModal(id) {
   document.body.style.overflow = 'hidden';
   renderAnalyticsModalBody(id, data, null);
   loadCwvSection(id);
+  loadKeywordSnapshots(id, data);
   try {
     const r = await fetch('/api/launches/' + id + '/forms');
     const forms = r.ok ? await r.json() : { available: false };
     renderAnalyticsModalBody(id, data, forms);
     loadCwvSection(id);
+    loadKeywordSnapshots(id, data);
   } catch {
     renderAnalyticsModalBody(id, data, { available: false });
     loadCwvSection(id);
+    loadKeywordSnapshots(id, data);
   }
 }
 
@@ -3138,7 +3242,7 @@ function renderAnalyticsModalBody(id, data, forms) {
     <div class="acd-section-title" style="margin-bottom:.5rem">
       <img src="/gsc-icon.png" style="width:13px;height:13px;vertical-align:middle;margin-right:.35rem">Top Keywords
     </div>
-    <div class="kw-list">
+    <div class="kw-list" id="kw-list-${id}">
       ${gsc.topQueries.map(q => {
         const pos = q.position ? Math.round(q.position) : null;
         const posColor = !pos ? '#94a3b8' : pos <= 3 ? '#22c55e' : pos <= 10 ? '#f59e0b' : pos <= 20 ? '#f97316' : '#ef4444';
@@ -3499,6 +3603,7 @@ async function disconnectAnalytics() {
 
 async function loadAnalytics() {
   if (analyticsLoaded) return;
+  loadMilestoneThresholds();
   const grid = document.getElementById('analytics-grid');
   grid.innerHTML = '<div style="color:var(--text-muted);font-size:.875rem">Loading…</div>';
 
