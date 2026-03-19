@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <rect width="100" height="100" rx="18" fill="#0f1624"/>
+  <circle cx="18" cy="22" r="2.5" fill="#c8f135" opacity="0.5"/>
+  <circle cx="82" cy="18" r="2" fill="#c8f135" opacity="0.5"/>
+  <circle cx="25" cy="55" r="1.5" fill="#c8f135" opacity="0.5"/>
+  <circle cx="78" cy="62" r="2" fill="#c8f135" opacity="0.5"/>
+  <circle cx="88" cy="38" r="1.5" fill="#c8f135" opacity="0.5"/>
+  <!-- rocket body -->
+  <rect x="42" y="36" width="16" height="34" rx="4" fill="#7a90b0"/>
+  <!-- nose -->
+  <path d="M42 36 Q50 14 58 36 Z" fill="#8fa5c5"/>
+  <!-- fins -->
+  <path d="M42 58 L32 72 L42 68 Z" fill="#566a85"/>
+  <path d="M58 58 L68 72 L58 68 Z" fill="#566a85"/>
+  <!-- flame outer -->
+  <path d="M44 70 Q47 82 50 88 Q53 82 56 70 Z" fill="#c8f135"/>
+  <!-- flame inner -->
+  <path d="M46 70 Q48.5 80 50 85 Q51.5 80 54 70 Z" fill="#eaff80"/>
+</svg>
