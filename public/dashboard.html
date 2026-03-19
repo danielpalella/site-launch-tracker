@@ -2485,27 +2485,38 @@ function renderAnalyticsModalBody(id, data, forms) {
   if (forms === null) {
     formsSection = `<div class="acd-section"><div class="acd-section-title">Form Submissions</div><div style="font-size:.8rem;color:var(--text-muted)">Loading…</div></div>`;
   } else if (forms.available && forms.submissions?.length) {
+    // Sort newest first
+    const subs = [...forms.submissions].sort((a, b) => new Date(b.date) - new Date(a.date));
+    const renderSub = s => {
+      const fields = s.message?.fieldsData || [];
+      const name  = fields.find(f => /name/i.test(f.field_label))?.field_value || '—';
+      const email = fields.find(f => /email/i.test(f.field_label) || f.field_type === 'email')?.field_value || '—';
+      const phone = fields.find(f => /phone/i.test(f.field_label) || f.field_type === 'phone')?.field_value || '';
+      const msg   = fields.find(f => /message|comment|note/i.test(f.field_label) || f.field_type === 'message')?.field_value || '';
+      const dateStr = s.date ? new Date(s.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+      return `<div class="acd-form-row">
+        <div class="acd-form-meta">
+          <span class="acd-form-name">${esc(name)}</span>
+          <span class="acd-form-date">${dateStr}</span>
+        </div>
+        <div class="acd-form-contact">${esc(email)}${phone ? ' · ' + esc(phone) : ''}</div>
+        ${msg ? `<div class="acd-form-msg">${esc(msg)}</div>` : ''}
+      </div>`;
+    };
+    const first5 = subs.slice(0, 5).map(renderSub).join('');
+    const rest   = subs.slice(5).map(renderSub).join('');
     formsSection = `
       <div class="acd-section">
-        <div class="acd-section-title">Form Submissions <span class="acd-period-tag">${forms.submissions.length} total</span></div>
+        <div class="acd-section-title">Form Submissions <span class="acd-period-tag">${subs.length} total</span></div>
         <div class="acd-forms-list">
-          ${forms.submissions.slice(0, 20).map(s => {
-            const fields = s.fields || s.form_data || [];
-            const name  = fields.find(f => /name/i.test(f.label || f.key))?.value || '—';
-            const email = fields.find(f => /email/i.test(f.label || f.key))?.value || '—';
-            const phone = fields.find(f => /phone/i.test(f.label || f.key))?.value || '';
-            const msg   = fields.find(f => /message|comment|note/i.test(f.label || f.key))?.value || '';
-            const dateStr = s.date ? new Date(s.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
-            return `<div class="acd-form-row">
-              <div class="acd-form-meta">
-                <span class="acd-form-name">${esc(name)}</span>
-                <span class="acd-form-date">${dateStr}</span>
-              </div>
-              <div class="acd-form-contact">${esc(email)}${phone ? ' · ' + esc(phone) : ''}</div>
-              ${msg ? `<div class="acd-form-msg">${esc(msg)}</div>` : ''}
-            </div>`;
-          }).join('')}
-          ${forms.submissions.length > 20 ? `<div style="font-size:.72rem;color:var(--text-muted);padding:.4rem 0">+ ${forms.submissions.length - 20} more submissions</div>` : ''}
+          ${first5}
+          ${rest ? `
+            <div id="acd-forms-extra" style="display:none">${rest}</div>
+            <button class="btn btn-ghost" style="font-size:.75rem;padding:.25rem .6rem;margin-top:.15rem" onclick="
+              document.getElementById('acd-forms-extra').style.display='block';
+              this.style.display='none';
+            ">Show all ${subs.length} submissions</button>
+          ` : ''}
         </div>
       </div>`;
   } else if (forms.available && !forms.submissions?.length) {
