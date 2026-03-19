@@ -9,4 +9,4 @@ runConfig:
 
 env:
   - variable: GEMINI_API_KEY
-    value: AIzaSyDRXcOwEK-qZD6IpGAVKUH5lbu8jdAjHCE
+    value: AIzaSyBh67ZazrhCQRMRyZ6gQPhFGEQYdSOlPpo
