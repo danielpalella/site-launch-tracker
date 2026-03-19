@@ -2507,15 +2507,23 @@ function renderAnalyticsOverview(industryFilter) {
     `<div class="acd-metric"><div class="acd-metric-val">${val}</div><div class="acd-metric-label">${lbl}${tip ? `<span class="ac-tip" data-tip="${esc(tip)}">?</span>` : ''}</div></div>`;
 
   const perfRow = (site, rank) => `
-    <div class="ov-perf-row">
-      <span class="ov-perf-rank">${rank}</span>
-      <div class="ov-perf-name">
-        <div style="font-weight:600;font-size:.8rem">${esc(site.account_name)}</div>
-        <div style="font-size:.7rem;color:var(--text-muted)">${esc(site.domain)}</div>
+    <div class="ov-att-row" style="border-left:3px solid #22c55e" onclick="openAnalyticsModal('${esc(site.id)}')">
+      <div class="ov-att-top">
+        <div class="ov-att-name">
+          <div class="ov-att-title">${esc(site.account_name)}</div>
+          <div class="ov-att-domain">${esc(site.domain)}</div>
+        </div>
+        <div class="ov-att-score-wrap">
+          <span class="ov-att-score" style="color:#22c55e">#${rank}</span>
+        </div>
       </div>
-      <span class="ov-perf-stat">${fmtNum(site.ga4Sessions)}<span style="color:var(--text-muted);font-size:.65rem;margin-left:.2rem">sess</span></span>
-      <span class="ov-perf-stat">${fmtNum(site.gscClicks)}<span style="color:var(--text-muted);font-size:.65rem;margin-left:.2rem">clk</span></span>
-      <span class="ov-perf-stat">${fmtNum(site.dudaVisitors)}<span style="color:var(--text-muted);font-size:.65rem;margin-left:.2rem">vis</span></span>
+      <div class="ov-att-metrics">
+        <span><b>${fmtNum(site.ga4Sessions)}</b><span class="ov-att-unit"> sess</span></span>
+        <span class="ov-att-sep">·</span>
+        <span><b>${fmtNum(site.gscClicks)}</b><span class="ov-att-unit"> clk</span></span>
+        <span class="ov-att-sep">·</span>
+        <span><b>${fmtNum(site.dudaVisitors)}</b><span class="ov-att-unit"> vis</span></span>
+      </div>
     </div>`;
 
   const attentionRow = (site) => {
