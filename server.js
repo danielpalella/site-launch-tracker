@@ -1,4 +1,5 @@
 import express from 'express';
+import googleTrends from 'google-trends-api';
 import multer from 'multer';
 import { google } from 'googleapis';
 import { getStorage } from 'firebase-admin/storage';
@@ -1368,6 +1369,54 @@ app.get('/api/analytics/:id', requireAuth, async (req, res) => {
     if (err.code === 'not_connected')
       return res.status(503).json({ error: 'not_connected' });
     res.status(500).json({ error: err.message || 'Failed to fetch analytics' });
+  }
+});
+
+// ── Google Trends ──
+const INDUSTRY_KEYWORDS = {
+  'Roofing':           'roofing contractor',
+  'Plumbing':          'plumber',
+  'Electrical':        'electrician',
+  'HVAC':              'HVAC repair',
+  'Landscaping':       'landscaping services',
+  'Contracting':       'general contractor',
+  'Restoration':       'water damage restoration',
+  'Solar':             'solar panel installation',
+  'Flooring':          'flooring installation',
+  'Gutters':           'gutter installation',
+  'Windows/Glass':     'window replacement',
+  'Cleaning Services': 'cleaning services',
+  'Other':             'home services',
+};
+
+app.get('/api/trends/:industry', requireAuth, async (req, res) => {
+  const industry = req.params.industry;
+  const keyword  = INDUSTRY_KEYWORDS[industry];
+  if (!keyword) return res.status(400).json({ error: 'Unknown industry' });
+
+  // Check Firestore cache (24h TTL)
+  const cacheRef = db.collection('trends_cache').doc(industry.replace(/\//g, '_'));
+  try {
+    const cached = await cacheRef.get();
+    if (cached.exists) {
+      const { fetchedAt, data } = cached.data();
+      const ageHours = (Date.now() - fetchedAt) / 36e5;
+      if (ageHours < 24) return res.json(data);
+    }
+  } catch {}
+
+  try {
+    const raw = await googleTrends.relatedQueries({ keyword, geo: 'US' });
+    const parsed = JSON.parse(raw);
+    const queryList = parsed?.default?.rankedList || [];
+    const top     = (queryList[0]?.rankedKeyword || []).slice(0, 8).map(k => ({ query: k.query, value: k.value }));
+    const rising  = (queryList[1]?.rankedKeyword || []).slice(0, 8).map(k => ({ query: k.query, value: k.formattedValue || k.value }));
+    const data = { keyword, top, rising };
+    await cacheRef.set({ fetchedAt: Date.now(), data });
+    res.json(data);
+  } catch (err) {
+    console.error('Trends error:', err.message);
+    res.status(502).json({ error: 'Failed to fetch trends' });
   }
 });
 
