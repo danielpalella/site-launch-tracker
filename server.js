@@ -1319,10 +1319,13 @@ app.get('/api/launches/:id/forms', requireAuth, async (req, res) => {
     const r = await fetch(`https://api.duda.co/api/sites/multiscreen/get-forms/${siteName}`, {
       headers: { Authorization: `Basic ${token}`, 'Content-Type': 'application/json' },
     });
-    if (!r.ok) return res.json({ available: false, reason: `Duda error ${r.status}` });
-    const data = await r.json();
+    const rawText = await r.text();
+    console.log('[forms] Duda status:', r.status, 'body:', rawText.slice(0, 500));
+    if (!r.ok) return res.json({ available: false, reason: `Duda error ${r.status}: ${rawText.slice(0, 200)}` });
+    const data = JSON.parse(rawText);
     // data may be an array or { results: [...] }
     const submissions = Array.isArray(data) ? data : (data.results || []);
+    console.log('[forms] parsed submissions count:', submissions.length, 'first:', JSON.stringify(submissions[0]).slice(0, 300));
     res.json({ available: true, submissions });
   } catch (e) {
     res.status(500).json({ error: e.message });

@@ -2521,6 +2521,8 @@ function renderAnalyticsModalBody(id, data, forms) {
       </div>`;
   } else if (forms.available && !forms.submissions?.length) {
     formsSection = `<div class="acd-section"><div class="acd-section-title">Form Submissions</div><div style="font-size:.8rem;color:var(--text-muted)">No submissions yet.</div></div>`;
+  } else if (forms && !forms.available) {
+    formsSection = `<div class="acd-section"><div class="acd-section-title">Form Submissions</div><div style="font-size:.8rem;color:var(--text-muted)">${esc(forms.reason || 'Unavailable')}</div></div>`;
   }
 
   const gscChartWks  = period === 'all' ? (gsc.weeks || [])   : periodWeeks(gsc.weeks, period);
