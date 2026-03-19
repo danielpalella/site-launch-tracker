@@ -404,7 +404,8 @@ tr:hover .sticky-col { background: #f8fafc; }
   vertical-align: middle;
 }
 .sf-freezable { display: inline-block; }
-.sf-freezable:hover { transform: scale(1.4); opacity: .8; }
+.sf-freezable:hover { transform: scale(1.5); opacity: .75; cursor: pointer; }
+.sf-freezable:active { transform: scale(.9); }
 .sf-frozen { display: inline-block; width: auto; height: auto; background: transparent !important; font-size: .85rem; line-height: 1; }
 .sf-frozen:hover { transform: scale(1.2); }
 

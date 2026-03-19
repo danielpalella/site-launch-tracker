@@ -1189,9 +1189,9 @@ function renderTable(data) {
       <td>
         <div class="status-wrap">
           ${['in_progress','awaiting_approval','awaiting_dns'].includes(r.status)
-            ? `<span class="sf-dot sf-freezable" title="Double-click to freeze" data-id="${r.id}" data-status="${r.status}" style="background:${STATUS_COLORS[r.status]}" ondblclick="toggleFreezeStatus('${r.id}','${r.status}')"></span>`
+            ? `<span class="sf-dot sf-freezable" title="Click to freeze" data-id="${r.id}" data-status="${r.status}" style="background:${STATUS_COLORS[r.status]}" onclick="event.stopPropagation();toggleFreezeStatus('${r.id}','${r.status}')"></span>`
             : r.status.endsWith('_frozen')
-              ? `<span class="sf-dot sf-frozen" title="Double-click to unfreeze" data-id="${r.id}" data-status="${r.status}" ondblclick="toggleFreezeStatus('${r.id}','${r.status}')">🧊</span>`
+              ? `<span class="sf-dot sf-frozen" title="Click to unfreeze" data-id="${r.id}" data-status="${r.status}" onclick="event.stopPropagation();toggleFreezeStatus('${r.id}','${r.status}')">🧊</span>`
               : ''}
           <select class="status-select ${r.status}" data-id="${r.id}" onchange="quickStatus(this)">
             ${Object.entries(STATUS_LABELS).map(([v,l]) =>
