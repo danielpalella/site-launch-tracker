@@ -1372,6 +1372,38 @@ app.get('/api/analytics/:id', requireAuth, async (req, res) => {
 });
 
 
+// ── AI SEO Suggestions ──
+app.post('/api/seo-suggestions', requireAuth, async (req, res) => {
+  try {
+    const { account_name, domain, daysSince, health, gsc } = req.body;
+    const { default: Anthropic } = await import('@anthropic-ai/sdk');
+    const client = new Anthropic();
+    const trendStr = health.trendPct !== null
+      ? (health.trendPct >= 0 ? `up ${health.trendPct}%` : `down ${Math.abs(health.trendPct)}%`)
+      : 'unknown (insufficient data)';
+    const prompt = `You are an SEO expert advising a local business website owner. The site "${account_name}" (${domain}) has been live for ${daysSince} days with these Google Search Console metrics:
+- Health score: ${health.score ?? 'N/A'}/100 (${health.label})
+- Daily impressions: ${health.impPerDay}
+- CTR: ${health.ctr}%
+- Avg ranking position: ${health.position ? Math.round(health.position) : 'N/A'}
+- 4-week impression trend: ${trendStr}
+- Flagged issues: ${health.issues.length ? health.issues.join(', ') : 'None'}
+
+Provide exactly 4 specific, actionable SEO recommendations to improve this site's performance. Keep each recommendation to 2-3 sentences. Focus on the highest-impact improvements first. Respond ONLY with a valid JSON array of 4 strings, nothing else.`;
+
+    const message = await client.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 1024,
+      messages: [{ role: 'user', content: prompt }]
+    });
+    const suggestions = JSON.parse(message.content[0].text.trim());
+    res.json({ suggestions });
+  } catch (err) {
+    console.error('SEO suggestions error:', err.message);
+    res.status(500).json({ error: err.message || 'Failed to generate suggestions' });
+  }
+});
+
 // ── Pages ──
 app.get('/edit-request', (_req, res) => res.sendFile(join(__dirname, 'public', 'edit-request.html')));
 app.get('/dashboard', requireAuth, (_req, res) => res.sendFile(join(__dirname, 'public', 'dashboard.html')));

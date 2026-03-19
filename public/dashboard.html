@@ -295,6 +295,22 @@
   </div>
 </div>
 
+<!-- SEO Suggestions Modal -->
+<div id="seo-modal-backdrop" onclick="closeSeoModal(event)" style="position:fixed;inset:0;z-index:300;background:rgba(6,16,42,.55);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center">
+  <div class="seo-modal" onclick="event.stopPropagation()">
+    <div class="seo-modal-header">
+      <div>
+        <div class="seo-modal-title" id="seo-modal-name"></div>
+        <div class="seo-modal-meta" id="seo-modal-domain"></div>
+      </div>
+      <button class="seo-modal-close" onclick="closeSeoModal()">✕</button>
+    </div>
+    <div id="seo-modal-score-row" class="seo-modal-score-row"></div>
+    <div class="seo-modal-label"><img src="/gsc-icon.png" width="13" height="13" style="vertical-align:middle;margin-right:.35rem">AI-Powered SEO Recommendations</div>
+    <div id="seo-modal-body"></div>
+  </div>
+</div>
+
 <!-- Edit Modal -->
 <div class="modal-backdrop" id="modal">
   <div class="modal crm-modal">
@@ -2502,61 +2518,85 @@ function renderAnalyticsOverview(industryFilter) {
       <span class="ov-perf-stat">${fmtNum(site.dudaVisitors)}<span style="color:var(--text-muted);font-size:.65rem;margin-left:.2rem">vis</span></span>
     </div>`;
 
-  const attentionRow = (site, rank) => {
+  const attentionRow = (site) => {
     const h = site.health;
-    const trendStr = h.trendPct !== null ? (h.trendPct >= 0 ? `▲${h.trendPct}%` : `▼${Math.abs(h.trendPct)}%`) : '—';
-    const trendColor = h.trendPct === null ? 'var(--text-muted)' : h.trendPct >= 0 ? '#22c55e' : '#ef4444';
+    const trendStr   = h.trendPct !== null ? (h.trendPct >= 0 ? `▲ ${h.trendPct}%` : `▼ ${Math.abs(h.trendPct)}%`) : null;
+    const trendColor = h.trendPct !== null && h.trendPct < 0 ? '#ef4444' : '#22c55e';
     return `
-    <div class="ov-perf-row ov-attention-row" onclick="openAnalyticsModal('${esc(site.id)}')" style="cursor:pointer">
-      <span class="ov-perf-rank">${rank}</span>
-      <div class="ov-perf-name">
-        <div style="font-weight:600;font-size:.8rem">${esc(site.account_name)}</div>
-        <div style="font-size:.7rem;color:var(--text-muted)">${esc(site.domain)}</div>
+    <div class="ov-att-row" style="border-left:3px solid ${h.color}" onclick="openAnalyticsModal('${esc(site.id)}')">
+      <div class="ov-att-top">
+        <div class="ov-att-name">
+          <div class="ov-att-title">${esc(site.account_name)}</div>
+          <div class="ov-att-domain">${esc(site.domain)}</div>
+        </div>
+        <div class="ov-att-score-wrap">
+          <span class="ov-att-score" style="color:${h.color}">${h.score ?? '—'}</span>
+          <span class="ov-att-label" style="color:${h.color}">${h.label}</span>
+        </div>
       </div>
-      <div class="ov-health-badge" style="background:${h.color}20;color:${h.color}">
-        <span class="ov-health-dot" style="background:${h.color}"></span>${h.label}
+      <div class="ov-att-metrics">
+        <span><b>${h.impPerDay}</b><span class="ov-att-unit">/day</span></span>
+        <span class="ov-att-sep">·</span>
+        <span>pos <b>${h.position ? Math.round(h.position) : '—'}</b></span>
+        <span class="ov-att-sep">·</span>
+        <span><b>${h.ctr}%</b> CTR</span>
+        ${trendStr ? `<span class="ov-att-sep">·</span><span style="color:${trendColor};font-weight:700">${trendStr}</span>` : ''}
       </div>
-      <div class="ov-health-stats">
-        <span>${h.impPerDay}<span style="color:var(--text-muted);font-size:.65rem">/day</span></span>
-        <span style="color:var(--text-muted)">pos ${h.position ?? '—'}</span>
-        <span style="color:var(--text-muted)">${h.ctr}% CTR</span>
-        <span style="color:${trendColor};font-size:.72rem;font-weight:600">${trendStr}</span>
-      </div>
-      ${h.issues.length ? `<div class="ov-health-issues">${h.issues.map(i => `<span class="ov-issue-tag">${esc(i)}</span>`).join('')}</div>` : ''}
+      ${h.issues.length ? `<div class="ov-att-issues">${h.issues.map(i => `<span class="ov-issue-tag" style="background:${h.color}18;color:${h.color};border:1px solid ${h.color}40">${esc(i)}</span>`).join('')}</div>` : ''}
     </div>`;
   };
 
-  // Build GSC health table for all sites with GSC data
+  // Build GSC health table — group by health level, sorted best → worst
   const healthEntries = entries
-    .map(([id, d]) => ({ id, account_name: d.account_name, domain: d.domain, health: computeGscHealth(d), daysSince: d.daysSince }))
+    .map(([id, d]) => ({ id, account_name: d.account_name, domain: d.domain, health: computeGscHealth(d) }))
     .sort((a, b) => {
       if (a.health.score === null && b.health.score === null) return 0;
       if (a.health.score === null) return 1;
       if (b.health.score === null) return -1;
-      return a.health.score - b.health.score;
+      return b.health.score - a.health.score; // best first
     });
+
+  const GSH_LEVELS = ['healthy','moderate','review','attention','no-data'];
+  const GSH_LABELS = { healthy:'Healthy', moderate:'Moderate', review:'Needs Review', attention:'Needs Attention', 'no-data':'No GSC Data' };
+  const gshGrouped = {};
+  for (const s of healthEntries) { const l = s.health.level; (gshGrouped[l] = gshGrouped[l] || []).push(s); }
 
   const healthRow = (s) => {
     const h = s.health;
-    const trendStr = h.trendPct !== null ? (h.trendPct >= 0 ? `▲ ${h.trendPct}%` : `▼ ${Math.abs(h.trendPct)}%`) : '—';
+    const trendStr   = h.trendPct !== null ? (h.trendPct >= 0 ? `▲ ${h.trendPct}%` : `▼ ${Math.abs(h.trendPct)}%`) : '—';
     const trendColor = h.trendPct === null ? 'var(--text-muted)' : h.trendPct >= 0 ? '#22c55e' : '#ef4444';
     return `
-    <div class="gsh-row" onclick="openAnalyticsModal('${esc(s.id)}')" style="cursor:pointer">
+    <div class="gsh-row" style="border-left:3px solid ${h.color}" onclick="openSeoSuggestions('${esc(s.id)}')">
       <div class="gsh-site">
-        <span class="gsh-dot" style="background:${h.color}"></span>
-        <div>
-          <div style="font-weight:600;font-size:.8rem">${esc(s.account_name)}</div>
-          <div style="font-size:.7rem;color:var(--text-muted)">${esc(s.domain)}</div>
-        </div>
+        <div style="font-weight:600;font-size:.8rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.account_name)}</div>
+        <div style="font-size:.7rem;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.domain)}</div>
       </div>
-      <div class="gsh-score" style="color:${h.color}">${h.score ?? '—'}</div>
-      <div class="gsh-stat">${h.impPerDay}<span style="color:var(--text-muted);font-size:.65rem">/day</span></div>
-      <div class="gsh-stat">${h.position ? `pos ${Math.round(h.position)}` : '<span style="color:var(--text-muted)">—</span>'}</div>
-      <div class="gsh-stat">${h.ctr}<span style="color:var(--text-muted);font-size:.65rem">% CTR</span></div>
-      <div class="gsh-stat" style="color:${trendColor};font-weight:600;font-size:.75rem">${trendStr}</div>
-      <div class="gsh-issues">${h.issues.map(i => `<span class="ov-issue-tag">${esc(i)}</span>`).join('') || ''}</div>
+      <div class="gsh-score-pill" style="background:${h.color}18;color:${h.color}">${h.score ?? '—'}</div>
+      <div class="gsh-stat">${h.impPerDay}<span style="color:var(--text-muted);font-size:.68rem">/day</span></div>
+      <div class="gsh-stat">${h.position ? `${Math.round(h.position)}` : '<span style="color:var(--text-muted)">—</span>'}</div>
+      <div class="gsh-stat">${h.ctr}<span style="color:var(--text-muted);font-size:.68rem">%</span></div>
+      <div class="gsh-stat" style="color:${trendColor};font-weight:700">${trendStr}</div>
+      <div class="gsh-issues">${h.issues.map(i => `<span class="gsh-issue-tag" style="background:${h.color}15;color:${h.color};border:1px solid ${h.color}35">${esc(i)}</span>`).join('')}</div>
     </div>`;
   };
+
+  const gshTableHtml = GSH_LEVELS
+    .filter(l => gshGrouped[l]?.length)
+    .map(l => {
+      const color = gshGrouped[l][0].health.color;
+      const bodyId = `gsh-body-${l}`;
+      const startCollapsed = l === 'healthy';
+      return `
+        <div class="gsh-group-header" onclick="toggleGshGroup('${bodyId}', this)">
+          <span class="gsh-group-dot" style="background:${color}"></span>
+          <span style="color:${color};font-weight:700;font-size:.82rem">${GSH_LABELS[l]}</span>
+          <span class="gsh-group-count">${gshGrouped[l].length} site${gshGrouped[l].length !== 1 ? 's' : ''}</span>
+          <svg class="gsh-group-chevron${startCollapsed ? ' rot' : ''}" viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="4 6 8 10 12 6"/></svg>
+        </div>
+        <div id="${bodyId}" class="gsh-group-body${startCollapsed ? ' collapsed' : ''}">
+          ${gshGrouped[l].map(healthRow).join('')}
+        </div>`;
+    }).join('');
 
   document.getElementById('ac-overview').innerHTML = `
     <div class="ov-header">
@@ -2622,7 +2662,7 @@ function renderAnalyticsOverview(industryFilter) {
         <div class="gsh-stat">4-wk Trend</div>
         <div class="gsh-issues">Issues</div>
       </div>
-      ${healthEntries.map(healthRow).join('')}
+      ${gshTableHtml}
     </div>
 
   `;
@@ -3477,6 +3517,67 @@ function refreshAnalytics() {
   for (const k in analyticsCharts) delete analyticsCharts[k];
   for (const k in analyticsData) delete analyticsData[k];
   loadAnalytics();
+}
+
+// ── GSH collapsible groups ──
+function toggleGshGroup(bodyId, header) {
+  const body = document.getElementById(bodyId);
+  if (!body) return;
+  const isCollapsed = body.classList.toggle('collapsed');
+  const chevron = header.querySelector('.gsh-group-chevron');
+  if (chevron) chevron.classList.toggle('rot', isCollapsed);
+}
+
+// ── SEO Suggestions Modal ──
+async function openSeoSuggestions(siteId) {
+  const data = analyticsData[siteId];
+  if (!data) { openAnalyticsModal(siteId); return; }
+  const h = computeGscHealth(data);
+  document.getElementById('seo-modal-name').textContent = data.account_name;
+  document.getElementById('seo-modal-domain').textContent = data.domain;
+  document.getElementById('seo-modal-score-row').innerHTML = `
+    <span class="gsh-score-pill" style="background:${h.color}18;color:${h.color};font-size:.9rem;padding:.2rem .55rem">${h.score ?? '—'}</span>
+    <span style="font-weight:700;color:${h.color};font-size:.82rem">${h.label}</span>
+    ${h.issues.map(i => `<span class="gsh-issue-tag" style="background:${h.color}15;color:${h.color};border:1px solid ${h.color}35">${esc(i)}</span>`).join('')}
+  `;
+  document.getElementById('seo-modal-body').innerHTML = `
+    <div class="seo-loading"><div class="ac-ov-spinner"></div>Generating AI recommendations…</div>`;
+  const backdrop = document.getElementById('seo-modal-backdrop');
+  backdrop.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+  try {
+    const r = await fetch('/api/seo-suggestions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        account_name: data.account_name,
+        domain: data.domain,
+        daysSince: data.daysSince,
+        health: { score: h.score, label: h.label, level: h.level, issues: h.issues,
+                  impPerDay: h.impPerDay, ctr: h.ctr, position: h.position, trendPct: h.trendPct },
+        gsc: { total: data.gsc?.total, weeks: (data.gsc?.weeks || []).slice(-8) }
+      })
+    });
+    if (!r.ok) throw new Error((await r.json()).error || r.statusText);
+    const { suggestions } = await r.json();
+    document.getElementById('seo-modal-body').innerHTML = `
+      <div class="seo-modal-suggestions">
+        ${suggestions.map((s, i) => `
+          <div class="seo-suggestion">
+            <div class="seo-suggestion-num">Recommendation ${i + 1}</div>
+            <div class="seo-suggestion-text">${esc(s)}</div>
+          </div>`).join('')}
+      </div>`;
+  } catch (err) {
+    document.getElementById('seo-modal-body').innerHTML =
+      `<div style="color:#ef4444;font-size:.82rem;padding:.5rem 0">Failed to generate suggestions: ${esc(err.message)}</div>`;
+  }
+}
+
+function closeSeoModal(e) {
+  if (e && e.target !== document.getElementById('seo-modal-backdrop')) return;
+  document.getElementById('seo-modal-backdrop').style.display = 'none';
+  document.body.style.overflow = '';
 }
 </script>
 </body>
