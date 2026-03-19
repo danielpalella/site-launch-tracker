@@ -237,9 +237,11 @@
         <button class="ac-view-btn ac-view-active" id="ac-view-sites" onclick="switchAnalyticsView('sites')">All Sites</button>
         <button class="ac-view-btn" id="ac-view-overview" onclick="switchAnalyticsView('overview')">Overview</button>
       </div>
+      <div class="ac-toolbar-divider"></div>
       <select id="ac-industry-select" class="ac-industry-select" onchange="filterAnalyticsIndustry(this.value)">
         <option value="all">All Industries</option>
       </select>
+      <input type="search" id="analytics-search" placeholder="Search accounts…" oninput="filterAnalyticsSearch(this.value)" class="ac-search">
       <div class="ac-timeframe-wrap">
         <button class="ac-timeframe-btn" id="ac-timeframe-btn" onclick="toggleTimeframeDropdown(event)">
           <span id="ac-timeframe-value">Last 30 days</span>
@@ -251,12 +253,10 @@
           <label class="ac-timeframe-option"><input type="radio" name="ac-tf" value="all" onchange="setAnalyticsPeriod('all')"> Since Launch</label>
         </div>
       </div>
-      <button class="btn btn-ghost ac-refresh-btn" onclick="refreshAnalytics()">↻ Refresh</button>
-      <input type="search" id="analytics-search" placeholder="Search accounts…" oninput="filterAnalyticsSearch(this.value)" class="ac-search">
+      <button class="btn btn-ghost ac-refresh-btn" onclick="refreshAnalytics()" title="Refresh">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      </button>
     </div>
-
-    <!-- Google Trends card (shown when industry filter active) -->
-    <div id="ac-trends-card" style="display:none;margin-bottom:.75rem"></div>
 
     <!-- Industry summary bar (shown when industry filter active in sites view) -->
     <div id="ac-industry-summary" style="display:none;margin-bottom:.75rem"></div>
@@ -2329,8 +2329,7 @@ function switchAnalyticsView(view) {
   document.getElementById('ac-overview').style.display          = view === 'overview' ? '' : 'none';
   document.getElementById('analytics-search').style.display     = view === 'sites' ? '' : 'none';
   document.getElementById('view-analytics').style.overflowY    = view === 'overview' ? 'auto' : 'hidden';
-  if (view === 'overview') { renderAnalyticsOverview(null); if (analyticsIndustry !== 'all') loadTrendsCard(analyticsIndustry); }
-  if (view === 'sites') { document.getElementById('ac-trends-card').style.display = analyticsIndustry !== 'all' ? '' : 'none'; }
+  if (view === 'overview') renderAnalyticsOverview(null);
 }
 
 // ── Aggregate helpers ──
@@ -2808,53 +2807,35 @@ function trendsContentHtml(keyword, top, rising) {
 }
 
 async function loadTrendsCard(industry) {
-  // In overview mode, inject into #ac-trends-inline (inside the scrollable overview)
-  // In sites mode, use the standalone #ac-trends-card above the grid
-  const isOverview = analyticsView === 'overview';
-  const standaloneCard = document.getElementById('ac-trends-card');
+  // Trends only shown in overview mode
+  if (analyticsView !== 'overview') return;
 
   if (industry === 'all') {
-    standaloneCard.style.display = 'none';
     const inline = document.getElementById('ac-trends-inline');
     if (inline) inline.style.display = 'none';
     return;
   }
 
-  if (isOverview) {
-    standaloneCard.style.display = 'none';
-    let inline = document.getElementById('ac-trends-inline');
-    if (!inline) {
-      inline = document.createElement('div');
-      inline.id = 'ac-trends-inline';
-      inline.style.marginTop = '.75rem';
-      document.getElementById('ac-overview').appendChild(inline);
-    }
-    inline.style.display = '';
-    inline.innerHTML = trendsLoadingHtml(industry);
-  } else {
-    standaloneCard.style.display = '';
-    standaloneCard.innerHTML = trendsLoadingHtml(industry);
+  let inline = document.getElementById('ac-trends-inline');
+  if (!inline) {
+    inline = document.createElement('div');
+    inline.id = 'ac-trends-inline';
+    inline.style.marginTop = '.75rem';
+    document.getElementById('ac-overview').appendChild(inline);
   }
+  inline.style.display = '';
+  inline.innerHTML = trendsLoadingHtml(industry);
 
   try {
     const res = await fetch(`/api/trends/${encodeURIComponent(industry)}`);
     if (!res.ok) throw new Error();
     const { keyword, top, rising } = await res.json();
     const html = trendsContentHtml(keyword, top, rising);
-    if (isOverview) {
-      const inline = document.getElementById('ac-trends-inline');
-      if (inline) inline.innerHTML = html;
-    } else {
-      standaloneCard.innerHTML = html;
-    }
+    const el = document.getElementById('ac-trends-inline');
+    if (el) el.innerHTML = html;
   } catch {
-    const err = `<div class="trends-card"><div class="trends-empty">Could not load trends data.</div></div>`;
-    if (isOverview) {
-      const inline = document.getElementById('ac-trends-inline');
-      if (inline) inline.innerHTML = err;
-    } else {
-      standaloneCard.innerHTML = err;
-    }
+    const el = document.getElementById('ac-trends-inline');
+    if (el) el.innerHTML = `<div class="trends-card"><div class="trends-empty">Could not load trends data.</div></div>`;
   }
 }
 
