@@ -9,4 +9,4 @@ runConfig:
 
 env:
   - variable: GEMINI_API_KEY
-    value: AIzaSyBh67ZazrhCQRMRyZ6gQPhFGEQYdSOlPpo
+    secret: gemini_api_key
