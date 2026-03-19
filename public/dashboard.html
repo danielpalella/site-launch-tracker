@@ -584,7 +584,14 @@ let editingId = null;
 let deletingId = null;
 let deletingType = 'launch'; // 'launch' | 'edit-request'
 let showArchivedLaunches = false;
-const STATUS_ORDER = ['new', 'in_progress', 'awaiting_approval', 'awaiting_dns', 'launched', 'in_progress_frozen', 'awaiting_approval_frozen', 'awaiting_dns_frozen', 'decommissioned'];
+const STATUS_ORDER = ['new', 'in_progress', 'awaiting_approval', 'awaiting_dns', 'launched', 'decommissioned'];
+const FROZEN_PARENT = {
+  in_progress_frozen:       'in_progress',
+  awaiting_approval_frozen: 'awaiting_approval',
+  awaiting_dns_frozen:      'awaiting_dns',
+};
+function statusGroup(s) { return FROZEN_PARENT[s] || s; }
+function statusSortKey(s) { return STATUS_ORDER.indexOf(statusGroup(s)) + (s in FROZEN_PARENT ? 0.5 : 0); }
 
 // ── Chart / View State ──
 const STATUS_COLORS = {
@@ -775,7 +782,8 @@ function renderBoard() {
   const byStatus = {};
   for (const s of BOARD_STATUS_ORDER) byStatus[s] = [];
   for (const r of allLaunches) {
-    if (byStatus[r.status] !== undefined) byStatus[r.status].push(r);
+    const grp = statusGroup(r.status);
+    if (byStatus[grp] !== undefined) byStatus[grp].push(r);
   }
 
   area.innerHTML = BOARD_STATUS_ORDER.map(status => {
@@ -1122,17 +1130,15 @@ function renderTable(data) {
 
   if (sortState.col === 'status') {
     active = active.sort((a, b) =>
-      (STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status)) * sortState.dir
+      (statusSortKey(a.status) - statusSortKey(b.status)) * sortState.dir
     );
   } else if (sortState.col === 'created_at') {
     active = active.sort((a, b) =>
       ((toDate(a.created_at) || 0) - (toDate(b.created_at) || 0)) * sortState.dir
     );
   } else {
-    // Default: sort by status pipeline order
-    active = active.sort((a, b) =>
-      STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status)
-    );
+    // Default: sort by status pipeline order, frozen at bottom of their group
+    active = active.sort((a, b) => statusSortKey(a.status) - statusSortKey(b.status));
   }
 
   const byDate = (a, b) =>
@@ -1154,18 +1160,19 @@ function renderTable(data) {
   }
 
   let html = '';
-  let lastStatus = null;
+  let lastGroup = null;
   for (const r of data) {
-    if (r.status !== lastStatus) {
-      const count = data.filter(x => x.status === r.status).length;
+    const grp = statusGroup(r.status);
+    if (grp !== lastGroup) {
+      const count = data.filter(x => statusGroup(x.status) === grp).length;
       html += `<tr class="status-separator">
         <td colspan="8">
-          <span class="status-sep-dot" style="background:${STATUS_COLORS[r.status]}"></span>
-          <span class="status-sep-label">${STATUS_LABELS[r.status]}</span>
+          <span class="status-sep-dot" style="background:${STATUS_COLORS[grp]}"></span>
+          <span class="status-sep-label">${STATUS_LABELS[grp]}</span>
           <span class="status-sep-count">${count}</span>
         </td>
       </tr>`;
-      lastStatus = r.status;
+      lastGroup = grp;
     }
     html += `
     <tr data-id="${r.id}" ondblclick="handleRowDblClick(event,'${r.id}')" style="cursor:pointer" ${r.status === 'launched' ? 'class="row-launched"' : r.status === 'decommissioned' ? 'class="row-decommissioned"' : r.status.endsWith('_frozen') ? 'class="row-frozen"' : ''}>
@@ -1220,14 +1227,9 @@ const FREEZE_MAP = {
   awaiting_approval: 'awaiting_approval_frozen',
   awaiting_dns:      'awaiting_dns_frozen',
 };
-const UNFREEZE_MAP = {
-  in_progress_frozen:       'in_progress',
-  awaiting_approval_frozen: 'awaiting_approval',
-  awaiting_dns_frozen:      'awaiting_dns',
-};
 
 async function toggleFreezeStatus(id, currentStatus) {
-  const newStatus = FREEZE_MAP[currentStatus] || UNFREEZE_MAP[currentStatus];
+  const newStatus = FREEZE_MAP[currentStatus] || FROZEN_PARENT[currentStatus];
   if (!newStatus) return;
   try {
     const res = await fetch(`/api/launches/${id}`, {
