@@ -1779,11 +1779,18 @@ tr.status-separator:first-child td { border-top: none; }
 .ac-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,.09); }
 
 /* ── Analytics toolbar ── */
+.ac-sticky-header {
+  position: sticky;
+  top: 58px;
+  z-index: 10;
+  background: var(--bg);
+  padding-top: .85rem;
+  margin-bottom: .85rem;
+}
 .ac-toolbar {
   display: flex;
   align-items: center;
   gap: .45rem;
-  margin-bottom: .85rem;
   padding: .45rem .6rem;
   background: var(--surface);
   border: 1.5px solid var(--border);

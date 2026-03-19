@@ -224,13 +224,14 @@
 
   <!-- ── ANALYTICS VIEW ── -->
   <div id="view-analytics" style="display:none">
-    <div class="dashboard-header">
-      <div>
-        <h1>Site Analytics</h1>
-        <p class="subtitle" style="margin-bottom:0">GSC, GA4 &amp; Duda performance insights for all active sites.</p>
+    <div class="ac-sticky-header">
+      <div class="dashboard-header" style="margin-bottom:.6rem">
+        <div>
+          <h1>Site Analytics</h1>
+          <p class="subtitle" style="margin-bottom:0">GSC, GA4 &amp; Duda performance insights for all active sites.</p>
+        </div>
+        <div id="analytics-connection-status" style="display:flex;align-items:center;gap:.6rem;font-size:.825rem"></div>
       </div>
-      <div id="analytics-connection-status" style="display:flex;align-items:center;gap:.6rem;font-size:.825rem"></div>
-    </div>
     <!-- Analytics toolbar -->
     <div class="ac-toolbar">
       <div class="ac-view-toggle">
@@ -257,6 +258,7 @@
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
       </button>
     </div>
+    </div><!-- /ac-sticky-header -->
 
     <!-- Industry summary bar (shown when industry filter active in sites view) -->
     <div id="ac-industry-summary" style="display:none;margin-bottom:.75rem"></div>
