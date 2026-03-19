@@ -1389,26 +1389,12 @@ app.post('/api/seo-suggestions', requireAuth, async (req, res) => {
 
 Provide exactly 4 specific, actionable SEO recommendations to improve this site's performance. Keep each recommendation to 2-3 sentences. Focus on the highest-impact improvements first. Respond ONLY with a valid JSON array of 4 strings, nothing else.`;
 
-    // Get access token from Cloud Run metadata server
-    const tokenRes = await fetch('http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token', {
-      headers: { 'Metadata-Flavor': 'Google' }
-    });
-    const { access_token } = await tokenRes.json();
-
+    const { VertexAI } = await import('@google-cloud/vertexai');
     const project = process.env.GOOGLE_CLOUD_PROJECT || 'site-launch-tracker';
-    const vertexUrl = `https://us-central1-aiplatform.googleapis.com/v1/projects/${project}/locations/us-central1/publishers/google/models/gemini-2.0-flash-lite:generateContent`;
-    const r = await fetch(vertexUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${access_token}` },
-      body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: prompt }] }] })
-    });
-    if (!r.ok) {
-      const errBody = await r.json().catch(() => ({}));
-      console.error('Vertex AI error:', JSON.stringify(errBody));
-      throw new Error(`Vertex AI error: ${r.status} — ${errBody?.error?.message || ''}`);
-    }
-    const data = await r.json();
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+    const vertexAI = new VertexAI({ project, location: 'us-central1' });
+    const model = vertexAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const result = await model.generateContent(prompt);
+    const text = result.response.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
     if (!text) throw new Error('Empty response from Vertex AI');
     const jsonMatch = text.match(/\[[\s\S]*\]/);
     const suggestions = JSON.parse(jsonMatch ? jsonMatch[0] : text);
