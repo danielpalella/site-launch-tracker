@@ -1320,7 +1320,7 @@ app.get('/api/launches/:id/forms', requireAuth, async (req, res) => {
       headers: { Authorization: `Basic ${token}`, 'Content-Type': 'application/json' },
     });
     const rawText = await r.text();
-    console.log('[forms] Duda status:', r.status, 'body:', rawText.slice(0, 500));
+    console.log('[forms] Duda status:', r.status, 'body:', rawText.slice(0, 1500));
     if (!r.ok) return res.json({ available: false, reason: `Duda error ${r.status}: ${rawText.slice(0, 200)}` });
     const data = JSON.parse(rawText);
     // data may be an array or { results: [...] }

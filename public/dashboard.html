@@ -2488,19 +2488,34 @@ function renderAnalyticsModalBody(id, data, forms) {
     // Sort newest first
     const subs = [...forms.submissions].sort((a, b) => new Date(b.date) - new Date(a.date));
     const renderSub = s => {
-      const fields = s.message?.fieldsData || [];
-      const name  = fields.find(f => /name/i.test(f.field_label))?.field_value || '—';
-      const email = fields.find(f => /email/i.test(f.field_label) || f.field_type === 'email')?.field_value || '—';
-      const phone = fields.find(f => /phone/i.test(f.field_label) || f.field_type === 'phone')?.field_value || '';
-      const msg   = fields.find(f => /message|comment|note/i.test(f.field_label) || f.field_type === 'message')?.field_value || '';
+      // Duda field data can live at multiple paths depending on API version
+      const fields = s.message?.fieldsData         // documented shape
+                  || s.message?.fields             // alternate
+                  || (Array.isArray(s.message) ? s.message : null)  // flat array
+                  || s.fields || s.form_data || [];
+      // Field accessors: try field_label/field_value first, then label/value
+      const fLabel = f => f.field_label || f.label || f.key || '';
+      const fValue = f => f.field_value ?? f.value ?? '';
+      const fType  = f => f.field_type  || f.type  || '';
+      const find = (rx, type) => fields.find(f => rx.test(fLabel(f)) || (type && fType(f) === type));
+      const name  = fValue(find(/\bname\b/i)       || {}) || '—';
+      const email = fValue(find(/email/i, 'email') || {}) || '—';
+      const phone = fValue(find(/phone/i, 'phone') || {}) || '';
+      const msg   = fValue(find(/message|comment|note/i, 'message') || {}) || '';
       const dateStr = s.date ? new Date(s.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+      // If name and email are both blank, fall back to showing all raw fields
+      const rawFields = (name === '—' && email === '—' && fields.length)
+        ? fields.filter(f => fType(f) !== 'form_title' && fValue(f)).map(f =>
+            `<div class="acd-form-field"><span class="acd-form-field-label">${esc(fLabel(f) || fType(f))}</span> ${esc(fValue(f))}</div>`
+          ).join('')
+        : '';
       return `<div class="acd-form-row">
         <div class="acd-form-meta">
-          <span class="acd-form-name">${esc(name)}</span>
+          <span class="acd-form-name">${rawFields ? '' : esc(name)}</span>
           <span class="acd-form-date">${dateStr}</span>
         </div>
-        <div class="acd-form-contact">${esc(email)}${phone ? ' · ' + esc(phone) : ''}</div>
-        ${msg ? `<div class="acd-form-msg">${esc(msg)}</div>` : ''}
+        ${rawFields || `<div class="acd-form-contact">${esc(email)}${phone ? ' · ' + esc(phone) : ''}</div>
+        ${msg ? `<div class="acd-form-msg">${esc(msg)}</div>` : ''}`}
       </div>`;
     };
     const first5 = subs.slice(0, 5).map(renderSub).join('');

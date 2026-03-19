@@ -1702,6 +1702,8 @@ tr.status-separator:first-child td { border-top: none; }
 .acd-form-date { font-size: .7rem; color: var(--text-muted); white-space: nowrap; }
 .acd-form-contact { font-size: .75rem; color: var(--text-muted); }
 .acd-form-msg { font-size: .75rem; color: var(--text); margin-top: .1rem; white-space: pre-wrap; word-break: break-word; }
+.acd-form-field { font-size: .75rem; color: var(--text); }
+.acd-form-field-label { font-weight: 600; color: var(--text-muted); margin-right: .25rem; }
 
 .ac-card { cursor: pointer; }
 .ac-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,.09); }
