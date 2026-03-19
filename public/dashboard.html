@@ -96,6 +96,9 @@
               <button class="fp-chip" data-filter="industry" data-value="Restoration" onclick="setFilter('industry','Restoration',this)">Restoration</button>
               <button class="fp-chip" data-filter="industry" data-value="Solar" onclick="setFilter('industry','Solar',this)">Solar</button>
               <button class="fp-chip" data-filter="industry" data-value="Flooring" onclick="setFilter('industry','Flooring',this)">Flooring</button>
+              <button class="fp-chip" data-filter="industry" data-value="Gutters" onclick="setFilter('industry','Gutters',this)">Gutters</button>
+              <button class="fp-chip" data-filter="industry" data-value="Windows/Glass" onclick="setFilter('industry','Windows/Glass',this)">Windows/Glass</button>
+              <button class="fp-chip" data-filter="industry" data-value="Cleaning Services" onclick="setFilter('industry','Cleaning Services',this)">Cleaning Services</button>
               <button class="fp-chip" data-filter="industry" data-value="Other" onclick="setFilter('industry','Other',this)">Other</button>
             </div>
           </div>
@@ -350,6 +353,9 @@
               <option value="Restoration">Restoration</option>
               <option value="Solar">Solar</option>
               <option value="Flooring">Flooring</option>
+              <option value="Gutters">Gutters</option>
+              <option value="Windows/Glass">Windows/Glass</option>
+              <option value="Cleaning Services">Cleaning Services</option>
               <option value="Other">Other</option>
             </select>
           </div>
@@ -615,7 +621,7 @@ function toggleChartStatus(status) {
 }
 const GROUP_KEYS = {
   department: ['Sales', 'Retention', 'Customer Success', 'CS-Renewal', 'Other'],
-  industry:   ['Roofing', 'Plumbing', 'Electrical', 'HVAC', 'Landscaping', 'Contracting', 'Restoration', 'Solar', 'Flooring'],
+  industry:   ['Roofing', 'Plumbing', 'Electrical', 'HVAC', 'Landscaping', 'Contracting', 'Restoration', 'Solar', 'Flooring', 'Gutters', 'Windows/Glass', 'Cleaning Services'],
   owner:      ['Daniel', 'Thierry', 'Unassigned'],
 };
 let viewMode   = 'table';
