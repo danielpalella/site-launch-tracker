@@ -1391,7 +1391,7 @@ app.post('/api/seo-suggestions', requireAuth, async (req, res) => {
 
 Provide exactly 4 specific, actionable SEO recommendations to improve this site's performance. Keep each recommendation to 2-3 sentences. Focus on the highest-impact improvements first. Respond ONLY with a valid JSON array of 4 strings, nothing else.`;
 
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
     const body = JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] });
     let r;
     for (let attempt = 0; attempt < 4; attempt++) {
