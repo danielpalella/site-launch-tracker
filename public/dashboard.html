@@ -246,16 +246,34 @@
         <button class="btn btn-ghost" onclick="refreshAnalytics()">↻ Refresh</button>
       </div>
     </div>
-    <!-- View toggle -->
+    <!-- View toggle + filter bar -->
     <div style="display:flex;align-items:center;gap:.65rem;margin-bottom:.75rem;flex-wrap:wrap">
       <div class="ac-view-toggle">
         <button class="ac-view-btn ac-view-active" id="ac-view-sites" onclick="switchAnalyticsView('sites')">All Sites</button>
         <button class="ac-view-btn" id="ac-view-overview" onclick="switchAnalyticsView('overview')">Overview</button>
       </div>
+      <div class="fp-wrap" id="ac-fp-wrap">
+        <button class="btn btn-ghost fp-btn" id="ac-fp-btn" onclick="toggleAnalyticsFilterPanel()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
+          Filters
+          <span class="fp-badge" id="ac-fp-badge" style="display:none">1</span>
+        </button>
+        <div class="fp-panel" id="ac-fp-panel" style="display:none">
+          <div class="fp-panel-header">
+            <span class="fp-panel-title">Filters</span>
+            <button class="fp-clear-all" onclick="clearAnalyticsFilters()">Clear all</button>
+          </div>
+          <div class="fp-group">
+            <div class="fp-group-label">Industry</div>
+            <div class="fp-chips" id="ac-industry-chips">
+              <!-- populated by buildAnalyticsIndustryBar() -->
+            </div>
+          </div>
+        </div>
+      </div>
       <input type="search" id="analytics-search" placeholder="Search accounts…"
         oninput="filterAnalyticsSearch(this.value)"
         style="flex:0 0 220px;padding:.3rem .7rem;font-size:.825rem;border:1.5px solid var(--border);border-radius:99px;background:var(--surface);color:var(--text);outline:none">
-      <div id="analytics-industry-bar" class="ac-filter-bar" style="display:none;flex-wrap:wrap;gap:.4rem"></div>
     </div>
 
     <!-- Overview panel -->
@@ -2536,6 +2554,8 @@ function filterAnalyticsIndustry(val) {
   analyticsIndustry = val;
   document.querySelectorAll('.ac-ind-btn').forEach(b =>
     b.classList.toggle('fp-chip-active', b.dataset.industry === val));
+  const badge = document.getElementById('ac-fp-badge');
+  if (badge) { badge.style.display = val !== 'all' ? '' : 'none'; }
   applyAnalyticsFilters();
   renderIndustrySummary(val);
   if (analyticsView === 'overview') renderAnalyticsOverview(null);
@@ -2546,8 +2566,7 @@ function filterAnalyticsSearch(val) {
 }
 
 function buildAnalyticsIndustryBar(launches) {
-  const bar = document.getElementById('analytics-industry-bar');
-  // Count per industry, sort by count desc, "Other" always last
+  const chips = document.getElementById('ac-industry-chips');
   const counts = {};
   for (const l of launches) if (l.industry) counts[l.industry] = (counts[l.industry] || 0) + 1;
   const industries = Object.keys(counts).sort((a, b) => {
@@ -2555,15 +2574,32 @@ function buildAnalyticsIndustryBar(launches) {
     if (b === 'Other') return -1;
     return counts[b] - counts[a];
   });
-  if (!industries.length) { bar.style.display = 'none'; return; }
-  bar.style.display = 'flex';
-  bar.innerHTML = ['all', ...industries].map(ind => `
+  chips.innerHTML = ['all', ...industries].map(ind => `
     <button class="fp-chip ac-ind-btn${ind === 'all' ? ' fp-chip-active' : ''}"
       data-industry="${esc(ind)}"
       onclick="filterAnalyticsIndustry('${esc(ind)}')">
       ${ind === 'all' ? 'All' : esc(ind)}${ind !== 'all' ? ` <span style="opacity:.6;font-size:.7em">${counts[ind]}</span>` : ''}
     </button>
   `).join('');
+}
+
+function toggleAnalyticsFilterPanel() {
+  const panel = document.getElementById('ac-fp-panel');
+  const isOpen = panel.style.display !== 'none';
+  panel.style.display = isOpen ? 'none' : 'block';
+  if (!isOpen) {
+    const close = (e) => {
+      if (!document.getElementById('ac-fp-wrap').contains(e.target)) {
+        panel.style.display = 'none';
+        document.removeEventListener('click', close);
+      }
+    };
+    setTimeout(() => document.addEventListener('click', close), 0);
+  }
+}
+
+function clearAnalyticsFilters() {
+  filterAnalyticsIndustry('all');
 }
 
 // Returns the slice of weeks for the current period
@@ -3315,7 +3351,7 @@ function refreshAnalytics() {
   analyticsLoaded = false;
   analyticsIndustry = 'all';
   document.getElementById('analytics-search').value = '';
-  document.getElementById('analytics-industry-bar').style.display = 'none';
+  document.getElementById('ac-fp-badge').style.display = 'none';
   Object.values(analyticsCharts).forEach(c => c.destroy());
   for (const k in analyticsCharts) delete analyticsCharts[k];
   for (const k in analyticsData) delete analyticsData[k];
