@@ -1406,12 +1406,20 @@ app.get('/api/trends/:industry', requireAuth, async (req, res) => {
   } catch {}
 
   try {
-    const raw = await googleTrends.relatedQueries({ keyword, geo: 'US' });
-    const parsed = JSON.parse(raw);
-    const queryList = parsed?.default?.rankedList || [];
-    const top     = (queryList[0]?.rankedKeyword || []).slice(0, 8).map(k => ({ query: k.query, value: k.value }));
-    const rising  = (queryList[1]?.rankedKeyword || []).slice(0, 8).map(k => ({ query: k.query, value: k.formattedValue || k.value }));
-    const data = { keyword, top, rising };
+    const [relatedRaw, interestRaw] = await Promise.all([
+      googleTrends.relatedQueries({ keyword, geo: 'US' }),
+      googleTrends.interestOverTime({ keyword, geo: 'US' })
+    ]);
+    const parsedRelated = JSON.parse(relatedRaw);
+    const parsedInterest = JSON.parse(interestRaw);
+    const queryList = parsedRelated?.default?.rankedList || [];
+    const top    = (queryList[0]?.rankedKeyword || []).slice(0, 8).map(k => ({ query: k.query, value: k.value }));
+    const rising = (queryList[1]?.rankedKeyword || []).slice(0, 8).map(k => ({ query: k.query, value: k.formattedValue || k.value }));
+    const timeline = (parsedInterest?.default?.timelineData || []).map(pt => ({
+      date: pt.formattedTime,
+      value: pt.value?.[0] || 0
+    }));
+    const data = { keyword, top, rising, timeline };
     await cacheRef.set({ fetchedAt: Date.now(), data });
     res.json(data);
   } catch (err) {
