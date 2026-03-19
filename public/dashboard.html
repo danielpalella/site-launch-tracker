@@ -2393,16 +2393,23 @@ function computeAggregate(entries, period) {
 
 function topBottomPerformers(entries, period, metric) {
   const scored = entries.map(([id, d]) => {
-    const { gsc, ga4, duda, account_name, domain } = d;
+    const { gsc, ga4, duda, account_name, domain, daysSince } = d;
     const gscT  = periodGscTotals(gsc, period);
     const ga4T  = periodGa4Totals(ga4, period);
     const dudaT = periodDudaTotals(duda, period);
     const score = metric === 'clicks' ? (gscT.clicks || 0)
                 : metric === 'sessions' ? (ga4T.sessions || 0)
                 : (dudaT.visitors || 0);
-    return { id, account_name, domain, score, gscClicks: gscT.clicks || 0, ga4Sessions: ga4T.sessions || 0, dudaVisitors: dudaT.visitors || 0 };
+    return { id, account_name, domain, daysSince, score, gscClicks: gscT.clicks || 0, ga4Sessions: ga4T.sessions || 0, dudaVisitors: dudaT.visitors || 0 };
   }).sort((a, b) => b.score - a.score);
-  return { top: scored.slice(0, 5), bottom: scored.slice(-5).reverse() };
+
+  // Needs Attention: skip sites < 30 days old or with no data at all
+  const attentionEligible = scored.filter(s =>
+    (s.daysSince == null || s.daysSince >= 30) &&
+    (s.ga4Sessions + s.gscClicks + s.dudaVisitors > 0)
+  );
+
+  return { top: scored.slice(0, 5), bottom: attentionEligible.slice(-5).reverse() };
 }
 
 function renderAnalyticsOverview(industryFilter) {
@@ -2479,8 +2486,8 @@ function renderAnalyticsOverview(industryFilter) {
         ${top.map((s, i) => perfRow(s, i + 1)).join('')}
       </div>
       <div class="ov-performers-col">
-        <div class="acd-section-title" style="margin-bottom:.6rem">Needs Attention <span class="acd-period-tag">lowest sessions</span></div>
-        ${bottom.map((s, i) => perfRow(s, i + 1)).join('')}
+        <div class="acd-section-title" style="margin-bottom:.6rem">Needs Attention <span class="acd-period-tag">30+ days old · lowest sessions</span></div>
+        ${bottom.length ? bottom.map((s, i) => perfRow(s, i + 1)).join('') : '<div style="font-size:.8rem;color:var(--text-muted);padding:.5rem 0">No established sites with low traffic.</div>'}
       </div>
     </div>
 
