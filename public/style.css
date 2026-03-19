@@ -1987,26 +1987,6 @@ tr.status-separator:first-child td { border-top: none; }
   .gsh-col-headers > :nth-child(n+5), .gsh-row > :nth-child(n+5) { display: none; }
 }
 
-/* ── SEO Suggestions Modal ── */
-.seo-modal {
-  background: var(--surface); border-radius: 14px;
-  box-shadow: 0 8px 40px rgba(6,16,42,.18); max-width: 560px; width: 92%;
-  max-height: 82vh; overflow-y: auto; padding: 1.5rem;
-  display: flex; flex-direction: column; gap: .85rem;
-}
-.seo-modal-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
-.seo-modal-title { font-weight: 700; font-size: 1rem; }
-.seo-modal-meta { font-size: .78rem; color: var(--text-muted); }
-.seo-modal-close { background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 1.1rem; padding: .15rem .35rem; border-radius: 5px; }
-.seo-modal-close:hover { background: var(--bg); }
-.seo-modal-score-row { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; padding: .5rem .65rem; background: var(--bg); border-radius: 8px; }
-.seo-modal-label { font-size: .75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; }
-.seo-modal-suggestions { display: flex; flex-direction: column; gap: .65rem; }
-.seo-suggestion { padding: .75rem .85rem; background: var(--bg); border-radius: 8px; border-left: 3px solid var(--primary); }
-.seo-suggestion-num { font-size: .65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); margin-bottom: .2rem; }
-.seo-suggestion-text { font-size: .82rem; line-height: 1.55; color: var(--text); }
-.seo-loading { display: flex; align-items: center; gap: .75rem; padding: .75rem 0; color: var(--text-muted); font-size: .85rem; }
-
 /* ── Industry summary bar ── */
 .ov-ind-bar {
   background: var(--surface);

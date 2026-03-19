@@ -1371,40 +1371,6 @@ app.get('/api/analytics/:id', requireAuth, async (req, res) => {
   }
 });
 
-
-// ── AI SEO Suggestions (Vertex AI Gemini) ──
-app.post('/api/seo-suggestions', requireAuth, async (req, res) => {
-  try {
-    const { account_name, domain, daysSince, health } = req.body;
-    const trendStr = health.trendPct !== null
-      ? (health.trendPct >= 0 ? `up ${health.trendPct}%` : `down ${Math.abs(health.trendPct)}%`)
-      : 'unknown (insufficient data)';
-    const prompt = `You are an SEO expert advising a local business website owner. The site "${account_name}" (${domain}) has been live for ${daysSince} days with these Google Search Console metrics:
-- Health score: ${health.score ?? 'N/A'}/100 (${health.label})
-- Daily impressions: ${health.impPerDay}
-- CTR: ${health.ctr}%
-- Avg ranking position: ${health.position ? Math.round(health.position) : 'N/A'}
-- 4-week impression trend: ${trendStr}
-- Flagged issues: ${health.issues.length ? health.issues.join(', ') : 'None'}
-
-Provide exactly 4 specific, actionable SEO recommendations to improve this site's performance. Keep each recommendation to 2-3 sentences. Focus on the highest-impact improvements first. Respond ONLY with a valid JSON array of 4 strings, nothing else.`;
-
-    const { VertexAI } = await import('@google-cloud/vertexai');
-    const project = process.env.GOOGLE_CLOUD_PROJECT || 'site-launch-tracker';
-    const vertexAI = new VertexAI({ project, location: 'us-central1' });
-    const model = vertexAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-    const result = await model.generateContent(prompt);
-    const text = result.response.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-    if (!text) throw new Error('Empty response from Vertex AI');
-    const jsonMatch = text.match(/\[[\s\S]*\]/);
-    const suggestions = JSON.parse(jsonMatch ? jsonMatch[0] : text);
-    res.json({ suggestions });
-  } catch (err) {
-    console.error('SEO suggestions error:', err.message);
-    res.status(500).json({ error: err.message || 'Failed to generate suggestions' });
-  }
-});
-
 // ── Pages ──
 app.get('/edit-request', (_req, res) => res.sendFile(join(__dirname, 'public', 'edit-request.html')));
 app.get('/dashboard', requireAuth, (_req, res) => res.sendFile(join(__dirname, 'public', 'dashboard.html')));

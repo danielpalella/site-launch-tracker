@@ -297,22 +297,6 @@
   </div>
 </div>
 
-<!-- SEO Suggestions Modal -->
-<div id="seo-modal-backdrop" onclick="closeSeoModal(event)" style="position:fixed;inset:0;z-index:300;background:rgba(6,16,42,.55);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center">
-  <div class="seo-modal" onclick="event.stopPropagation()">
-    <div class="seo-modal-header">
-      <div>
-        <div class="seo-modal-title" id="seo-modal-name"></div>
-        <div class="seo-modal-meta" id="seo-modal-domain"></div>
-      </div>
-      <button class="seo-modal-close" onclick="closeSeoModal()">✕</button>
-    </div>
-    <div id="seo-modal-score-row" class="seo-modal-score-row"></div>
-    <div class="seo-modal-label"><img src="/gsc-icon.png" width="13" height="13" style="vertical-align:middle;margin-right:.35rem">AI-Powered SEO Recommendations</div>
-    <div id="seo-modal-body"></div>
-  </div>
-</div>
-
 <!-- Edit Modal -->
 <div class="modal-backdrop" id="modal">
   <div class="modal crm-modal">
@@ -2576,7 +2560,7 @@ function renderAnalyticsOverview(industryFilter) {
     const trendStr   = h.trendPct !== null ? (h.trendPct >= 0 ? `▲ ${h.trendPct}%` : `▼ ${Math.abs(h.trendPct)}%`) : null;
     const trendColor = h.trendPct !== null && h.trendPct < 0 ? '#ef4444' : '#22c55e';
     return `
-    <div class="ov-att-row" style="border-left:3px solid ${h.color}" onclick="openSeoSuggestions('${esc(s.id)}')">
+    <div class="ov-att-row" style="border-left:3px solid ${h.color}" onclick="openAnalyticsModal('${esc(s.id)}')">
       <div class="ov-att-top">
         <div class="ov-att-name">
           <div class="ov-att-title">${esc(s.account_name)}</div>
@@ -3538,60 +3522,6 @@ function toggleGshGroup(bodyId, header) {
   if (chevron) chevron.classList.toggle('rot', isCollapsed);
 }
 
-// ── SEO Suggestions Modal ──
-async function openSeoSuggestions(siteId) {
-  const data = analyticsData[siteId];
-  if (!data) { openAnalyticsModal(siteId); return; }
-  const h = computeGscHealth(data);
-  document.getElementById('seo-modal-name').textContent = data.account_name;
-  document.getElementById('seo-modal-domain').textContent = data.domain;
-  document.getElementById('seo-modal-score-row').innerHTML = `
-    <span class="gsh-score-pill" style="background:${h.color}18;color:${h.color};font-size:.9rem;padding:.2rem .55rem">${h.score ?? '—'}</span>
-    <span style="font-weight:700;color:${h.color};font-size:.82rem">${h.label}</span>
-    ${h.issues.map(i => `<span class="gsh-issue-tag" style="background:${h.color}15;color:${h.color};border:1px solid ${h.color}35">${esc(i)}</span>`).join('')}
-  `;
-  document.getElementById('seo-modal-body').innerHTML = `
-    <div class="seo-loading"><div class="ac-ov-spinner"></div>Generating AI recommendations…</div>`;
-  const backdrop = document.getElementById('seo-modal-backdrop');
-  backdrop.style.display = 'flex';
-  document.body.style.overflow = 'hidden';
-  try {
-    const r = await fetch('/api/seo-suggestions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        account_name: data.account_name,
-        domain: data.domain,
-        daysSince: data.daysSince,
-        health: { score: h.score, label: h.label, level: h.level, issues: h.issues,
-                  impPerDay: h.impPerDay, ctr: h.ctr, position: h.position, trendPct: h.trendPct },
-        gsc: { total: data.gsc?.total, weeks: (data.gsc?.weeks || []).slice(-8) }
-      })
-    });
-    if (!r.ok) throw new Error((await r.json()).error || r.statusText);
-    const { suggestions } = await r.json();
-    document.getElementById('seo-modal-body').innerHTML = `
-      <div class="seo-modal-suggestions">
-        ${suggestions.map((s, i) => `
-          <div class="seo-suggestion">
-            <div class="seo-suggestion-num">Recommendation ${i + 1}</div>
-            <div class="seo-suggestion-text">${esc(s)}</div>
-          </div>`).join('')}
-      </div>`;
-  } catch (err) {
-    document.getElementById('seo-modal-body').innerHTML =
-      `<div style="display:flex;flex-direction:column;gap:.6rem;padding:.5rem 0">
-        <div style="color:#ef4444;font-size:.82rem">${esc(err.message)}</div>
-        <button class="btn btn-ghost" style="align-self:flex-start;font-size:.8rem" onclick="openSeoSuggestions('${esc(siteId)}')">Try again</button>
-       </div>`;
-  }
-}
-
-function closeSeoModal(e) {
-  if (e && e.target !== document.getElementById('seo-modal-backdrop')) return;
-  document.getElementById('seo-modal-backdrop').style.display = 'none';
-  document.body.style.overflow = '';
-}
 </script>
 </body>
 </html>

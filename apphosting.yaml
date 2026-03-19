@@ -7,6 +7,3 @@ runConfig:
   maxInstances: 10
   timeoutSeconds: 120
 
-env:
-  - variable: GEMINI_API_KEY
-    secret: gemini_api_key
