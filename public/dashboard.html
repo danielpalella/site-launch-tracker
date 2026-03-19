@@ -257,6 +257,7 @@
       <button class="btn btn-ghost ac-refresh-btn" onclick="refreshAnalytics()" title="Refresh">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
       </button>
+      <div id="ac-site-count" class="ac-site-count"></div>
     </div>
     </div><!-- /ac-sticky-header -->
 
@@ -2344,6 +2345,7 @@ function switchAnalyticsView(view) {
   document.getElementById('analytics-search').style.display     = view === 'sites' ? '' : 'none';
   document.getElementById('view-analytics').style.overflowY    = view === 'overview' ? 'auto' : 'hidden';
   if (view === 'overview') renderAnalyticsOverview(null);
+  if (view === 'sites') applyAnalyticsFilters();
 }
 
 // ── Aggregate helpers ──
@@ -2691,11 +2693,10 @@ function renderAnalyticsOverview(industryFilter) {
         </div>`;
     }).join('');
 
-  document.getElementById('ac-overview').innerHTML = `
-    <div class="ov-header">
-      <div class="ov-title">${entries.length} Active Sites <span class="acd-period-tag">${periodLabel}</span>${isPartial ? `<span class="ov-loading-tag">Loading ${analyticsLoadedCount}/${analyticsTotal}</span>` : ''}</div>
-    </div>
+  const siteCountEl = document.getElementById('ac-site-count');
+  if (siteCountEl) siteCountEl.innerHTML = `<strong>${entries.length} Active Sites</strong> <span class="acd-period-tag">${periodLabel}</span>${isPartial ? `<span class="ov-loading-tag">Loading ${analyticsLoadedCount}/${analyticsTotal}</span>` : ''}`;
 
+  document.getElementById('ac-overview').innerHTML = `
     <div class="acd-sources-row" style="margin-bottom:1rem">
       <div class="acd-source-col card">
         <div class="acd-section-title"><img src="/gsc-icon.png" style="width:13px;height:13px;vertical-align:middle;margin-right:.35rem">Search Console</div>
@@ -2888,11 +2889,18 @@ function renderIndustrySummary(industry) {
 
 function applyAnalyticsFilters() {
   const search = (document.getElementById('analytics-search')?.value || '').toLowerCase().trim();
+  let visible = 0;
   document.querySelectorAll('#analytics-grid .ac-card').forEach(card => {
     const industryMatch = analyticsIndustry === 'all' || card.dataset.industry === analyticsIndustry;
     const searchMatch   = !search || card.dataset.name?.includes(search) || card.dataset.domain?.includes(search);
-    card.style.display  = (industryMatch && searchMatch) ? '' : 'none';
+    const show = industryMatch && searchMatch;
+    card.style.display  = show ? '' : 'none';
+    if (show) visible++;
   });
+  if (analyticsView === 'sites') {
+    const el = document.getElementById('ac-site-count');
+    if (el) el.innerHTML = `<strong>${visible} Active Sites</strong> <span class="acd-period-tag">${PERIOD_LABELS[analyticsPeriod]}</span>`;
+  }
 }
 
 function filterAnalyticsIndustry(val) {
@@ -3658,6 +3666,7 @@ async function loadAnalytics() {
         analyticsLoadedCount++;
       }
       if (analyticsView === 'overview') renderAnalyticsOverview(null);
+      else applyAnalyticsFilters();
     }));
   }
   analyticsLoaded = true;

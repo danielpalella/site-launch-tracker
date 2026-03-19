@@ -1811,6 +1811,16 @@ tr.status-separator:first-child td { border-top: none; }
   background: transparent !important;
 }
 .ac-refresh-btn:hover { color: var(--text) !important; background: var(--bg) !important; }
+.ac-site-count {
+  margin-left: auto;
+  font-size: .825rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+}
+.ac-site-count strong { color: var(--text); font-weight: 600; }
 .ac-search {
   flex: 1;
   min-width: 120px;
