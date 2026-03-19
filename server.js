@@ -1396,7 +1396,7 @@ Provide exactly 4 specific, actionable SEO recommendations to improve this site'
     const { access_token } = await tokenRes.json();
 
     const project = process.env.GOOGLE_CLOUD_PROJECT || 'site-launch-tracker';
-    const vertexUrl = `https://us-central1-aiplatform.googleapis.com/v1/projects/${project}/locations/us-central1/publishers/google/models/gemini-1.5-flash:generateContent`;
+    const vertexUrl = `https://us-central1-aiplatform.googleapis.com/v1/projects/${project}/locations/us-central1/publishers/google/models/gemini-1.5-flash-002:generateContent`;
     const r = await fetch(vertexUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${access_token}` },
