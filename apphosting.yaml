@@ -6,3 +6,7 @@ runConfig:
   minInstances: 0
   maxInstances: 10
   timeoutSeconds: 120
+
+env:
+  - variable: GEMINI_API_KEY
+    value: AIzaSyDRXcOwEK-qZD6IpGAVKUH5lbu8jdAjHCE
