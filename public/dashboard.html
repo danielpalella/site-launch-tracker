@@ -2563,20 +2563,29 @@ function renderAnalyticsOverview(industryFilter) {
 
   const healthRow = (s) => {
     const h = s.health;
-    const trendStr   = h.trendPct !== null ? (h.trendPct >= 0 ? `▲ ${h.trendPct}%` : `▼ ${Math.abs(h.trendPct)}%`) : '—';
-    const trendColor = h.trendPct === null ? 'var(--text-muted)' : h.trendPct >= 0 ? '#22c55e' : '#ef4444';
+    const trendStr   = h.trendPct !== null ? (h.trendPct >= 0 ? `▲ ${h.trendPct}%` : `▼ ${Math.abs(h.trendPct)}%`) : null;
+    const trendColor = h.trendPct !== null && h.trendPct < 0 ? '#ef4444' : '#22c55e';
     return `
-    <div class="gsh-row" style="border-left:3px solid ${h.color}" onclick="openSeoSuggestions('${esc(s.id)}')">
-      <div class="gsh-site">
-        <div style="font-weight:600;font-size:.8rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.account_name)}</div>
-        <div style="font-size:.7rem;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.domain)}</div>
+    <div class="ov-att-row" style="border-left:3px solid ${h.color}" onclick="openSeoSuggestions('${esc(s.id)}')">
+      <div class="ov-att-top">
+        <div class="ov-att-name">
+          <div class="ov-att-title">${esc(s.account_name)}</div>
+          <div class="ov-att-domain">${esc(s.domain)}</div>
+        </div>
+        <div class="ov-att-score-wrap">
+          <span class="ov-att-score" style="color:${h.color}">${h.score ?? '—'}</span>
+          <span class="ov-att-label" style="color:${h.color}">${h.label}</span>
+        </div>
       </div>
-      <div class="gsh-score-pill" style="background:${h.color}18;color:${h.color}">${h.score ?? '—'}</div>
-      <div class="gsh-stat">${h.impPerDay}<span style="color:var(--text-muted);font-size:.68rem">/day</span></div>
-      <div class="gsh-stat">${h.position ? `${Math.round(h.position)}` : '<span style="color:var(--text-muted)">—</span>'}</div>
-      <div class="gsh-stat">${h.ctr}<span style="color:var(--text-muted);font-size:.68rem">%</span></div>
-      <div class="gsh-stat" style="color:${trendColor};font-weight:700">${trendStr}</div>
-      <div class="gsh-issues">${h.issues.map(i => `<span class="gsh-issue-tag" style="background:${h.color}15;color:${h.color};border:1px solid ${h.color}35">${esc(i)}</span>`).join('')}</div>
+      <div class="ov-att-metrics">
+        <span><b>${h.impPerDay}</b><span class="ov-att-unit">/day</span></span>
+        <span class="ov-att-sep">·</span>
+        <span>pos <b>${h.position ? Math.round(h.position) : '—'}</b></span>
+        <span class="ov-att-sep">·</span>
+        <span><b>${h.ctr}%</b> CTR</span>
+        ${trendStr ? `<span class="ov-att-sep">·</span><span style="color:${trendColor};font-weight:700">${trendStr}</span>` : ''}
+      </div>
+      ${h.issues.length ? `<div class="ov-att-issues">${h.issues.map(i => `<span class="ov-issue-tag" style="background:${h.color}18;color:${h.color};border:1px solid ${h.color}40">${esc(i)}</span>`).join('')}</div>` : ''}
     </div>`;
   };
 
@@ -2585,7 +2594,7 @@ function renderAnalyticsOverview(industryFilter) {
     .map(l => {
       const color = gshGrouped[l][0].health.color;
       const bodyId = `gsh-body-${l}`;
-      const startCollapsed = l === 'healthy';
+      const startCollapsed = true;
       return `
         <div class="gsh-group-header" onclick="toggleGshGroup('${bodyId}', this)">
           <span class="gsh-group-dot" style="background:${color}"></span>
@@ -2652,15 +2661,6 @@ function renderAnalyticsOverview(industryFilter) {
         <img src="/gsc-icon.png" width="14" height="14" style="object-fit:contain;flex-shrink:0">
         <span style="font-weight:700;font-size:.88rem">Google Search Health</span>
         <span style="color:var(--text-muted);font-size:.75rem;margin-left:.4rem">all sites · since launch</span>
-      </div>
-      <div class="gsh-col-headers">
-        <div class="gsh-site">Site</div>
-        <div class="gsh-score">Score</div>
-        <div class="gsh-stat">Impressions</div>
-        <div class="gsh-stat">Position</div>
-        <div class="gsh-stat">CTR</div>
-        <div class="gsh-stat">4-wk Trend</div>
-        <div class="gsh-issues">Issues</div>
       </div>
       ${gshTableHtml}
     </div>
