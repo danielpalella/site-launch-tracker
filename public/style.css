@@ -116,8 +116,8 @@ nav {
 .nav-tab {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  padding: .45rem .55rem;
+  gap: .45rem;
+  padding: .38rem .55rem;
   border-radius: 8px;
   color: rgba(255,255,255,.45);
   cursor: pointer;
@@ -125,9 +125,24 @@ nav {
   border: none;
   font-family: inherit;
   text-decoration: none;
-  transition: color .15s, background .15s;
+  transition: color .2s, background .2s, padding .2s;
+  white-space: nowrap;
 }
 .nav-tab svg { flex-shrink: 0; display: block; }
+.nav-label {
+  font-size: .78rem;
+  font-weight: 700;
+  max-width: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: max-width .25s ease, opacity .2s ease;
+  display: inline-block;
+}
+.nav-tab-active .nav-label {
+  max-width: 140px;
+  opacity: 1;
+}
+.nav-tab-active { padding: .38rem .75rem; }
 .nav-tab:hover { color: rgba(255,255,255,.85); background: rgba(255,255,255,.07); }
 .nav-tab-active,
 .nav-tab-active svg { color: #cbff4d !important; }
