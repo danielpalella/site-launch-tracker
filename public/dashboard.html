@@ -243,16 +243,31 @@
         <button class="btn btn-ghost" onclick="refreshAnalytics()">↻ Refresh</button>
       </div>
     </div>
-    <div style="display:flex;align-items:center;gap:.65rem;margin-bottom:.6rem">
+    <!-- View toggle -->
+    <div style="display:flex;align-items:center;gap:.65rem;margin-bottom:.75rem;flex-wrap:wrap">
+      <div class="ac-view-toggle">
+        <button class="ac-view-btn ac-view-active" id="ac-view-sites" onclick="switchAnalyticsView('sites')">All Sites</button>
+        <button class="ac-view-btn" id="ac-view-overview" onclick="switchAnalyticsView('overview')">Overview</button>
+      </div>
       <input type="search" id="analytics-search" placeholder="Search accounts…"
         oninput="filterAnalyticsSearch(this.value)"
         style="flex:0 0 220px;padding:.3rem .7rem;font-size:.825rem;border:1.5px solid var(--border);border-radius:99px;background:var(--surface);color:var(--text);outline:none">
       <div id="analytics-industry-bar" class="ac-filter-bar" style="display:none;flex-wrap:wrap;gap:.4rem"></div>
     </div>
-    <div class="card analytics-card-outer">
-      <div class="analytics-scroll">
-        <div id="analytics-grid" class="analytics-grid">
-          <div style="color:var(--text-muted);font-size:.875rem">Loading…</div>
+
+    <!-- Overview panel -->
+    <div id="ac-overview" style="display:none"></div>
+
+    <!-- Industry summary bar (shown when industry filter active in sites view) -->
+    <div id="ac-industry-summary" style="display:none;margin-bottom:.75rem"></div>
+
+    <!-- All-sites card grid -->
+    <div id="ac-sites-panel">
+      <div class="card analytics-card-outer">
+        <div class="analytics-scroll">
+          <div id="analytics-grid" class="analytics-grid">
+            <div style="color:var(--text-muted);font-size:.875rem">Loading…</div>
+          </div>
         </div>
       </div>
     </div>
@@ -2234,6 +2249,225 @@ const analyticsData    = {}; // raw data keyed by launch id
 let analyticsLoaded    = false;
 let analyticsPeriod    = 'mom'; // 'wow' | 'mom' | 'all'
 let analyticsIndustry  = 'all';
+let analyticsView      = 'sites'; // 'sites' | 'overview'
+let overviewChart      = null;
+
+function switchAnalyticsView(view) {
+  analyticsView = view;
+  document.getElementById('ac-view-sites').classList.toggle('ac-view-active', view === 'sites');
+  document.getElementById('ac-view-overview').classList.toggle('ac-view-active', view === 'overview');
+  document.getElementById('ac-sites-panel').style.display       = view === 'sites' ? '' : 'none';
+  document.getElementById('ac-industry-summary').style.display  = view === 'sites' && analyticsIndustry !== 'all' ? '' : 'none';
+  document.getElementById('ac-overview').style.display          = view === 'overview' ? '' : 'none';
+  document.getElementById('analytics-search').style.display     = view === 'sites' ? '' : 'none';
+  if (view === 'overview') renderAnalyticsOverview(null);
+}
+
+// ── Aggregate helpers ──
+function getAnalyticsEntries(industryFilter) {
+  return Object.entries(analyticsData).filter(([id]) => {
+    if (!industryFilter || industryFilter === 'all') return true;
+    const card = document.getElementById('ac-card-' + id);
+    return card && card.dataset.industry === industryFilter;
+  });
+}
+
+function computeAggregate(entries, period) {
+  const acc = {
+    gscClicks: 0, gscImpressions: 0, gscSites: 0,
+    ga4Sessions: 0, ga4Users: 0, ga4NewUsers: 0, ga4Engagement: 0, ga4Sites: 0,
+    dudaVisitors: 0, dudaPageViews: 0, dudaFormSubmits: 0, dudaCallClicks: 0, dudaSites: 0,
+    totalSites: entries.length,
+  };
+  const weeklyGsc = {}, weeklyGa4 = {}, weeklyDuda = {};
+
+  for (const [, d] of entries) {
+    const { gsc, ga4, duda } = d;
+    const gscT  = periodGscTotals(gsc, period);
+    const ga4T  = periodGa4Totals(ga4, period);
+    const dudaT = periodDudaTotals(duda, period);
+
+    if (gsc.available) {
+      acc.gscClicks      += gscT.clicks      || 0;
+      acc.gscImpressions += gscT.impressions || 0;
+      acc.gscSites++;
+      // Weekly trend
+      const weeks = period === 'all' ? (gsc.weeks || []) : periodWeeks(gsc.weeks, period);
+      for (const w of weeks) { weeklyGsc[w.week] = (weeklyGsc[w.week] || 0) + (w.clicks || 0); }
+    }
+    if (ga4.available) {
+      acc.ga4Sessions   += ga4T.sessions        || 0;
+      acc.ga4Users      += ga4T.users           || 0;
+      acc.ga4NewUsers   += ga4T.newUsers        || 0;
+      acc.ga4Engagement += ga4T.engagementRate  || 0;
+      acc.ga4Sites++;
+      const weeks = period === 'all' ? (ga4.weeks || []) : periodWeeks(ga4.weeks, period);
+      for (const w of weeks) { weeklyGa4[w.week] = (weeklyGa4[w.week] || 0) + (w.sessions || 0); }
+    }
+    if (duda?.available) {
+      acc.dudaVisitors   += dudaT.visitors    || 0;
+      acc.dudaPageViews  += dudaT.pageViews   || 0;
+      acc.dudaFormSubmits+= dudaT.formSubmits || 0;
+      acc.dudaCallClicks += dudaT.callClicks  || 0;
+      acc.dudaSites++;
+      const weeks = period === 'all' ? (duda.weeks || []) : periodWeeks(duda.weeks, period);
+      for (const w of weeks) { weeklyDuda[w.week] = (weeklyDuda[w.week] || 0) + (w.visitors || 0); }
+    }
+  }
+  acc.gscCtr      = acc.gscImpressions > 0 ? Math.round(acc.gscClicks / acc.gscImpressions * 10000) / 100 : 0;
+  acc.ga4EngAvg   = acc.ga4Sites > 0 ? Math.round(acc.ga4Engagement / acc.ga4Sites) : 0;
+  acc.weeklyGsc   = weeklyGsc;
+  acc.weeklyGa4   = weeklyGa4;
+  acc.weeklyDuda  = weeklyDuda;
+  return acc;
+}
+
+function topBottomPerformers(entries, period, metric) {
+  const scored = entries.map(([id, d]) => {
+    const { gsc, ga4, duda, account_name, domain } = d;
+    const gscT  = periodGscTotals(gsc, period);
+    const ga4T  = periodGa4Totals(ga4, period);
+    const dudaT = periodDudaTotals(duda, period);
+    const score = metric === 'clicks' ? (gscT.clicks || 0)
+                : metric === 'sessions' ? (ga4T.sessions || 0)
+                : (dudaT.visitors || 0);
+    return { id, account_name, domain, score, gscClicks: gscT.clicks || 0, ga4Sessions: ga4T.sessions || 0, dudaVisitors: dudaT.visitors || 0 };
+  }).sort((a, b) => b.score - a.score);
+  return { top: scored.slice(0, 5), bottom: scored.slice(-5).reverse() };
+}
+
+function renderAnalyticsOverview(industryFilter) {
+  if (overviewChart) { overviewChart.destroy(); overviewChart = null; }
+  const entries = getAnalyticsEntries(industryFilter || analyticsIndustry);
+  if (!entries.length) {
+    document.getElementById('ac-overview').innerHTML = '<div class="ac-empty">No data loaded yet. Switch to All Sites view first.</div>';
+    return;
+  }
+  const period = analyticsPeriod;
+  const periodLabel = PERIOD_LABELS[period];
+  const agg = computeAggregate(entries, period);
+  const { top, bottom } = topBottomPerformers(entries, period, 'sessions');
+
+  const ovMetric = (val, lbl, tip) =>
+    `<div class="acd-metric"><div class="acd-metric-val">${val}</div><div class="acd-metric-label">${lbl}${tip ? `<span class="ac-tip" data-tip="${esc(tip)}">?</span>` : ''}</div></div>`;
+
+  const perfRow = (site, rank) => `
+    <div class="ov-perf-row">
+      <span class="ov-perf-rank">${rank}</span>
+      <div class="ov-perf-name">
+        <div style="font-weight:600;font-size:.8rem">${esc(site.account_name)}</div>
+        <div style="font-size:.7rem;color:var(--text-muted)">${esc(site.domain)}</div>
+      </div>
+      <span class="ov-perf-stat">${fmtNum(site.ga4Sessions)}<span style="color:var(--text-muted);font-size:.65rem;margin-left:.2rem">sess</span></span>
+      <span class="ov-perf-stat">${fmtNum(site.gscClicks)}<span style="color:var(--text-muted);font-size:.65rem;margin-left:.2rem">clk</span></span>
+      <span class="ov-perf-stat">${fmtNum(site.dudaVisitors)}<span style="color:var(--text-muted);font-size:.65rem;margin-left:.2rem">vis</span></span>
+    </div>`;
+
+  document.getElementById('ac-overview').innerHTML = `
+    <div class="ov-header">
+      <div class="ov-title">${entries.length} Active Sites <span class="acd-period-tag">${periodLabel}</span></div>
+    </div>
+
+    <div class="acd-sources-row" style="margin-bottom:1rem">
+      <div class="acd-source-col">
+        <div class="acd-section-title"><img src="/gsc-icon.png" style="width:13px;height:13px;vertical-align:middle;margin-right:.35rem">Search Console</div>
+        <div class="acd-metrics-grid">
+          ${ovMetric(fmtNum(agg.gscClicks),      'Total Clicks',       'Total clicks from Google Search across all sites.')}
+          ${ovMetric(fmtNum(agg.gscImpressions), 'Total Impressions',  'Total Google Search impressions across all sites.')}
+          ${ovMetric(agg.gscCtr + '%',            'Avg CTR',            'Average click-through rate across all sites.')}
+          ${ovMetric(agg.gscSites,                'Sites Tracked',      'Number of sites with Search Console data.')}
+        </div>
+      </div>
+      <div class="acd-source-col">
+        <div class="acd-section-title"><img src="/ga4-icon.png" style="width:13px;height:13px;vertical-align:middle;margin-right:.35rem">Google Analytics</div>
+        <div class="acd-metrics-grid">
+          ${ovMetric(fmtNum(agg.ga4Sessions),  'Total Sessions',  'Total site visits across all sites.')}
+          ${ovMetric(fmtNum(agg.ga4Users),     'Total Users',     'Total unique visitors across all sites.')}
+          ${ovMetric(fmtNum(agg.ga4NewUsers),  'New Users',       'Total first-time visitors across all sites.')}
+          ${ovMetric(agg.ga4EngAvg + '%',      'Avg Engagement',  'Average engagement rate across all sites.')}
+        </div>
+      </div>
+      <div class="acd-source-col">
+        <div class="acd-section-title"><img src="/duda-icon.png" style="width:13px;height:13px;border-radius:3px;vertical-align:middle;margin-right:.35rem">Duda Analytics</div>
+        <div class="acd-metrics-grid">
+          ${ovMetric(fmtNum(agg.dudaVisitors),    'Total Visitors',    'Total unique visitors tracked by Duda.')}
+          ${ovMetric(fmtNum(agg.dudaPageViews),   'Total Page Views',  'Total pages viewed across all sites.')}
+          ${ovMetric(fmtNum(agg.dudaFormSubmits), 'Form Submits',      'Total contact form submissions across all sites.')}
+          ${ovMetric(fmtNum(agg.dudaCallClicks),  'Call Clicks',       'Total phone number clicks across all sites.')}
+        </div>
+      </div>
+    </div>
+
+    <div class="ov-chart-wrap card"><canvas id="ov-chart-canvas"></canvas></div>
+
+    <div class="ov-performers">
+      <div class="ov-performers-col">
+        <div class="acd-section-title" style="margin-bottom:.6rem">Top Performers <span class="acd-period-tag">by sessions</span></div>
+        ${top.map((s, i) => perfRow(s, i + 1)).join('')}
+      </div>
+      <div class="ov-performers-col">
+        <div class="acd-section-title" style="margin-bottom:.6rem">Needs Attention <span class="acd-period-tag">lowest sessions</span></div>
+        ${bottom.map((s, i) => perfRow(s, i + 1)).join('')}
+      </div>
+    </div>
+  `;
+
+  // Build combined trend chart
+  const allWeeks = [...new Set([
+    ...Object.keys(agg.weeklyGsc),
+    ...Object.keys(agg.weeklyGa4),
+    ...Object.keys(agg.weeklyDuda),
+  ])].sort();
+  if (allWeeks.length > 1) {
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const gridC  = isDark ? '#334155' : '#e2e8f0';
+    const textC  = isDark ? '#94a3b8' : '#64748b';
+    const datasets = [];
+    if (agg.gscSites)  datasets.push({ label: 'GSC Clicks',    yAxisID: 'y',  data: allWeeks.map(w => agg.weeklyGsc[w]  || 0), borderColor: '#1259FF', backgroundColor: 'rgba(18,89,255,.07)',  fill: true, tension: 0.35, pointRadius: 2, borderWidth: 2 });
+    if (agg.ga4Sites)  datasets.push({ label: 'GA4 Sessions',  yAxisID: datasets.length ? 'y1' : 'y', data: allWeeks.map(w => agg.weeklyGa4[w]  || 0), borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,.07)',  fill: true, tension: 0.35, pointRadius: 2, borderWidth: 2 });
+    if (agg.dudaSites) datasets.push({ label: 'Duda Visitors', yAxisID: datasets.length ? 'y1' : 'y', data: allWeeks.map(w => agg.weeklyDuda[w] || 0), borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,.07)', fill: true, tension: 0.35, pointRadius: 2, borderWidth: 2 });
+    const scales = {
+      x:  { ticks: { color: textC, font: { size: 10 }, maxTicksLimit: 12 }, grid: { display: false }, border: { display: false } },
+      y:  { position: 'left',  ticks: { color: textC, font: { size: 10 }, maxTicksLimit: 5 }, grid: { color: gridC }, border: { display: false } },
+    };
+    if (datasets.length > 1) scales.y1 = { position: 'right', ticks: { color: textC, font: { size: 10 }, maxTicksLimit: 5 }, grid: { display: false }, border: { display: false } };
+    overviewChart = new Chart(document.getElementById('ov-chart-canvas'), {
+      type: 'line',
+      data: { labels: allWeeks.map(w => new Date(w).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })), datasets },
+      options: {
+        responsive: true, maintainAspectRatio: false, animation: { duration: 300 },
+        plugins: {
+          legend: { position: 'top', labels: { color: textC, font: { size: 11 }, boxWidth: 10, padding: 12 } },
+          tooltip: { mode: 'index', intersect: false },
+        },
+        scales,
+      },
+    });
+  }
+}
+
+function renderIndustrySummary(industry) {
+  const el = document.getElementById('ac-industry-summary');
+  if (!industry || industry === 'all' || analyticsView !== 'sites') { el.style.display = 'none'; return; }
+  const entries = getAnalyticsEntries(industry);
+  if (!entries.length) { el.style.display = 'none'; return; }
+  const agg = computeAggregate(entries, analyticsPeriod);
+  const periodLabel = PERIOD_LABELS[analyticsPeriod];
+  el.style.display = '';
+  el.innerHTML = `
+    <div class="ov-ind-bar">
+      <div class="ov-ind-bar-title">
+        <strong>${esc(industry)}</strong>
+        <span class="acd-period-tag">${entries.length} sites · ${periodLabel}</span>
+      </div>
+      <div class="ov-ind-stats">
+        ${agg.gscSites  ? `<span class="ov-ind-stat"><span class="ov-ind-stat-val">${fmtNum(agg.gscClicks)}</span>Clicks</span><span class="ov-ind-stat"><span class="ov-ind-stat-val">${fmtNum(agg.gscImpressions)}</span>Impressions</span>` : ''}
+        ${agg.ga4Sites  ? `<span class="ov-ind-stat"><span class="ov-ind-stat-val">${fmtNum(agg.ga4Sessions)}</span>Sessions</span><span class="ov-ind-stat"><span class="ov-ind-stat-val">${fmtNum(agg.ga4Users)}</span>Users</span>` : ''}
+        ${agg.dudaSites ? `<span class="ov-ind-stat"><span class="ov-ind-stat-val">${fmtNum(agg.dudaVisitors)}</span>Visitors</span><span class="ov-ind-stat"><span class="ov-ind-stat-val">${fmtNum(agg.dudaFormSubmits)}</span>Form Submits</span>` : ''}
+      </div>
+    </div>
+  `;
+}
 
 function applyAnalyticsFilters() {
   const search = (document.getElementById('analytics-search')?.value || '').toLowerCase().trim();
@@ -2249,6 +2483,8 @@ function filterAnalyticsIndustry(val) {
   document.querySelectorAll('.ac-ind-btn').forEach(b =>
     b.classList.toggle('fp-chip-active', b.dataset.industry === val));
   applyAnalyticsFilters();
+  renderIndustrySummary(val);
+  if (analyticsView === 'overview') renderAnalyticsOverview(null);
 }
 
 function filterAnalyticsSearch(val) {
@@ -2362,6 +2598,8 @@ function setAnalyticsPeriod(p) {
   for (const [id, data] of Object.entries(analyticsData)) {
     renderAnalyticsCard(id, data);
   }
+  if (analyticsView === 'overview') renderAnalyticsOverview(null);
+  renderIndustrySummary(analyticsIndustry);
 }
 
 function toggleTimeframeDropdown(e) {

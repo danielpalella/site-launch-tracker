@@ -1750,6 +1750,77 @@ tr.status-separator:first-child td { border-top: none; }
 .ac-card { cursor: pointer; }
 .ac-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,.09); }
 
+/* ── Analytics view toggle ── */
+.ac-view-toggle {
+  display: flex;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 3px;
+  gap: 2px;
+}
+.ac-view-btn {
+  background: none;
+  border: none;
+  padding: .28rem .85rem;
+  border-radius: 6px;
+  font-size: .8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-family: inherit;
+  transition: background .15s, color .15s;
+}
+.ac-view-btn:hover { color: var(--text); }
+.ac-view-active { background: var(--primary); color: #fff !important; }
+
+/* ── Overview panel ── */
+.ov-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: .85rem; }
+.ov-title { font-size: 1rem; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: .5rem; }
+.ov-chart-wrap {
+  height: 260px;
+  margin-bottom: 1.25rem;
+  padding: 1rem 1.25rem .75rem;
+}
+.ov-chart-wrap canvas { width: 100% !important; height: 100% !important; }
+.ov-performers {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+  margin-bottom: 1rem;
+}
+@media (max-width: 640px) { .ov-performers { grid-template-columns: 1fr; } }
+.ov-performers-col { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem 1.1rem; }
+.ov-perf-row {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  padding: .45rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.ov-perf-row:last-child { border-bottom: none; }
+.ov-perf-rank { font-size: .7rem; font-weight: 700; color: var(--text-muted); width: 16px; flex-shrink: 0; text-align: center; }
+.ov-perf-name { flex: 1; min-width: 0; overflow: hidden; }
+.ov-perf-name > div { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ov-perf-stat { font-size: .8rem; font-weight: 600; color: var(--text); white-space: nowrap; min-width: 52px; text-align: right; }
+
+/* ── Industry summary bar ── */
+.ov-ind-bar {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: .75rem 1.1rem;
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+}
+.ov-ind-bar-title { font-size: .82rem; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: .5rem; white-space: nowrap; }
+.ov-ind-stats { display: flex; gap: 1.25rem; flex-wrap: wrap; }
+.ov-ind-stat { display: flex; flex-direction: column; align-items: center; gap: .05rem; }
+.ov-ind-stat-val { font-size: .95rem; font-weight: 700; color: var(--text); }
+.ov-ind-stat { font-size: .68rem; color: var(--text-muted); }
+
 /* Top queries */
 .ac-queries { display: flex; flex-direction: column; gap: .28rem; }
 .ac-query-row {
