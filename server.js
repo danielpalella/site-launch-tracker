@@ -1,5 +1,4 @@
 import express from 'express';
-import googleTrends from 'google-trends-api';
 import multer from 'multer';
 import { google } from 'googleapis';
 import { getStorage } from 'firebase-admin/storage';
@@ -1372,80 +1371,6 @@ app.get('/api/analytics/:id', requireAuth, async (req, res) => {
   }
 });
 
-// ── Google Trends ──
-const INDUSTRY_KEYWORDS = {
-  'Roofing':           'roofing contractor',
-  'Plumbing':          'plumber',
-  'Electrical':        'electrician',
-  'HVAC':              'HVAC repair',
-  'Landscaping':       'landscaping services',
-  'Contracting':       'general contractor',
-  'Restoration':       'water damage restoration',
-  'Solar':             'solar panel installation',
-  'Flooring':          'flooring installation',
-  'Gutters':           'gutter installation',
-  'Windows/Glass':     'window replacement',
-  'Cleaning Services': 'cleaning services',
-  'Other':             'home services',
-};
-
-app.get('/api/trends/:industry', requireAuth, async (req, res) => {
-  const industry = req.params.industry;
-  const keyword  = INDUSTRY_KEYWORDS[industry];
-  if (!keyword) return res.status(400).json({ error: 'Unknown industry' });
-
-  const cacheRef = db.collection('trends_cache').doc(industry.replace(/\//g, '_'));
-
-  // Check Firestore cache — serve if < 24h old
-  let cachedDoc = null;
-  try {
-    cachedDoc = await cacheRef.get();
-    if (cachedDoc.exists) {
-      const { fetchedAt, data } = cachedDoc.data();
-      if ((Date.now() - fetchedAt) / 36e5 < 24) return res.json(data);
-    }
-  } catch {}
-
-  // Fetch each call independently so a partial failure doesn't kill both
-  let relatedRaw = null, interestRaw = null;
-  try {
-    relatedRaw = await googleTrends.relatedQueries({ keyword, geo: 'US' });
-  } catch (e) {
-    console.error('Trends relatedQueries error:', e.message);
-  }
-  // Small delay to avoid simultaneous requests triggering rate limits
-  await new Promise(r => setTimeout(r, 500));
-  try {
-    interestRaw = await googleTrends.interestOverTime({ keyword, geo: 'US' });
-  } catch (e) {
-    console.error('Trends interestOverTime error:', e.message);
-  }
-
-  // If both failed, return stale cache if available, otherwise 502
-  if (!relatedRaw && !interestRaw) {
-    if (cachedDoc?.exists) {
-      console.warn('Trends fetch failed — serving stale cache for', industry);
-      return res.json({ ...cachedDoc.data().data, stale: true });
-    }
-    return res.status(502).json({ error: 'Failed to fetch trends data' });
-  }
-
-  try {
-    const queryList = relatedRaw ? (JSON.parse(relatedRaw)?.default?.rankedList || []) : [];
-    const top    = (queryList[0]?.rankedKeyword || []).slice(0, 8).map(k => ({ query: k.query, value: k.value }));
-    const rising = (queryList[1]?.rankedKeyword || []).slice(0, 8).map(k => ({ query: k.query, value: k.formattedValue || k.value }));
-    const timeline = interestRaw
-      ? (JSON.parse(interestRaw)?.default?.timelineData || []).map(pt => ({ date: pt.formattedTime, value: pt.value?.[0] || 0 }))
-      : [];
-    const data = { keyword, top, rising, timeline };
-    await cacheRef.set({ fetchedAt: Date.now(), data });
-    res.json(data);
-  } catch (err) {
-    console.error('Trends parse error:', err.message);
-    if (cachedDoc?.exists) return res.json({ ...cachedDoc.data().data, stale: true });
-    res.status(502).json({ error: 'Failed to parse trends data' });
-  }
-});
 
 // ── Pages ──
 app.get('/edit-request', (_req, res) => res.sendFile(join(__dirname, 'public', 'edit-request.html')));
