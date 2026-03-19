@@ -1372,10 +1372,8 @@ app.get('/api/analytics/:id', requireAuth, async (req, res) => {
 });
 
 
-// ── AI SEO Suggestions (Gemini) ──
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+// ── AI SEO Suggestions (Vertex AI Gemini) ──
 app.post('/api/seo-suggestions', requireAuth, async (req, res) => {
-  if (!GEMINI_API_KEY) return res.status(503).json({ error: 'GEMINI_API_KEY not configured' });
   try {
     const { account_name, domain, daysSince, health } = req.body;
     const trendStr = health.trendPct !== null
@@ -1391,24 +1389,27 @@ app.post('/api/seo-suggestions', requireAuth, async (req, res) => {
 
 Provide exactly 4 specific, actionable SEO recommendations to improve this site's performance. Keep each recommendation to 2-3 sentences. Focus on the highest-impact improvements first. Respond ONLY with a valid JSON array of 4 strings, nothing else.`;
 
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
-    const body = JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] });
-    let r;
-    for (let attempt = 0; attempt < 4; attempt++) {
-      if (attempt > 0) await new Promise(resolve => setTimeout(resolve, attempt * 5000));
-      r = await fetch(geminiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
-      console.log(`Gemini attempt ${attempt + 1}: status ${r.status}`);
-      if (r.status !== 429) break;
-    }
+    // Get access token from Cloud Run metadata server
+    const tokenRes = await fetch('http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token', {
+      headers: { 'Metadata-Flavor': 'Google' }
+    });
+    const { access_token } = await tokenRes.json();
+
+    const project = process.env.GOOGLE_CLOUD_PROJECT || 'site-launch-tracker';
+    const vertexUrl = `https://us-central1-aiplatform.googleapis.com/v1/projects/${project}/locations/us-central1/publishers/google/models/gemini-1.5-flash:generateContent`;
+    const r = await fetch(vertexUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${access_token}` },
+      body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: prompt }] }] })
+    });
     if (!r.ok) {
       const errBody = await r.json().catch(() => ({}));
-      console.error('Gemini error body:', JSON.stringify(errBody));
-      const status = r.status;
-      throw new Error(status === 429 ? 'Rate limit reached — please wait a moment and try again.' : `Gemini API error: ${status} — ${errBody?.error?.message || ''}`);
+      console.error('Vertex AI error:', JSON.stringify(errBody));
+      throw new Error(`Vertex AI error: ${r.status} — ${errBody?.error?.message || ''}`);
     }
     const data = await r.json();
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-    if (!text) throw new Error('Empty response from Gemini');
+    if (!text) throw new Error('Empty response from Vertex AI');
     const jsonMatch = text.match(/\[[\s\S]*\]/);
     const suggestions = JSON.parse(jsonMatch ? jsonMatch[0] : text);
     res.json({ suggestions });
