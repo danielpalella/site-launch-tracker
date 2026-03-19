@@ -1982,6 +1982,35 @@ tr.status-separator:first-child td { border-top: none; }
 .gsh-group-chevron.rot { transform: rotate(-90deg); }
 .gsh-group-body.collapsed { display: none; }
 .gsh-issue-tag { font-size: .65rem; font-weight: 600; border-radius: 4px; padding: .1rem .4rem; }
+
+/* ── Industry Benchmarks table ── */
+.ind-bench-grid { display: grid; grid-template-columns: 1.5fr .5fr .6fr .8fr .8fr; gap: .3rem .5rem; }
+.ind-bench-header { font-size: .65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); padding: .2rem 0; border-bottom: 1px solid var(--border); }
+.ind-bench-row { display: contents; }
+.ind-bench-name { font-size: .78rem; font-weight: 600; padding: .35rem 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ind-bench-val { font-size: .78rem; color: var(--text); padding: .35rem 0; }
+.ind-bench-row:last-child .ind-bench-name,
+.ind-bench-row:last-child .ind-bench-val { border-bottom: none; }
+
+/* ── Keyword list in modal ── */
+.kw-list { display: flex; flex-direction: column; gap: .25rem; }
+.kw-row { display: flex; align-items: center; gap: .5rem; padding: .25rem 0; border-bottom: 1px solid var(--border); }
+.kw-row:last-child { border-bottom: none; }
+.kw-query { flex: 1; font-size: .78rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kw-clicks { font-size: .7rem; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
+.kw-pos { font-size: .72rem; font-weight: 700; padding: .1rem .4rem; border-radius: 5px; white-space: nowrap; flex-shrink: 0; }
+
+/* ── Core Web Vitals ── */
+.cwv-cards { display: flex; gap: .75rem; flex-wrap: wrap; }
+.cwv-device-card { flex: 1; min-width: 180px; background: var(--bg); border-radius: 8px; padding: .65rem .75rem; }
+.cwv-device-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: .5rem; }
+.cwv-device-label { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); }
+.cwv-score-badge { font-size: .78rem; font-weight: 700; padding: .1rem .45rem; border-radius: 6px; }
+.cwv-metrics-row { display: flex; gap: .5rem; flex-wrap: wrap; }
+.cwv-metric { display: flex; flex-direction: column; gap: .1rem; min-width: 48px; }
+.cwv-metric-label { font-size: .62rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); }
+.cwv-metric-val { font-size: .78rem; font-weight: 600; color: var(--text); }
+
 @media (max-width: 800px) {
   .gsh-col-headers, .gsh-row { grid-template-columns: 1fr 44px 70px 60px; }
   .gsh-col-headers > :nth-child(n+5), .gsh-row > :nth-child(n+5) { display: none; }

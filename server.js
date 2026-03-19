@@ -1362,12 +1362,47 @@ app.get('/api/analytics/:id', requireAuth, async (req, res) => {
       ? await fetchGA4(ga4PropertyId, startDate, token).catch(() => ({ available: false }))
       : { available: false, reason: 'GA4 property not found for this domain' };
 
-    res.json({ id: launch.id, account_name: launch.account_name, domain, launchDate: rawLaunchDate, analyticsStartDate, daysSince, gsc, ga4, duda });
+    res.json({ id: launch.id, account_name: launch.account_name, domain, industry: launch.industry || '', launchDate: rawLaunchDate, analyticsStartDate, daysSince, gsc, ga4, duda });
   } catch (err) {
     console.error('Analytics error:', err.message);
     if (err.code === 'not_connected')
       return res.status(503).json({ error: 'not_connected' });
     res.status(500).json({ error: err.message || 'Failed to fetch analytics' });
+  }
+});
+
+// ── Core Web Vitals (PageSpeed Insights) ──
+const PAGESPEED_API_KEY = process.env.PAGESPEED_API_KEY;
+app.get('/api/analytics/:id/cwv', requireAuth, async (req, res) => {
+  try {
+    const doc = await db.collection('launches').doc(req.params.id).get();
+    if (!doc.exists) return res.status(404).json({ error: 'Not found' });
+    const launch = formatLaunch(doc);
+    const domain = launch.domain_name.replace(/^https?:\/\//, '').replace(/\/$/, '');
+    const url = `https://${domain}`;
+    const keyParam = PAGESPEED_API_KEY ? `&key=${PAGESPEED_API_KEY}` : '';
+    const [mobileRes, desktopRes] = await Promise.all([
+      fetch(`https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(url)}&strategy=mobile${keyParam}`),
+      fetch(`https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(url)}&strategy=desktop${keyParam}`)
+    ]);
+    const parseCwv = async (r) => {
+      if (!r.ok) return null;
+      const d = await r.json();
+      const cats = d.lighthouseResult?.categories;
+      const audits = d.lighthouseResult?.audits;
+      return {
+        performance: Math.round((cats?.performance?.score || 0) * 100),
+        lcp: audits?.['largest-contentful-paint']?.displayValue || null,
+        cls: audits?.['cumulative-layout-shift']?.displayValue || null,
+        fid: audits?.['max-potential-fid']?.displayValue || audits?.['interaction-to-next-paint']?.displayValue || null,
+        fcp: audits?.['first-contentful-paint']?.displayValue || null,
+      };
+    };
+    const [mobile, desktop] = await Promise.all([parseCwv(mobileRes), parseCwv(desktopRes)]);
+    res.json({ url, mobile, desktop });
+  } catch (err) {
+    console.error('CWV error:', err.message);
+    res.status(500).json({ error: err.message });
   }
 });
 
