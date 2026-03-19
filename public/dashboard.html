@@ -2327,7 +2327,8 @@ function switchAnalyticsView(view) {
   document.getElementById('ac-industry-summary').style.display  = view === 'sites' && analyticsIndustry !== 'all' ? '' : 'none';
   document.getElementById('ac-overview').style.display          = view === 'overview' ? '' : 'none';
   document.getElementById('analytics-search').style.display     = view === 'sites' ? '' : 'none';
-  if (view === 'overview') renderAnalyticsOverview(null);
+  if (view === 'overview') { renderAnalyticsOverview(null); if (analyticsIndustry !== 'all') loadTrendsCard(analyticsIndustry); }
+  if (view === 'sites') { document.getElementById('ac-trends-card').style.display = analyticsIndustry !== 'all' ? '' : 'none'; }
 }
 
 // ── Aggregate helpers ──
@@ -2561,40 +2562,84 @@ function filterAnalyticsIndustry(val) {
   loadTrendsCard(val);
 }
 
+function trendsLoadingHtml(industry) {
+  return `<div class="trends-card"><div class="trends-loading"><div class="ac-ov-spinner"></div><span>Loading Google Trends for <strong>${esc(industry)}</strong>…</span></div></div>`;
+}
+
+function trendsContentHtml(keyword, top, rising) {
+  const queryRow = (q, isRising) => `
+    <div class="trends-row">
+      <span class="trends-query">${esc(q.query)}</span>
+      <span class="trends-val ${isRising ? 'trends-rising' : ''}">${isRising ? '▲ ' : ''}${esc(String(q.value))}</span>
+    </div>`;
+  return `
+    <div class="trends-card">
+      <div class="trends-header">
+        <img src="/google-trends.ico" width="16" height="16" style="object-fit:contain;flex-shrink:0" alt="Google Trends" />
+        Google Trends — <span style="color:var(--text-muted)">${esc(keyword)}</span>
+        <span class="trends-source">US · Past 12 months · Cached 24h</span>
+      </div>
+      <div class="trends-cols">
+        <div class="trends-col">
+          <div class="trends-col-title">Top Searches</div>
+          ${top.length ? top.map(q => queryRow(q, false)).join('') : '<div class="trends-empty">No data</div>'}
+        </div>
+        <div class="trends-col">
+          <div class="trends-col-title">Rising Searches</div>
+          ${rising.length ? rising.map(q => queryRow(q, true)).join('') : '<div class="trends-empty">No data</div>'}
+        </div>
+      </div>
+    </div>`;
+}
+
 async function loadTrendsCard(industry) {
-  const card = document.getElementById('ac-trends-card');
-  if (industry === 'all') { card.style.display = 'none'; return; }
-  card.style.display = '';
-  card.innerHTML = `<div class="trends-card"><div class="trends-loading"><div class="ac-ov-spinner"></div><span>Loading Google Trends for <strong>${esc(industry)}</strong>…</span></div></div>`;
+  // In overview mode, inject into #ac-trends-inline (inside the scrollable overview)
+  // In sites mode, use the standalone #ac-trends-card above the grid
+  const isOverview = analyticsView === 'overview';
+  const standaloneCard = document.getElementById('ac-trends-card');
+
+  if (industry === 'all') {
+    standaloneCard.style.display = 'none';
+    const inline = document.getElementById('ac-trends-inline');
+    if (inline) inline.style.display = 'none';
+    return;
+  }
+
+  if (isOverview) {
+    standaloneCard.style.display = 'none';
+    let inline = document.getElementById('ac-trends-inline');
+    if (!inline) {
+      inline = document.createElement('div');
+      inline.id = 'ac-trends-inline';
+      inline.style.marginTop = '.75rem';
+      document.getElementById('ac-overview').appendChild(inline);
+    }
+    inline.style.display = '';
+    inline.innerHTML = trendsLoadingHtml(industry);
+  } else {
+    standaloneCard.style.display = '';
+    standaloneCard.innerHTML = trendsLoadingHtml(industry);
+  }
+
   try {
     const res = await fetch(`/api/trends/${encodeURIComponent(industry)}`);
     if (!res.ok) throw new Error();
     const { keyword, top, rising } = await res.json();
-    const queryRow = (q, val, isRising) => `
-      <div class="trends-row">
-        <span class="trends-query">${esc(q.query)}</span>
-        <span class="trends-val ${isRising ? 'trends-rising' : ''}">${isRising ? '▲ ' : ''}${esc(String(q.value))}</span>
-      </div>`;
-    card.innerHTML = `
-      <div class="trends-card">
-        <div class="trends-header">
-          <img src="/google-trends.ico" width="16" height="16" style="object-fit:contain;flex-shrink:0" alt="Google Trends" />
-          Google Trends — <span style="color:var(--text-muted)">${esc(keyword)}</span>
-          <span class="trends-source">US · Past 12 months · Cached 24h</span>
-        </div>
-        <div class="trends-cols">
-          <div class="trends-col">
-            <div class="trends-col-title">Top Searches</div>
-            ${top.length ? top.map(q => queryRow(q, q.value, false)).join('') : '<div class="trends-empty">No data</div>'}
-          </div>
-          <div class="trends-col">
-            <div class="trends-col-title">Rising Searches</div>
-            ${rising.length ? rising.map(q => queryRow(q, q.value, true)).join('') : '<div class="trends-empty">No data</div>'}
-          </div>
-        </div>
-      </div>`;
+    const html = trendsContentHtml(keyword, top, rising);
+    if (isOverview) {
+      const inline = document.getElementById('ac-trends-inline');
+      if (inline) inline.innerHTML = html;
+    } else {
+      standaloneCard.innerHTML = html;
+    }
   } catch {
-    card.innerHTML = `<div class="trends-card"><div class="trends-empty">Could not load trends data.</div></div>`;
+    const err = `<div class="trends-card"><div class="trends-empty">Could not load trends data.</div></div>`;
+    if (isOverview) {
+      const inline = document.getElementById('ac-trends-inline');
+      if (inline) inline.innerHTML = err;
+    } else {
+      standaloneCard.innerHTML = err;
+    }
   }
 }
 
