@@ -1551,17 +1551,7 @@ tr.status-separator:first-child td { border-top: none; }
   min-height: 0;
 }
 .analytics-card-outer {
-  flex: 1;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
   padding: 1.25rem 1.5rem;
-}
-.analytics-scroll {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-  min-height: 0;
 }
 .analytics-grid {
   display: grid;
@@ -1780,12 +1770,17 @@ tr.status-separator:first-child td { border-top: none; }
 
 /* ── Analytics toolbar ── */
 .ac-sticky-header {
-  position: sticky;
-  top: 58px;
-  z-index: 10;
+  flex-shrink: 0;
   background: var(--bg);
   padding-top: .85rem;
   margin-bottom: .85rem;
+}
+.ac-scroll-area {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
+  padding-bottom: 1rem;
 }
 .ac-toolbar {
   display: flex;
