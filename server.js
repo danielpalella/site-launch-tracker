@@ -1372,12 +1372,12 @@ app.get('/api/analytics/:id', requireAuth, async (req, res) => {
 });
 
 
-// ── AI SEO Suggestions ──
+// ── AI SEO Suggestions (Gemini) ──
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 app.post('/api/seo-suggestions', requireAuth, async (req, res) => {
+  if (!GEMINI_API_KEY) return res.status(503).json({ error: 'GEMINI_API_KEY not configured' });
   try {
-    const { account_name, domain, daysSince, health, gsc } = req.body;
-    const { default: Anthropic } = await import('@anthropic-ai/sdk');
-    const client = new Anthropic();
+    const { account_name, domain, daysSince, health } = req.body;
     const trendStr = health.trendPct !== null
       ? (health.trendPct >= 0 ? `up ${health.trendPct}%` : `down ${Math.abs(health.trendPct)}%`)
       : 'unknown (insufficient data)';
@@ -1391,12 +1391,20 @@ app.post('/api/seo-suggestions', requireAuth, async (req, res) => {
 
 Provide exactly 4 specific, actionable SEO recommendations to improve this site's performance. Keep each recommendation to 2-3 sentences. Focus on the highest-impact improvements first. Respond ONLY with a valid JSON array of 4 strings, nothing else.`;
 
-    const message = await client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 1024,
-      messages: [{ role: 'user', content: prompt }]
-    });
-    const suggestions = JSON.parse(message.content[0].text.trim());
+    const r = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+      }
+    );
+    if (!r.ok) throw new Error(`Gemini API error: ${r.status}`);
+    const data = await r.json();
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+    if (!text) throw new Error('Empty response from Gemini');
+    const jsonMatch = text.match(/\[[\s\S]*\]/);
+    const suggestions = JSON.parse(jsonMatch ? jsonMatch[0] : text);
     res.json({ suggestions });
   } catch (err) {
     console.error('SEO suggestions error:', err.message);
