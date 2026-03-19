@@ -1695,17 +1695,12 @@ tr.status-separator:first-child td { border-top: none; }
 .acd-sources-row {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 0;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  overflow: hidden;
+  gap: .75rem;
   margin-bottom: 1.25rem;
 }
 .acd-source-col {
   padding: 1rem 1.1rem;
-  border-right: 1px solid var(--border);
 }
-.acd-source-col:last-child { border-right: none; }
 .acd-source-unavailable {
   display: flex;
   align-items: center;

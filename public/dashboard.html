@@ -2442,7 +2442,7 @@ function renderAnalyticsOverview(industryFilter) {
     </div>
 
     <div class="acd-sources-row" style="margin-bottom:1rem">
-      <div class="acd-source-col">
+      <div class="acd-source-col card">
         <div class="acd-section-title"><img src="/gsc-icon.png" style="width:13px;height:13px;vertical-align:middle;margin-right:.35rem">Search Console</div>
         <div class="acd-metrics-grid">
           ${ovMetric(fmtNum(agg.gscClicks),      'Total Clicks',       'Total clicks from Google Search across all sites.')}
@@ -2451,7 +2451,7 @@ function renderAnalyticsOverview(industryFilter) {
           ${ovMetric(agg.gscSites,                'Sites Tracked',      'Number of sites with Search Console data.')}
         </div>
       </div>
-      <div class="acd-source-col">
+      <div class="acd-source-col card">
         <div class="acd-section-title"><img src="/ga4-icon.png" style="width:13px;height:13px;vertical-align:middle;margin-right:.35rem">Google Analytics</div>
         <div class="acd-metrics-grid">
           ${ovMetric(fmtNum(agg.ga4Sessions),  'Total Sessions',  'Total site visits across all sites.')}
@@ -2460,7 +2460,7 @@ function renderAnalyticsOverview(industryFilter) {
           ${ovMetric(agg.ga4EngAvg + '%',      'Avg Engagement',  'Average engagement rate across all sites.')}
         </div>
       </div>
-      <div class="acd-source-col">
+      <div class="acd-source-col card">
         <div class="acd-section-title"><img src="/duda-icon.png" style="width:13px;height:13px;border-radius:3px;vertical-align:middle;margin-right:.35rem">Duda Analytics</div>
         <div class="acd-metrics-grid">
           ${ovMetric(fmtNum(agg.dudaVisitors),    'Total Visitors',    'Total unique visitors tracked by Duda.')}
