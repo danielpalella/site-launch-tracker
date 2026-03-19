@@ -2391,6 +2391,51 @@ function computeAggregate(entries, period) {
   return acc;
 }
 
+// ── GSC Health Score ──
+function computeGscHealth(d) {
+  const { gsc, daysSince } = d;
+  if (!gsc?.available) return { score: null, level: 'no-data', label: 'No GSC', color: '#94a3b8', issues: [], impPerDay: 0, ctr: 0, position: null, trendPct: null };
+
+  const total      = gsc.total || {};
+  const impressions = total.impressions || 0;
+  const ctr        = total.ctr        || 0;
+  const position   = total.position   || null;
+  const weeks      = gsc.weeks        || [];
+  const days       = Math.max(daysSince || 1, 1);
+  const impPerDay  = impressions / days;
+
+  // Trend: last 4 weeks vs prior 4 weeks impressions
+  const last4  = weeks.slice(-4).reduce((s, w) => s + (w.impressions || 0), 0);
+  const prior4 = weeks.slice(-8, -4).reduce((s, w) => s + (w.impressions || 0), 0);
+  const trendPct = prior4 > 0 ? Math.round((last4 - prior4) / prior4 * 100) : null;
+
+  // Impressions/day score (0–30)
+  const impScore = impPerDay > 200 ? 30 : impPerDay > 80 ? 25 : impPerDay > 30 ? 20 : impPerDay > 10 ? 13 : impPerDay > 2 ? 7 : impPerDay > 0 ? 3 : 0;
+  // CTR score (0–25)
+  const ctrScore = ctr > 6 ? 25 : ctr > 4 ? 21 : ctr > 2 ? 16 : ctr > 1 ? 10 : ctr > 0.3 ? 5 : impressions > 50 ? 2 : 0;
+  // Avg position score (0–25)
+  const posScore = !position ? 0 : position <= 5 ? 25 : position <= 10 ? 21 : position <= 15 ? 16 : position <= 20 ? 12 : position <= 30 ? 7 : 3;
+  // Trend score (0–20) — neutral if < 8 weeks data
+  const trendScore = weeks.length < 8 ? 10 : trendPct === null ? 10 : trendPct > 25 ? 20 : trendPct > 10 ? 17 : trendPct > -5 ? 13 : trendPct > -20 ? 7 : 2;
+
+  const score = impScore + ctrScore + posScore + trendScore;
+
+  const issues = [];
+  if (days > 45 && impressions === 0)       issues.push('Not indexed');
+  else if (days > 60 && impPerDay < 2)      issues.push('Very low visibility');
+  else if (days > 45 && impPerDay < 5)      issues.push('Low visibility');
+  if (impressions > 100 && ctr < 1)         issues.push('Low CTR');
+  if (position && position > 30)            issues.push('Poor ranking');
+  else if (position && position > 20)       issues.push('Page 3+');
+  if (trendPct !== null && trendPct < -20)  issues.push('Declining');
+
+  const level  = score >= 68 ? 'healthy' : score >= 45 ? 'moderate' : score >= 22 ? 'review' : 'attention';
+  const label  = level === 'healthy' ? 'Healthy' : level === 'moderate' ? 'Moderate' : level === 'review' ? 'Needs Review' : 'Needs Attention';
+  const color  = level === 'healthy' ? '#22c55e' : level === 'moderate' ? '#f59e0b' : level === 'review' ? '#f97316' : '#ef4444';
+
+  return { score, level, label, color, issues, impPerDay: Math.round(impPerDay * 10) / 10, ctr, position, trendPct, impressions };
+}
+
 function topBottomPerformers(entries, period, metric) {
   const scored = entries.map(([id, d]) => {
     const { gsc, ga4, duda, account_name, domain, daysSince } = d;
@@ -2403,13 +2448,27 @@ function topBottomPerformers(entries, period, metric) {
     return { id, account_name, domain, daysSince, score, gscClicks: gscT.clicks || 0, ga4Sessions: ga4T.sessions || 0, dudaVisitors: dudaT.visitors || 0 };
   }).sort((a, b) => b.score - a.score);
 
-  // Needs Attention: skip sites < 30 days old or with no data at all
-  const attentionEligible = scored.filter(s =>
-    (s.daysSince == null || s.daysSince >= 30) &&
-    (s.ga4Sessions + s.gscClicks + s.dudaVisitors > 0)
-  );
+  // Needs Attention: 30+ days old, sort by worst GSC health score
+  const attentionEligible = entries
+    .filter(([, d]) => (d.daysSince == null || d.daysSince >= 30))
+    .map(([id, d]) => {
+      const h = computeGscHealth(d);
+      const gscT  = periodGscTotals(d.gsc, period);
+      const ga4T  = periodGa4Totals(d.ga4, period);
+      const dudaT = periodDudaTotals(d.duda, period);
+      return { id, account_name: d.account_name, domain: d.domain, health: h,
+               gscClicks: gscT.clicks || 0, ga4Sessions: ga4T.sessions || 0, dudaVisitors: dudaT.visitors || 0 };
+    })
+    .sort((a, b) => {
+      // no-data sites go last; otherwise sort by score ascending (worst first)
+      if (a.health.score === null && b.health.score === null) return 0;
+      if (a.health.score === null) return 1;
+      if (b.health.score === null) return -1;
+      return a.health.score - b.health.score;
+    })
+    .slice(0, 5);
 
-  return { top: scored.slice(0, 5), bottom: attentionEligible.slice(-5).reverse() };
+  return { top: scored.slice(0, 5), bottom: attentionEligible };
 }
 
 function renderAnalyticsOverview(industryFilter) {
@@ -2442,6 +2501,62 @@ function renderAnalyticsOverview(industryFilter) {
       <span class="ov-perf-stat">${fmtNum(site.gscClicks)}<span style="color:var(--text-muted);font-size:.65rem;margin-left:.2rem">clk</span></span>
       <span class="ov-perf-stat">${fmtNum(site.dudaVisitors)}<span style="color:var(--text-muted);font-size:.65rem;margin-left:.2rem">vis</span></span>
     </div>`;
+
+  const attentionRow = (site, rank) => {
+    const h = site.health;
+    const trendStr = h.trendPct !== null ? (h.trendPct >= 0 ? `▲${h.trendPct}%` : `▼${Math.abs(h.trendPct)}%`) : '—';
+    const trendColor = h.trendPct === null ? 'var(--text-muted)' : h.trendPct >= 0 ? '#22c55e' : '#ef4444';
+    return `
+    <div class="ov-perf-row ov-attention-row" onclick="openAnalyticsModal('${esc(site.id)}')" style="cursor:pointer">
+      <span class="ov-perf-rank">${rank}</span>
+      <div class="ov-perf-name">
+        <div style="font-weight:600;font-size:.8rem">${esc(site.account_name)}</div>
+        <div style="font-size:.7rem;color:var(--text-muted)">${esc(site.domain)}</div>
+      </div>
+      <div class="ov-health-badge" style="background:${h.color}20;color:${h.color}">
+        <span class="ov-health-dot" style="background:${h.color}"></span>${h.label}
+      </div>
+      <div class="ov-health-stats">
+        <span>${h.impPerDay}<span style="color:var(--text-muted);font-size:.65rem">/day</span></span>
+        <span style="color:var(--text-muted)">pos ${h.position ?? '—'}</span>
+        <span style="color:var(--text-muted)">${h.ctr}% CTR</span>
+        <span style="color:${trendColor};font-size:.72rem;font-weight:600">${trendStr}</span>
+      </div>
+      ${h.issues.length ? `<div class="ov-health-issues">${h.issues.map(i => `<span class="ov-issue-tag">${esc(i)}</span>`).join('')}</div>` : ''}
+    </div>`;
+  };
+
+  // Build GSC health table for all sites with GSC data
+  const healthEntries = entries
+    .map(([id, d]) => ({ id, account_name: d.account_name, domain: d.domain, health: computeGscHealth(d), daysSince: d.daysSince }))
+    .sort((a, b) => {
+      if (a.health.score === null && b.health.score === null) return 0;
+      if (a.health.score === null) return 1;
+      if (b.health.score === null) return -1;
+      return a.health.score - b.health.score;
+    });
+
+  const healthRow = (s) => {
+    const h = s.health;
+    const trendStr = h.trendPct !== null ? (h.trendPct >= 0 ? `▲ ${h.trendPct}%` : `▼ ${Math.abs(h.trendPct)}%`) : '—';
+    const trendColor = h.trendPct === null ? 'var(--text-muted)' : h.trendPct >= 0 ? '#22c55e' : '#ef4444';
+    return `
+    <div class="gsh-row" onclick="openAnalyticsModal('${esc(s.id)}')" style="cursor:pointer">
+      <div class="gsh-site">
+        <span class="gsh-dot" style="background:${h.color}"></span>
+        <div>
+          <div style="font-weight:600;font-size:.8rem">${esc(s.account_name)}</div>
+          <div style="font-size:.7rem;color:var(--text-muted)">${esc(s.domain)}</div>
+        </div>
+      </div>
+      <div class="gsh-score" style="color:${h.color}">${h.score ?? '—'}</div>
+      <div class="gsh-stat">${h.impPerDay}<span style="color:var(--text-muted);font-size:.65rem">/day</span></div>
+      <div class="gsh-stat">${h.position ? `pos ${Math.round(h.position)}` : '<span style="color:var(--text-muted)">—</span>'}</div>
+      <div class="gsh-stat">${h.ctr}<span style="color:var(--text-muted);font-size:.65rem">% CTR</span></div>
+      <div class="gsh-stat" style="color:${trendColor};font-weight:600;font-size:.75rem">${trendStr}</div>
+      <div class="gsh-issues">${h.issues.map(i => `<span class="ov-issue-tag">${esc(i)}</span>`).join('') || ''}</div>
+    </div>`;
+  };
 
   document.getElementById('ac-overview').innerHTML = `
     <div class="ov-header">
@@ -2486,9 +2601,28 @@ function renderAnalyticsOverview(industryFilter) {
         ${top.map((s, i) => perfRow(s, i + 1)).join('')}
       </div>
       <div class="ov-performers-col">
-        <div class="acd-section-title" style="margin-bottom:.6rem">Needs Attention <span class="acd-period-tag">30+ days old · lowest sessions</span></div>
-        ${bottom.length ? bottom.map((s, i) => perfRow(s, i + 1)).join('') : '<div style="font-size:.8rem;color:var(--text-muted);padding:.5rem 0">No established sites with low traffic.</div>'}
+        <div class="acd-section-title" style="margin-bottom:.6rem">Needs Attention <span class="acd-period-tag">30+ days old · by GSC health</span></div>
+        ${bottom.length ? bottom.map((s, i) => attentionRow(s, i + 1)).join('') : '<div style="font-size:.8rem;color:var(--text-muted);padding:.5rem 0">All established sites look healthy.</div>'}
       </div>
+    </div>
+
+    <!-- Google Search Health table -->
+    <div class="card gsh-card" style="margin-top:.85rem">
+      <div class="gsh-header">
+        <img src="/gsc-icon.png" width="14" height="14" style="object-fit:contain;flex-shrink:0">
+        <span style="font-weight:700;font-size:.88rem">Google Search Health</span>
+        <span style="color:var(--text-muted);font-size:.75rem;margin-left:.4rem">all sites · since launch</span>
+      </div>
+      <div class="gsh-col-headers">
+        <div class="gsh-site">Site</div>
+        <div class="gsh-score">Score</div>
+        <div class="gsh-stat">Impressions</div>
+        <div class="gsh-stat">Position</div>
+        <div class="gsh-stat">CTR</div>
+        <div class="gsh-stat">4-wk Trend</div>
+        <div class="gsh-issues">Issues</div>
+      </div>
+      ${healthEntries.map(healthRow).join('')}
     </div>
 
   `;

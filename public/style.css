@@ -1907,6 +1907,59 @@ tr.status-separator:first-child td { border-top: none; }
 .ov-perf-name > div { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ov-perf-stat { font-size: .8rem; font-weight: 600; color: var(--text); white-space: nowrap; min-width: 52px; text-align: right; }
 
+/* ── Needs Attention health row ── */
+.ov-attention-row { flex-wrap: wrap; align-items: flex-start; padding: .55rem 0; }
+.ov-attention-row:hover { background: var(--bg); border-radius: 6px; padding-left: .3rem; padding-right: .3rem; }
+.ov-health-badge {
+  display: inline-flex; align-items: center; gap: .3rem;
+  font-size: .72rem; font-weight: 700; border-radius: 99px;
+  padding: .18rem .55rem; white-space: nowrap; flex-shrink: 0;
+}
+.ov-health-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.ov-health-stats {
+  display: flex; gap: .6rem; align-items: center; flex-shrink: 0;
+  font-size: .78rem; font-weight: 600; color: var(--text); flex-wrap: wrap;
+}
+.ov-health-issues { width: 100%; padding-left: 22px; display: flex; gap: .3rem; flex-wrap: wrap; margin-top: .2rem; }
+.ov-issue-tag {
+  font-size: .68rem; font-weight: 600; background: #fee2e2; color: #b91c1c;
+  border-radius: 4px; padding: .1rem .4rem;
+}
+[data-theme="dark"] .ov-issue-tag { background: rgba(239,68,68,.2); color: #fca5a5; }
+
+/* ── Google Search Health table ── */
+.gsh-card { padding: 1rem 1.25rem; }
+.gsh-header { display: flex; align-items: center; gap: .45rem; margin-bottom: .85rem; }
+.gsh-col-headers {
+  display: grid;
+  grid-template-columns: 1fr 44px 90px 80px 70px 80px 1fr;
+  gap: .5rem;
+  padding: .25rem .5rem;
+  font-size: .68rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .05em; color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: .2rem;
+}
+.gsh-row {
+  display: grid;
+  grid-template-columns: 1fr 44px 90px 80px 70px 80px 1fr;
+  gap: .5rem;
+  align-items: center;
+  padding: .45rem .5rem;
+  border-radius: 7px;
+  transition: background .12s;
+}
+.gsh-row:hover { background: var(--bg); }
+.gsh-site { display: flex; align-items: center; gap: .55rem; min-width: 0; }
+.gsh-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.gsh-score { font-size: .88rem; font-weight: 800; text-align: center; }
+.gsh-stat { font-size: .8rem; font-weight: 600; color: var(--text); white-space: nowrap; }
+.gsh-issues { display: flex; gap: .3rem; flex-wrap: wrap; align-items: center; }
+@media (max-width: 800px) {
+  .gsh-col-headers, .gsh-row { grid-template-columns: 1fr 44px 70px 60px; }
+  .gsh-col-headers > :nth-child(n+5), .gsh-row > :nth-child(n+5) { display: none; }
+}
+
 /* ── Industry summary bar ── */
 .ov-ind-bar {
   background: var(--surface);
