@@ -1787,29 +1787,51 @@ tr.status-separator:first-child td { border-top: none; }
 .ac-card { cursor: pointer; }
 .ac-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,.09); }
 
+/* ── Analytics toolbar ── */
+.ac-toolbar {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  margin-bottom: .85rem;
+  flex-wrap: wrap;
+}
+.ac-search {
+  flex: 0 0 220px;
+  padding: .5rem .85rem;
+  font-size: .82rem;
+  border: 1.5px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--text);
+  outline: none;
+  font-family: inherit;
+}
+.ac-search:focus { border-color: var(--primary); }
+
 /* ── Analytics view toggle ── */
 .ac-view-toggle {
   display: flex;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 3px;
-  gap: 2px;
+  gap: 0;
 }
 .ac-view-btn {
-  background: none;
-  border: none;
-  padding: .28rem .85rem;
-  border-radius: 6px;
-  font-size: .8rem;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  padding: .5rem .9rem;
+  font-size: .82rem;
   font-weight: 600;
   color: var(--text-muted);
   cursor: pointer;
   font-family: inherit;
-  transition: background .15s, color .15s;
+  transition: background .15s, color .15s, border-color .15s;
+  white-space: nowrap;
 }
-.ac-view-btn:hover { color: var(--text); }
-.ac-view-active { background: var(--primary); color: #fff !important; }
+.ac-view-btn:first-child { border-radius: 7px 0 0 7px; }
+.ac-view-btn:last-child  { border-radius: 0 7px 7px 0; margin-left: -1.5px; }
+.ac-view-btn:hover { background: var(--bg); color: var(--text); }
+.ac-view-active { background: var(--primary) !important; color: #fff !important; border-color: var(--primary) !important; }
+
+/* Overview scrolls independently */
+#ac-overview { flex: 1; overflow-y: auto; min-height: 0; }
 
 /* ── Google Trends card ── */
 .trends-card {

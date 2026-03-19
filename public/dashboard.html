@@ -246,8 +246,8 @@
         <button class="btn btn-ghost" onclick="refreshAnalytics()">↻ Refresh</button>
       </div>
     </div>
-    <!-- View toggle + filter bar -->
-    <div style="display:flex;align-items:center;gap:.65rem;margin-bottom:.75rem;flex-wrap:wrap">
+    <!-- Analytics toolbar -->
+    <div class="ac-toolbar">
       <div class="ac-view-toggle">
         <button class="ac-view-btn ac-view-active" id="ac-view-sites" onclick="switchAnalyticsView('sites')">All Sites</button>
         <button class="ac-view-btn" id="ac-view-overview" onclick="switchAnalyticsView('overview')">Overview</button>
@@ -265,25 +265,21 @@
           </div>
           <div class="fp-group">
             <div class="fp-group-label">Industry</div>
-            <div class="fp-chips" id="ac-industry-chips">
-              <!-- populated by buildAnalyticsIndustryBar() -->
-            </div>
+            <div class="fp-chips" id="ac-industry-chips"></div>
           </div>
         </div>
       </div>
-      <input type="search" id="analytics-search" placeholder="Search accounts…"
-        oninput="filterAnalyticsSearch(this.value)"
-        style="flex:0 0 220px;padding:.3rem .7rem;font-size:.825rem;border:1.5px solid var(--border);border-radius:99px;background:var(--surface);color:var(--text);outline:none">
+      <input type="search" id="analytics-search" placeholder="Search accounts…" oninput="filterAnalyticsSearch(this.value)" class="ac-search">
     </div>
 
-    <!-- Overview panel -->
-    <div id="ac-overview" style="display:none"></div>
+    <!-- Google Trends card (shown when industry filter active) -->
+    <div id="ac-trends-card" style="display:none;margin-bottom:.75rem"></div>
 
     <!-- Industry summary bar (shown when industry filter active in sites view) -->
     <div id="ac-industry-summary" style="display:none;margin-bottom:.75rem"></div>
 
-    <!-- Google Trends card (shown when industry filter active) -->
-    <div id="ac-trends-card" style="display:none;margin-bottom:.75rem"></div>
+    <!-- Overview panel -->
+    <div id="ac-overview" style="display:none"></div>
 
     <!-- All-sites card grid -->
     <div id="ac-sites-panel">
