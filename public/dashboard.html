@@ -229,22 +229,7 @@
         <h1>Site Analytics</h1>
         <p class="subtitle" style="margin-bottom:0">GSC, GA4 &amp; Duda performance insights for all active sites.</p>
       </div>
-      <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap">
-        <div id="analytics-connection-status" style="display:flex;align-items:center;gap:.6rem;font-size:.825rem"></div>
-        <div class="ac-timeframe-wrap">
-          <span class="ac-timeframe-label">Timeframe</span>
-          <button class="ac-timeframe-btn" id="ac-timeframe-btn" onclick="toggleTimeframeDropdown(event)">
-            <span id="ac-timeframe-value">Last 30 days</span>
-            <svg id="ac-timeframe-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transition:transform .15s"><polyline points="18 15 12 9 6 15"/></svg>
-          </button>
-          <div class="ac-timeframe-dropdown" id="ac-timeframe-dropdown">
-            <label class="ac-timeframe-option"><input type="radio" name="ac-tf" value="wow" onchange="setAnalyticsPeriod('wow')"> Last 7 days</label>
-            <label class="ac-timeframe-option"><input type="radio" name="ac-tf" value="mom" checked onchange="setAnalyticsPeriod('mom')"> Last 30 days</label>
-            <label class="ac-timeframe-option"><input type="radio" name="ac-tf" value="all" onchange="setAnalyticsPeriod('all')"> Since Launch</label>
-          </div>
-        </div>
-        <button class="btn btn-ghost" onclick="refreshAnalytics()">↻ Refresh</button>
-      </div>
+      <div id="analytics-connection-status" style="display:flex;align-items:center;gap:.6rem;font-size:.825rem"></div>
     </div>
     <!-- Analytics toolbar -->
     <div class="ac-toolbar">
@@ -252,23 +237,21 @@
         <button class="ac-view-btn ac-view-active" id="ac-view-sites" onclick="switchAnalyticsView('sites')">All Sites</button>
         <button class="ac-view-btn" id="ac-view-overview" onclick="switchAnalyticsView('overview')">Overview</button>
       </div>
-      <div class="fp-wrap" id="ac-fp-wrap">
-        <button class="btn btn-ghost fp-btn" id="ac-fp-btn" onclick="toggleAnalyticsFilterPanel()">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
-          Filters
-          <span class="fp-badge" id="ac-fp-badge" style="display:none">1</span>
+      <select id="ac-industry-select" class="ac-industry-select" onchange="filterAnalyticsIndustry(this.value)">
+        <option value="all">All Industries</option>
+      </select>
+      <div class="ac-timeframe-wrap">
+        <button class="ac-timeframe-btn" id="ac-timeframe-btn" onclick="toggleTimeframeDropdown(event)">
+          <span id="ac-timeframe-value">Last 30 days</span>
+          <svg id="ac-timeframe-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transition:transform .15s"><polyline points="18 15 12 9 6 15"/></svg>
         </button>
-        <div class="fp-panel" id="ac-fp-panel" style="display:none">
-          <div class="fp-panel-header">
-            <span class="fp-panel-title">Filters</span>
-            <button class="fp-clear-all" onclick="clearAnalyticsFilters()">Clear all</button>
-          </div>
-          <div class="fp-group">
-            <div class="fp-group-label">Industry</div>
-            <div class="fp-chips" id="ac-industry-chips"></div>
-          </div>
+        <div class="ac-timeframe-dropdown" id="ac-timeframe-dropdown">
+          <label class="ac-timeframe-option"><input type="radio" name="ac-tf" value="wow" onchange="setAnalyticsPeriod('wow')"> Last 7 days</label>
+          <label class="ac-timeframe-option"><input type="radio" name="ac-tf" value="mom" checked onchange="setAnalyticsPeriod('mom')"> Last 30 days</label>
+          <label class="ac-timeframe-option"><input type="radio" name="ac-tf" value="all" onchange="setAnalyticsPeriod('all')"> Since Launch</label>
         </div>
       </div>
+      <button class="btn btn-ghost ac-refresh-btn" onclick="refreshAnalytics()">↻ Refresh</button>
       <input type="search" id="analytics-search" placeholder="Search accounts…" oninput="filterAnalyticsSearch(this.value)" class="ac-search">
     </div>
 
@@ -466,6 +449,7 @@
     <div class="modal-actions crm-actions">
       <button class="btn btn-danger" id="modal-delete">Delete</button>
       <button class="btn btn-ghost" id="modal-archive">Archive</button>
+      <button class="btn btn-ghost" id="modal-freeze" style="display:none">Freeze</button>
       <div style="display:flex;gap:.75rem;margin-left:auto">
         <button class="btn btn-ghost" id="modal-cancel">Cancel</button>
         <button class="btn btn-primary" id="modal-save">Save Changes</button>
@@ -1219,9 +1203,9 @@ function renderTable(data) {
       <td>
         <div class="status-wrap">
           ${['in_progress','awaiting_approval','awaiting_dns'].includes(r.status)
-            ? `<span class="sf-dot sf-freezable" title="Click to freeze" data-id="${r.id}" data-status="${r.status}" style="background:${STATUS_COLORS[r.status]}" onclick="event.stopPropagation();toggleFreezeStatus('${r.id}','${r.status}')"></span>`
+            ? `<span class="sf-dot sf-freezable" style="background:${STATUS_COLORS[r.status]}"></span>`
             : r.status.endsWith('_frozen')
-              ? `<span class="sf-dot sf-frozen" title="Click to unfreeze" data-id="${r.id}" data-status="${r.status}" onclick="event.stopPropagation();toggleFreezeStatus('${r.id}','${r.status}')">🧊</span>`
+              ? `<span class="sf-dot sf-frozen">🧊</span>`
               : ''}
           <select class="status-select ${r.status}" data-id="${r.id}" onchange="quickStatus(this)">
             ${Object.entries(STATUS_LABELS).filter(([v]) => !(v in FROZEN_PARENT) || v === r.status).map(([v,l]) =>
@@ -1319,6 +1303,16 @@ function openEdit(id) {
   launchDateWrap.style.display = r.status === 'launched' ? '' : 'none';
   launchDateInput.value = r.status_changed_at ? r.status_changed_at.slice(0, 10) : '';
   document.getElementById('modal-archive').textContent = r.archived ? 'Unarchive' : 'Archive';
+  // Freeze button — show only for freezable or currently frozen statuses
+  const freezeBtn = document.getElementById('modal-freeze');
+  const isFrozen = r.status in FROZEN_PARENT;
+  const isFreezable = r.status in FREEZE_MAP;
+  if (isFrozen || isFreezable) {
+    freezeBtn.style.display = '';
+    freezeBtn.textContent = isFrozen ? '🧊 Unfreeze' : 'Freeze';
+  } else {
+    freezeBtn.style.display = 'none';
+  }
   document.getElementById('modal').classList.add('open');
   loadTimeline(id);
   lookupDomain(r.domain_name);
@@ -1358,6 +1352,13 @@ document.getElementById('modal-archive').addEventListener('click', async () => {
     btn.disabled = false;
     btn.textContent = archiving ? 'Unarchive' : 'Archive';
   }
+});
+
+document.getElementById('modal-freeze').addEventListener('click', async () => {
+  const r = allLaunches.find(x => x.id === editingId);
+  if (!r) return;
+  document.getElementById('modal').classList.remove('open');
+  await toggleFreezeStatus(r.id, r.status);
 });
 
 document.getElementById('modal-save').addEventListener('click', async () => {
@@ -2768,11 +2769,8 @@ function applyAnalyticsFilters() {
 
 function filterAnalyticsIndustry(val) {
   analyticsIndustry = val;
-  document.querySelectorAll('.ac-ind-btn').forEach(b =>
-    b.classList.toggle('fp-chip-active', b.dataset.industry === val));
-  const badge = document.getElementById('ac-fp-badge');
-  if (badge) { badge.textContent = '1'; badge.style.display = val !== 'all' ? '' : 'none'; }
-  document.getElementById('ac-fp-btn').classList.toggle('fp-btn-active', val !== 'all');
+  const sel = document.getElementById('ac-industry-select');
+  if (sel && sel.value !== val) sel.value = val;
   applyAnalyticsFilters();
   renderIndustrySummary(val);
   if (analyticsView === 'overview') renderAnalyticsOverview(null);
@@ -2865,7 +2863,7 @@ function filterAnalyticsSearch(val) {
 }
 
 function buildAnalyticsIndustryBar(launches) {
-  const chips = document.getElementById('ac-industry-chips');
+  const sel = document.getElementById('ac-industry-select');
   const counts = {};
   for (const l of launches) if (l.industry) counts[l.industry] = (counts[l.industry] || 0) + 1;
   const industries = Object.keys(counts).sort((a, b) => {
@@ -2873,32 +2871,10 @@ function buildAnalyticsIndustryBar(launches) {
     if (b === 'Other') return -1;
     return counts[b] - counts[a];
   });
-  chips.innerHTML = ['all', ...industries].map(ind => `
-    <button class="fp-chip ac-ind-btn${ind === 'all' ? ' fp-chip-active' : ''}"
-      data-industry="${esc(ind)}"
-      onclick="filterAnalyticsIndustry('${esc(ind)}')">
-      ${ind === 'all' ? 'All' : esc(ind)}${ind !== 'all' ? ` <span style="opacity:.6;font-size:.7em">${counts[ind]}</span>` : ''}
-    </button>
-  `).join('');
-}
-
-function toggleAnalyticsFilterPanel() {
-  const panel = document.getElementById('ac-fp-panel');
-  const isOpen = panel.style.display !== 'none';
-  panel.style.display = isOpen ? 'none' : 'block';
-  if (!isOpen) {
-    const close = (e) => {
-      if (!document.getElementById('ac-fp-wrap').contains(e.target)) {
-        panel.style.display = 'none';
-        document.removeEventListener('click', close);
-      }
-    };
-    setTimeout(() => document.addEventListener('click', close), 0);
-  }
-}
-
-function clearAnalyticsFilters() {
-  filterAnalyticsIndustry('all');
+  const current = sel.value;
+  sel.innerHTML = `<option value="all">All Industries</option>` +
+    industries.map(ind => `<option value="${esc(ind)}">${esc(ind)} (${counts[ind]})</option>`).join('');
+  sel.value = industries.includes(current) ? current : 'all';
 }
 
 // Returns the slice of weeks for the current period
@@ -3650,7 +3626,8 @@ function refreshAnalytics() {
   analyticsLoaded = false;
   analyticsIndustry = 'all';
   document.getElementById('analytics-search').value = '';
-  document.getElementById('ac-fp-badge').style.display = 'none';
+  const sel = document.getElementById('ac-industry-select');
+  if (sel) sel.value = 'all';
   Object.values(analyticsCharts).forEach(c => c.destroy());
   for (const k in analyticsCharts) delete analyticsCharts[k];
   for (const k in analyticsData) delete analyticsData[k];
