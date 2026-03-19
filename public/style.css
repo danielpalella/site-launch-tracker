@@ -2138,6 +2138,7 @@ tr.status-separator:first-child td { border-top: none; }
   cursor: pointer;
   outline: none;
   height: 30px;
+  max-width: 148px;
 }
 .ac-industry-select:focus { border-color: var(--primary); }
 

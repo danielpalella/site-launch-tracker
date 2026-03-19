@@ -2773,71 +2773,8 @@ function filterAnalyticsIndustry(val) {
   applyAnalyticsFilters();
   renderIndustrySummary(val);
   if (analyticsView === 'overview') renderAnalyticsOverview(null);
-  loadTrendsCard(val);
 }
 
-function trendsLoadingHtml(industry) {
-  return `<div class="trends-card"><div class="trends-loading"><div class="ac-ov-spinner"></div><span>Loading Google Trends for <strong>${esc(industry)}</strong>…</span></div></div>`;
-}
-
-function trendsContentHtml(keyword, top, rising) {
-  const queryRow = (q, isRising) => `
-    <div class="trends-row">
-      <span class="trends-query">${esc(q.query)}</span>
-      <span class="trends-val ${isRising ? 'trends-rising' : ''}">${isRising ? '▲ ' : ''}${esc(String(q.value))}</span>
-    </div>`;
-  return `
-    <div class="trends-card">
-      <div class="trends-header">
-        <img src="/google-trends.ico" width="16" height="16" style="object-fit:contain;flex-shrink:0" alt="Google Trends" />
-        Google Trends — <span style="color:var(--text-muted)">${esc(keyword)}</span>
-        <span class="trends-source">US · Past 12 months · Cached 24h</span>
-      </div>
-      <div class="trends-cols">
-        <div class="trends-col">
-          <div class="trends-col-title">Top Searches</div>
-          ${top.length ? top.map(q => queryRow(q, false)).join('') : '<div class="trends-empty">No data</div>'}
-        </div>
-        <div class="trends-col">
-          <div class="trends-col-title">Rising Searches</div>
-          ${rising.length ? rising.map(q => queryRow(q, true)).join('') : '<div class="trends-empty">No data</div>'}
-        </div>
-      </div>
-    </div>`;
-}
-
-async function loadTrendsCard(industry) {
-  // Trends only shown in overview mode
-  if (analyticsView !== 'overview') return;
-
-  if (industry === 'all') {
-    const inline = document.getElementById('ac-trends-inline');
-    if (inline) inline.style.display = 'none';
-    return;
-  }
-
-  let inline = document.getElementById('ac-trends-inline');
-  if (!inline) {
-    inline = document.createElement('div');
-    inline.id = 'ac-trends-inline';
-    inline.style.marginTop = '.75rem';
-    document.getElementById('ac-overview').appendChild(inline);
-  }
-  inline.style.display = '';
-  inline.innerHTML = trendsLoadingHtml(industry);
-
-  try {
-    const res = await fetch(`/api/trends/${encodeURIComponent(industry)}`);
-    if (!res.ok) throw new Error();
-    const { keyword, top, rising } = await res.json();
-    const html = trendsContentHtml(keyword, top, rising);
-    const el = document.getElementById('ac-trends-inline');
-    if (el) el.innerHTML = html;
-  } catch {
-    const el = document.getElementById('ac-trends-inline');
-    if (el) el.innerHTML = `<div class="trends-card"><div class="trends-empty">Could not load trends data.</div></div>`;
-  }
-}
 
 function filterAnalyticsSearch(val) {
   applyAnalyticsFilters();
