@@ -2418,37 +2418,37 @@ function renderAnalyticsModalBody(id, data, forms) {
 
   // GSC block
   const gscSection = gsc.available ? `
-    <div class="acd-section">
+    <div class="acd-source-col">
       <div class="acd-section-title"><img src="/gsc-icon.png" style="width:13px;height:13px;vertical-align:middle;margin-right:.35rem">Search Console <span class="acd-period-tag">${periodLabel}</span></div>
-      <div class="acd-metrics-row">
-        ${acdMetric(fmtNum(gscT.clicks),          'Clicks')}
-        ${acdMetric(fmtNum(gscT.impressions),     'Impressions')}
-        ${acdMetric(gscT.position ?? '—',         'Avg Position')}
-        ${acdMetric((gscT.ctr ?? 0) + '%',        'CTR')}
+      <div class="acd-metrics-grid">
+        ${acdMetric(fmtNum(gscT.clicks),       'Clicks',       'Times users clicked this site in Google search results.')}
+        ${acdMetric(fmtNum(gscT.impressions),  'Impressions',  'Times the site appeared in Google search results.')}
+        ${acdMetric(gscT.position ?? '—',      'Avg Position', 'Average rank in Google search results (1 = top result).')}
+        ${acdMetric((gscT.ctr ?? 0) + '%',     'CTR',          'Percentage of impressions that resulted in a click.')}
       </div>
-    </div>` : '';
+    </div>` : '<div class="acd-source-col acd-source-unavailable">Search Console unavailable</div>';
 
   // GA4 block
   const ga4Section = ga4.available ? `
-    <div class="acd-section">
+    <div class="acd-source-col">
       <div class="acd-section-title"><img src="/ga4-icon.png" style="width:13px;height:13px;vertical-align:middle;margin-right:.35rem">Google Analytics <span class="acd-period-tag">${periodLabel}</span></div>
-      <div class="acd-metrics-row">
-        ${acdMetric(fmtNum(ga4T.sessions),                                       'Sessions')}
-        ${acdMetric(fmtNum(ga4T.users),                                          'Users')}
-        ${acdMetric(ga4T.newUsers != null ? fmtNum(ga4T.newUsers) : '—',         'New Users')}
-        ${acdMetric(ga4T.engagementRate != null ? ga4T.engagementRate + '%' : '—','Engagement')}
+      <div class="acd-metrics-grid">
+        ${acdMetric(fmtNum(ga4T.sessions),                                              'Sessions',   'Total site visits, including repeat visits from the same person.')}
+        ${acdMetric(fmtNum(ga4T.users),                                                 'Users',      'Unique visitors, counted once regardless of how many times they visit.')}
+        ${acdMetric(ga4T.newUsers != null ? fmtNum(ga4T.newUsers) : '—',                'New Users',  'Visitors who have never been to the site before.')}
+        ${acdMetric(ga4T.engagementRate != null ? ga4T.engagementRate + '%' : '—',      'Engagement', 'Percentage of visits where the user scrolled, clicked, or stayed 10+ seconds.')}
       </div>
-    </div>` : '';
+    </div>` : `<div class="acd-source-col acd-source-unavailable">${esc(ga4.reason || 'Google Analytics unavailable')}</div>`;
 
   // Duda block
   const dudaSection = duda?.available ? `
-    <div class="acd-section">
+    <div class="acd-source-col">
       <div class="acd-section-title"><img src="/duda-icon.png" style="width:13px;height:13px;border-radius:3px;vertical-align:middle;margin-right:.35rem">Duda Analytics <span class="acd-period-tag">${periodLabel}</span></div>
-      <div class="acd-metrics-row">
-        ${acdMetric(fmtNum(dudaT.visitors),    'Visitors')}
-        ${acdMetric(fmtNum(dudaT.pageViews),   'Page Views')}
-        ${acdMetric(fmtNum(dudaT.formSubmits), 'Form Submits')}
-        ${acdMetric(fmtNum(dudaT.callClicks),  'Call Clicks')}
+      <div class="acd-metrics-grid">
+        ${acdMetric(fmtNum(dudaT.visitors),    'Visitors',     'Unique visitors tracked by Duda.')}
+        ${acdMetric(fmtNum(dudaT.pageViews),   'Page Views',   'Total pages viewed across all visits.')}
+        ${acdMetric(fmtNum(dudaT.formSubmits), 'Form Submits', 'Times a contact or lead form was submitted.')}
+        ${acdMetric(fmtNum(dudaT.callClicks),  'Call Clicks',  'Times a visitor clicked a phone number link.')}
       </div>
     </div>` : '';
 
@@ -2543,7 +2543,7 @@ function renderAnalyticsModalBody(id, data, forms) {
   const hasModalChart = (gsc.available && gscChartWks.length > 1) || (ga4.available && ga4ChartWks.length > 1) || hasDudaWks;
 
   document.getElementById('acd-body').innerHTML = `
-    ${gscSection}${ga4Section}${dudaSection}
+    <div class="acd-sources-row">${gscSection}${ga4Section}${dudaSection}</div>
     ${hasModalChart ? '<div class="acd-chart-wrap"><canvas id="acd-canvas"></canvas></div>' : ''}
     <div class="acd-two-col">
       ${queriesSection}
@@ -2588,8 +2588,8 @@ function renderAnalyticsModalBody(id, data, forms) {
   }
 }
 
-function acdMetric(value, label) {
-  return `<div class="acd-metric"><div class="acd-metric-val">${value}</div><div class="acd-metric-label">${label}</div></div>`;
+function acdMetric(value, label, tip) {
+  return `<div class="acd-metric"><div class="acd-metric-val">${value}</div><div class="acd-metric-label">${label}${tip ? `<span class="ac-tip" data-tip="${esc(tip)}">?</span>` : ''}</div></div>`;
 }
 
 function analyticsSkeletonHtml(launch) {
