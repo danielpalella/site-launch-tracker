@@ -1773,7 +1773,9 @@ tr.status-separator:first-child td { border-top: none; }
   flex-shrink: 0;
   background: var(--bg);
   padding-top: .85rem;
-  margin-bottom: .85rem;
+  padding-bottom: .85rem;
+  z-index: 10;
+  position: relative;
 }
 .ac-scroll-area {
   flex: 1;
