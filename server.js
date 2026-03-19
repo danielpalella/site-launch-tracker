@@ -1391,15 +1391,18 @@ app.post('/api/seo-suggestions', requireAuth, async (req, res) => {
 
 Provide exactly 4 specific, actionable SEO recommendations to improve this site's performance. Keep each recommendation to 2-3 sentences. Focus on the highest-impact improvements first. Respond ONLY with a valid JSON array of 4 strings, nothing else.`;
 
-    const r = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-      }
-    );
-    if (!r.ok) throw new Error(`Gemini API error: ${r.status}`);
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
+    const body = JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] });
+    let r;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (attempt > 0) await new Promise(resolve => setTimeout(resolve, attempt * 2000));
+      r = await fetch(geminiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
+      if (r.status !== 429) break;
+    }
+    if (!r.ok) {
+      const status = r.status;
+      throw new Error(status === 429 ? 'Rate limit reached — please try again in a few seconds.' : `Gemini API error: ${status}`);
+    }
     const data = await r.json();
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
     if (!text) throw new Error('Empty response from Gemini');
