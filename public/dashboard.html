@@ -3075,7 +3075,9 @@ function topBottomPerformers(entries, period, metric) {
     })
     .slice(0, 5);
 
-  return { top: scored.slice(0, 5), bottom: attentionEligible };
+  const topIds = new Set(scored.slice(0, 5).map(s => s.id));
+  const bottom = attentionEligible.filter(s => !topIds.has(s.id)).slice(0, 5);
+  return { top: scored.slice(0, 5), bottom };
 }
 
 function computeTrafficDrops(entries) {
