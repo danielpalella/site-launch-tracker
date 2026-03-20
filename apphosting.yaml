@@ -10,4 +10,6 @@ runConfig:
 env:
   - variable: SAFE_BROWSING_API_KEY
     secret: safe_browsing_api_key
+  - variable: WARM_ALL_SECRET
+    secret: warm_all_secret
 
