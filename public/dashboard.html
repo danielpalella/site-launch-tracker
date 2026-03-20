@@ -2671,7 +2671,7 @@ function switchAnalyticsView(view) {
   document.getElementById('ac-site-count').style.display        = view === 'seo' ? 'none' : '';
   if (view === 'seo' && !_seoCacheLoaded) loadSeoCache();
   if (view === 'seo' && !_perfCacheLoaded) loadPerfCache();
-  if (view === 'overview') { loadAnalytics(); renderAnalyticsOverview(null); }
+  if (view === 'overview') { loadAnalytics(); try { renderAnalyticsOverview(null); } catch(e) { console.error('Overview render error:', e); } }
   if (view === 'sites') applyAnalyticsFilters();
   if (view === 'seo') renderSeoView();
 }
@@ -4527,8 +4527,12 @@ async function loadAnalytics() {
         if (card) { const s = card.querySelector('.ac-skeleton-wrap'); if (s) s.innerHTML = '<div class="ac-unavailable">Failed to load</div>'; }
         analyticsLoadedCount++;
       }
-      if (analyticsView === 'overview') renderAnalyticsOverview(null);
-      else applyAnalyticsFilters();
+      try {
+        if (analyticsView === 'overview') renderAnalyticsOverview(null);
+        else applyAnalyticsFilters();
+      } catch (e) {
+        console.error('Overview render error:', e);
+      }
     }));
   }
   analyticsLoaded = true;
