@@ -244,6 +244,13 @@
         <option value="all">All Industries</option>
       </select>
       <input type="search" id="analytics-search" placeholder="Search accounts…" oninput="filterAnalyticsSearch(this.value)" class="ac-search">
+      <div id="seo-toolbar-extras" style="display:none;align-items:center;gap:.6rem;margin-left:auto">
+        <span id="seo-tb-stats" class="seo-tb-stats"></span>
+        <button class="btn btn-secondary btn-sm" id="seo-audit-all-btn" onclick="auditAllSites()">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <span id="seo-audit-all-label">Audit All Sites</span>
+        </button>
+      </div>
       <div id="ac-timeframe-wrap" class="ac-timeframe-wrap">
         <button class="ac-timeframe-btn" id="ac-timeframe-btn" onclick="toggleTimeframeDropdown(event)">
           <span id="ac-timeframe-value">Last 30 days</span>
@@ -2345,6 +2352,7 @@ let _seoData           = {}; // { [id]: seoAuditResult }
 let _seoSortCol        = 'name';
 let _seoSortDir        = 1;
 let _seoCacheLoaded    = false;
+let _seoLastRanAt      = null;
 
 function switchAnalyticsView(view) {
   analyticsView = view;
@@ -2355,8 +2363,9 @@ function switchAnalyticsView(view) {
   document.getElementById('ac-industry-summary').style.display  = view === 'sites' && analyticsIndustry !== 'all' ? '' : 'none';
   document.getElementById('ac-overview').style.display          = view === 'overview' ? '' : 'none';
   document.getElementById('ac-seo').style.display               = view === 'seo' ? '' : 'none';
-  document.getElementById('analytics-search').style.display     = view === 'sites' ? '' : 'none';
+  document.getElementById('analytics-search').style.display     = (view === 'sites' || view === 'seo') ? '' : 'none';
   document.getElementById('ac-timeframe-wrap').style.display    = view === 'seo' ? 'none' : '';
+  document.getElementById('seo-toolbar-extras').style.display   = view === 'seo' ? 'flex' : 'none';
   if (view === 'seo' && !_seoCacheLoaded) loadSeoCache();
   document.getElementById('view-analytics').style.overflowY    = view === 'overview' ? 'auto' : 'hidden';
   if (view === 'overview') renderAnalyticsOverview(null);
@@ -2475,9 +2484,22 @@ async function loadSeoCache() {
 function renderSeoView() {
   const el = document.getElementById('ac-seo');
   if (!el) return;
-  const entries = Object.entries(analyticsData);
-  if (!entries.length) {
-    el.innerHTML = '<div class="ac-empty">Load analytics first — switch to All Sites to populate data, then come back.</div>';
+
+  // Apply search + industry filters
+  const searchVal = (document.getElementById('analytics-search')?.value || '').toLowerCase().trim();
+  let entries = Object.entries(analyticsData);
+  if (analyticsIndustry && analyticsIndustry !== 'all') {
+    entries = entries.filter(([, d]) => (d.industry || '') === analyticsIndustry);
+  }
+  if (searchVal) {
+    entries = entries.filter(([, d]) =>
+      (d.account_name || '').toLowerCase().includes(searchVal) ||
+      (d.domain || '').toLowerCase().includes(searchVal)
+    );
+  }
+
+  if (!entries.length && !Object.keys(analyticsData).length) {
+    el.innerHTML = '<div class="ac-empty">Load analytics first — switch to Sites to populate data, then come back.</div>';
     return;
   }
 
@@ -2519,19 +2541,28 @@ function renderSeoView() {
     return `<th class="seo-th${cls ? ' '+cls : ''}${active ? ' seo-th-active' : ''}" onclick="sortSeoTable('${col}')">${label} <span class="seo-sort-ic">${icon}</span></th>`;
   };
 
-  el.innerHTML = `
-    <div class="seo-header">
-      <div class="seo-header-stats">
-        <span class="seo-stat"><strong>${sorted.length}</strong> sites</span>
-        ${audited ? `<span class="seo-stat-sep">·</span><span class="seo-stat"><strong>${audited}</strong> audited</span>` : ''}
-        ${issues ? `<span class="seo-stat-sep">·</span><span class="seo-stat seo-stat-issues"><strong>${issues}</strong> with issues</span>` : ''}
-      </div>
-      <button class="btn btn-secondary btn-sm" id="seo-audit-all-btn" onclick="auditAllSites()">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        Audit All Sites
-      </button>
-    </div>
-    <div class="card seo-table-card">
+  // Update toolbar stats + last-ran label
+  const statsEl = document.getElementById('seo-tb-stats');
+  if (statsEl) {
+    statsEl.innerHTML = [
+      audited ? `<strong>${audited}</strong> audited` : '',
+      issues  ? `<span class="seo-stat-issues"><strong>${issues}</strong> with issues</span>` : '',
+    ].filter(Boolean).join('<span class="seo-stat-sep"> · </span>');
+  }
+  const labelEl = document.getElementById('seo-audit-all-label');
+  if (labelEl) {
+    if (_seoLastRanAt) {
+      const ageMs = Date.now() - _seoLastRanAt;
+      const ageStr = ageMs < 3_600_000 ? `${Math.floor(ageMs/60000)}m ago`
+        : ageMs < 86_400_000 ? `${Math.floor(ageMs/3600000)}h ago`
+        : `${Math.floor(ageMs/86400000)}d ago`;
+      labelEl.textContent = `Audit All · Last ran ${ageStr}`;
+    } else {
+      labelEl.textContent = 'Audit All Sites';
+    }
+  }
+
+  el.innerHTML = `<div class="card seo-table-card">
       <div class="seo-table-wrap">
         <table class="seo-table">
           <thead><tr>
@@ -2569,7 +2600,9 @@ async function runSeoAudit(id, btnEl) {
 
 async function auditAllSites() {
   const allBtn = document.getElementById('seo-audit-all-btn');
-  if (allBtn) { allBtn.disabled = true; allBtn.textContent = 'Auditing…'; }
+  const labelEl = document.getElementById('seo-audit-all-label');
+  if (allBtn) allBtn.disabled = true;
+  if (labelEl) labelEl.textContent = 'Auditing…';
   const ids = Object.keys(analyticsData);
   for (const id of ids) {
     const btn = document.getElementById(`seo-btn-${id}`);
@@ -2581,7 +2614,9 @@ async function auditAllSites() {
     renderSeoView();
     await new Promise(r => setTimeout(r, 300));
   }
-  if (allBtn) { allBtn.disabled = false; allBtn.textContent = 'Audit All Sites'; }
+  _seoLastRanAt = Date.now();
+  if (allBtn) allBtn.disabled = false;
+  renderSeoView();
 }
 
 // ── Industry Benchmarks sort ───────────────────────────────────────────────
@@ -3238,11 +3273,12 @@ function filterAnalyticsIndustry(val) {
   applyAnalyticsFilters();
   renderIndustrySummary(val);
   if (analyticsView === 'overview') renderAnalyticsOverview(null);
+  if (analyticsView === 'seo') renderSeoView();
 }
-
 
 function filterAnalyticsSearch(val) {
   applyAnalyticsFilters();
+  if (analyticsView === 'seo') renderSeoView();
 }
 
 function buildAnalyticsIndustryBar(launches) {

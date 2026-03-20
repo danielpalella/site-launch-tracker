@@ -2108,8 +2108,9 @@ tr.status-separator:first-child td { border-top: none; }
 }
 .seo-header-stats { display: flex; align-items: center; gap: .4rem; font-size: .82rem; color: var(--text-muted); }
 .seo-stat strong { color: var(--text); }
-.seo-stat-sep { color: var(--border); }
+.seo-stat-sep { color: var(--text-muted); margin: 0 .2rem; }
 .seo-stat-issues strong { color: #ef4444; }
+.seo-tb-stats { font-size: .78rem; color: var(--text-muted); white-space: nowrap; }
 .seo-table-card { padding: 0; overflow: hidden; }
 .seo-table-wrap { overflow-x: auto; }
 .seo-table { width: 100%; border-collapse: collapse; font-size: .8rem; }
