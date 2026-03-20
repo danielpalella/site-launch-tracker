@@ -257,6 +257,9 @@
       <button class="btn btn-ghost ac-refresh-btn" onclick="refreshAnalytics()" title="Refresh">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
       </button>
+      <button class="btn btn-ghost ac-density-btn" id="ac-density-btn" onclick="toggleAnalyticsDensity()" title="Compact view">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="3" y1="14" x2="21" y2="14"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
       <div id="ac-site-count" class="ac-site-count"></div>
     </div>
     </div><!-- /ac-sticky-header -->
@@ -2334,6 +2337,10 @@ async function loadMilestoneThresholds() {
 let analyticsIndustry  = 'all';
 let analyticsView      = 'sites'; // 'sites' | 'overview'
 let overviewChart      = null;
+let analyticsDensity   = 'comfortable'; // 'comfortable' | 'compact'
+let _indBenchData      = [];
+let _indBenchSortCol   = 'count';
+let _indBenchSortDir   = -1; // -1=desc, 1=asc
 
 function switchAnalyticsView(view) {
   analyticsView = view;
@@ -2346,6 +2353,48 @@ function switchAnalyticsView(view) {
   document.getElementById('view-analytics').style.overflowY    = view === 'overview' ? 'auto' : 'hidden';
   if (view === 'overview') renderAnalyticsOverview(null);
   if (view === 'sites') applyAnalyticsFilters();
+}
+
+function toggleAnalyticsDensity() {
+  analyticsDensity = analyticsDensity === 'comfortable' ? 'compact' : 'comfortable';
+  const btn = document.getElementById('ac-density-btn');
+  if (btn) btn.classList.toggle('ac-density-active', analyticsDensity === 'compact');
+  document.getElementById('ac-overview')?.setAttribute('data-density', analyticsDensity);
+  document.getElementById('analytics-grid')?.setAttribute('data-density', analyticsDensity);
+}
+
+function sortIndBench(col, thEl) {
+  if (_indBenchSortCol === col) _indBenchSortDir *= -1;
+  else { _indBenchSortCol = col; _indBenchSortDir = col === 'industry' ? 1 : -1; }
+  document.querySelectorAll('.ind-bench-th').forEach(th => {
+    th.classList.remove('ib-asc','ib-desc');
+    const ic = th.querySelector('.ib-sort-ic'); if (ic) ic.textContent = '↕';
+  });
+  if (thEl) {
+    thEl.classList.add(_indBenchSortDir === 1 ? 'ib-asc' : 'ib-desc');
+    const ic = thEl.querySelector('.ib-sort-ic'); if (ic) ic.textContent = _indBenchSortDir === 1 ? '↑' : '↓';
+  }
+  const sorted = [..._indBenchData].sort((a, b) => {
+    const va = a[col] ?? (col === 'industry' ? '' : -Infinity);
+    const vb = b[col] ?? (col === 'industry' ? '' : -Infinity);
+    if (typeof va === 'string') return va.localeCompare(vb) * _indBenchSortDir;
+    return (va - vb) * _indBenchSortDir;
+  });
+  const tbody = document.getElementById('ind-bench-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = sorted.map(b => indBenchRowHtml(b)).join('');
+}
+
+function indBenchRowHtml(b) {
+  const ctrColor = b.avgCtr == null ? '' : b.avgCtr >= 3 ? '#22c55e' : b.avgCtr >= 1.5 ? '#f59e0b' : '#ef4444';
+  const posColor = b.avgPosition == null ? '' : b.avgPosition <= 10 ? '#22c55e' : b.avgPosition <= 20 ? '#f59e0b' : '#ef4444';
+  return `<tr class="ind-bench-tr">
+    <td class="ind-bench-td ind-bench-name-td">${b.industry}</td>
+    <td class="ind-bench-td ind-bench-num-td"><span class="ind-bench-badge">${b.count}</span></td>
+    <td class="ind-bench-td ind-bench-num-td" style="color:${ctrColor};font-weight:${b.avgCtr!=null?'600':'400'}">${b.avgCtr != null ? b.avgCtr + '%' : '—'}</td>
+    <td class="ind-bench-td ind-bench-num-td" style="color:${posColor};font-weight:${b.avgPosition!=null?'600':'400'}">${b.avgPosition != null ? b.avgPosition : '—'}</td>
+    <td class="ind-bench-td ind-bench-num-td"><strong>${b.avgSessions ? b.avgSessions.toLocaleString() : '—'}</strong></td>
+  </tr>`;
 }
 
 // ── Aggregate helpers ──
@@ -2696,7 +2745,10 @@ function renderAnalyticsOverview(industryFilter) {
   const siteCountEl = document.getElementById('ac-site-count');
   if (siteCountEl) siteCountEl.innerHTML = `<strong>${entries.length} Active Sites</strong> <span class="acd-period-tag">${periodLabel}</span>${isPartial ? `<span class="ov-loading-tag">Loading ${analyticsLoadedCount}/${analyticsTotal}</span>` : ''}`;
 
-  document.getElementById('ac-overview').innerHTML = `
+  _indBenchData = industryBenchmarks;
+  const ovEl = document.getElementById('ac-overview');
+  ovEl.setAttribute('data-density', analyticsDensity);
+  ovEl.innerHTML = `
     <div class="acd-sources-row" style="margin-bottom:1rem">
       <div class="acd-source-col card">
         <div class="acd-section-title"><img src="/gsc-icon.png" style="width:13px;height:13px;vertical-align:middle;margin-right:.35rem">Search Console</div>
@@ -2731,21 +2783,30 @@ function renderAnalyticsOverview(industryFilter) {
 
     <div class="ov-performers">
       <div class="ov-performers-col">
-        <div class="acd-section-title" style="margin-bottom:.6rem">Top Performers <span class="acd-period-tag">by sessions</span></div>
+        <div class="ov-col-hdr">
+          <span class="ov-col-hdr-title">Top Performers</span>
+          <span class="acd-period-tag">by sessions</span>
+        </div>
         ${top.map((s, i) => perfRow(s, i + 1)).join('')}
       </div>
       <div class="ov-performers-col">
-        <div class="acd-section-title" style="margin-bottom:.6rem">Needs Attention <span class="acd-period-tag">30+ days old · by GSC health</span></div>
-        ${bottom.length ? bottom.map((s, i) => attentionRow(s, i + 1)).join('') : '<div style="font-size:.8rem;color:var(--text-muted);padding:.5rem 0">All established sites look healthy.</div>'}
+        <div class="ov-col-hdr">
+          <span class="ov-col-hdr-title">Needs Attention</span>
+          <span class="acd-period-tag">30+ days · by GSC health</span>
+        </div>
+        ${bottom.length ? bottom.map((s, i) => attentionRow(s, i + 1)).join('') : '<div class="ov-empty-state"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>All established sites look healthy.</div>'}
       </div>
     </div>
 
     ${milestoneFlags.length ? `
-<div class="card" style="margin-top:.85rem;padding:1rem 1.25rem">
-  <div class="gsh-header">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-    <span style="font-weight:700;font-size:.88rem">Milestone Flags</span>
-    <span style="color:var(--text-muted);font-size:.75rem;margin-left:.4rem">sites below expected thresholds</span>
+<div class="card ov-section" style="margin-top:.85rem">
+  <div class="ov-section-hdr">
+    <div class="ov-section-hdr-left">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <span class="ov-section-title">Milestone Flags</span>
+      <span class="ov-section-sub">sites below expected thresholds</span>
+    </div>
+    <span class="ov-section-badge" style="background:#f59e0b18;color:#f59e0b;border-color:#f59e0b40">${milestoneFlags.length} site${milestoneFlags.length !== 1 ? 's' : ''}</span>
   </div>
   ${milestoneFlags.map(f => {
     const milestoneColor = f.milestone === '90day' ? '#ef4444' : f.milestone === '60day' ? '#f97316' : '#f59e0b';
@@ -2757,22 +2818,34 @@ function renderAnalyticsOverview(industryFilter) {
         </div>
         <div class="ov-att-score-wrap">
           <span class="ov-att-score" style="color:${milestoneColor}">${f.days}d</span>
-          <span class="ov-att-label" style="color:${milestoneColor}">${f.milestone} milestone</span>
+          <span class="ov-att-label" style="color:${milestoneColor}">${f.milestone.replace('day',' day').toUpperCase()} MILESTONE</span>
         </div>
       </div>
       <div class="ov-att-issues" style="margin-top:.3rem">
-        ${f.issues.map(i => `<span class="ov-issue-tag" style="background:${milestoneColor}18;color:${milestoneColor};border:1px solid ${milestoneColor}40">${esc(i.metric)}: ${fmtNum(i.actual)} / ${fmtNum(i.target)}</span>`).join('')}
+        ${f.issues.map(i => {
+          const pct = Math.min(100, Math.round(i.actual / i.target * 100));
+          return `<div class="ms-flag-issue">
+            <div class="ms-flag-issue-top">
+              <span class="ov-issue-tag" style="background:${milestoneColor}18;color:${milestoneColor};border:1px solid ${milestoneColor}40">${esc(i.metric)}: ${fmtNum(i.actual)} / ${fmtNum(i.target)}</span>
+              <span class="ms-flag-pct" style="color:${milestoneColor}">${pct}%</span>
+            </div>
+            <div class="ms-flag-bar-bg"><div class="ms-flag-bar-fill" style="width:${pct}%;background:${milestoneColor}"></div></div>
+          </div>`;
+        }).join('')}
       </div>
     </div>`;
   }).join('')}
 </div>` : ''}
 
     ${trafficDrops.length ? `
-<div class="card" style="margin-top:.85rem;padding:1rem 1.25rem">
-  <div class="gsh-header">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>
-    <span style="font-weight:700;font-size:.88rem">Traffic Alerts</span>
-    <span style="color:var(--text-muted);font-size:.75rem;margin-left:.4rem">week-over-week drop ≥20%</span>
+<div class="card ov-section" style="margin-top:.85rem">
+  <div class="ov-section-hdr">
+    <div class="ov-section-hdr-left">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>
+      <span class="ov-section-title">Traffic Alerts</span>
+      <span class="ov-section-sub">week-over-week session drop ≥20%</span>
+    </div>
+    <span class="ov-section-badge" style="background:#ef444418;color:#ef4444;border-color:#ef444440">${trafficDrops.length} alert${trafficDrops.length !== 1 ? 's' : ''}</span>
   </div>
   ${trafficDrops.map(s => `
     <div class="ov-att-row" style="border-left:3px solid #ef4444" onclick="openAnalyticsModal('${esc(s.id)}')">
@@ -2783,47 +2856,52 @@ function renderAnalyticsOverview(industryFilter) {
         </div>
         <div class="ov-att-score-wrap">
           <span class="ov-att-score" style="color:#ef4444">${s.dropPct}%</span>
-          <span class="ov-att-label" style="color:#ef4444">WoW Drop</span>
+          <span class="ov-att-label" style="color:#ef4444">WOW DROP</span>
         </div>
       </div>
       <div class="ov-att-metrics">
-        <span>This week: <b>${fmtNum(s.lastWeek)}</b><span class="ov-att-unit"> sess</span></span>
+        <span class="traffic-week-stat"><span class="traffic-week-label">This week</span><b>${fmtNum(s.lastWeek)}</b><span class="ov-att-unit"> sess</span></span>
         <span class="ov-att-sep">·</span>
-        <span>Last week: <b>${fmtNum(s.prevWeek)}</b><span class="ov-att-unit"> sess</span></span>
+        <span class="traffic-week-stat"><span class="traffic-week-label">Last week</span><b>${fmtNum(s.prevWeek)}</b><span class="ov-att-unit"> sess</span></span>
       </div>
     </div>`).join('')}
 </div>` : ''}
 
     ${industryBenchmarks.length > 1 ? `
-<div class="card" style="margin-top:.85rem;padding:1rem 1.25rem">
-  <div class="gsh-header">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-    <span style="font-weight:700;font-size:.88rem">Industry Benchmarks</span>
-    <span style="color:var(--text-muted);font-size:.75rem;margin-left:.4rem">avg metrics by industry · since launch</span>
+<div class="card ov-section" style="margin-top:.85rem">
+  <div class="ov-section-hdr">
+    <div class="ov-section-hdr-left">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      <span class="ov-section-title">Industry Benchmarks</span>
+      <span class="ov-section-sub">avg metrics by industry · since launch</span>
+    </div>
+    <span class="ov-section-badge">${industryBenchmarks.length} industries</span>
   </div>
-  <div class="ind-bench-grid">
-    <div class="ind-bench-header">Industry</div>
-    <div class="ind-bench-header">Sites</div>
-    <div class="ind-bench-header">Avg CTR</div>
-    <div class="ind-bench-header">Avg Position</div>
-    <div class="ind-bench-header">Avg Sessions</div>
+  <div class="ind-bench-wrap">
+    <table class="ind-bench-table">
+      <thead><tr>
+        <th class="ind-bench-th" onclick="sortIndBench('industry',this)" data-col="industry">Industry <span class="ib-sort-ic">↕</span></th>
+        <th class="ind-bench-th ind-bench-num-td" onclick="sortIndBench('count',this)" data-col="count">Sites <span class="ib-sort-ic">↕</span></th>
+        <th class="ind-bench-th ind-bench-num-td" onclick="sortIndBench('avgCtr',this)" data-col="avgCtr">Avg CTR <span class="ib-sort-ic">↕</span></th>
+        <th class="ind-bench-th ind-bench-num-td" onclick="sortIndBench('avgPosition',this)" data-col="avgPosition">Avg Position <span class="ib-sort-ic">↕</span></th>
+        <th class="ind-bench-th ind-bench-num-td" onclick="sortIndBench('avgSessions',this)" data-col="avgSessions">Avg Sessions <span class="ib-sort-ic">↕</span></th>
+      </tr></thead>
+      <tbody id="ind-bench-tbody">
+        ${industryBenchmarks.map(b => indBenchRowHtml(b)).join('')}
+      </tbody>
+    </table>
   </div>
-  ${industryBenchmarks.map(b => `
-    <div class="ind-bench-row">
-      <div class="ind-bench-name">${esc(b.industry)}</div>
-      <div class="ind-bench-val">${b.count}</div>
-      <div class="ind-bench-val">${b.avgCtr != null ? b.avgCtr + '%' : '—'}</div>
-      <div class="ind-bench-val">${b.avgPosition != null ? b.avgPosition : '—'}</div>
-      <div class="ind-bench-val">${b.avgSessions ? fmtNum(b.avgSessions) : '—'}</div>
-    </div>`).join('')}
 </div>` : ''}
 
     <!-- Google Search Health table -->
-    <div class="card gsh-card" style="margin-top:.85rem">
-      <div class="gsh-header">
-        <img src="/gsc-icon.png" width="14" height="14" style="object-fit:contain;flex-shrink:0">
-        <span style="font-weight:700;font-size:.88rem">Google Search Health</span>
-        <span style="color:var(--text-muted);font-size:.75rem;margin-left:.4rem">all sites · since launch</span>
+    <div class="card ov-section gsh-card" style="margin-top:.85rem">
+      <div class="ov-section-hdr">
+        <div class="ov-section-hdr-left">
+          <img src="/gsc-icon.png" width="14" height="14" style="object-fit:contain;flex-shrink:0">
+          <span class="ov-section-title">Google Search Health</span>
+          <span class="ov-section-sub">all sites · since launch</span>
+        </div>
+        <span class="ov-section-badge">${healthEntries.length} sites</span>
       </div>
       ${gshTableHtml}
     </div>
