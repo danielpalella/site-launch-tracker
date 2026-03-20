@@ -2344,6 +2344,7 @@ let _indBenchSortDir   = -1; // -1=desc, 1=asc
 let _seoData           = {}; // { [id]: seoAuditResult }
 let _seoSortCol        = 'position';
 let _seoSortDir        = 1;  // 1=asc (lower pos = better)
+let _seoCacheLoaded    = false;
 
 function switchAnalyticsView(view) {
   analyticsView = view;
@@ -2356,6 +2357,7 @@ function switchAnalyticsView(view) {
   document.getElementById('ac-seo').style.display               = view === 'seo' ? '' : 'none';
   document.getElementById('analytics-search').style.display     = view === 'sites' ? '' : 'none';
   document.getElementById('ac-timeframe-wrap').style.display    = view === 'seo' ? 'none' : '';
+  if (view === 'seo' && !_seoCacheLoaded) loadSeoCache();
   document.getElementById('view-analytics').style.overflowY    = view === 'overview' ? 'auto' : 'hidden';
   if (view === 'overview') renderAnalyticsOverview(null);
   if (view === 'sites') applyAnalyticsFilters();
@@ -2463,6 +2465,20 @@ function seoTableRow(id, d) {
     <td class="seo-td seo-td-num">${impressions}</td>
     <td class="seo-td seo-td-action" onclick="event.stopPropagation()">${auditCell}</td>
   </tr>`;
+}
+
+async function loadSeoCache() {
+  _seoCacheLoaded = true;
+  const el = document.getElementById('ac-seo');
+  if (el) el.innerHTML = '<div class="ac-overview-loading"><div class="ac-ov-spinner"></div><div>Loading cached audits…</div></div>';
+  try {
+    const r = await fetch('/api/seo-cache');
+    if (r.ok) {
+      const data = await r.json();
+      Object.assign(_seoData, data);
+    }
+  } catch { /* silent — fall through to render with whatever we have */ }
+  renderSeoView();
 }
 
 function renderSeoView() {

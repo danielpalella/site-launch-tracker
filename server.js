@@ -1620,6 +1620,22 @@ async function scanBrokenLinks(baseUrl) {
   }
 }
 
+// Returns all cached SEO audits from Firestore without triggering any scans
+app.get('/api/seo-cache', requireAuth, async (req, res) => {
+  try {
+    const launchSnap = await db.collection('launches').where('status', '!=', 'decommissioned').get();
+    const ids = launchSnap.docs.map(d => d.id);
+    const results = {};
+    await Promise.all(ids.map(async id => {
+      const doc = await db.collection('launches').doc(id).collection('seo_audits').doc('latest').get();
+      if (doc.exists) results[id] = doc.data();
+    }));
+    res.json(results);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/api/analytics/:id/seo', requireAuth, async (req, res) => {
   try {
     const doc = await db.collection('launches').doc(req.params.id).get();
