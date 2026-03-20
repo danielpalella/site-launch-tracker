@@ -3853,12 +3853,26 @@ async function loadCwvSection(id) {
         </div>`;
     };
 
+    const lhScore = (score, label) => {
+      const c = scoreColor(score);
+      return `<div class="cwv-lh-score" title="${label}">
+        <span class="cwv-lh-dot" style="background:${c}">${score ?? '—'}</span>
+        <span class="cwv-lh-slabel">${label}</span>
+      </div>`;
+    };
+
     const deviceCard = (label, data) => !data ? '' : `
       <div class="cwv-device-card">
         <div class="cwv-device-header">
           <span class="cwv-device-label">${label}</span>
           <span class="cwv-score-badge" style="background:${scoreColor(data.performance)}18;color:${scoreColor(data.performance)};border:1px solid ${scoreColor(data.performance)}35">${data.performance ?? '—'} <span style="font-weight:400;font-size:.65rem">${scoreLabel(data.performance)}</span></span>
         </div>
+        <div class="cwv-lh-scores">
+          ${lhScore(data.accessibility,  'Accessibility')}
+          ${lhScore(data.best_practices, 'Best Practices')}
+          ${lhScore(data.seo,            'SEO')}
+        </div>
+        <div class="cwv-divider"></div>
         <div class="cwv-metrics-row">
           ${cwvMetric('lcp', data.lcp)}
           ${cwvMetric('cls', data.cls)}
@@ -3990,7 +4004,7 @@ function renderAnalyticsModalBody(id, data, forms) {
   const cwvSection = `
   <div class="acd-section" id="cwv-section-${id}">
     <div class="acd-section-title" style="margin-bottom:.5rem">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:.35rem"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Core Web Vitals
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:.35rem"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Lighthouse &amp; Core Web Vitals
     </div>
     <div id="cwv-body-${id}" style="color:var(--text-muted);font-size:.78rem">Loading…</div>
   </div>`;
