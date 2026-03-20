@@ -22,9 +22,10 @@
       <span class="nav-label">Intake</span>
     </a>
     <!-- Pipeline -->
-    <button class="nav-tab nav-tab-active" id="tab-launches" onclick="switchTab('launches')" title="Pipeline">
+    <button class="nav-tab nav-tab-active" id="tab-launches" onclick="switchTab('launches')" title="Pipeline" style="position:relative">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
       <span class="nav-label">Pipeline</span>
+      <span class="nav-new-dot" id="pipeline-new-dot"></span>
     </button>
     <!-- Edits -->
     <button class="nav-tab" id="tab-edit-requests" onclick="switchTab('edit-requests')" title="Edits" style="position:relative">
@@ -1517,9 +1518,17 @@ async function fetchLaunches() {
     renderTable(allLaunches);
     if (viewMode === 'graph') renderChart();
     if (viewMode === 'board') renderBoard();
+    updatePipelineNewBadge();
   } catch {
     showToast('Failed to load launches.', 'error');
   }
+}
+
+function updatePipelineNewBadge() {
+  fetch('/api/launches?status=new').then(r => r.json()).then(items => {
+    const dot = document.getElementById('pipeline-new-dot');
+    if (dot) dot.classList.toggle('visible', items.length > 0);
+  }).catch(() => {});
 }
 
 // Sign Out — click logs out; hold 3s opens admin panel

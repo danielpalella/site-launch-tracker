@@ -160,6 +160,30 @@ nav {
   align-items: center;
   justify-content: center;
 }
+/* Pipeline "new sites" notification dot */
+.nav-new-dot {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 8px;
+  height: 8px;
+  background: #ef4444;
+  border-radius: 50%;
+  border: 2px solid #06102A;
+  display: none;
+  box-shadow: 0 0 0 0 rgba(239,68,68,.5);
+}
+.nav-new-dot.visible {
+  display: block;
+  animation: nav-dot-pulse 2.5s ease-in-out infinite;
+}
+.nav-tab-active .nav-new-dot {
+  border-color: #1b2d4a;
+}
+@keyframes nav-dot-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,.45); }
+  50%       { box-shadow: 0 0 0 4px rgba(239,68,68,0); }
+}
 .nav-right {
   margin-left: auto;
   display: flex;
