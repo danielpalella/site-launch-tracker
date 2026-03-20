@@ -1905,10 +1905,12 @@ tr.status-separator:first-child td { border-top: none; }
   grid-template-columns: 1fr 1fr;
   gap: 1.25rem;
   margin-bottom: 1rem;
-  align-items: start;
 }
 @media (max-width: 640px) { .ov-performers { grid-template-columns: 1fr; } }
 .ov-performers-col { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem 1.1rem; display: flex; flex-direction: column; }
+/* Top Performers rows grow evenly to fill the column height */
+.ov-performers-col:first-child .ov-att-row { flex: 1; display: flex; flex-direction: column; justify-content: center; margin-bottom: .5rem; }
+.ov-performers-col:first-child .ov-att-row:last-child { margin-bottom: 0; }
 .ov-perf-row {
   display: flex;
   align-items: center;
