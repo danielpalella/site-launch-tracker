@@ -332,6 +332,8 @@ app.post('/api/launches', requireAuth, async (req, res) => {
         { type: 'mrkdwn', text: `*Submitted by*\n${req.userEmail || '—'}` },
       ]},
     ]); // fire-and-forget
+    // Auto pre-launch Lighthouse scan (fire-and-forget)
+    runPageSpeedAudit(ref.id, domain_name.trim().toLowerCase(), false).catch(e => console.warn('Pre-launch PSI skipped:', e.message));
     res.status(201).json(formatLaunch(doc));
   } catch (err) {
     console.error(err);
@@ -405,6 +407,8 @@ app.patch('/api/launches/:id', requireAuth, async (req, res) => {
           { type: 'mrkdwn', text: `*Marked by*\n${req.userEmail || '—'}` },
         ]},
       ]); // fire-and-forget
+      // Auto post-launch Lighthouse scan (fire-and-forget)
+      runPageSpeedAudit(req.params.id, domain, true).catch(e => console.warn('Post-launch PSI skipped:', e.message));
     }
 
     const updated = await ref.get();
@@ -820,47 +824,72 @@ app.get('/api/gmail/threads/:threadId', requireAuth, async (req, res) => {
 });
 
 // ── Lighthouse / PageSpeed Insights ──
+
+async function runPageSpeedAudit(launchId, domain, isPostLaunch) {
+  const apiKey = process.env.PAGESPEED_API_KEY;
+  if (!apiKey) throw new Error('PAGESPEED_API_KEY is not configured.');
+  const url = `https://${domain.replace(/^https?:\/\//, '').replace(/\/$/, '')}`;
+  const catParams = ['performance','accessibility','best-practices','seo'].map(c => `&category=${c}`).join('');
+  const keyParam  = `&key=${encodeURIComponent(apiKey)}`;
+  const base      = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(url)}${keyParam}${catParams}`;
+
+  const [mobileRes, desktopRes] = await Promise.all([
+    fetch(`${base}&strategy=mobile`,  { signal: AbortSignal.timeout(110_000) }),
+    fetch(`${base}&strategy=desktop`, { signal: AbortSignal.timeout(110_000) }),
+  ]);
+
+  const parsePsi = async (r) => {
+    if (!r.ok) return null;
+    const d = await r.json();
+    const c = d.lighthouseResult?.categories || {};
+    const a = d.lighthouseResult?.audits     || {};
+    return {
+      performance:    Math.round((c.performance?.score          ?? 0) * 100),
+      accessibility:  Math.round((c.accessibility?.score        ?? 0) * 100),
+      best_practices: Math.round((c['best-practices']?.score    ?? 0) * 100),
+      seo:            Math.round((c.seo?.score                  ?? 0) * 100),
+      lcp: a['largest-contentful-paint']?.displayValue  || null,
+      cls: a['cumulative-layout-shift']?.displayValue   || null,
+      fcp: a['first-contentful-paint']?.displayValue    || null,
+      fid: a['interaction-to-next-paint']?.displayValue || a['max-potential-fid']?.displayValue || null,
+    };
+  };
+
+  const [mobile, desktop] = await Promise.all([parsePsi(mobileRes), parsePsi(desktopRes)]);
+  if (!mobile && !desktop) throw new Error('PageSpeed returned no results for either strategy.');
+
+  const audit = {
+    // Top-level scores from mobile (primary) for quick access
+    performance:    mobile?.performance    ?? desktop?.performance    ?? 0,
+    accessibility:  mobile?.accessibility  ?? desktop?.accessibility  ?? 0,
+    best_practices: mobile?.best_practices ?? desktop?.best_practices ?? 0,
+    seo:            mobile?.seo            ?? desktop?.seo            ?? 0,
+    mobile,
+    desktop,
+    url,
+    is_post_launch: isPostLaunch,
+    created_at: FieldValue.serverTimestamp(),
+  };
+
+  const ref = await db.collection('launches').doc(launchId).collection('lighthouse_audits').add(audit);
+  const saved = await ref.get();
+  return { id: saved.id, ...audit, created_at: new Date().toISOString() };
+}
+
 app.post('/api/launches/:id/lighthouse', requireAuth, async (req, res) => {
   try {
     const doc = await db.collection('launches').doc(req.params.id).get();
     if (!doc.exists) return res.status(404).json({ error: 'Not found' });
     const domain = doc.data().domain_name;
     if (!domain) return res.status(400).json({ error: 'No domain on this launch.' });
+    if (!process.env.PAGESPEED_API_KEY) return res.status(400).json({ error: 'PAGESPEED_API_KEY is not configured. Add it in Firebase App Hosting environment settings.' });
 
-    const url    = `https://${domain}`;
-    const apiKey = process.env.PAGESPEED_API_KEY;
-    if (!apiKey) return res.status(400).json({ error: 'PAGESPEED_API_KEY is not configured. Add it in Firebase App Hosting environment settings.' });
-
-    const params = new URLSearchParams({ url, strategy: 'mobile', key: apiKey });
-    for (const cat of ['performance', 'accessibility', 'best-practices', 'seo']) params.append('category', cat);
-
-    const psiRes = await fetch(`https://www.googleapis.com/pagespeedonline/v5/runPagespeed?${params}`, {
-      signal: AbortSignal.timeout(110_000),
-    });
-    if (!psiRes.ok) {
-      const err = await psiRes.json().catch(() => ({}));
-      const msg = err.error?.message || 'PageSpeed API error';
-      const isQuota = psiRes.status === 429 || msg.toLowerCase().includes('quota');
-      return res.status(psiRes.status).json({ error: isQuota ? 'API quota exceeded. Check your PAGESPEED_API_KEY quota in Google Cloud Console.' : msg });
-    }
-    const psi = await psiRes.json();
-    const cats = psi.lighthouseResult?.categories || {};
-    const audit = {
-      performance:    Math.round((cats.performance?.score    ?? 0) * 100),
-      accessibility:  Math.round((cats.accessibility?.score  ?? 0) * 100),
-      best_practices: Math.round((cats['best-practices']?.score ?? 0) * 100),
-      seo:            Math.round((cats.seo?.score            ?? 0) * 100),
-      url,
-      is_post_launch: doc.data().status === 'launched',
-      created_at: FieldValue.serverTimestamp(),
-    };
-    const ref = await db.collection('launches').doc(req.params.id).collection('lighthouse_audits').add(audit);
-    const saved = await ref.get();
-    res.json({ id: saved.id, ...audit, created_at: new Date().toISOString() });
+    const result = await runPageSpeedAudit(req.params.id, domain, doc.data().status === 'launched');
+    res.json(result);
   } catch (err) {
     if (err.name === 'TimeoutError') return res.status(504).json({ error: 'PageSpeed timed out.' });
     console.error('Lighthouse error:', err);
-    res.status(500).json({ error: 'Lighthouse audit failed.' });
+    res.status(500).json({ error: err.message || 'Lighthouse audit failed.' });
   }
 });
 
@@ -1410,37 +1439,49 @@ app.get('/api/analytics/:id', requireAuth, async (req, res) => {
   }
 });
 
-// ── Core Web Vitals (PageSpeed Insights) ──
-const PAGESPEED_API_KEY = process.env.PAGESPEED_API_KEY;
+// ── Core Web Vitals — reads from stored Lighthouse audits ──
 app.get('/api/analytics/:id/cwv', requireAuth, async (req, res) => {
   try {
-    const doc = await db.collection('launches').doc(req.params.id).get();
-    if (!doc.exists) return res.status(404).json({ error: 'Not found' });
-    const launch = formatLaunch(doc);
-    const domain = launch.domain_name.replace(/^https?:\/\//, '').replace(/\/$/, '');
-    const url = `https://${domain}`;
-    const keyParam = PAGESPEED_API_KEY ? `&key=${PAGESPEED_API_KEY}` : '';
-    const [mobileRes, desktopRes] = await Promise.all([
-      fetch(`https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(url)}&strategy=mobile${keyParam}`),
-      fetch(`https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(url)}&strategy=desktop${keyParam}`)
-    ]);
-    const parseCwv = async (r) => {
-      if (!r.ok) return null;
-      const d = await r.json();
-      const cats = d.lighthouseResult?.categories;
-      const audits = d.lighthouseResult?.audits;
-      return {
-        performance: Math.round((cats?.performance?.score || 0) * 100),
-        lcp: audits?.['largest-contentful-paint']?.displayValue || null,
-        cls: audits?.['cumulative-layout-shift']?.displayValue || null,
-        fid: audits?.['max-potential-fid']?.displayValue || audits?.['interaction-to-next-paint']?.displayValue || null,
-        fcp: audits?.['first-contentful-paint']?.displayValue || null,
-      };
-    };
-    const [mobile, desktop] = await Promise.all([parseCwv(mobileRes), parseCwv(desktopRes)]);
-    res.json({ url, mobile, desktop });
+    const snapshot = await db.collection('launches').doc(req.params.id)
+      .collection('lighthouse_audits').orderBy('created_at', 'desc').limit(1).get();
+    if (snapshot.empty) return res.json({ url: null, mobile: null, desktop: null });
+    const data = snapshot.docs[0].data();
+    res.json({
+      url:     data.url     || null,
+      mobile:  data.mobile  || null,
+      desktop: data.desktop || null,
+    });
   } catch (err) {
     console.error('CWV error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Perf cache — latest Lighthouse score for all sites ──
+app.get('/api/perf-cache', requireAuth, async (req, res) => {
+  try {
+    const launches = await db.collection('launches').where('archived', '!=', true).get();
+    const results = {};
+    await Promise.all(launches.docs.map(async (doc) => {
+      const snap = await db.collection('launches').doc(doc.id)
+        .collection('lighthouse_audits').orderBy('created_at', 'desc').limit(1).get();
+      if (!snap.empty) {
+        const d = snap.docs[0].data();
+        results[doc.id] = {
+          performance:    d.performance    ?? null,
+          accessibility:  d.accessibility  ?? null,
+          best_practices: d.best_practices ?? null,
+          seo:            d.seo            ?? null,
+          mobile:         d.mobile         ?? null,
+          desktop:        d.desktop        ?? null,
+          is_post_launch: d.is_post_launch ?? false,
+          created_at:     fmtTs(d.created_at),
+        };
+      }
+    }));
+    res.json(results);
+  } catch (err) {
+    console.error('Perf cache error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });

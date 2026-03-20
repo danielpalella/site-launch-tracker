@@ -2063,6 +2063,27 @@ function renderLighthouseHistory(audits) {
   const launchBadge = (isPost) => isPost
     ? `<span class="lh-launch-badge lh-post">Post-Launch</span>`
     : `<span class="lh-launch-badge lh-pre">Pre-Launch</span>`;
+
+  const cwvMetric = (label, val) => val
+    ? `<div class="lh-cwv-metric"><span class="lh-cwv-label">${label}</span><span class="lh-cwv-val">${val}</span></div>`
+    : '';
+
+  const cwvDeviceCard = (label, data) => !data ? '' : `
+    <div class="lh-cwv-device">
+      <div class="lh-cwv-device-header">
+        <span class="lh-cwv-device-label">${label}</span>
+        <span class="lh-score" style="background:${lighthouseColor(data.performance ?? 0)};font-size:.7rem;padding:.15rem .45rem">${data.performance ?? '—'}</span>
+      </div>
+      <div class="lh-cwv-metrics">
+        ${cwvMetric('LCP', data.lcp)}
+        ${cwvMetric('CLS', data.cls)}
+        ${cwvMetric('FCP', data.fcp)}
+        ${cwvMetric('INP', data.fid)}
+      </div>
+    </div>`;
+
+  const hasCwv = latest.mobile || latest.desktop;
+
   body.innerHTML = `
     <div class="lh-latest">
       ${cats.map(c => `
@@ -2073,6 +2094,14 @@ function renderLighthouseHistory(audits) {
       `).join('')}
     </div>
     <div class="lh-timestamp">Last run ${formatDate(latest.created_at)} ${launchBadge(latest.is_post_launch)}</div>
+    ${hasCwv ? `
+    <div class="lh-cwv-section">
+      <div class="lh-cwv-title">Core Web Vitals</div>
+      <div class="lh-cwv-cards">
+        ${cwvDeviceCard('Mobile', latest.mobile)}
+        ${cwvDeviceCard('Desktop', latest.desktop)}
+      </div>
+    </div>` : ''}
     ${history.length ? `
       <details class="lh-history">
         <summary>History (${history.length} previous)</summary>
@@ -2353,6 +2382,8 @@ let _seoSortCol        = 'name';
 let _seoSortDir        = 1;
 let _seoCacheLoaded    = false;
 let _seoLastRanAt      = null;
+let _perfData          = {}; // { [id]: { performance, mobile, desktop, is_post_launch, created_at } }
+let _perfCacheLoaded   = false;
 
 function switchAnalyticsView(view) {
   analyticsView = view;
@@ -2369,6 +2400,7 @@ function switchAnalyticsView(view) {
   document.querySelector('.ac-refresh-btn').style.display       = view === 'seo' ? 'none' : '';
   document.getElementById('ac-site-count').style.display        = view === 'seo' ? 'none' : '';
   if (view === 'seo' && !_seoCacheLoaded) loadSeoCache();
+  if (view === 'seo' && !_perfCacheLoaded) loadPerfCache();
   document.getElementById('view-analytics').style.overflowY    = view === 'overview' ? 'auto' : 'hidden';
   if (view === 'overview') renderAnalyticsOverview(null);
   if (view === 'sites') applyAnalyticsFilters();
@@ -2431,6 +2463,20 @@ function seoStatusBadge(audit, field) {
   return `<span class="seo-badge seo-badge-none">—</span>`;
 }
 
+function perfBadge(id) {
+  const p = _perfData[id];
+  if (!p || p.performance == null) return `<span class="seo-badge seo-badge-none">—</span>`;
+  const score = p.performance;
+  const cls   = score >= 90 ? 'seo-badge-ok' : score >= 50 ? 'seo-badge-warn' : 'seo-badge-error';
+  const m = p.mobile, de = p.desktop;
+  const tip = [
+    m  ? `Mobile — LCP: ${m.lcp||'—'}  CLS: ${m.cls||'—'}  FCP: ${m.fcp||'—'}  INP: ${m.fid||'—'}`  : '',
+    de ? `Desktop — LCP: ${de.lcp||'—'}  CLS: ${de.cls||'—'}  FCP: ${de.fcp||'—'}  INP: ${de.fid||'—'}` : '',
+  ].filter(Boolean).join('\n');
+  const isPost = p.is_post_launch ? '● Post' : '○ Pre';
+  return `<span class="seo-badge ${cls}" title="${esc(tip + (tip ? '\n' : '') + isPost + '-launch scan')}">${score}</span>`;
+}
+
 function seoTableRow(id, d) {
   const audit = _seoData[id];
 
@@ -2465,6 +2511,7 @@ function seoTableRow(id, d) {
     <td class="seo-td seo-td-center">${seoStatusBadge(audit,'broken')}</td>
     <td class="seo-td seo-td-center">${seoStatusBadge(audit,'schema')}</td>
     <td class="seo-td seo-td-center">${seoStatusBadge(audit,'security')}</td>
+    <td class="seo-td seo-td-center">${perfBadge(id)}</td>
     <td class="seo-td seo-td-action" onclick="event.stopPropagation()">${auditCell}</td>
   </tr>`;
 }
@@ -2481,6 +2528,18 @@ async function loadSeoCache() {
     }
   } catch { /* silent — fall through to render with whatever we have */ }
   renderSeoView();
+}
+
+async function loadPerfCache() {
+  _perfCacheLoaded = true;
+  try {
+    const r = await fetch('/api/perf-cache');
+    if (r.ok) {
+      const data = await r.json();
+      Object.assign(_perfData, data);
+      renderSeoView();
+    }
+  } catch { /* silent */ }
 }
 
 function renderSeoView() {
@@ -2524,6 +2583,7 @@ function renderSeoView() {
     let av, bv;
     if (_seoSortCol === 'name')        { return (a.account_name||'').localeCompare(b.account_name||'') * _seoSortDir; }
     if (_seoSortCol === 'broken')      { av = (_seoData[idA]?.brokenLinks?.length ?? -1); bv = (_seoData[idB]?.brokenLinks?.length ?? -1); }
+    else if (_seoSortCol === 'performance') { av = (_perfData[idA]?.performance ?? -1); bv = (_perfData[idB]?.performance ?? -1); }
     else { av = 0; bv = 0; }
     return (av - bv) * _seoSortDir;
   });
@@ -2574,6 +2634,7 @@ function renderSeoView() {
             ${th('broken', 'Broken Links', 'seo-th-center')}
             ${th('schema', 'Schema', 'seo-th-center')}
             ${th('security', 'Security', 'seo-th-center')}
+            ${th('performance', 'Performance', 'seo-th-center')}
             <th class="seo-th seo-th-action">Last Audit</th>
           </tr></thead>
           <tbody>
@@ -3503,6 +3564,10 @@ async function loadCwvSection(id) {
     const r = await fetch(`/api/analytics/${id}/cwv`);
     if (!r.ok) throw new Error('Failed');
     const { mobile, desktop } = await r.json();
+    if (!mobile && !desktop) {
+      el.innerHTML = '<span style="color:var(--text-muted);font-size:.75rem">No scan data yet. Run a Lighthouse audit from the pipeline modal.</span>';
+      return;
+    }
     const scoreColor = s => !s ? '#94a3b8' : s >= 90 ? '#22c55e' : s >= 50 ? '#f59e0b' : '#ef4444';
     const scoreLabel = s => !s ? '—' : s >= 90 ? 'Good' : s >= 50 ? 'Needs Work' : 'Poor';
     const cwvRow = (label, val) => val ? `<span class="cwv-metric"><span class="cwv-metric-label">${label}</span><span class="cwv-metric-val">${val}</span></span>` : '';
