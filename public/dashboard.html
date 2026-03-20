@@ -246,8 +246,8 @@
       <input type="search" id="analytics-search" placeholder="Search accounts…" oninput="filterAnalyticsSearch(this.value)" class="ac-search">
       <div id="seo-toolbar-extras" style="display:none;align-items:center;gap:.6rem;margin-left:auto">
         <span id="seo-tb-stats" class="seo-tb-stats"></span>
-        <button class="btn btn-secondary btn-sm" id="seo-audit-all-btn" onclick="auditAllSites()">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <button class="seo-audit-all-tb-btn" id="seo-audit-all-btn" onclick="auditAllSites()">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           <span id="seo-audit-all-label">Audit All Sites</span>
         </button>
       </div>
@@ -2366,6 +2366,8 @@ function switchAnalyticsView(view) {
   document.getElementById('analytics-search').style.display     = (view === 'sites' || view === 'seo') ? '' : 'none';
   document.getElementById('ac-timeframe-wrap').style.display    = view === 'seo' ? 'none' : '';
   document.getElementById('seo-toolbar-extras').style.display   = view === 'seo' ? 'flex' : 'none';
+  document.querySelector('.ac-refresh-btn').style.display       = view === 'seo' ? 'none' : '';
+  document.getElementById('ac-site-count').style.display        = view === 'seo' ? 'none' : '';
   if (view === 'seo' && !_seoCacheLoaded) loadSeoCache();
   document.getElementById('view-analytics').style.overflowY    = view === 'overview' ? 'auto' : 'hidden';
   if (view === 'overview') renderAnalyticsOverview(null);
@@ -2447,7 +2449,7 @@ function seoTableRow(id, d) {
     audit.sitemapStatus !== 'ok' ||
     audit.indexStatus !== 'indexed' ||
     (audit.brokenLinks?.length || 0) > 0 ||
-    (audit.structuredData?.status === 'errors' || audit.structuredData?.status === 'missing') ||
+    ['errors','missing'].includes(audit.structuredData?.status) ||
     audit.safeBrowsing?.status === 'flagged'
   );
 
@@ -2509,7 +2511,7 @@ function renderSeoView() {
       a.sitemapStatus !== 'ok' ||
       a.indexStatus !== 'indexed' ||
       (a.brokenLinks?.length || 0) > 0 ||
-      (a.structuredData?.status === 'errors' || a.structuredData?.status === 'missing') ||
+      ['errors','missing'].includes(a.structuredData?.status) ||
       a.safeBrowsing?.status === 'flagged'
     );
   }
@@ -2531,7 +2533,7 @@ function renderSeoView() {
     d.sitemapStatus !== 'ok' ||
     d.indexStatus !== 'indexed' ||
     (d.brokenLinks?.length||0) > 0 ||
-    (d.structuredData?.status === 'errors' || d.structuredData?.status === 'missing') ||
+    ['errors','missing'].includes(d.structuredData?.status) ||
     d.safeBrowsing?.status === 'flagged'
   ).length;
 

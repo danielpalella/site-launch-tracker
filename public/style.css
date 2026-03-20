@@ -2111,6 +2111,15 @@ tr.status-separator:first-child td { border-top: none; }
 .seo-stat-sep { color: var(--text-muted); margin: 0 .2rem; }
 .seo-stat-issues strong { color: #ef4444; }
 .seo-tb-stats { font-size: .78rem; color: var(--text-muted); white-space: nowrap; }
+.seo-audit-all-tb-btn {
+  display: inline-flex; align-items: center; gap: .3rem;
+  font-size: .72rem; font-weight: 500; white-space: nowrap;
+  padding: .25rem .6rem; border-radius: 6px; cursor: pointer;
+  border: 1px solid var(--border); background: var(--surface);
+  color: var(--text-muted); transition: all .15s;
+}
+.seo-audit-all-tb-btn:hover { color: var(--text); border-color: var(--text-muted); }
+.seo-audit-all-tb-btn:disabled { opacity: .5; cursor: not-allowed; }
 .seo-table-card { padding: 0; overflow: hidden; }
 .seo-table-wrap { overflow-x: auto; }
 .seo-table { width: 100%; border-collapse: collapse; font-size: .8rem; }
