@@ -2845,29 +2845,25 @@ function computeIndustryBenchmarks(entries) {
     .sort((a, b) => b.count - a.count);
 }
 
-function computeMilestoneFlags(entries) {
-  const flags = [];
-  for (const [id, d] of entries) {
-    const days = d.daysSince;
-    if (!days) continue;
-    const milestone = days >= 88 ? '90day' : days >= 58 ? '60day' : days >= 28 ? '30day' : null;
-    if (!milestone) continue;
-    const t = milestoneThresholds[milestone];
-    if (!t) continue;
-    const issues = [];
-    const gscT = d.gsc?.total || {};
-    const ga4T = d.ga4?.total || {};
-    if (gscT.impressions != null && gscT.impressions < t.gscImpressions)
-      issues.push({ metric: 'Impressions', actual: gscT.impressions, target: t.gscImpressions });
-    if (gscT.clicks != null && gscT.clicks < t.gscClicks)
-      issues.push({ metric: 'Clicks', actual: gscT.clicks, target: t.gscClicks });
-    if (ga4T.sessions != null && ga4T.sessions < t.ga4Sessions)
-      issues.push({ metric: 'Sessions', actual: ga4T.sessions, target: t.ga4Sessions });
-    if (issues.length) {
-      flags.push({ id, account_name: d.account_name, domain: d.domain, days, milestone, issues });
-    }
-  }
-  return flags.sort((a, b) => b.days - a.days);
+function computeRecentlyLaunched(entries) {
+  return entries
+    .filter(([, d]) => d.daysSince != null && d.daysSince <= 30)
+    .map(([id, d]) => {
+      const gscT = d.gsc?.total || {};
+      const ga4T = d.ga4?.total || {};
+      const progress = Math.round((d.daysSince / 30) * 100);
+      return {
+        id,
+        account_name: d.account_name,
+        domain: d.domain,
+        days: d.daysSince,
+        progress,
+        impressions: gscT.impressions || 0,
+        clicks: gscT.clicks || 0,
+        sessions: ga4T.sessions || 0,
+      };
+    })
+    .sort((a, b) => b.days - a.days); // most days first (furthest into launch window)
 }
 
 function renderAnalyticsOverview(industryFilter) {
@@ -2887,7 +2883,7 @@ function renderAnalyticsOverview(industryFilter) {
   const { top, bottom } = topBottomPerformers(entries, period, 'sessions');
   const trafficDrops = computeTrafficDrops(entries);
   const industryBenchmarks = computeIndustryBenchmarks(entries);
-  const milestoneFlags = computeMilestoneFlags(entries);
+  const recentlyLaunched = computeRecentlyLaunched(entries);
 
   const ovMetric = (val, lbl, tip) =>
     `<div class="acd-metric"><div class="acd-metric-val">${val}</div><div class="acd-metric-label">${lbl}${tip ? `<span class="ac-tip" data-tip="${esc(tip)}">?</span>` : ''}</div></div>`;
@@ -3075,47 +3071,44 @@ function renderAnalyticsOverview(industryFilter) {
 
     <div class="ov-sections-grid">
 
-      ${milestoneFlags.length ? `
       <div class="card ov-section">
         <div class="ov-section-hdr">
           <div class="ov-section-hdr-left">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-            <span class="ov-section-title">Milestone Flags</span>
-            <span class="ac-tip" data-tip="Sites that have passed their 30, 60, or 90-day milestone but haven't hit the expected impressions, clicks, or sessions targets. Thresholds are configurable.">?</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1259FF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span class="ov-section-title">Recently Launched</span>
+            <span class="ac-tip" data-tip="Sites launched within the last 30 days. Shows early impressions, clicks, and sessions as they ramp up. Sorted by days since launch.">?</span>
           </div>
-          <span class="ov-section-badge" style="background:#f59e0b18;color:#f59e0b;border-color:#f59e0b40">${milestoneFlags.length} site${milestoneFlags.length !== 1 ? 's' : ''}</span>
+          <span class="ov-section-badge" style="background:#1259FF18;color:#1259FF;border-color:#1259FF40">${recentlyLaunched.length} site${recentlyLaunched.length !== 1 ? 's' : ''}</span>
         </div>
-        <div id="ms-sec-body" class="ov-sec-body">
-          ${milestoneFlags.map(f => {
-            const milestoneColor = f.milestone === '90day' ? '#ef4444' : f.milestone === '60day' ? '#f97316' : '#f59e0b';
-            return `<div class="ov-att-row" style="border-left:3px solid ${milestoneColor}" onclick="openAnalyticsModal('${esc(f.id)}')">
+        <div id="rl-sec-body" class="ov-sec-body">
+          ${recentlyLaunched.length ? recentlyLaunched.map(s => {
+            const barColor = s.days <= 7 ? '#22c55e' : s.days <= 14 ? '#1259FF' : s.days <= 21 ? '#f59e0b' : '#f97316';
+            return `<div class="ov-att-row" style="border-left:3px solid ${barColor}" onclick="openAnalyticsModal('${esc(s.id)}')">
               <div class="ov-att-top">
                 <div class="ov-att-name">
-                  <div class="ov-att-title">${esc(f.account_name)}</div>
-                  <div class="ov-att-domain">${esc(f.domain)}</div>
+                  <div class="ov-att-title">${esc(s.account_name)}</div>
+                  <div class="ov-att-domain">${esc(s.domain)}</div>
                 </div>
                 <div class="ov-att-score-wrap">
-                  <span class="ov-att-score" style="color:${milestoneColor}">${f.days}d</span>
-                  <span class="ov-att-label" style="color:${milestoneColor}">${f.milestone.replace('day',' DAY')}</span>
+                  <span class="ov-att-score" style="color:${barColor}">${s.days}d</span>
+                  <span class="ov-att-label" style="color:${barColor}">of 30</span>
                 </div>
               </div>
-              <div class="ov-att-issues" style="margin-top:.3rem">
-                ${f.issues.map(i => {
-                  const pct = Math.min(100, Math.round(i.actual / i.target * 100));
-                  return `<div class="ms-flag-issue">
-                    <div class="ms-flag-issue-top">
-                      <span class="ov-issue-tag" style="background:${milestoneColor}18;color:${milestoneColor};border:1px solid ${milestoneColor}40">${esc(i.metric)}: ${fmtNum(i.actual)} / ${fmtNum(i.target)}</span>
-                      <span class="ms-flag-pct" style="color:${milestoneColor}">${pct}%</span>
-                    </div>
-                    <div class="ms-flag-bar-bg"><div class="ms-flag-bar-fill" style="width:${pct}%;background:${milestoneColor}"></div></div>
-                  </div>`;
-                }).join('')}
+              <div class="rl-progress-bar-bg">
+                <div class="rl-progress-bar-fill" style="width:${s.progress}%;background:${barColor}"></div>
+              </div>
+              <div class="ov-att-metrics">
+                <span><b>${fmtNum(s.impressions)}</b><span class="ov-att-unit"> impr</span></span>
+                <span class="ov-att-sep">·</span>
+                <span><b>${fmtNum(s.clicks)}</b><span class="ov-att-unit"> clk</span></span>
+                <span class="ov-att-sep">·</span>
+                <span><b>${fmtNum(s.sessions)}</b><span class="ov-att-unit"> sess</span></span>
               </div>
             </div>`;
-          }).join('')}
+          }).join('') : '<div class="ov-empty-state"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>No sites launched in the last 30 days.</div>'}
         </div>
-        ${milestoneFlags.length > 3 ? `<button class="ov-sec-show-more" onclick="toggleOvSection('ms-sec-body',this)" data-total="${milestoneFlags.length}" data-preview="3"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg> Show ${milestoneFlags.length - 3} more</button>` : ''}
-      </div>` : ''}
+        ${recentlyLaunched.length > 3 ? `<button class="ov-sec-show-more" onclick="toggleOvSection('rl-sec-body',this)" data-total="${recentlyLaunched.length}" data-preview="3"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg> Show ${recentlyLaunched.length - 3} more</button>` : ''}
+      </div>
 
       ${trafficDrops.length ? `
       <div class="card ov-section">

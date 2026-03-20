@@ -2067,6 +2067,8 @@ tr.status-separator:first-child td { border-top: none; }
 .ms-flag-pct { font-size: .76rem; font-weight: 700; flex-shrink: 0; }
 .ms-flag-bar-bg { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
 .ms-flag-bar-fill { height: 100%; border-radius: 2px; transition: width .3s ease; }
+.rl-progress-bar-bg { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; margin: .45rem 0 .1rem; }
+.rl-progress-bar-fill { height: 100%; border-radius: 2px; transition: width .3s ease; }
 /* Traffic week stat */
 .traffic-week-stat { display: inline-flex; align-items: baseline; gap: .2rem; }
 .traffic-week-label { font-size: .7rem; color: var(--text-muted); margin-right: .1rem; }
