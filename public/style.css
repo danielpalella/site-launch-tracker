@@ -2302,6 +2302,10 @@ tr.status-separator:first-child td { border-top: none; }
 .seo-badge-error { background: #ef444418; color: #dc2626; border-color: #ef444440; }
 .seo-badge-warn  { background: #f59e0b18; color: #d97706; border-color: #f59e0b40; }
 .seo-badge-none  { background: var(--bg); color: var(--text-muted); border-color: var(--border); }
+.perf-pill-wrap  { display: inline-flex; align-items: center; gap: .3rem; }
+.perf-pill       { gap: .25rem; cursor: default; transition: filter .15s, transform .15s; }
+.perf-pill:hover { filter: brightness(1.15); transform: translateY(-1px); }
+.perf-pill-prefix { font-size: .6rem; font-weight: 700; opacity: .55; letter-spacing: .02em; }
 /* Audit button */
 .seo-audit-btn {
   font-size: .72rem; font-weight: 600; padding: .25rem .6rem;

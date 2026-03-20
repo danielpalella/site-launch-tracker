@@ -2820,16 +2820,19 @@ function seoStatusBadge(audit, field) {
 
 function perfBadge(id) {
   const p = _perfData[id];
-  if (!p || p.performance == null) return `<span class="seo-badge seo-badge-none">—</span>`;
-  const score = p.performance;
-  const cls   = score >= 90 ? 'seo-badge-ok' : score >= 50 ? 'seo-badge-warn' : 'seo-badge-error';
-  const m = p.mobile, de = p.desktop;
-  const tip = [
-    m  ? `Mobile — LCP: ${m.lcp||'—'}  CLS: ${m.cls||'—'}  FCP: ${m.fcp||'—'}  INP: ${m.fid||'—'}`  : '',
-    de ? `Desktop — LCP: ${de.lcp||'—'}  CLS: ${de.cls||'—'}  FCP: ${de.fcp||'—'}  INP: ${de.fid||'—'}` : '',
-  ].filter(Boolean).join('\n');
-  const isPost = p.is_post_launch ? '● Post' : '○ Pre';
-  return `<span class="seo-badge ${cls}" title="${esc(tip + (tip ? '\n' : '') + isPost + '-launch scan')}">${score}</span>`;
+  if (!p) return `<span class="seo-badge seo-badge-none">—</span>`;
+  const isPost = p.is_post_launch ? '● Post-launch' : '○ Pre-launch';
+  const pill = (score, label, vitals) => {
+    if (score == null) return '';
+    const cls = score >= 90 ? 'seo-badge-ok' : score >= 50 ? 'seo-badge-warn' : 'seo-badge-error';
+    const prefix = label === 'Mobile' ? 'M' : 'D';
+    const tip = `${label} · ${score}/100\nLCP: ${vitals?.lcp||'—'}  CLS: ${vitals?.cls||'—'}  FCP: ${vitals?.fcp||'—'}  INP: ${vitals?.fid||'—'}\n${isPost}`;
+    return `<span class="seo-badge ${cls} perf-pill" title="${esc(tip)}"><span class="perf-pill-prefix">${prefix}</span>${score}</span>`;
+  };
+  const m  = pill(p.mobile?.performance  ?? p.performance, 'Mobile',  p.mobile);
+  const d  = pill(p.desktop?.performance,                  'Desktop', p.desktop);
+  if (!m && !d) return `<span class="seo-badge seo-badge-none">—</span>`;
+  return `<span class="perf-pill-wrap">${m}${d}</span>`;
 }
 
 function seoTableRow(id, d) {
