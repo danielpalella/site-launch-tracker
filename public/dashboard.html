@@ -3853,26 +3853,26 @@ async function loadCwvSection(id) {
         </div>`;
     };
 
-    const lhScore = (score, label) => {
-      const c = scoreColor(score);
-      return `<div class="cwv-lh-score" title="${label}">
-        <span class="cwv-lh-dot" style="background:${c}">${score ?? '—'}</span>
-        <span class="cwv-lh-slabel">${label}</span>
+    const lhCat = (score, label) => `
+      <div class="lh-cat">
+        <span class="lh-score" style="background:${lighthouseColor(score ?? 0)}">${score ?? '—'}</span>
+        <span class="lh-cat-label">${label}</span>
       </div>`;
-    };
 
     const deviceCard = (label, data) => !data ? '' : `
       <div class="cwv-device-card">
         <div class="cwv-device-header">
           <span class="cwv-device-label">${label}</span>
-          <span class="cwv-score-badge" style="background:${scoreColor(data.performance)}18;color:${scoreColor(data.performance)};border:1px solid ${scoreColor(data.performance)}35">${data.performance ?? '—'} <span style="font-weight:400;font-size:.65rem">${scoreLabel(data.performance)}</span></span>
         </div>
-        <div class="cwv-lh-scores">
-          ${lhScore(data.accessibility,  'Accessibility')}
-          ${lhScore(data.best_practices, 'Best Practices')}
-          ${lhScore(data.seo,            'SEO')}
+        <div class="cwv-section-label">Lighthouse Scores</div>
+        <div class="cwv-lh-row">
+          ${lhCat(data.performance,    'Performance')}
+          ${lhCat(data.accessibility,  'Accessibility')}
+          ${lhCat(data.best_practices, 'Best Practices')}
+          ${lhCat(data.seo,            'SEO')}
         </div>
         <div class="cwv-divider"></div>
+        <div class="cwv-section-label">Core Web Vitals</div>
         <div class="cwv-metrics-row">
           ${cwvMetric('lcp', data.lcp)}
           ${cwvMetric('cls', data.cls)}

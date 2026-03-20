@@ -2230,18 +2230,18 @@ tr.status-separator:first-child td { border-top: none; }
 
 /* ── Core Web Vitals ── */
 .cwv-cards { display: flex; gap: .75rem; flex-wrap: wrap; }
-.cwv-device-card { flex: 1; min-width: 180px; background: var(--bg); border-radius: 8px; padding: .65rem .75rem; }
+.cwv-device-card { flex: 1; min-width: 220px; background: var(--bg); border-radius: 8px; padding: .65rem .75rem; }
 .cwv-device-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: .5rem; }
 .cwv-device-label { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); }
 .cwv-score-badge { font-size: .78rem; font-weight: 700; padding: .1rem .45rem; border-radius: 6px; }
 .cwv-metrics-row { display: flex; gap: .65rem; flex-wrap: wrap; }
 
-/* Lighthouse scores row inside device card */
-.cwv-lh-scores { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: .5rem; }
-.cwv-lh-score { display: flex; flex-direction: column; align-items: center; gap: .15rem; min-width: 48px; }
-.cwv-lh-dot { font-size: .72rem; font-weight: 700; color: #fff; padding: .12rem .4rem; border-radius: 5px; line-height: 1.4; }
-.cwv-lh-slabel { font-size: .58rem; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; color: var(--text-muted); text-align: center; }
-.cwv-divider { height: 1px; background: var(--border); margin: .5rem 0; }
+/* Lighthouse + CWV card layout */
+.cwv-section-label { font-size: .6rem; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--text-muted); margin-bottom: .4rem; }
+.cwv-lh-row { display: flex; gap: .75rem; flex-wrap: wrap; margin-bottom: .15rem; }
+.cwv-lh-row .lh-cat { min-width: 52px; }
+.cwv-lh-row .lh-score { width: 34px; height: 34px; font-size: .8rem; }
+.cwv-divider { height: 1px; background: var(--border); margin: .6rem 0 .5rem; }
 
 /* CWV metric with tooltip */
 .cwv-metric { display: flex; flex-direction: column; gap: .1rem; min-width: 52px; position: relative; }
