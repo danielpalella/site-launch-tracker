@@ -2423,7 +2423,9 @@ function seoTableRow(id, d) {
 
   const hasIssues = audit && (audit.sitemapStatus !== 'ok' || audit.indexStatus !== 'indexed' || (audit.brokenLinks?.length || 0) > 0);
 
-  return `<tr class="seo-tr${hasIssues ? ' seo-tr-issue' : ''}" onclick="openAnalyticsModal('${esc(id)}')">
+  const gscSiteUrl = audit?.siteUrl || `sc-domain:${d.domain.replace(/^www\./,'')}`;
+  const gscUrl = `https://search.google.com/search-console?resource_id=${encodeURIComponent(gscSiteUrl)}`;
+  return `<tr class="seo-tr${hasIssues ? ' seo-tr-issue' : ''}" onclick="window.open('${gscUrl}','_blank')" title="Open in Google Search Console">
     <td class="seo-td seo-td-site">
       <div class="seo-site-name">${esc(d.account_name)}</div>
       <div class="seo-site-domain">${esc(d.domain)}</div>
