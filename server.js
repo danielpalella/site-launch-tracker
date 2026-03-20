@@ -1514,12 +1514,14 @@ app.get('/api/analytics/:id/cwv', requireAuth, async (req, res) => {
   try {
     const snapshot = await db.collection('launches').doc(req.params.id)
       .collection('lighthouse_audits').orderBy('created_at', 'desc').limit(1).get();
-    if (snapshot.empty) return res.json({ url: null, mobile: null, desktop: null });
+    if (snapshot.empty) return res.json({ url: null, mobile: null, desktop: null, created_at: null });
     const data = snapshot.docs[0].data();
     res.json({
-      url:     data.url     || null,
-      mobile:  data.mobile  || null,
-      desktop: data.desktop || null,
+      url:            data.url            || null,
+      mobile:         data.mobile         || null,
+      desktop:        data.desktop        || null,
+      is_post_launch: data.is_post_launch ?? false,
+      created_at:     fmtTs(data.created_at),
     });
   } catch (err) {
     console.error('CWV error:', err.message);

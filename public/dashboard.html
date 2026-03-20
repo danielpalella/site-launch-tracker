@@ -3773,20 +3773,86 @@ async function openAnalyticsModal(id) {
   }
 }
 
+const CWV_META = {
+  lcp: {
+    label: 'LCP',
+    name:  'Largest Contentful Paint',
+    desc:  'How long until the largest visible element (image or text block) fully loads. Measures perceived load speed.',
+    thresholds: 'Good: < 2.5 s · Needs Work: 2.5–4 s · Poor: > 4 s',
+  },
+  cls: {
+    label: 'CLS',
+    name:  'Cumulative Layout Shift',
+    desc:  'How much the page layout unexpectedly jumps around while loading. A score of 0 means nothing shifted.',
+    thresholds: 'Good: < 0.1 · Needs Work: 0.1–0.25 · Poor: > 0.25',
+  },
+  fcp: {
+    label: 'FCP',
+    name:  'First Contentful Paint',
+    desc:  'How long until the first text or image appears on screen. The moment the user sees something happening.',
+    thresholds: 'Good: < 1.8 s · Needs Work: 1.8–3 s · Poor: > 3 s',
+  },
+  fid: {
+    label: 'INP',
+    name:  'Interaction to Next Paint',
+    desc:  'How quickly the page responds when the user clicks, taps, or types. Replaced FID as the interactivity metric.',
+    thresholds: 'Good: < 200 ms · Needs Work: 200–500 ms · Poor: > 500 ms',
+  },
+};
+
+async function rescanCwv(id) {
+  const el  = document.getElementById(`cwv-body-${id}`);
+  if (!el) return;
+  el.innerHTML = `<div class="cwv-scanning"><span class="cwv-scan-spin"></span><span>Running Lighthouse scan… this takes ~30s</span></div>`;
+  try {
+    const r = await fetch(`/api/launches/${id}/lighthouse`, { method: 'POST' });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      el.innerHTML = `<span style="color:#ef4444;font-size:.75rem">Scan failed: ${esc(err.error || 'Unknown error')}</span>`;
+      return;
+    }
+    await loadCwvSection(id);
+    // Refresh perf column in Site Audit
+    _perfCacheLoaded = false;
+    loadPerfCache();
+  } catch (e) {
+    el.innerHTML = `<span style="color:#ef4444;font-size:.75rem">Scan failed: ${esc(e.message)}</span>`;
+  }
+}
+
 async function loadCwvSection(id) {
   const el = document.getElementById(`cwv-body-${id}`);
   if (!el) return;
   try {
     const r = await fetch(`/api/analytics/${id}/cwv`);
     if (!r.ok) throw new Error('Failed');
-    const { mobile, desktop } = await r.json();
+    const { mobile, desktop, created_at, is_post_launch } = await r.json();
     if (!mobile && !desktop) {
-      el.innerHTML = '<span style="color:var(--text-muted);font-size:.75rem">No scan data yet. Run a Lighthouse audit from the pipeline modal.</span>';
+      el.innerHTML = `
+        <div style="color:var(--text-muted);font-size:.75rem;margin-bottom:.6rem">No scan data yet.</div>
+        <button class="cwv-rescan-btn" onclick="rescanCwv('${esc(id)}')">Run Lighthouse Scan</button>`;
       return;
     }
-    const scoreColor = s => !s ? '#94a3b8' : s >= 90 ? '#22c55e' : s >= 50 ? '#f59e0b' : '#ef4444';
-    const scoreLabel = s => !s ? '—' : s >= 90 ? 'Good' : s >= 50 ? 'Needs Work' : 'Poor';
-    const cwvRow = (label, val) => val ? `<span class="cwv-metric"><span class="cwv-metric-label">${label}</span><span class="cwv-metric-val">${val}</span></span>` : '';
+
+    const scoreColor = s => !s && s !== 0 ? '#94a3b8' : s >= 90 ? '#22c55e' : s >= 50 ? '#f59e0b' : '#ef4444';
+    const scoreLabel = s => !s && s !== 0 ? '—' : s >= 90 ? 'Good' : s >= 50 ? 'Needs Work' : 'Poor';
+
+    const cwvMetric = (key, val) => {
+      if (!val) return '';
+      const m = CWV_META[key];
+      const tip = `${m.name}\n\n${m.desc}\n\n${m.thresholds}`;
+      return `
+        <div class="cwv-metric cwv-metric-hover" title="${esc(tip)}">
+          <span class="cwv-metric-label">${m.label} <span class="cwv-info-icon">?</span></span>
+          <span class="cwv-metric-val">${esc(val)}</span>
+          <div class="cwv-tooltip">
+            <div class="cwv-tooltip-name">${m.name}</div>
+            <div class="cwv-tooltip-desc">${m.desc}</div>
+            <div class="cwv-tooltip-thresholds">${m.thresholds}</div>
+          </div>
+        </div>`;
+    };
+
     const deviceCard = (label, data) => !data ? '' : `
       <div class="cwv-device-card">
         <div class="cwv-device-header">
@@ -3794,13 +3860,30 @@ async function loadCwvSection(id) {
           <span class="cwv-score-badge" style="background:${scoreColor(data.performance)}18;color:${scoreColor(data.performance)};border:1px solid ${scoreColor(data.performance)}35">${data.performance ?? '—'} <span style="font-weight:400;font-size:.65rem">${scoreLabel(data.performance)}</span></span>
         </div>
         <div class="cwv-metrics-row">
-          ${cwvRow('LCP', data.lcp)}
-          ${cwvRow('CLS', data.cls)}
-          ${cwvRow('FCP', data.fcp)}
-          ${cwvRow('INP', data.fid)}
+          ${cwvMetric('lcp', data.lcp)}
+          ${cwvMetric('cls', data.cls)}
+          ${cwvMetric('fcp', data.fcp)}
+          ${cwvMetric('fid', data.fid)}
         </div>
       </div>`;
-    el.innerHTML = `<div class="cwv-cards">${deviceCard('Mobile', mobile)}${deviceCard('Desktop', desktop)}</div>`;
+
+    const launchTag = is_post_launch
+      ? `<span class="cwv-launch-tag cwv-post">Post-Launch</span>`
+      : `<span class="cwv-launch-tag cwv-pre">Pre-Launch</span>`;
+
+    const dateStr = created_at
+      ? new Date(created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
+      : null;
+
+    el.innerHTML = `
+      <div class="cwv-cards">${deviceCard('Mobile', mobile)}${deviceCard('Desktop', desktop)}</div>
+      <div class="cwv-footer">
+        <span class="cwv-footer-date">${dateStr ? `Last scanned ${dateStr}` : ''}${launchTag}</span>
+        <button class="cwv-rescan-btn" onclick="rescanCwv('${esc(id)}')">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          Rescan
+        </button>
+      </div>`;
   } catch {
     el.innerHTML = '<span style="color:var(--text-muted);font-size:.75rem">Could not load Core Web Vitals.</span>';
   }
