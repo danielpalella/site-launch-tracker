@@ -2398,6 +2398,22 @@ function seoStatusBadge(audit, field) {
     if (n === 0) return `<span class="seo-badge seo-badge-ok">✓ None</span>`;
     return `<span class="seo-badge seo-badge-error">${n} broken</span>`;
   }
+  if (field === 'schema') {
+    const sd = audit.structuredData;
+    if (!sd) return `<span class="seo-badge seo-badge-none">—</span>`;
+    if (sd.status === 'ok')       return `<span class="seo-badge seo-badge-ok" title="${esc(sd.schemas.join(', '))}">✓ ${sd.schemas.length} type${sd.schemas.length !== 1 ? 's' : ''}</span>`;
+    if (sd.status === 'warnings') return `<span class="seo-badge seo-badge-warn" title="${esc(sd.warnings.join('\n'))}">⚠ ${sd.schemas.length} type${sd.schemas.length !== 1 ? 's' : ''}</span>`;
+    if (sd.status === 'errors')   return `<span class="seo-badge seo-badge-error" title="${esc(sd.errors.join('\n'))}">✗ Errors</span>`;
+    if (sd.status === 'missing')  return `<span class="seo-badge seo-badge-error">No Schema</span>`;
+    return `<span class="seo-badge seo-badge-none">—</span>`;
+  }
+  if (field === 'security') {
+    const sb = audit.safeBrowsing;
+    if (!sb) return `<span class="seo-badge seo-badge-none">—</span>`;
+    if (sb.status === 'safe')    return `<span class="seo-badge seo-badge-ok">✓ Safe</span>`;
+    if (sb.status === 'flagged') return `<span class="seo-badge seo-badge-error" title="${esc(sb.threats.join(', '))}">✗ Flagged</span>`;
+    return `<span class="seo-badge seo-badge-none">—</span>`;
+  }
   return `<span class="seo-badge seo-badge-none">—</span>`;
 }
 
@@ -2421,7 +2437,13 @@ function seoTableRow(id, d) {
     auditCell = `<span class="seo-audit-age">${ageStr}</span><button class="seo-audit-btn seo-audit-btn-icon" id="seo-btn-${esc(id)}" onclick="event.stopPropagation();runSeoAudit('${esc(id)}',this)" title="Re-scan"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></button>`;
   }
 
-  const hasIssues = audit && (audit.sitemapStatus !== 'ok' || audit.indexStatus !== 'indexed' || (audit.brokenLinks?.length || 0) > 0);
+  const hasIssues = audit && (
+    audit.sitemapStatus !== 'ok' ||
+    audit.indexStatus !== 'indexed' ||
+    (audit.brokenLinks?.length || 0) > 0 ||
+    (audit.structuredData?.status === 'errors' || audit.structuredData?.status === 'missing') ||
+    audit.safeBrowsing?.status === 'flagged'
+  );
 
   const gscSiteUrl = audit?.siteUrl || `sc-domain:${d.domain.replace(/^www\./,'')}`;
   const gscUrl = `https://search.google.com/search-console?resource_id=${encodeURIComponent(gscSiteUrl)}`;
@@ -2433,6 +2455,8 @@ function seoTableRow(id, d) {
     <td class="seo-td seo-td-center">${seoStatusBadge(audit,'sitemap')}</td>
     <td class="seo-td seo-td-center">${seoStatusBadge(audit,'index')}</td>
     <td class="seo-td seo-td-center">${seoStatusBadge(audit,'broken')}</td>
+    <td class="seo-td seo-td-center">${seoStatusBadge(audit,'schema')}</td>
+    <td class="seo-td seo-td-center">${seoStatusBadge(audit,'security')}</td>
     <td class="seo-td seo-td-num" style="${posColor ? `color:${posColor};font-weight:700` : ''}">${pos ?? '—'}</td>
     <td class="seo-td seo-td-num">${ctr}</td>
     <td class="seo-td seo-td-num">${clicks}</td>
@@ -2452,7 +2476,13 @@ function renderSeoView() {
 
   function seoHasIssue(id) {
     const a = _seoData[id];
-    return a && (a.sitemapStatus !== 'ok' || a.indexStatus !== 'indexed' || (a.brokenLinks?.length || 0) > 0);
+    return a && (
+      a.sitemapStatus !== 'ok' ||
+      a.indexStatus !== 'indexed' ||
+      (a.brokenLinks?.length || 0) > 0 ||
+      (a.structuredData?.status === 'errors' || a.structuredData?.status === 'missing') ||
+      a.safeBrowsing?.status === 'flagged'
+    );
   }
   const sorted = [...entries].sort(([idA, a], [idB, b]) => {
     // Issues always float to top, regardless of sort column
@@ -2472,7 +2502,13 @@ function renderSeoView() {
   });
 
   const audited = Object.keys(_seoData).length;
-  const issues = Object.values(_seoData).filter(d => d.sitemapStatus !== 'ok' || d.indexStatus !== 'indexed' || (d.brokenLinks?.length||0) > 0).length;
+  const issues = Object.values(_seoData).filter(d =>
+    d.sitemapStatus !== 'ok' ||
+    d.indexStatus !== 'indexed' ||
+    (d.brokenLinks?.length||0) > 0 ||
+    (d.structuredData?.status === 'errors' || d.structuredData?.status === 'missing') ||
+    d.safeBrowsing?.status === 'flagged'
+  ).length;
 
   const th = (col, label, cls = '') => {
     const active = _seoSortCol === col;
@@ -2500,6 +2536,8 @@ function renderSeoView() {
             ${th('sitemap', 'Sitemap', 'seo-th-center')}
             ${th('index', 'Indexed', 'seo-th-center')}
             ${th('broken', 'Broken Links', 'seo-th-center')}
+            ${th('schema', 'Schema', 'seo-th-center')}
+            ${th('security', 'Security', 'seo-th-center')}
             ${th('position', 'Avg Pos', 'seo-th-num')}
             ${th('ctr', 'CTR', 'seo-th-num')}
             ${th('clicks', 'Clicks', 'seo-th-num')}
@@ -2842,8 +2880,11 @@ function renderAnalyticsOverview(industryFilter) {
     const h = site.health;
     const trendStr   = h.trendPct !== null ? (h.trendPct >= 0 ? `▲ ${h.trendPct}%` : `▼ ${Math.abs(h.trendPct)}%`) : null;
     const trendColor = h.trendPct !== null && h.trendPct < 0 ? '#ef4444' : '#22c55e';
+    const isFlagged  = _seoData[site.id]?.safeBrowsing?.status === 'flagged';
+    const borderColor = isFlagged ? '#ef4444' : h.color;
+    const allIssues = isFlagged ? ['Security Risk', ...h.issues] : h.issues;
     return `
-    <div class="ov-att-row" style="border-left:3px solid ${h.color}" onclick="openAnalyticsModal('${esc(site.id)}')">
+    <div class="ov-att-row" style="border-left:3px solid ${borderColor}" onclick="openAnalyticsModal('${esc(site.id)}')">
       <div class="ov-att-top">
         <div class="ov-att-name">
           <div class="ov-att-title">${esc(site.account_name)}</div>
@@ -2862,9 +2903,22 @@ function renderAnalyticsOverview(industryFilter) {
         <span><b>${h.ctr}%</b> CTR</span>
         ${trendStr ? `<span class="ov-att-sep">·</span><span style="color:${trendColor};font-weight:700">${trendStr}</span>` : ''}
       </div>
-      ${h.issues.length ? `<div class="ov-att-issues">${h.issues.map(i => `<span class="ov-issue-tag" style="background:${h.color}18;color:${h.color};border:1px solid ${h.color}40">${esc(i)}</span>`).join('')}</div>` : ''}
+      ${allIssues.length ? `<div class="ov-att-issues">${allIssues.map(i => {
+        const isSec = i === 'Security Risk';
+        const bg = isSec ? '#ef444418' : `${h.color}18`;
+        const fg = isSec ? '#dc2626'   : h.color;
+        const bd = isSec ? '#ef444440' : `${h.color}40`;
+        return `<span class="ov-issue-tag" style="background:${bg};color:${fg};border:1px solid ${bd}">${esc(i)}</span>`;
+      }).join('')}</div>` : ''}
     </div>`;
   };
+
+  // Security-flagged sites bubble to the top of Needs Attention
+  const bottomSorted = [...bottom].sort((a, b) => {
+    const fa = _seoData[a.id]?.safeBrowsing?.status === 'flagged' ? 0 : 1;
+    const fb = _seoData[b.id]?.safeBrowsing?.status === 'flagged' ? 0 : 1;
+    return fa - fb;
+  });
 
   // Build GSC health table — group by health level, sorted best → worst
   const healthEntries = entries
@@ -2979,7 +3033,7 @@ function renderAnalyticsOverview(industryFilter) {
           <span class="ac-tip" data-tip="Sites that launched 30+ days ago with a low GSC health score (below 68/100). Health is scored on impressions/day, CTR, avg position, and 4-week trend.">?</span>
           <span class="acd-period-tag">30+ days · by GSC health</span>
         </div>
-        ${bottom.length ? bottom.map((s, i) => attentionRow(s, i + 1)).join('') : '<div class="ov-empty-state"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>All established sites look healthy.</div>'}
+        ${bottomSorted.length ? bottomSorted.map((s, i) => attentionRow(s, i + 1)).join('') : '<div class="ov-empty-state"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>All established sites look healthy.</div>'}
       </div>
     </div>
 

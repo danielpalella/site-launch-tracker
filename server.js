@@ -1481,6 +1481,102 @@ app.put('/api/milestones/thresholds', requireAuth, async (req, res) => {
 });
 
 // ── SEO Audit ──
+const SAFE_BROWSING_API_KEY = process.env.SAFE_BROWSING_API_KEY || '';
+
+// Required and recommended fields per schema @type
+const SCHEMA_RULES = {
+  LocalBusiness:  { required: ['name','address'], recommended: ['telephone','url','description','openingHours'] },
+  Organization:   { required: ['name'],           recommended: ['url','logo','contactPoint','description'] },
+  Service:        { required: ['name'],            recommended: ['description','provider','areaServed','url'] },
+  FAQPage:        { required: ['mainEntity'],      recommended: [] },
+  WebSite:        { required: ['name','url'],      recommended: ['potentialAction'] },
+  Product:        { required: ['name'],            recommended: ['description','image','offers','brand'] },
+  Article:        { required: ['headline','author','datePublished'], recommended: ['image','description'] },
+  BreadcrumbList: { required: ['itemListElement'], recommended: [] },
+};
+
+async function scanStructuredData(baseUrl) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10_000);
+  try {
+    const resp = await fetch(baseUrl, {
+      headers: { 'User-Agent': 'RealWork-SEO-Scanner/1.0' },
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    if (!resp.ok) return { status: 'unknown', schemas: [], errors: [], warnings: [] };
+    const html = await resp.text();
+
+    // Extract all JSON-LD blocks
+    const re = /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+    const schemas = [];
+    const errors = [];
+    const warnings = [];
+    let m;
+    while ((m = re.exec(html)) !== null) {
+      let parsed;
+      try { parsed = JSON.parse(m[1].trim()); } catch { errors.push('Invalid JSON-LD block'); continue; }
+      // Handle @graph arrays
+      const items = parsed['@graph'] ? parsed['@graph'] : [parsed];
+      for (const item of items) {
+        const rawType = item['@type'] || '';
+        const types = Array.isArray(rawType) ? rawType : [rawType];
+        for (const type of types) {
+          const rules = SCHEMA_RULES[type];
+          schemas.push(type);
+          if (rules) {
+            for (const f of rules.required) {
+              if (item[f] == null || item[f] === '') errors.push(`${type}: missing required field "${f}"`);
+            }
+            for (const f of rules.recommended) {
+              if (item[f] == null || item[f] === '') warnings.push(`${type}: missing recommended field "${f}"`);
+            }
+          }
+        }
+      }
+    }
+
+    if (schemas.length === 0) return { status: 'missing', schemas: [], errors: [], warnings: [] };
+    if (errors.length > 0)   return { status: 'errors', schemas, errors, warnings };
+    if (warnings.length > 0) return { status: 'warnings', schemas, errors, warnings };
+    return { status: 'ok', schemas, errors, warnings };
+  } catch {
+    clearTimeout(timer);
+    return { status: 'unknown', schemas: [], errors: [], warnings: [] };
+  }
+}
+
+async function checkSafeBrowsing(url, apiKey) {
+  if (!apiKey) return { status: 'unknown', threats: [] };
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8_000);
+    const resp = await fetch(`https://safebrowsing.googleapis.com/v4/threatMatches:find?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal,
+      body: JSON.stringify({
+        client: { clientId: 'realwork-seo-scanner', clientVersion: '1.0' },
+        threatInfo: {
+          threatTypes: ['MALWARE','SOCIAL_ENGINEERING','UNWANTED_SOFTWARE','POTENTIALLY_HARMFUL_APPLICATION'],
+          platformTypes: ['ANY_PLATFORM'],
+          threatEntryTypes: ['URL'],
+          threatEntries: [{ url }],
+        },
+      }),
+    });
+    clearTimeout(timer);
+    if (!resp.ok) return { status: 'unknown', threats: [] };
+    const data = await resp.json();
+    const matches = data.matches || [];
+    if (matches.length === 0) return { status: 'safe', threats: [] };
+    const threats = [...new Set(matches.map(t => t.threatType))];
+    return { status: 'flagged', threats };
+  } catch {
+    return { status: 'unknown', threats: [] };
+  }
+}
+
 async function scanBrokenLinks(baseUrl) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 10_000);
@@ -1601,10 +1697,15 @@ app.get('/api/analytics/:id/seo', requireAuth, async (req, res) => {
       }
     }
 
-    // 3. Broken links
-    const brokenLinks = await scanBrokenLinks(`https://${cleanDomain}/`);
+    // 3. Broken links, structured data, safe browsing — run in parallel
+    const homeUrl = `https://${cleanDomain}/`;
+    const [brokenLinks, structuredData, safeBrowsing] = await Promise.all([
+      scanBrokenLinks(homeUrl),
+      scanStructuredData(homeUrl),
+      checkSafeBrowsing(homeUrl, SAFE_BROWSING_API_KEY),
+    ]);
 
-    const result = { scannedAt: new Date().toISOString(), siteUrl, sitemaps, sitemapStatus, indexStatus, indexCoverageState, brokenLinks };
+    const result = { scannedAt: new Date().toISOString(), siteUrl, sitemaps, sitemapStatus, indexStatus, indexCoverageState, brokenLinks, structuredData, safeBrowsing };
     await cacheRef.set(result).catch(() => {});
     res.json(result);
   } catch (e) {

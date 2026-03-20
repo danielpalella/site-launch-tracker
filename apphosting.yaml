@@ -7,3 +7,7 @@ runConfig:
   maxInstances: 10
   timeoutSeconds: 120
 
+env:
+  - variable: SAFE_BROWSING_API_KEY
+    secret: safe_browsing_api_key
+
