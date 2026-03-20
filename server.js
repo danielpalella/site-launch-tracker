@@ -1656,9 +1656,11 @@ app.get('/api/analytics/:id/seo', requireAuth, async (req, res) => {
 
     const token = await getAnalyticsAccessToken();
 
-    // Find working GSC siteUrl — same 5-candidate approach as fetchGSC so we
-    // use the exact same verified property that already returns analytics data.
+    // Find working GSC siteUrl using a 90-day window so we always get data
+    // even with GSC's 2-3 day reporting delay. Also use the row count to
+    // determine indexing — if the site has ANY impressions it is indexed.
     const today = new Date().toISOString().slice(0, 10);
+    const ninetyDaysAgo = new Date(Date.now() - 90 * 86_400_000).toISOString().slice(0, 10);
     const scCandidates = [
       `sc-domain:${cleanDomain}`,
       `https://www.${cleanDomain}/`,
@@ -1667,18 +1669,24 @@ app.get('/api/analytics/:id/seo', requireAuth, async (req, res) => {
       `http://${cleanDomain}/`,
     ];
     let siteUrl = null;
+    let gscHasImpressions = false;
     for (const c of scCandidates) {
       const r = await fetch(
         `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(c)}/searchAnalytics/query`,
         {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ startDate: today, endDate: today, dimensions: ['date'], rowLimit: 1 }),
+          body: JSON.stringify({ startDate: ninetyDaysAgo, endDate: today, dimensions: ['date'], rowLimit: 1 }),
         }
       ).catch(() => null);
-      if (r?.ok) { siteUrl = c; break; }
+      if (r?.ok) {
+        const data = await r.json().catch(() => ({}));
+        siteUrl = c;
+        gscHasImpressions = (data.rows || []).length > 0;
+        break;
+      }
     }
-    console.log(`[seo] ${cleanDomain} siteUrl=${siteUrl}`);
+    console.log(`[seo] ${cleanDomain} siteUrl=${siteUrl} gscHasImpressions=${gscHasImpressions}`);
 
     // 1. Sitemaps
     let sitemaps = [], sitemapStatus = 'unknown';
@@ -1696,9 +1704,15 @@ app.get('/api/analytics/:id/seo', requireAuth, async (req, res) => {
       }
     }
 
-    // 2. Index check via URL Inspection API
+    // 2. Index check
+    // Primary: if Google is returning search analytics data the site is indexed.
+    // Fallback: URL Inspection API for sites with no impressions yet (new sites).
     let indexStatus = 'unknown', indexCoverageState = null;
-    if (siteUrl) {
+    if (gscHasImpressions) {
+      // Site has appeared in Google search results — definitively indexed
+      indexStatus = 'indexed';
+    } else if (siteUrl) {
+      // No impressions yet — try URL Inspection API for a definitive answer
       const inspectUrls = [`https://${cleanDomain}/`, `https://www.${cleanDomain}/`];
       for (const inspectUrl of inspectUrls) {
         const r = await fetch('https://searchconsole.googleapis.com/v1/urlInspection/index:inspect', {
@@ -1710,16 +1724,15 @@ app.get('/api/analytics/:id/seo', requireAuth, async (req, res) => {
           const data = await r.json();
           const result = data.inspectionResult?.indexStatusResult || {};
           indexCoverageState = result.coverageState || null;
-          console.log(`[seo] ${cleanDomain} inspectUrl=${inspectUrl} verdict=${result.verdict} coverage="${indexCoverageState}"`);
+          console.log(`[seo] ${cleanDomain} urlInspection verdict=${result.verdict} coverage="${indexCoverageState}"`);
           if (result.verdict === 'PASS' || /indexed/i.test(indexCoverageState || '')) {
             indexStatus = 'indexed'; break;
           } else if (result.verdict === 'FAIL' || result.verdict === 'NEUTRAL') {
             indexStatus = 'not_indexed'; break;
           }
-          // VERDICT_UNSPECIFIED — try next URL variant
         } else {
           const body = r ? await r.text().catch(() => '') : 'no response';
-          console.log(`[seo] urlInspection ${r?.status} for ${cleanDomain} (${inspectUrl}): ${body.slice(0, 200)}`);
+          console.log(`[seo] urlInspection ${r?.status} for ${cleanDomain}: ${body.slice(0, 300)}`);
           break;
         }
       }
