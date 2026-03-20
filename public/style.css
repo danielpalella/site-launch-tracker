@@ -1786,10 +1786,16 @@ tr.status-separator:first-child td { border-top: none; }
 .acd-two-col {
   display: grid;
   grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto auto;
   gap: 1.25rem;
   margin-bottom: 1.1rem;
+  align-items: start;
 }
-@media (max-width: 600px) { .acd-two-col { grid-template-columns: 1fr; } }
+.acd-section-span {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+@media (max-width: 600px) { .acd-two-col { grid-template-columns: 1fr; } .acd-section-span { grid-column: 1; grid-row: auto; } }
 
 /* Form submissions */
 .acd-forms-list { display: flex; flex-direction: column; gap: .55rem; }
