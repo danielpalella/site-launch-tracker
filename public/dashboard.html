@@ -570,6 +570,33 @@
 
 
     <div id="admin-body">
+
+      <!-- ── Lighthouse Bulk Scan ── -->
+      <div class="admin-lh-wrap">
+        <div class="admin-sub-label">Lighthouse Bulk Scan</div>
+        <p class="admin-lh-hint">Runs PageSpeed Insights (mobile + desktop) on every matching site and stores the results. Takes ~30s per site — progress updates in real-time below.</p>
+        <div class="admin-lh-filters">
+          <label class="admin-lh-cb-label">
+            <input type="checkbox" class="admin-lh-cb" value="all" id="lh-cb-all" onchange="toggleLhAll(this)"> All Sites
+          </label>
+          <label class="admin-lh-cb-label"><input type="checkbox" class="admin-lh-cb" value="launched"> Launched</label>
+          <label class="admin-lh-cb-label"><input type="checkbox" class="admin-lh-cb" value="new"> New</label>
+          <label class="admin-lh-cb-label"><input type="checkbox" class="admin-lh-cb" value="in_progress"> In Progress</label>
+          <label class="admin-lh-cb-label"><input type="checkbox" class="admin-lh-cb" value="awaiting_approval"> Awaiting Approval</label>
+          <label class="admin-lh-cb-label"><input type="checkbox" class="admin-lh-cb" value="awaiting_dns"> Awaiting DNS</label>
+        </div>
+        <button id="admin-lh-run-btn" class="admin-lh-run-btn" onclick="runBulkLighthouse()">Run Lighthouse Scan</button>
+        <div id="admin-lh-log" style="display:none">
+          <div class="admin-lh-log-header">
+            <span id="admin-lh-log-title">Scanning…</span>
+            <span id="admin-lh-log-counter" class="admin-lh-counter"></span>
+          </div>
+          <div id="admin-lh-log-body" class="admin-lh-log-body"></div>
+          <div id="admin-lh-summary" class="admin-lh-summary" style="display:none"></div>
+        </div>
+      </div>
+
+      <!-- ── Audit Log ── -->
       <div class="admin-sub-label" style="padding:.75rem 1.25rem .4rem">Audit Log</div>
       <div id="admin-loading" style="padding:1.5rem;text-align:center;color:var(--text-muted)">Loading logs…</div>
       <table id="admin-table" style="display:none">
@@ -2306,6 +2333,136 @@ function openAdmin() {
 
 function closeAdmin() {
   document.getElementById('admin-overlay').style.display = 'none';
+}
+
+function toggleLhAll(cb) {
+  if (cb.checked) {
+    document.querySelectorAll('.admin-lh-cb:not(#lh-cb-all)').forEach(el => { el.checked = false; el.disabled = true; });
+  } else {
+    document.querySelectorAll('.admin-lh-cb:not(#lh-cb-all)').forEach(el => { el.disabled = false; });
+  }
+}
+
+async function runBulkLighthouse() {
+  const allCb    = document.getElementById('lh-cb-all');
+  const statusCbs = [...document.querySelectorAll('.admin-lh-cb:not(#lh-cb-all):checked')].map(cb => cb.value);
+  const isAll    = allCb.checked;
+  if (!isAll && !statusCbs.length) {
+    alert('Select at least one status, or check "All Sites".');
+    return;
+  }
+
+  const btn     = document.getElementById('admin-lh-run-btn');
+  const logWrap = document.getElementById('admin-lh-log');
+  const logBody = document.getElementById('admin-lh-log-body');
+  const counter = document.getElementById('admin-lh-log-counter');
+  const title   = document.getElementById('admin-lh-log-title');
+  const summary = document.getElementById('admin-lh-summary');
+
+  btn.disabled = true;
+  btn.textContent = 'Scanning…';
+  logWrap.style.display = 'block';
+  logBody.innerHTML = '';
+  summary.style.display = 'none';
+  title.textContent = 'Starting…';
+  counter.textContent = '';
+
+  let total = 0, done = 0, success = 0, failed = 0;
+
+  const addRow = (html, cls = '') => {
+    const row = document.createElement('div');
+    row.className = 'admin-lh-row' + (cls ? ' ' + cls : '');
+    row.innerHTML = html;
+    logBody.appendChild(row);
+    logBody.scrollTop = logBody.scrollHeight;
+    return row;
+  };
+
+  let scanningRow = null;
+
+  try {
+    const res = await fetch('/api/admin/lighthouse/bulk', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ statuses: isAll ? 'all' : statusCbs }),
+    });
+
+    if (!res.ok) {
+      addRow(`<span class="admin-lh-err">Server error ${res.status}</span>`, 'admin-lh-row-error');
+      btn.disabled = false; btn.textContent = 'Run Lighthouse Scan';
+      return;
+    }
+
+    const reader  = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer    = '';
+
+    while (true) {
+      const { done: streamDone, value } = await reader.read();
+      if (streamDone) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        let ev;
+        try { ev = JSON.parse(line.slice(6)); } catch { continue; }
+
+        if (ev.type === 'start') {
+          total = ev.total;
+          title.textContent = `Scanning ${total} site${total !== 1 ? 's' : ''}…`;
+          counter.textContent = `0 / ${total}`;
+        } else if (ev.type === 'scanning') {
+          if (scanningRow) {
+            scanningRow.querySelector('.admin-lh-spin')?.remove();
+          }
+          scanningRow = addRow(
+            `<span class="admin-lh-spin"></span><span class="admin-lh-site">${esc(ev.account_name || ev.domain)}</span><span class="admin-lh-domain">${esc(ev.domain)}</span>`,
+            'admin-lh-row-scanning'
+          );
+        } else if (ev.type === 'result') {
+          done++;
+          if (scanningRow) {
+            scanningRow.remove();
+            scanningRow = null;
+          }
+          counter.textContent = `${done} / ${total}`;
+          if (ev.ok) {
+            success++;
+            const score = ev.performance ?? '—';
+            const scoreColor = score >= 90 ? '#22c55e' : score >= 50 ? '#f97316' : '#ef4444';
+            addRow(
+              `<span class="admin-lh-ok">✓</span><span class="admin-lh-site">${esc(ev.account_name || ev.domain)}</span><span class="admin-lh-domain">${esc(ev.domain)}</span><span class="admin-lh-score" style="background:${scoreColor}">${score}</span>${ev.mobile_lcp ? `<span class="admin-lh-cwv">LCP ${esc(ev.mobile_lcp)}</span>` : ''}`,
+              'admin-lh-row-ok'
+            );
+          } else {
+            failed++;
+            addRow(
+              `<span class="admin-lh-fail">✗</span><span class="admin-lh-site">${esc(ev.account_name || ev.domain)}</span><span class="admin-lh-domain">${esc(ev.domain)}</span><span class="admin-lh-err">${esc(ev.error || 'Unknown error')}</span>`,
+              'admin-lh-row-error'
+            );
+          }
+        } else if (ev.type === 'done') {
+          title.textContent = 'Scan complete';
+          counter.textContent = `${done} / ${total}`;
+          summary.style.display = 'block';
+          const failPart = failed > 0 ? ` · <span style="color:#ef4444">${failed} failed</span>` : '';
+          summary.innerHTML = `<strong>${success}</strong> succeeded${failPart} out of <strong>${total}</strong> sites scanned`;
+        } else if (ev.type === 'error') {
+          addRow(`<span class="admin-lh-err">Error: ${esc(ev.message)}</span>`, 'admin-lh-row-error');
+        }
+      }
+    }
+  } catch (err) {
+    addRow(`<span class="admin-lh-err">Connection lost: ${esc(err.message)}</span>`, 'admin-lh-row-error');
+    title.textContent = 'Scan interrupted';
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Run Lighthouse Scan';
+  // Refresh perf cache so Site Audit table reflects new data
+  _perfCacheLoaded = false;
+  loadPerfCache();
 }
 
 document.getElementById('admin-overlay').addEventListener('click', (e) => {

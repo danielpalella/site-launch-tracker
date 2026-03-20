@@ -1433,6 +1433,46 @@ tr.status-separator:first-child td { border-top: none; }
 .admin-details { line-height: 1.6; color: var(--text); }
 .admin-change-field { font-weight: 600; color: var(--primary); }
 
+/* ── Admin Lighthouse Bulk Scan ── */
+.admin-lh-wrap { padding: .85rem 1.25rem 1.1rem; border-bottom: 1px solid var(--border); }
+.admin-lh-wrap .admin-sub-label { padding: 0; margin-bottom: .35rem; }
+.admin-lh-hint { font-size: .76rem; color: var(--text-muted); margin: 0 0 .75rem; line-height: 1.5; }
+.admin-lh-filters { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: .75rem; }
+.admin-lh-cb-label { display: flex; align-items: center; gap: .3rem; font-size: .78rem; font-weight: 500; cursor: pointer; padding: .3rem .55rem; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); transition: border-color .15s, background .15s; }
+.admin-lh-cb-label:hover { border-color: var(--primary); }
+.admin-lh-cb-label input { cursor: pointer; accent-color: var(--primary); }
+.admin-lh-run-btn { font-size: .8rem; font-weight: 600; padding: .45rem 1rem; border-radius: 7px; border: none; background: var(--primary); color: #fff; cursor: pointer; transition: opacity .15s; }
+.admin-lh-run-btn:disabled { opacity: .5; cursor: not-allowed; }
+.admin-lh-run-btn:not(:disabled):hover { opacity: .88; }
+
+/* Progress log */
+.admin-lh-log { margin-top: .9rem; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.admin-lh-log-header { display: flex; align-items: center; justify-content: space-between; padding: .5rem .75rem; background: var(--bg); border-bottom: 1px solid var(--border); font-size: .78rem; font-weight: 600; }
+.admin-lh-counter { font-size: .72rem; font-weight: 500; color: var(--text-muted); }
+.admin-lh-log-body { max-height: 320px; overflow-y: auto; font-size: .77rem; }
+.admin-lh-row { display: flex; align-items: center; gap: .5rem; padding: .38rem .75rem; border-bottom: 1px solid var(--border); }
+.admin-lh-row:last-child { border-bottom: none; }
+.admin-lh-row-ok { background: transparent; }
+.admin-lh-row-error { background: #fef2f2; }
+.admin-lh-row-scanning { background: var(--bg); }
+[data-theme="dark"] .admin-lh-row-error { background: #2d0a0a; }
+.admin-lh-ok   { color: #22c55e; font-weight: 700; flex-shrink: 0; }
+.admin-lh-fail { color: #ef4444; font-weight: 700; flex-shrink: 0; }
+.admin-lh-site { font-weight: 600; flex-shrink: 0; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-lh-domain { color: var(--text-muted); font-size: .72rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.admin-lh-score { font-size: .72rem; font-weight: 700; color: #fff; padding: .1rem .4rem; border-radius: 5px; flex-shrink: 0; }
+.admin-lh-cwv { font-size: .7rem; color: var(--text-muted); flex-shrink: 0; }
+.admin-lh-err { font-size: .72rem; color: #ef4444; flex: 1; }
+.admin-lh-summary { padding: .55rem .75rem; font-size: .78rem; background: var(--bg); border-top: 1px solid var(--border); }
+
+/* Spinner for scanning row */
+.admin-lh-spin {
+  display: inline-block; width: 12px; height: 12px; flex-shrink: 0;
+  border: 2px solid var(--border); border-top-color: var(--primary);
+  border-radius: 50%; animation: admin-lh-spin .7s linear infinite;
+}
+@keyframes admin-lh-spin { to { transform: rotate(360deg); } }
+
 
 #view-launches, #view-edit-requests {
   flex: 1;

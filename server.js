@@ -483,6 +483,59 @@ app.get('/api/admin/logs', requireAuth, async (req, res) => {
 });
 
 
+// ── Lighthouse Bulk Scan (SSE streaming) ──
+app.post('/api/admin/lighthouse/bulk', requireAuth, async (req, res) => {
+  const { statuses } = req.body; // 'all' | string[]
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+
+  const emit = (data) => {
+    if (!res.writableEnded) res.write(`data: ${JSON.stringify(data)}\n\n`);
+  };
+
+  try {
+    const snapshot = await db.collection('launches').get();
+    let sites = snapshot.docs
+      .map(doc => ({ id: doc.id, ...doc.data() }))
+      .filter(s => !s.archived && s.domain_name);
+
+    if (statuses !== 'all' && Array.isArray(statuses) && statuses.length > 0) {
+      sites = sites.filter(s => statuses.includes(s.status));
+    }
+
+    emit({ type: 'start', total: sites.length });
+
+    let success = 0, failed = 0;
+    for (const site of sites) {
+      if (res.writableEnded) break; // client disconnected
+      emit({ type: 'scanning', id: site.id, domain: site.domain_name, account_name: site.account_name });
+      try {
+        const result = await runPageSpeedAudit(site.id, site.domain_name, site.status === 'launched');
+        success++;
+        emit({
+          type: 'result', id: site.id, domain: site.domain_name,
+          account_name: site.account_name, ok: true,
+          performance: result.performance,
+          mobile_lcp: result.mobile?.lcp || null,
+          desktop_lcp: result.desktop?.lcp || null,
+        });
+      } catch (err) {
+        failed++;
+        emit({ type: 'result', id: site.id, domain: site.domain_name, account_name: site.account_name, ok: false, error: err.message });
+      }
+    }
+
+    emit({ type: 'done', total: sites.length, success, failed });
+  } catch (err) {
+    emit({ type: 'error', message: err.message });
+  }
+
+  res.end();
+});
+
 // ── RDAP / Domain Info ──
 let rdapBootstrap = null;
 let rdapBootstrapExpiry = 0;
