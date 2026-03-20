@@ -235,9 +235,9 @@
     <!-- Analytics toolbar -->
     <div class="ac-toolbar">
       <div class="ac-view-toggle">
-        <button class="ac-view-btn ac-view-active" id="ac-view-sites" onclick="switchAnalyticsView('sites')">All Sites</button>
-        <button class="ac-view-btn" id="ac-view-overview" onclick="switchAnalyticsView('overview')">Overview</button>
-        <button class="ac-view-btn" id="ac-view-seo" onclick="switchAnalyticsView('seo')">SEO</button>
+        <button class="ac-view-btn ac-view-active" id="ac-view-sites" onclick="switchAnalyticsView('sites')">Sites</button>
+        <button class="ac-view-btn" id="ac-view-overview" onclick="switchAnalyticsView('overview')">Dashboard</button>
+        <button class="ac-view-btn" id="ac-view-seo" onclick="switchAnalyticsView('seo')">Site Audit</button>
       </div>
       <div class="ac-toolbar-divider"></div>
       <select id="ac-industry-select" class="ac-industry-select" onchange="filterAnalyticsIndustry(this.value)">
@@ -2342,8 +2342,8 @@ let _indBenchData      = [];
 let _indBenchSortCol   = 'count';
 let _indBenchSortDir   = -1; // -1=desc, 1=asc
 let _seoData           = {}; // { [id]: seoAuditResult }
-let _seoSortCol        = 'position';
-let _seoSortDir        = 1;  // 1=asc (lower pos = better)
+let _seoSortCol        = 'name';
+let _seoSortDir        = 1;
 let _seoCacheLoaded    = false;
 
 function switchAnalyticsView(view) {
@@ -2393,6 +2393,7 @@ function seoStatusBadge(audit, field) {
   if (field === 'index') {
     if (audit.indexStatus === 'indexed')     return `<span class="seo-badge seo-badge-ok">✓ Indexed</span>`;
     if (audit.indexStatus === 'not_indexed') return `<span class="seo-badge seo-badge-error">✗ Not Indexed</span>`;
+    if (audit.indexStatus === 'unknown')     return `<span class="seo-badge seo-badge-warn" title="GSC not connected or URL Inspection API returned no verdict">? Unknown</span>`;
     return `<span class="seo-badge seo-badge-none">—</span>`;
   }
   if (field === 'broken') {
@@ -2421,12 +2422,6 @@ function seoStatusBadge(audit, field) {
 
 function seoTableRow(id, d) {
   const audit = _seoData[id];
-  const gsc = d.gsc?.total || {};
-  const pos = gsc.position != null ? (Math.round(gsc.position * 10) / 10) : null;
-  const posColor = pos == null ? '' : pos <= 10 ? '#22c55e' : pos <= 20 ? '#f59e0b' : '#ef4444';
-  const ctr = gsc.ctr != null ? gsc.ctr + '%' : '—';
-  const clicks = gsc.clicks ? fmtNum(gsc.clicks) : '—';
-  const impressions = gsc.impressions ? fmtNum(gsc.impressions) : '—';
 
   let auditCell;
   if (!audit) {
@@ -2459,10 +2454,6 @@ function seoTableRow(id, d) {
     <td class="seo-td seo-td-center">${seoStatusBadge(audit,'broken')}</td>
     <td class="seo-td seo-td-center">${seoStatusBadge(audit,'schema')}</td>
     <td class="seo-td seo-td-center">${seoStatusBadge(audit,'security')}</td>
-    <td class="seo-td seo-td-num" style="${posColor ? `color:${posColor};font-weight:700` : ''}">${pos ?? '—'}</td>
-    <td class="seo-td seo-td-num">${ctr}</td>
-    <td class="seo-td seo-td-num">${clicks}</td>
-    <td class="seo-td seo-td-num">${impressions}</td>
     <td class="seo-td seo-td-action" onclick="event.stopPropagation()">${auditCell}</td>
   </tr>`;
 }
@@ -2508,11 +2499,7 @@ function renderSeoView() {
     // Then apply column sort within each tier
     let av, bv;
     if (_seoSortCol === 'name')        { return (a.account_name||'').localeCompare(b.account_name||'') * _seoSortDir; }
-    if (_seoSortCol === 'position')    { av = a.gsc?.total?.position ?? 999;  bv = b.gsc?.total?.position ?? 999; }
-    else if (_seoSortCol === 'ctr')    { av = a.gsc?.total?.ctr ?? -1;        bv = b.gsc?.total?.ctr ?? -1; }
-    else if (_seoSortCol === 'clicks') { av = a.gsc?.total?.clicks ?? -1;     bv = b.gsc?.total?.clicks ?? -1; }
-    else if (_seoSortCol === 'impr')   { av = a.gsc?.total?.impressions ?? -1;bv = b.gsc?.total?.impressions ?? -1; }
-    else if (_seoSortCol === 'broken') { av = (_seoData[idA]?.brokenLinks?.length ?? -1); bv = (_seoData[idB]?.brokenLinks?.length ?? -1); }
+    if (_seoSortCol === 'broken')      { av = (_seoData[idA]?.brokenLinks?.length ?? -1); bv = (_seoData[idB]?.brokenLinks?.length ?? -1); }
     else { av = 0; bv = 0; }
     return (av - bv) * _seoSortDir;
   });
@@ -2554,10 +2541,6 @@ function renderSeoView() {
             ${th('broken', 'Broken Links', 'seo-th-center')}
             ${th('schema', 'Schema', 'seo-th-center')}
             ${th('security', 'Security', 'seo-th-center')}
-            ${th('position', 'Avg Pos', 'seo-th-num')}
-            ${th('ctr', 'CTR', 'seo-th-num')}
-            ${th('clicks', 'Clicks', 'seo-th-num')}
-            ${th('impr', 'Impressions', 'seo-th-num')}
             <th class="seo-th seo-th-action">Last Audit</th>
           </tr></thead>
           <tbody>
