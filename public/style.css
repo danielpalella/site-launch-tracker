@@ -1437,11 +1437,15 @@ tr.status-separator:first-child td { border-top: none; }
 .admin-lh-wrap { padding: .85rem 1.25rem 1.1rem; border-bottom: 1px solid var(--border); }
 .admin-lh-wrap .admin-sub-label { padding: 0; margin-bottom: .35rem; }
 .admin-lh-hint { font-size: .76rem; color: var(--text-muted); margin: 0 0 .75rem; line-height: 1.5; }
-.admin-lh-filters { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: .75rem; }
+.admin-lh-filter-group { margin-bottom: .6rem; }
+.admin-lh-filter-label { font-size: .65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); margin-bottom: .3rem; }
+.admin-lh-filters { display: flex; gap: .5rem; flex-wrap: wrap; }
 .admin-lh-cb-label { display: flex; align-items: center; gap: .3rem; font-size: .78rem; font-weight: 500; cursor: pointer; padding: .3rem .55rem; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); transition: border-color .15s, background .15s; }
 .admin-lh-cb-label:hover { border-color: var(--primary); }
 .admin-lh-cb-label input { cursor: pointer; accent-color: var(--primary); }
-.admin-lh-run-btn { font-size: .8rem; font-weight: 600; padding: .45rem 1rem; border-radius: 7px; border: none; background: var(--primary); color: #fff; cursor: pointer; transition: opacity .15s; }
+.admin-lh-cb-stale { border-style: dashed; color: var(--text-muted); }
+.admin-lh-cb-stale:has(input:checked) { border-color: var(--primary); border-style: solid; color: var(--text); }
+.admin-lh-run-btn { font-size: .8rem; font-weight: 600; padding: .45rem 1rem; border-radius: 7px; border: none; background: var(--primary); color: #fff; cursor: pointer; transition: opacity .15s; margin-top: .25rem; }
 .admin-lh-run-btn:disabled { opacity: .5; cursor: not-allowed; }
 .admin-lh-run-btn:not(:disabled):hover { opacity: .88; }
 

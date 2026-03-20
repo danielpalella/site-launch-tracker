@@ -485,7 +485,7 @@ app.get('/api/admin/logs', requireAuth, async (req, res) => {
 
 // ── Lighthouse Bulk Scan (SSE streaming) ──
 app.post('/api/admin/lighthouse/bulk', requireAuth, async (req, res) => {
-  const { statuses } = req.body; // 'all' | string[]
+  const { statuses, stale_only } = req.body; // statuses: 'all' | string[]; stale_only: bool
 
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
@@ -506,7 +506,24 @@ app.post('/api/admin/lighthouse/bulk', requireAuth, async (req, res) => {
       sites = sites.filter(s => statuses.includes(s.status));
     }
 
-    emit({ type: 'start', total: sites.length });
+    // If stale_only, check each site's latest audit timestamp and filter out recent ones
+    let skipped = 0;
+    if (stale_only) {
+      emit({ type: 'checking', count: sites.length });
+      const thirtyDaysAgo = Date.now() - 30 * 86_400_000;
+      const staleness = await Promise.all(sites.map(async (site) => {
+        const snap = await db.collection('launches').doc(site.id)
+          .collection('lighthouse_audits').orderBy('created_at', 'desc').limit(1).get();
+        if (snap.empty) return { site, include: true, last_scanned: null };
+        const ts = snap.docs[0].data().created_at?.toMillis?.() ?? 0;
+        return { site, include: ts < thirtyDaysAgo, last_scanned: ts };
+      }));
+      const recent = staleness.filter(s => !s.include);
+      skipped = recent.length;
+      sites = staleness.filter(s => s.include).map(s => s.site);
+    }
+
+    emit({ type: 'start', total: sites.length, skipped });
 
     let success = 0, failed = 0;
     for (const site of sites) {
@@ -528,7 +545,7 @@ app.post('/api/admin/lighthouse/bulk', requireAuth, async (req, res) => {
       }
     }
 
-    emit({ type: 'done', total: sites.length, success, failed });
+    emit({ type: 'done', total: sites.length, success, failed, skipped });
   } catch (err) {
     emit({ type: 'error', message: err.message });
   }

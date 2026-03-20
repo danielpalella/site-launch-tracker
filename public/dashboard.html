@@ -575,15 +575,24 @@
       <div class="admin-lh-wrap">
         <div class="admin-sub-label">Lighthouse Bulk Scan</div>
         <p class="admin-lh-hint">Runs PageSpeed Insights (mobile + desktop) on every matching site and stores the results. Takes ~30s per site — progress updates in real-time below.</p>
-        <div class="admin-lh-filters">
-          <label class="admin-lh-cb-label">
-            <input type="checkbox" class="admin-lh-cb" value="all" id="lh-cb-all" onchange="toggleLhAll(this)"> All Sites
+        <div class="admin-lh-filter-group">
+          <div class="admin-lh-filter-label">Scope</div>
+          <div class="admin-lh-filters">
+            <label class="admin-lh-cb-label">
+              <input type="checkbox" class="admin-lh-cb" value="all" id="lh-cb-all" onchange="toggleLhAll(this)"> All Sites
+            </label>
+            <label class="admin-lh-cb-label"><input type="checkbox" class="admin-lh-cb" value="launched"> Launched</label>
+            <label class="admin-lh-cb-label"><input type="checkbox" class="admin-lh-cb" value="new"> New</label>
+            <label class="admin-lh-cb-label"><input type="checkbox" class="admin-lh-cb" value="in_progress"> In Progress</label>
+            <label class="admin-lh-cb-label"><input type="checkbox" class="admin-lh-cb" value="awaiting_approval"> Awaiting Approval</label>
+            <label class="admin-lh-cb-label"><input type="checkbox" class="admin-lh-cb" value="awaiting_dns"> Awaiting DNS</label>
+          </div>
+        </div>
+        <div class="admin-lh-filter-group">
+          <div class="admin-lh-filter-label">Filter</div>
+          <label class="admin-lh-cb-label admin-lh-cb-stale">
+            <input type="checkbox" id="lh-cb-stale"> Only sites not scanned in the past 30 days
           </label>
-          <label class="admin-lh-cb-label"><input type="checkbox" class="admin-lh-cb" value="launched"> Launched</label>
-          <label class="admin-lh-cb-label"><input type="checkbox" class="admin-lh-cb" value="new"> New</label>
-          <label class="admin-lh-cb-label"><input type="checkbox" class="admin-lh-cb" value="in_progress"> In Progress</label>
-          <label class="admin-lh-cb-label"><input type="checkbox" class="admin-lh-cb" value="awaiting_approval"> Awaiting Approval</label>
-          <label class="admin-lh-cb-label"><input type="checkbox" class="admin-lh-cb" value="awaiting_dns"> Awaiting DNS</label>
         </div>
         <button id="admin-lh-run-btn" class="admin-lh-run-btn" onclick="runBulkLighthouse()">Run Lighthouse Scan</button>
         <div id="admin-lh-log" style="display:none">
@@ -2380,11 +2389,13 @@ async function runBulkLighthouse() {
 
   let scanningRow = null;
 
+  const staleOnly = document.getElementById('lh-cb-stale').checked;
+
   try {
     const res = await fetch('/api/admin/lighthouse/bulk', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ statuses: isAll ? 'all' : statusCbs }),
+      body: JSON.stringify({ statuses: isAll ? 'all' : statusCbs, stale_only: staleOnly }),
     });
 
     if (!res.ok) {
@@ -2408,10 +2419,18 @@ async function runBulkLighthouse() {
         let ev;
         try { ev = JSON.parse(line.slice(6)); } catch { continue; }
 
-        if (ev.type === 'start') {
+        if (ev.type === 'checking') {
+          title.textContent = `Checking last scan dates for ${ev.count} site${ev.count !== 1 ? 's' : ''}…`;
+        } else if (ev.type === 'start') {
           total = ev.total;
-          title.textContent = `Scanning ${total} site${total !== 1 ? 's' : ''}…`;
+          const skipNote = ev.skipped > 0 ? ` · ${ev.skipped} skipped (recently scanned)` : '';
+          title.textContent = `Scanning ${total} site${total !== 1 ? 's' : ''}…${skipNote}`;
           counter.textContent = `0 / ${total}`;
+          if (total === 0) {
+            summary.style.display = 'block';
+            summary.innerHTML = `All ${ev.skipped} site${ev.skipped !== 1 ? 's' : ''} were scanned within the last 30 days — nothing to do.`;
+            btn.disabled = false; btn.textContent = 'Run Lighthouse Scan';
+          }
         } else if (ev.type === 'scanning') {
           if (scanningRow) {
             scanningRow.querySelector('.admin-lh-spin')?.remove();
@@ -2446,8 +2465,9 @@ async function runBulkLighthouse() {
           title.textContent = 'Scan complete';
           counter.textContent = `${done} / ${total}`;
           summary.style.display = 'block';
-          const failPart = failed > 0 ? ` · <span style="color:#ef4444">${failed} failed</span>` : '';
-          summary.innerHTML = `<strong>${success}</strong> succeeded${failPart} out of <strong>${total}</strong> sites scanned`;
+          const failPart   = failed > 0        ? ` · <span style="color:#ef4444">${failed} failed</span>` : '';
+          const skipPart   = ev.skipped > 0    ? ` · ${ev.skipped} skipped (scanned &lt;30d ago)` : '';
+          summary.innerHTML = `<strong>${success}</strong> succeeded${failPart}${skipPart} out of <strong>${ev.total + ev.skipped}</strong> sites`;
         } else if (ev.type === 'error') {
           addRow(`<span class="admin-lh-err">Error: ${esc(ev.message)}</span>`, 'admin-lh-row-error');
         }
