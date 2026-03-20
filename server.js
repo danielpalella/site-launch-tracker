@@ -1656,15 +1656,29 @@ app.get('/api/analytics/:id/seo', requireAuth, async (req, res) => {
 
     const token = await getAnalyticsAccessToken();
 
-    // Find working GSC siteUrl
-    const candidates = [`sc-domain:${cleanDomain}`, `https://www.${cleanDomain}/`, `https://${cleanDomain}/`];
+    // Find working GSC siteUrl — same 5-candidate approach as fetchGSC so we
+    // use the exact same verified property that already returns analytics data.
+    const today = new Date().toISOString().slice(0, 10);
+    const scCandidates = [
+      `sc-domain:${cleanDomain}`,
+      `https://www.${cleanDomain}/`,
+      `https://${cleanDomain}/`,
+      `http://www.${cleanDomain}/`,
+      `http://${cleanDomain}/`,
+    ];
     let siteUrl = null;
-    for (const c of candidates) {
-      const r = await fetch(`https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(c)}/sitemaps`, {
-        headers: { Authorization: `Bearer ${token}` },
-      }).catch(() => null);
+    for (const c of scCandidates) {
+      const r = await fetch(
+        `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(c)}/searchAnalytics/query`,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ startDate: today, endDate: today, dimensions: ['date'], rowLimit: 1 }),
+        }
+      ).catch(() => null);
       if (r?.ok) { siteUrl = c; break; }
     }
+    console.log(`[seo] ${cleanDomain} siteUrl=${siteUrl}`);
 
     // 1. Sitemaps
     let sitemaps = [], sitemapStatus = 'unknown';
@@ -1685,7 +1699,6 @@ app.get('/api/analytics/:id/seo', requireAuth, async (req, res) => {
     // 2. Index check via URL Inspection API
     let indexStatus = 'unknown', indexCoverageState = null;
     if (siteUrl) {
-      // Try with both https and www variants in case one fails
       const inspectUrls = [`https://${cleanDomain}/`, `https://www.${cleanDomain}/`];
       for (const inspectUrl of inspectUrls) {
         const r = await fetch('https://searchconsole.googleapis.com/v1/urlInspection/index:inspect', {
@@ -1698,7 +1711,6 @@ app.get('/api/analytics/:id/seo', requireAuth, async (req, res) => {
           const result = data.inspectionResult?.indexStatusResult || {};
           indexCoverageState = result.coverageState || null;
           console.log(`[seo] ${cleanDomain} inspectUrl=${inspectUrl} verdict=${result.verdict} coverage="${indexCoverageState}"`);
-          // verdict: 'PASS'=indexed, 'FAIL'/'NEUTRAL'=not indexed
           if (result.verdict === 'PASS' || /indexed/i.test(indexCoverageState || '')) {
             indexStatus = 'indexed'; break;
           } else if (result.verdict === 'FAIL' || result.verdict === 'NEUTRAL') {
@@ -1708,7 +1720,7 @@ app.get('/api/analytics/:id/seo', requireAuth, async (req, res) => {
         } else {
           const body = r ? await r.text().catch(() => '') : 'no response';
           console.log(`[seo] urlInspection ${r?.status} for ${cleanDomain} (${inspectUrl}): ${body.slice(0, 200)}`);
-          break; // auth/quota error — no point retrying with different URL
+          break;
         }
       }
     }
