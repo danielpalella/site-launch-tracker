@@ -1513,7 +1513,7 @@ app.get('/api/analytics/:id/cwv', requireAuth, async (req, res) => {
 // ── Perf cache — latest Lighthouse score for all sites ──
 app.get('/api/perf-cache', requireAuth, async (req, res) => {
   try {
-    const launches = await db.collection('launches').where('archived', '!=', true).get();
+    const launches = await db.collection('launches').where('status', '!=', 'decommissioned').get();
     const results = {};
     await Promise.all(launches.docs.map(async (doc) => {
       const snap = await db.collection('launches').doc(doc.id)

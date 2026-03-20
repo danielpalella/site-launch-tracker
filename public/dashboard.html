@@ -2658,14 +2658,15 @@ function seoTableRow(id, d) {
 
   const gscSiteUrl = audit?.siteUrl || `sc-domain:${d.domain.replace(/^www\./,'')}`;
   const gscUrl = `https://search.google.com/search-console?resource_id=${encodeURIComponent(gscSiteUrl)}`;
-  return `<tr class="seo-tr${hasIssues ? ' seo-tr-issue' : ''}" onclick="window.open('${gscUrl}','_blank')" title="Open in Google Search Console">
+  const openGsc = `event.stopPropagation();window.open('${gscUrl}','_blank')`;
+  return `<tr class="seo-tr${hasIssues ? ' seo-tr-issue' : ''}" onclick="openSeoSiteModal('${esc(id)}')">
     <td class="seo-td seo-td-site">
       <div class="seo-site-name">${esc(d.account_name)}</div>
       <div class="seo-site-domain">${esc(d.domain)}</div>
     </td>
-    <td class="seo-td seo-td-center">${seoStatusBadge(audit,'sitemap')}</td>
-    <td class="seo-td seo-td-center">${seoStatusBadge(audit,'index')}</td>
-    <td class="seo-td seo-td-center">${seoStatusBadge(audit,'broken')}</td>
+    <td class="seo-td seo-td-center" onclick="${openGsc}" title="Open in Google Search Console" style="cursor:pointer">${seoStatusBadge(audit,'sitemap')}</td>
+    <td class="seo-td seo-td-center" onclick="${openGsc}" title="Open in Google Search Console" style="cursor:pointer">${seoStatusBadge(audit,'index')}</td>
+    <td class="seo-td seo-td-center" onclick="${openGsc}" title="Open in Google Search Console" style="cursor:pointer">${seoStatusBadge(audit,'broken')}</td>
     <td class="seo-td seo-td-center">${seoStatusBadge(audit,'schema')}</td>
     <td class="seo-td seo-td-center">${seoStatusBadge(audit,'security')}</td>
     <td class="seo-td seo-td-center">${perfBadge(id)}</td>
@@ -3686,6 +3687,11 @@ function closeAnalyticsModal(e) {
   document.getElementById('ac-detail-backdrop').classList.remove('open');
   document.body.style.overflow = '';
   if (window._acdChart) { window._acdChart.destroy(); window._acdChart = null; }
+}
+
+function openSeoSiteModal(id) {
+  if (analyticsData[id]) openAnalyticsModal(id);
+  else openEdit(id);
 }
 
 async function openAnalyticsModal(id) {
