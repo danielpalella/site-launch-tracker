@@ -261,9 +261,6 @@
           <label class="ac-timeframe-option"><input type="radio" name="ac-tf" value="all" onchange="setAnalyticsPeriod('all')"> Since Launch</label>
         </div>
       </div>
-      <button class="btn btn-ghost ac-refresh-btn" id="ac-refresh-btn" onclick="refreshAnalytics()" title="Refresh data from source">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-      </button>
       <div id="ac-cache-age" class="ac-cache-age" style="display:none"></div>
       <div id="ac-site-count" class="ac-site-count"></div>
     </div>
@@ -2382,8 +2379,13 @@ async function adminRefreshSite(id, btn) {
       row.querySelector('.admin-ac-domain').textContent = d._cachedAt ? `Updated ${new Date(d._cachedAt).toLocaleTimeString()}` : 'Done';
       btn.textContent = '✓';
       btn.style.background = '#22c55e';
-      // bust in-memory cache so dashboard reloads fresh data next time
-      if (analyticsData[id]) { delete analyticsData[id]; analyticsLoaded = false; }
+      // update in-memory data and refresh toolbar timestamp
+      analyticsData[id] = d;
+      if (d._cachedAt) {
+        const ts = new Date(d._cachedAt).getTime();
+        if (!_analyticsCacheTs || ts > _analyticsCacheTs) _analyticsCacheTs = ts;
+      }
+      updateCacheAgeLabel();
     } else {
       row.querySelector('.admin-ac-domain').textContent = d.error || 'Error';
       btn.textContent = '✗'; btn.style.background = '#ef4444';
@@ -2399,15 +2401,16 @@ async function adminRefreshSite(id, btn) {
 async function adminRefreshAllAnalytics(btn) {
   btn.disabled = true;
   const status = document.getElementById('admin-ac-status');
-  status.textContent = 'Queuing refresh for all sites…';
+  status.textContent = 'Refreshing all sites…';
+  analyticsLoaded = false;
+  for (const k in analyticsData) delete analyticsData[k];
   try {
-    await fetch('/api/analytics/warm-all?force=true', { method: 'POST' });
-    status.textContent = 'All sites queued — cache will update in ~1–2 min.';
-    analyticsLoaded = false;
-    for (const k in analyticsData) delete analyticsData[k];
+    await loadAnalytics({ force: true });
+    updateCacheAgeLabel();
+    status.textContent = 'All sites refreshed.';
     _adminAcLoaded = false;
     loadAdminAnalyticsList();
-  } catch { status.textContent = 'Failed to queue refresh.'; }
+  } catch { status.textContent = 'Refresh failed.'; }
   btn.disabled = false;
 }
 
@@ -2742,7 +2745,6 @@ function switchAnalyticsView(view) {
   document.getElementById('analytics-search').style.display     = (view === 'sites' || view === 'seo') ? '' : 'none';
   document.getElementById('ac-timeframe-wrap').style.display    = view === 'seo' ? 'none' : '';
   document.getElementById('seo-toolbar-extras').style.display   = view === 'seo' ? 'flex' : 'none';
-  document.querySelector('.ac-refresh-btn').style.display       = view === 'seo' ? 'none' : '';
   document.getElementById('ac-site-count').style.display        = view === 'seo' ? 'none' : '';
   if (view === 'seo' && !_seoCacheLoaded) loadSeoCache();
   if (view === 'seo' && !_perfCacheLoaded) loadPerfCache();
@@ -4756,21 +4758,6 @@ function updateCacheAgeLabel() {
   el.style.display = '';
 }
 
-async function refreshAnalytics() {
-  const btn = document.getElementById('ac-refresh-btn');
-  if (btn) { btn.disabled = true; btn.style.opacity = '.5'; }
-  analyticsLoaded = false;
-  analyticsIndustry = 'all';
-  _analyticsCacheTs = null;
-  document.getElementById('analytics-search').value = '';
-  const sel = document.getElementById('ac-industry-select');
-  if (sel) sel.value = 'all';
-  Object.values(analyticsCharts).forEach(c => c.destroy());
-  for (const k in analyticsCharts) delete analyticsCharts[k];
-  for (const k in analyticsData) delete analyticsData[k];
-  await loadAnalytics({ force: true });
-  if (btn) { btn.disabled = false; btn.style.opacity = ''; }
-}
 
 // ── GSH collapsible groups ──
 function gshToggleLevel(level) {
