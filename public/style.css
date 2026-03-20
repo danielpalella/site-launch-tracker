@@ -1905,6 +1905,7 @@ tr.status-separator:first-child td { border-top: none; }
   grid-template-columns: 1fr 1fr;
   gap: 1.25rem;
   margin-bottom: 1rem;
+  align-items: start;
 }
 @media (max-width: 640px) { .ov-performers { grid-template-columns: 1fr; } }
 .ov-performers-col { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem 1.1rem; display: flex; flex-direction: column; }

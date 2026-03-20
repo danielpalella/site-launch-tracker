@@ -1538,7 +1538,7 @@ app.get('/api/analytics/:id/seo', requireAuth, async (req, res) => {
       const cached = await cacheRef.get();
       if (cached.exists) {
         const data = cached.data();
-        if (Date.now() - new Date(data.scannedAt).getTime() < 86_400_000) return res.json(data);
+        if (Date.now() - new Date(data.scannedAt).getTime() < 7 * 86_400_000) return res.json(data);
       }
     }
 
@@ -1580,9 +1580,18 @@ app.get('/api/analytics/:id/seo', requireAuth, async (req, res) => {
       }).catch(() => null);
       if (r?.ok) {
         const data = await r.json();
-        indexCoverageState = data.inspectionResult?.indexStatusResult?.coverageState || null;
-        const indexed = ['INDEXED', 'SUBMITTED_AND_INDEXED', 'DUPLICATE_WITHOUT_CANONICAL_SELECTED_AS_CANONICAL'];
-        indexStatus = indexed.includes(indexCoverageState) ? 'indexed' : 'not_indexed';
+        const result = data.inspectionResult?.indexStatusResult || {};
+        indexCoverageState = result.coverageState || null;
+        // verdict is 'PASS' | 'FAIL' | 'NEUTRAL' | 'VERDICT_UNSPECIFIED'
+        // coverageState is a human-readable string, e.g. "Submitted and indexed"
+        if (result.verdict === 'PASS' || /indexed/i.test(indexCoverageState || '')) {
+          indexStatus = 'indexed';
+        } else if (result.verdict === 'FAIL' || result.verdict === 'NEUTRAL') {
+          indexStatus = 'not_indexed';
+        }
+        console.log(`[seo] ${cleanDomain} verdict=${result.verdict} coverage="${indexCoverageState}"`);
+      } else {
+        console.log(`[seo] urlInspection failed for ${cleanDomain}: ${r?.status}`);
       }
     }
 

@@ -2448,14 +2448,23 @@ function renderSeoView() {
     return;
   }
 
-  const sorted = [...entries].sort(([, a], [, b]) => {
+  function seoHasIssue(id) {
+    const a = _seoData[id];
+    return a && (a.sitemapStatus !== 'ok' || a.indexStatus !== 'indexed' || (a.brokenLinks?.length || 0) > 0);
+  }
+  const sorted = [...entries].sort(([idA, a], [idB, b]) => {
+    // Issues always float to top, regardless of sort column
+    const ia = seoHasIssue(idA) ? 0 : _seoData[idA] ? 1 : 2; // issues=0, ok=1, unaudited=2
+    const ib = seoHasIssue(idB) ? 0 : _seoData[idB] ? 1 : 2;
+    if (ia !== ib) return ia - ib;
+    // Then apply column sort within each tier
     let av, bv;
-    if (_seoSortCol === 'name')       { return (a.account_name||'').localeCompare(b.account_name||'') * _seoSortDir; }
-    if (_seoSortCol === 'position')   { av = a.gsc?.total?.position ?? 999;  bv = b.gsc?.total?.position ?? 999; }
-    else if (_seoSortCol === 'ctr')   { av = a.gsc?.total?.ctr ?? -1;        bv = b.gsc?.total?.ctr ?? -1; }
-    else if (_seoSortCol === 'clicks'){ av = a.gsc?.total?.clicks ?? -1;     bv = b.gsc?.total?.clicks ?? -1; }
-    else if (_seoSortCol === 'impr')  { av = a.gsc?.total?.impressions ?? -1;bv = b.gsc?.total?.impressions ?? -1; }
-    else if (_seoSortCol === 'broken'){ av = _seoData[Object.entries(analyticsData).find(([k])=>k===a)?.[0]]?.brokenLinks?.length ?? -1; bv = 0; av = _seoData[entries.find(([k,v])=>v===a)?.[0]]?.brokenLinks?.length ?? -1; bv = _seoData[entries.find(([k,v])=>v===b)?.[0]]?.brokenLinks?.length ?? -1; }
+    if (_seoSortCol === 'name')        { return (a.account_name||'').localeCompare(b.account_name||'') * _seoSortDir; }
+    if (_seoSortCol === 'position')    { av = a.gsc?.total?.position ?? 999;  bv = b.gsc?.total?.position ?? 999; }
+    else if (_seoSortCol === 'ctr')    { av = a.gsc?.total?.ctr ?? -1;        bv = b.gsc?.total?.ctr ?? -1; }
+    else if (_seoSortCol === 'clicks') { av = a.gsc?.total?.clicks ?? -1;     bv = b.gsc?.total?.clicks ?? -1; }
+    else if (_seoSortCol === 'impr')   { av = a.gsc?.total?.impressions ?? -1;bv = b.gsc?.total?.impressions ?? -1; }
+    else if (_seoSortCol === 'broken') { av = (_seoData[idA]?.brokenLinks?.length ?? -1); bv = (_seoData[idB]?.brokenLinks?.length ?? -1); }
     else { av = 0; bv = 0; }
     return (av - bv) * _seoSortDir;
   });
