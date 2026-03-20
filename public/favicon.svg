@@ -1,16 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <!-- navy circle bg -->
   <circle cx="256" cy="256" r="256" fill="#0f1624"/>
-  <!-- lime green ring -->
   <circle cx="256" cy="256" r="236" fill="none" stroke="#c8f135" stroke-width="28"/>
-  <!-- globe outer circle -->
-  <circle cx="256" cy="256" r="140" fill="none" stroke="#ffffff" stroke-width="8"/>
-  <!-- latitude lines -->
-  <ellipse cx="256" cy="256" rx="140" ry="50" fill="none" stroke="#ffffff" stroke-width="6"/>
-  <line x1="116" y1="256" x2="396" y2="256" stroke="#ffffff" stroke-width="6"/>
-  <!-- longitude lines -->
-  <ellipse cx="256" cy="256" rx="50" ry="140" fill="none" stroke="#ffffff" stroke-width="6"/>
-  <ellipse cx="256" cy="256" rx="100" ry="140" fill="none" stroke="#ffffff" stroke-width="6"/>
-  <!-- top and bottom poles -->
-  <line x1="256" y1="116" x2="256" y2="396" stroke="#ffffff" stroke-width="6"/>
+  <foreignObject x="56" y="56" width="400" height="400">
+    <div xmlns="http://www.w3.org/1999/xhtml" style="width:400px;height:400px;display:flex;align-items:center;justify-content:center;font-size:340px;line-height:1;">🌐</div>
+  </foreignObject>
 </svg>
