@@ -3697,7 +3697,7 @@ function sumWeeks(weeks, key) {
 
 // Compute period-specific totals for GSC from weekly data
 function periodGscTotals(gsc, period) {
-  if (!gsc.available || period === 'all') return gsc.total;
+  if (!gsc.available || period === 'all') return gsc.total || {};
   const n = period === 'wow' ? 1 : 4;
   const slice = gsc.weeks.slice(-n);
   const clicks = sumWeeks(slice, 'clicks');
@@ -3712,7 +3712,7 @@ function periodGscTotals(gsc, period) {
 
 // Compute period-specific totals for GA4 from weekly data
 function periodGa4Totals(ga4, period) {
-  if (!ga4.available || period === 'all') return ga4.total;
+  if (!ga4.available || period === 'all') return ga4.total || {};
   const n = period === 'wow' ? 1 : 4;
   const slice = ga4.weeks.slice(-n);
   return {
