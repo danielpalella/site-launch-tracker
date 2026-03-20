@@ -2957,6 +2957,7 @@ function renderAnalyticsOverview(industryFilter) {
       <div class="ov-performers-col">
         <div class="ov-col-hdr">
           <span class="ov-col-hdr-title">Top Performers</span>
+          <span class="ac-tip" data-tip="The 5 sites with the most GA4 sessions in the selected time period. Sessions = total visits to the site.">?</span>
           <span class="acd-period-tag">by sessions</span>
         </div>
         ${top.map((s, i) => perfRow(s, i + 1)).join('')}
@@ -2964,6 +2965,7 @@ function renderAnalyticsOverview(industryFilter) {
       <div class="ov-performers-col">
         <div class="ov-col-hdr">
           <span class="ov-col-hdr-title">Needs Attention</span>
+          <span class="ac-tip" data-tip="Sites that launched 30+ days ago with a low GSC health score (below 68/100). Health is scored on impressions/day, CTR, avg position, and 4-week trend.">?</span>
           <span class="acd-period-tag">30+ days · by GSC health</span>
         </div>
         ${bottom.length ? bottom.map((s, i) => attentionRow(s, i + 1)).join('') : '<div class="ov-empty-state"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>All established sites look healthy.</div>'}
@@ -2978,6 +2980,7 @@ function renderAnalyticsOverview(industryFilter) {
           <div class="ov-section-hdr-left">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
             <span class="ov-section-title">Milestone Flags</span>
+            <span class="ac-tip" data-tip="Sites that have passed their 30, 60, or 90-day milestone but haven't hit the expected impressions, clicks, or sessions targets. Thresholds are configurable.">?</span>
           </div>
           <span class="ov-section-badge" style="background:#f59e0b18;color:#f59e0b;border-color:#f59e0b40">${milestoneFlags.length} site${milestoneFlags.length !== 1 ? 's' : ''}</span>
         </div>
@@ -3019,6 +3022,7 @@ function renderAnalyticsOverview(industryFilter) {
           <div class="ov-section-hdr-left">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>
             <span class="ov-section-title">Traffic Alerts</span>
+            <span class="ac-tip" data-tip="Sites where GA4 sessions dropped 20% or more week-over-week. Only triggered when the prior week had at least 5 sessions to avoid noise from brand-new sites.">?</span>
           </div>
           <span class="ov-section-badge" style="background:#ef444418;color:#ef4444;border-color:#ef444440">${trafficDrops.length} alert${trafficDrops.length !== 1 ? 's' : ''}</span>
         </div>
@@ -3051,6 +3055,7 @@ function renderAnalyticsOverview(industryFilter) {
           <div class="ov-section-hdr-left">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
             <span class="ov-section-title">Industry Benchmarks</span>
+            <span class="ac-tip" data-tip="Average GSC and GA4 metrics grouped by industry tag. Helps compare a site's CTR, ranking position, and sessions against peers in the same vertical. Calculated since each site's launch date.">?</span>
           </div>
           <span class="ov-section-badge">${industryBenchmarks.length} industries</span>
         </div>
@@ -3078,6 +3083,7 @@ function renderAnalyticsOverview(industryFilter) {
           <div class="ov-section-hdr-left">
             <img src="/gsc-icon.png" width="14" height="14" style="object-fit:contain;flex-shrink:0">
             <span class="ov-section-title">Search Health</span>
+            <span class="ac-tip" data-tip="GSC health score (0–100) for every site, grouped by tier. Scored on 4 signals: impressions/day (30pts), CTR (25pts), avg position (25pts), and 4-week trend (20pts). Healthy ≥68, Moderate ≥45, Needs Review ≥22.">?</span>
           </div>
           <span class="ov-section-badge">${healthEntries.length} sites</span>
         </div>
