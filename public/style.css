@@ -2065,17 +2065,30 @@ tr.status-separator:first-child td { border-top: none; }
 /* Traffic week stat */
 .traffic-week-stat { display: inline-flex; align-items: baseline; gap: .2rem; }
 .traffic-week-label { font-size: .7rem; color: var(--text-muted); margin-right: .1rem; }
-/* Density toggle button */
-.ac-density-btn { padding: .3rem .45rem !important; }
-.ac-density-btn.ac-density-active { background: var(--bg) !important; color: var(--primary) !important; }
-/* Compact density mode */
-#ac-overview[data-density="compact"] .ov-att-row { padding: .4rem .6rem; }
-#ac-overview[data-density="compact"] .ov-att-title { font-size: .78rem; }
-#ac-overview[data-density="compact"] .ov-att-domain { display: none; }
-#ac-overview[data-density="compact"] .ov-att-metrics { margin-top: .15rem; font-size: .7rem; }
-#ac-overview[data-density="compact"] .ov-att-issues { margin-top: .2rem; }
-#ac-overview[data-density="compact"] .ov-att-score { font-size: .95rem; }
-#analytics-grid[data-density="compact"] .ac-card { padding: .6rem .75rem; }
+/* 2-col sections grid */
+.ov-sections-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: .75rem;
+  margin-top: .85rem;
+  align-items: start;
+}
+@media (max-width: 860px) { .ov-sections-grid { grid-template-columns: 1fr; } }
+/* Show-more collapse */
+.ov-sec-body .ov-att-row:nth-child(n+4) { display: none; }
+.ov-sec-body.ov-sec-expanded .ov-att-row { display: block; }
+/* For industry benchmarks table rows inside ov-sec-body */
+.ov-sec-body tbody tr:nth-child(n+6) { display: none; }
+.ov-sec-body.ov-sec-expanded tbody tr { display: table-row; }
+.ov-sec-show-more {
+  display: flex; align-items: center; gap: .3rem;
+  width: 100%; margin-top: .5rem; padding: .35rem 0 0;
+  border: none; border-top: 1px solid var(--border);
+  background: none; cursor: pointer;
+  font-size: .75rem; color: var(--text-muted);
+  transition: color .12s;
+}
+.ov-sec-show-more:hover { color: var(--text); }
 
 /* ── Keyword list in modal ── */
 .kw-list { display: flex; flex-direction: column; gap: .25rem; }
