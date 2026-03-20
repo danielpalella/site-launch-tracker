@@ -6,6 +6,7 @@ runConfig:
   minInstances: 0
   maxInstances: 10
   timeoutSeconds: 120
+  invokerIamDisabled: true
 
 env:
   - variable: SAFE_BROWSING_API_KEY
