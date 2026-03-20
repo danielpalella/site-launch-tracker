@@ -574,25 +574,19 @@
       <!-- ── Lighthouse Bulk Scan ── -->
       <div class="admin-lh-wrap">
         <div class="admin-sub-label">Lighthouse Bulk Scan</div>
-        <p class="admin-lh-hint">Runs PageSpeed Insights (mobile + desktop) on every matching site and stores the results. Takes ~30s per site — progress updates in real-time below.</p>
-        <div class="admin-lh-filter-group">
-          <div class="admin-lh-filter-label">Scope</div>
-          <div class="admin-lh-filters">
-            <label class="admin-lh-cb-label">
-              <input type="checkbox" class="admin-lh-cb" value="all" id="lh-cb-all" onchange="toggleLhAll(this)"> All Sites
-            </label>
-            <label class="admin-lh-cb-label"><input type="checkbox" class="admin-lh-cb" value="launched"> Launched</label>
-            <label class="admin-lh-cb-label"><input type="checkbox" class="admin-lh-cb" value="new"> New</label>
-            <label class="admin-lh-cb-label"><input type="checkbox" class="admin-lh-cb" value="in_progress"> In Progress</label>
-            <label class="admin-lh-cb-label"><input type="checkbox" class="admin-lh-cb" value="awaiting_approval"> Awaiting Approval</label>
-            <label class="admin-lh-cb-label"><input type="checkbox" class="admin-lh-cb" value="awaiting_dns"> Awaiting DNS</label>
-          </div>
+        <p class="admin-lh-hint">Runs PageSpeed Insights (mobile + desktop) on every matching site. Takes ~30s per site — results stream in below.</p>
+        <div class="admin-lh-row-filters">
+          <span class="admin-lh-filter-label">Scope</span>
+          <label class="admin-lh-pill"><input type="checkbox" class="admin-lh-cb" value="all" id="lh-cb-all" onchange="toggleLhAll(this)"><span>All Sites</span></label>
+          <label class="admin-lh-pill"><input type="checkbox" class="admin-lh-cb" value="launched"><span>Launched</span></label>
+          <label class="admin-lh-pill"><input type="checkbox" class="admin-lh-cb" value="new"><span>New</span></label>
+          <label class="admin-lh-pill"><input type="checkbox" class="admin-lh-cb" value="in_progress"><span>In Progress</span></label>
+          <label class="admin-lh-pill"><input type="checkbox" class="admin-lh-cb" value="awaiting_approval"><span>Awaiting Approval</span></label>
+          <label class="admin-lh-pill"><input type="checkbox" class="admin-lh-cb" value="awaiting_dns"><span>Awaiting DNS</span></label>
         </div>
-        <div class="admin-lh-filter-group">
-          <div class="admin-lh-filter-label">Filter</div>
-          <label class="admin-lh-cb-label admin-lh-cb-stale">
-            <input type="checkbox" id="lh-cb-stale"> Only sites not scanned in the past 30 days
-          </label>
+        <div class="admin-lh-row-filters" style="margin-top:.35rem">
+          <span class="admin-lh-filter-label">Filter</span>
+          <label class="admin-lh-pill admin-lh-pill-stale"><input type="checkbox" id="lh-cb-stale"><span>Not scanned in 30+ days</span></label>
         </div>
         <button id="admin-lh-run-btn" class="admin-lh-run-btn" onclick="runBulkLighthouse()">Run Lighthouse Scan</button>
         <div id="admin-lh-log" style="display:none">
@@ -606,19 +600,11 @@
       </div>
 
       <!-- ── Audit Log ── -->
-      <div class="admin-sub-label" style="padding:.75rem 1.25rem .4rem">Audit Log</div>
+      <div class="admin-log-header-row">
+        <div class="admin-sub-label">Audit Log</div>
+      </div>
       <div id="admin-loading" style="padding:1.5rem;text-align:center;color:var(--text-muted)">Loading logs…</div>
-      <table id="admin-table" style="display:none">
-        <thead>
-          <tr>
-            <th>Time</th>
-            <th>User</th>
-            <th>Action</th>
-            <th>Details</th>
-          </tr>
-        </thead>
-        <tbody id="admin-tbody"></tbody>
-      </table>
+      <div id="admin-log-list"></div>
     </div>
   </div>
 </div>
@@ -2491,42 +2477,89 @@ document.getElementById('admin-overlay').addEventListener('click', (e) => {
 
 async function loadAdminLogs() {
   const loading = document.getElementById('admin-loading');
-  const table   = document.getElementById('admin-table');
-  const tbody   = document.getElementById('admin-tbody');
+  const list    = document.getElementById('admin-log-list');
   loading.style.display = 'block';
-  table.style.display   = 'none';
+  list.innerHTML = '';
   try {
     const res  = await fetch('/api/admin/logs');
     const logs = await res.json();
-    tbody.innerHTML = logs.map(log => {
-      let details = '';
-      if (log.type === 'login') {
-        details = 'Signed in';
-      } else if (log.type === 'edit') {
-        const changes = log.changes || {};
-        const parts = Object.entries(changes).map(([f, { from, to }]) =>
-          `<span class="admin-change-field">${esc(f)}</span>: ${esc(String(from))} → ${esc(String(to))}`
-        );
-        details = parts.length
-          ? parts.join('<br>')
-          : `Edited <span class="admin-change-field">${esc(log.launch_id || '')}</span>`;
-      } else if (log.type === 'delete') {
-        details = `Deleted <span class="admin-change-field">${esc(log.account_name || log.launch_id || '')}</span>`;
-      } else if (log.type === 'create') {
-        details = `Created <span class="admin-change-field">${esc(log.account_name || '')}</span>`;
-      }
-      return `<tr>
-        <td class="admin-ts">${esc(log.at || '')}</td>
-        <td class="admin-email">${esc(log.email || '—')}</td>
-        <td><span class="admin-type admin-type-${esc(log.type)}">${esc(log.type)}</span></td>
-        <td class="admin-details">${details}</td>
-      </tr>`;
-    }).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:1.5rem">No logs yet.</td></tr>';
     loading.style.display = 'none';
-    table.style.display   = 'table';
+
+    if (!logs.length) {
+      list.innerHTML = '<div style="padding:1.5rem;text-align:center;color:var(--text-muted);font-size:.8rem">No logs yet.</div>';
+      return;
+    }
+
+    const TYPE_META = {
+      login:  { label: 'Sign In',  icon: '→',  cls: 'login'  },
+      edit:   { label: 'Edit',     icon: '✎',  cls: 'edit'   },
+      create: { label: 'Created',  icon: '+',  cls: 'create' },
+      delete: { label: 'Deleted',  icon: '✕',  cls: 'delete' },
+    };
+
+    const buildDetails = (log) => {
+      if (log.type === 'login') {
+        return `<div class="admin-log-detail-row">Signed in to RealWork Labs</div>`;
+      }
+      if (log.type === 'create') {
+        return `<div class="admin-log-detail-row">Created site: <strong>${esc(log.account_name || log.launch_id || '—')}</strong></div>`;
+      }
+      if (log.type === 'delete') {
+        return `<div class="admin-log-detail-row">Deleted site: <strong>${esc(log.account_name || log.launch_id || '—')}</strong></div>`;
+      }
+      if (log.type === 'edit') {
+        const changes = log.changes || {};
+        const entries = Object.entries(changes);
+        if (!entries.length) return `<div class="admin-log-detail-row" style="color:var(--text-muted)">No field changes recorded.</div>`;
+        return entries.map(([field, { from, to }]) => `
+          <div class="admin-log-detail-row">
+            <span class="admin-log-field">${esc(field.replace(/_/g,' '))}</span>
+            <span class="admin-log-from">${esc(String(from) || '—')}</span>
+            <span class="admin-log-arrow">→</span>
+            <span class="admin-log-to">${esc(String(to) || '—')}</span>
+          </div>`).join('');
+      }
+      return '';
+    };
+
+    logs.forEach((log, i) => {
+      const meta     = TYPE_META[log.type] || { label: log.type, icon: '·', cls: 'edit' };
+      const isLogin  = log.type === 'login';
+      const summary  = log.type === 'login'  ? `Signed in`
+                     : log.type === 'create' ? `Created ${esc(log.account_name || '')}`
+                     : log.type === 'delete' ? `Deleted ${esc(log.account_name || log.launch_id || '')}`
+                     : log.type === 'edit'   ? `Edited ${Object.keys(log.changes||{}).join(', ') || 'record'}`
+                     : log.type;
+      const details  = buildDetails(log);
+      const hasDetails = log.type !== 'login';
+      const rowId    = `admin-log-row-${i}`;
+
+      const row = document.createElement('div');
+      row.className = `admin-log-row${isLogin ? ' admin-log-row-login' : ''}`;
+      row.innerHTML = `
+        <div class="admin-log-main" ${hasDetails ? `onclick="toggleAdminLog('${rowId}')"` : ''} style="${hasDetails ? 'cursor:pointer' : ''}">
+          <span class="admin-type admin-type-${meta.cls}">${meta.label}</span>
+          <span class="admin-log-user">${esc(log.email || '—')}</span>
+          <span class="admin-log-summary">${summary}</span>
+          <span class="admin-log-time">${esc(log.at || '')}</span>
+          ${hasDetails ? `<span class="admin-log-chevron" id="${rowId}-chev">›</span>` : ''}
+        </div>
+        ${hasDetails ? `<div class="admin-log-details" id="${rowId}" style="display:none">${details}</div>` : ''}
+      `;
+      list.appendChild(row);
+    });
   } catch (err) {
     loading.textContent = 'Failed to load logs.';
   }
+}
+
+function toggleAdminLog(id) {
+  const el   = document.getElementById(id);
+  const chev = document.getElementById(id + '-chev');
+  if (!el) return;
+  const open = el.style.display === 'none';
+  el.style.display   = open ? 'block' : 'none';
+  if (chev) chev.style.transform = open ? 'rotate(90deg)' : '';
 }
 
 // ── Analytics Tab ──
