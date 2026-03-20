@@ -4540,8 +4540,8 @@ async function disconnectAnalytics() {
   loadAnalytics();
 }
 
-async function loadAnalytics() {
-  if (analyticsLoaded) return;
+async function loadAnalytics({ force = false } = {}) {
+  if (analyticsLoaded && !force) return;
   loadMilestoneThresholds();
   const grid = document.getElementById('analytics-grid');
   grid.innerHTML = '<div style="color:var(--text-muted);font-size:.875rem">Loading…</div>';
@@ -4578,7 +4578,7 @@ async function loadAnalytics() {
   for (let i = 0; i < launched.length; i += 4) {
     await Promise.all(launched.slice(i, i + 4).map(async l => {
       try {
-        const r = await fetch(`/api/analytics/${l.id}`);
+        const r = await fetch(`/api/analytics/${l.id}${force ? '?force=true' : ''}`);
         const d = await r.json();
         if (r.ok) {
           if (d._cachedAt) {
@@ -4759,11 +4759,6 @@ function updateCacheAgeLabel() {
 async function refreshAnalytics() {
   const btn = document.getElementById('ac-refresh-btn');
   if (btn) { btn.disabled = true; btn.style.opacity = '.5'; }
-  try {
-    await fetch('/api/analytics/warm-all?force=true', { method: 'POST' });
-  } catch { /* ignore — reload anyway */ }
-  if (btn) { btn.disabled = false; btn.style.opacity = ''; }
-
   analyticsLoaded = false;
   analyticsIndustry = 'all';
   _analyticsCacheTs = null;
@@ -4773,7 +4768,8 @@ async function refreshAnalytics() {
   Object.values(analyticsCharts).forEach(c => c.destroy());
   for (const k in analyticsCharts) delete analyticsCharts[k];
   for (const k in analyticsData) delete analyticsData[k];
-  loadAnalytics();
+  await loadAnalytics({ force: true });
+  if (btn) { btn.disabled = false; btn.style.opacity = ''; }
 }
 
 // ── GSH collapsible groups ──
