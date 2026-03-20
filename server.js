@@ -1524,7 +1524,14 @@ async function fetchAndCacheAnalytics(id, { force = false } = {}) {
 // Pre-warms the daily cache for every launched site in background batches.
 // Set up a Cloud Scheduler job to hit this endpoint at 06:00 America/Chicago
 // so data is ready before the workday: POST https://<app>/api/analytics/warm-all
-app.post('/api/analytics/warm-all', requireAuth, async (req, res) => {
+// Accepts either a valid session cookie OR the X-Warm-Key header matching WARM_ALL_SECRET.
+async function requireAuthOrWarmKey(req, res, next) {
+  const key = req.headers['x-warm-key'];
+  if (key && process.env.WARM_ALL_SECRET && key === process.env.WARM_ALL_SECRET) return next();
+  return requireAuth(req, res, next);
+}
+
+app.post('/api/analytics/warm-all', requireAuthOrWarmKey, async (req, res) => {
   const force = req.query.force === 'true';
   try {
     const snap = await db.collection('launches').where('status', '==', 'launched').get();
