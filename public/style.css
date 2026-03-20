@@ -1926,7 +1926,7 @@ tr.status-separator:first-child td { border-top: none; }
 
 /* ── Needs Attention redesigned rows ── */
 .ov-att-row {
-  padding: .6rem .75rem .6rem .85rem;
+  padding: .8rem .9rem .8rem 1rem;
   border-radius: 8px;
   cursor: pointer;
   transition: background .12s;
@@ -1937,17 +1937,17 @@ tr.status-separator:first-child td { border-top: none; }
 .ov-att-row:hover { background: var(--bg); }
 .ov-att-top { display: flex; align-items: flex-start; justify-content: space-between; gap: .5rem; }
 .ov-att-name { flex: 1; min-width: 0; }
-.ov-att-title { font-weight: 700; font-size: .82rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ov-att-domain { font-size: .7rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ov-att-title { font-weight: 700; font-size: .9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ov-att-domain { font-size: .76rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ov-att-score-wrap { display: flex; flex-direction: column; align-items: flex-end; flex-shrink: 0; }
-.ov-att-score { font-size: 1.1rem; font-weight: 800; line-height: 1.1; }
-.ov-att-label { font-size: .62rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; white-space: nowrap; }
-.ov-att-metrics { display: flex; align-items: center; gap: .35rem; font-size: .75rem; flex-wrap: wrap; margin-top: .3rem; }
+.ov-att-score { font-size: 1.25rem; font-weight: 800; line-height: 1.1; }
+.ov-att-label { font-size: .67rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; white-space: nowrap; }
+.ov-att-metrics { display: flex; align-items: center; gap: .35rem; font-size: .8rem; flex-wrap: wrap; margin-top: .35rem; }
 .ov-att-sep { color: var(--text-muted); }
-.ov-att-unit { color: var(--text-muted); font-size: .68rem; }
-.ov-att-issues { display: flex; gap: .3rem; flex-wrap: wrap; margin-top: .35rem; }
+.ov-att-unit { color: var(--text-muted); font-size: .72rem; }
+.ov-att-issues { display: flex; gap: .3rem; flex-wrap: wrap; margin-top: .4rem; }
 .ov-issue-tag {
-  font-size: .68rem; font-weight: 600; border-radius: 4px; padding: .1rem .4rem;
+  font-size: .72rem; font-weight: 600; border-radius: 4px; padding: .15rem .5rem;
 }
 
 /* ── Google Search Health table ── */
@@ -1984,13 +1984,14 @@ tr.status-separator:first-child td { border-top: none; }
   text-align: center; white-space: nowrap;
 }
 .gsh-group-header {
-  display: flex; align-items: center; gap: .5rem;
-  padding: .35rem .5rem; margin-top: .4rem;
-  border-radius: 6px; cursor: pointer; user-select: none;
+  display: flex; align-items: center; gap: .65rem;
+  padding: .75rem .6rem; margin-top: .2rem;
+  border-radius: 8px; cursor: pointer; user-select: none;
+  border: 1px solid transparent;
 }
-.gsh-group-header:hover { background: var(--bg); }
-.gsh-group-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-.gsh-group-count { font-size: .72rem; color: var(--text-muted); margin-left: auto; }
+.gsh-group-header:hover { background: var(--bg); border-color: var(--border); }
+.gsh-group-dot { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
+.gsh-group-count { font-size: .8rem; color: var(--text-muted); margin-left: auto; }
 .gsh-group-chevron { color: var(--text-muted); flex-shrink: 0; transition: transform .15s; }
 .gsh-group-chevron.rot { transform: rotate(-90deg); }
 .gsh-group-body.collapsed { display: none; }
@@ -2060,11 +2061,11 @@ tr.status-separator:first-child td { border-top: none; }
   font-size: .8rem; color: var(--text-muted); padding: .6rem 0;
 }
 /* Milestone progress bar */
-.ms-flag-issue { margin-bottom: .35rem; }
+.ms-flag-issue { margin-bottom: .45rem; }
 .ms-flag-issue:last-child { margin-bottom: 0; }
-.ms-flag-issue-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: .2rem; gap: .5rem; }
-.ms-flag-pct { font-size: .72rem; font-weight: 700; flex-shrink: 0; }
-.ms-flag-bar-bg { height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; }
+.ms-flag-issue-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: .25rem; gap: .5rem; }
+.ms-flag-pct { font-size: .76rem; font-weight: 700; flex-shrink: 0; }
+.ms-flag-bar-bg { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
 .ms-flag-bar-fill { height: 100%; border-radius: 2px; transition: width .3s ease; }
 /* Traffic week stat */
 .traffic-week-stat { display: inline-flex; align-items: baseline; gap: .2rem; }
