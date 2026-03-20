@@ -237,13 +237,14 @@
       <div class="ac-view-toggle">
         <button class="ac-view-btn ac-view-active" id="ac-view-sites" onclick="switchAnalyticsView('sites')">All Sites</button>
         <button class="ac-view-btn" id="ac-view-overview" onclick="switchAnalyticsView('overview')">Overview</button>
+        <button class="ac-view-btn" id="ac-view-seo" onclick="switchAnalyticsView('seo')">SEO</button>
       </div>
       <div class="ac-toolbar-divider"></div>
       <select id="ac-industry-select" class="ac-industry-select" onchange="filterAnalyticsIndustry(this.value)">
         <option value="all">All Industries</option>
       </select>
       <input type="search" id="analytics-search" placeholder="Search accounts…" oninput="filterAnalyticsSearch(this.value)" class="ac-search">
-      <div class="ac-timeframe-wrap">
+      <div id="ac-timeframe-wrap" class="ac-timeframe-wrap">
         <button class="ac-timeframe-btn" id="ac-timeframe-btn" onclick="toggleTimeframeDropdown(event)">
           <span id="ac-timeframe-value">Last 30 days</span>
           <svg id="ac-timeframe-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transition:transform .15s"><polyline points="6 9 12 15 18 9"/></svg>
@@ -267,6 +268,9 @@
 
       <!-- Overview panel -->
       <div id="ac-overview" style="display:none"></div>
+
+      <!-- SEO panel -->
+      <div id="ac-seo" style="display:none"></div>
 
       <!-- All-sites card grid -->
       <div id="ac-sites-panel">
@@ -2337,18 +2341,25 @@ let overviewChart      = null;
 let _indBenchData      = [];
 let _indBenchSortCol   = 'count';
 let _indBenchSortDir   = -1; // -1=desc, 1=asc
+let _seoData           = {}; // { [id]: seoAuditResult }
+let _seoSortCol        = 'position';
+let _seoSortDir        = 1;  // 1=asc (lower pos = better)
 
 function switchAnalyticsView(view) {
   analyticsView = view;
   document.getElementById('ac-view-sites').classList.toggle('ac-view-active', view === 'sites');
   document.getElementById('ac-view-overview').classList.toggle('ac-view-active', view === 'overview');
+  document.getElementById('ac-view-seo').classList.toggle('ac-view-active', view === 'seo');
   document.getElementById('ac-sites-panel').style.display       = view === 'sites' ? '' : 'none';
   document.getElementById('ac-industry-summary').style.display  = view === 'sites' && analyticsIndustry !== 'all' ? '' : 'none';
   document.getElementById('ac-overview').style.display          = view === 'overview' ? '' : 'none';
+  document.getElementById('ac-seo').style.display               = view === 'seo' ? '' : 'none';
   document.getElementById('analytics-search').style.display     = view === 'sites' ? '' : 'none';
+  document.getElementById('ac-timeframe-wrap').style.display    = view === 'seo' ? 'none' : '';
   document.getElementById('view-analytics').style.overflowY    = view === 'overview' ? 'auto' : 'hidden';
   if (view === 'overview') renderAnalyticsOverview(null);
   if (view === 'sites') applyAnalyticsFilters();
+  if (view === 'seo') renderSeoView();
 }
 
 function toggleOvSection(bodyId, btnEl) {
@@ -2361,6 +2372,171 @@ function toggleOvSection(bodyId, btnEl) {
     : `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg> Show ${total - preview} more`;
 }
 
+// ── SEO View ──────────────────────────────────────────────────────────────────
+
+function sortSeoTable(col) {
+  if (_seoSortCol === col) _seoSortDir *= -1;
+  else { _seoSortCol = col; _seoSortDir = (col === 'position' || col === 'name') ? 1 : -1; }
+  renderSeoView();
+}
+
+function seoStatusBadge(audit, field) {
+  if (!audit) return `<span class="seo-badge seo-badge-none">—</span>`;
+  if (field === 'sitemap') {
+    if (audit.sitemapStatus === 'ok')    return `<span class="seo-badge seo-badge-ok">✓ ${audit.sitemaps.length}</span>`;
+    if (audit.sitemapStatus === 'error') return `<span class="seo-badge seo-badge-warn">⚠ Error</span>`;
+    if (audit.sitemapStatus === 'none')  return `<span class="seo-badge seo-badge-error">None</span>`;
+    return `<span class="seo-badge seo-badge-none">—</span>`;
+  }
+  if (field === 'index') {
+    if (audit.indexStatus === 'indexed')     return `<span class="seo-badge seo-badge-ok">✓ Indexed</span>`;
+    if (audit.indexStatus === 'not_indexed') return `<span class="seo-badge seo-badge-error">✗ Not Indexed</span>`;
+    return `<span class="seo-badge seo-badge-none">—</span>`;
+  }
+  if (field === 'broken') {
+    const n = audit.brokenLinks?.length ?? 0;
+    if (n === 0) return `<span class="seo-badge seo-badge-ok">✓ None</span>`;
+    return `<span class="seo-badge seo-badge-error">${n} broken</span>`;
+  }
+  return `<span class="seo-badge seo-badge-none">—</span>`;
+}
+
+function seoTableRow(id, d) {
+  const audit = _seoData[id];
+  const gsc = d.gsc?.total || {};
+  const pos = gsc.position != null ? (Math.round(gsc.position * 10) / 10) : null;
+  const posColor = pos == null ? '' : pos <= 10 ? '#22c55e' : pos <= 20 ? '#f59e0b' : '#ef4444';
+  const ctr = gsc.ctr != null ? gsc.ctr + '%' : '—';
+  const clicks = gsc.clicks ? fmtNum(gsc.clicks) : '—';
+  const impressions = gsc.impressions ? fmtNum(gsc.impressions) : '—';
+
+  let auditCell;
+  if (!audit) {
+    auditCell = `<button class="seo-audit-btn" id="seo-btn-${esc(id)}" onclick="event.stopPropagation();runSeoAudit('${esc(id)}',this)">Audit</button>`;
+  } else {
+    const ageMs = Date.now() - new Date(audit.scannedAt).getTime();
+    const ageStr = ageMs < 3_600_000 ? `${Math.floor(ageMs/60000)}m ago`
+      : ageMs < 86_400_000 ? `${Math.floor(ageMs/3600000)}h ago`
+      : `${Math.floor(ageMs/86400000)}d ago`;
+    auditCell = `<span class="seo-audit-age">${ageStr}</span><button class="seo-audit-btn seo-audit-btn-icon" id="seo-btn-${esc(id)}" onclick="event.stopPropagation();runSeoAudit('${esc(id)}',this)" title="Re-scan"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></button>`;
+  }
+
+  const hasIssues = audit && (audit.sitemapStatus !== 'ok' || audit.indexStatus !== 'indexed' || (audit.brokenLinks?.length || 0) > 0);
+
+  return `<tr class="seo-tr${hasIssues ? ' seo-tr-issue' : ''}" onclick="openAnalyticsModal('${esc(id)}')">
+    <td class="seo-td seo-td-site">
+      <div class="seo-site-name">${esc(d.account_name)}</div>
+      <div class="seo-site-domain">${esc(d.domain)}</div>
+    </td>
+    <td class="seo-td seo-td-center">${seoStatusBadge(audit,'sitemap')}</td>
+    <td class="seo-td seo-td-center">${seoStatusBadge(audit,'index')}</td>
+    <td class="seo-td seo-td-center">${seoStatusBadge(audit,'broken')}</td>
+    <td class="seo-td seo-td-num" style="${posColor ? `color:${posColor};font-weight:700` : ''}">${pos ?? '—'}</td>
+    <td class="seo-td seo-td-num">${ctr}</td>
+    <td class="seo-td seo-td-num">${clicks}</td>
+    <td class="seo-td seo-td-num">${impressions}</td>
+    <td class="seo-td seo-td-action" onclick="event.stopPropagation()">${auditCell}</td>
+  </tr>`;
+}
+
+function renderSeoView() {
+  const el = document.getElementById('ac-seo');
+  if (!el) return;
+  const entries = Object.entries(analyticsData);
+  if (!entries.length) {
+    el.innerHTML = '<div class="ac-empty">Load analytics first — switch to All Sites to populate data, then come back.</div>';
+    return;
+  }
+
+  const sorted = [...entries].sort(([, a], [, b]) => {
+    let av, bv;
+    if (_seoSortCol === 'name')       { return (a.account_name||'').localeCompare(b.account_name||'') * _seoSortDir; }
+    if (_seoSortCol === 'position')   { av = a.gsc?.total?.position ?? 999;  bv = b.gsc?.total?.position ?? 999; }
+    else if (_seoSortCol === 'ctr')   { av = a.gsc?.total?.ctr ?? -1;        bv = b.gsc?.total?.ctr ?? -1; }
+    else if (_seoSortCol === 'clicks'){ av = a.gsc?.total?.clicks ?? -1;     bv = b.gsc?.total?.clicks ?? -1; }
+    else if (_seoSortCol === 'impr')  { av = a.gsc?.total?.impressions ?? -1;bv = b.gsc?.total?.impressions ?? -1; }
+    else if (_seoSortCol === 'broken'){ av = _seoData[Object.entries(analyticsData).find(([k])=>k===a)?.[0]]?.brokenLinks?.length ?? -1; bv = 0; av = _seoData[entries.find(([k,v])=>v===a)?.[0]]?.brokenLinks?.length ?? -1; bv = _seoData[entries.find(([k,v])=>v===b)?.[0]]?.brokenLinks?.length ?? -1; }
+    else { av = 0; bv = 0; }
+    return (av - bv) * _seoSortDir;
+  });
+
+  const audited = Object.keys(_seoData).length;
+  const issues = Object.values(_seoData).filter(d => d.sitemapStatus !== 'ok' || d.indexStatus !== 'indexed' || (d.brokenLinks?.length||0) > 0).length;
+
+  const th = (col, label, cls = '') => {
+    const active = _seoSortCol === col;
+    const icon = active ? (_seoSortDir === 1 ? '↑' : '↓') : '↕';
+    return `<th class="seo-th${cls ? ' '+cls : ''}${active ? ' seo-th-active' : ''}" onclick="sortSeoTable('${col}')">${label} <span class="seo-sort-ic">${icon}</span></th>`;
+  };
+
+  el.innerHTML = `
+    <div class="seo-header">
+      <div class="seo-header-stats">
+        <span class="seo-stat"><strong>${sorted.length}</strong> sites</span>
+        ${audited ? `<span class="seo-stat-sep">·</span><span class="seo-stat"><strong>${audited}</strong> audited</span>` : ''}
+        ${issues ? `<span class="seo-stat-sep">·</span><span class="seo-stat seo-stat-issues"><strong>${issues}</strong> with issues</span>` : ''}
+      </div>
+      <button class="btn btn-secondary btn-sm" id="seo-audit-all-btn" onclick="auditAllSites()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        Audit All Sites
+      </button>
+    </div>
+    <div class="card seo-table-card">
+      <div class="seo-table-wrap">
+        <table class="seo-table">
+          <thead><tr>
+            ${th('name', 'Site', 'seo-th-site')}
+            ${th('sitemap', 'Sitemap', 'seo-th-center')}
+            ${th('index', 'Indexed', 'seo-th-center')}
+            ${th('broken', 'Broken Links', 'seo-th-center')}
+            ${th('position', 'Avg Pos', 'seo-th-num')}
+            ${th('ctr', 'CTR', 'seo-th-num')}
+            ${th('clicks', 'Clicks', 'seo-th-num')}
+            ${th('impr', 'Impressions', 'seo-th-num')}
+            <th class="seo-th seo-th-action">Last Audit</th>
+          </tr></thead>
+          <tbody>
+            ${sorted.map(([id, d]) => seoTableRow(id, d)).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+async function runSeoAudit(id, btnEl) {
+  const orig = btnEl.innerHTML;
+  btnEl.disabled = true;
+  btnEl.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="seo-spin"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Scanning…';
+  try {
+    const r = await fetch(`/api/analytics/${encodeURIComponent(id)}/seo`);
+    if (!r.ok) throw new Error((await r.json()).error || r.statusText);
+    _seoData[id] = await r.json();
+    renderSeoView();
+  } catch (e) {
+    btnEl.disabled = false;
+    btnEl.innerHTML = orig;
+    console.error('SEO audit failed:', e.message);
+  }
+}
+
+async function auditAllSites() {
+  const allBtn = document.getElementById('seo-audit-all-btn');
+  if (allBtn) { allBtn.disabled = true; allBtn.textContent = 'Auditing…'; }
+  const ids = Object.keys(analyticsData);
+  for (const id of ids) {
+    const btn = document.getElementById(`seo-btn-${id}`);
+    if (btn) { btn.disabled = true; btn.textContent = '…'; }
+    try {
+      const r = await fetch(`/api/analytics/${encodeURIComponent(id)}/seo`);
+      if (r.ok) _seoData[id] = await r.json();
+    } catch { /* skip */ }
+    renderSeoView();
+    await new Promise(r => setTimeout(r, 300));
+  }
+  if (allBtn) { allBtn.disabled = false; allBtn.textContent = 'Audit All Sites'; }
+}
+
+// ── Industry Benchmarks sort ───────────────────────────────────────────────
 function sortIndBench(col, thEl) {
   if (_indBenchSortCol === col) _indBenchSortDir *= -1;
   else { _indBenchSortCol = col; _indBenchSortDir = col === 'industry' ? 1 : -1; }

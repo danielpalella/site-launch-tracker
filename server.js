@@ -1480,6 +1480,124 @@ app.put('/api/milestones/thresholds', requireAuth, async (req, res) => {
   }
 });
 
+// ── SEO Audit ──
+async function scanBrokenLinks(baseUrl) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10_000);
+  try {
+    const resp = await fetch(baseUrl, {
+      headers: { 'User-Agent': 'RealWork-SEO-Scanner/1.0' },
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    if (!resp.ok) return [];
+    const html = await resp.text();
+    const domain = new URL(baseUrl).hostname;
+    const seen = new Set();
+    const toCheck = [];
+    const re = /href=["']([^"'#?][^"']*?)["']/gi;
+    let m;
+    while ((m = re.exec(html)) !== null && toCheck.length < 40) {
+      const href = m[1];
+      if (/^(mailto:|tel:|javascript:)/i.test(href)) continue;
+      let url;
+      try { url = new URL(href, baseUrl).href; } catch { continue; }
+      if (new URL(url).hostname !== domain) continue;
+      if (seen.has(url)) continue;
+      seen.add(url);
+      toCheck.push(url);
+    }
+    const broken = [];
+    await Promise.all(toCheck.map(async url => {
+      try {
+        const c = new AbortController();
+        const t = setTimeout(() => c.abort(), 5_000);
+        const r = await fetch(url, { method: 'HEAD', redirect: 'follow', signal: c.signal, headers: { 'User-Agent': 'RealWork-SEO-Scanner/1.0' } });
+        clearTimeout(t);
+        if (r.status === 404) broken.push({ url, status: 404 });
+      } catch { /* timeout / network — skip */ }
+    }));
+    return broken;
+  } catch {
+    clearTimeout(timer);
+    return [];
+  }
+}
+
+app.get('/api/analytics/:id/seo', requireAuth, async (req, res) => {
+  try {
+    const doc = await db.collection('launches').doc(req.params.id).get();
+    if (!doc.exists) return res.status(404).json({ error: 'not_found' });
+    const launch = formatLaunch(doc);
+    const domain = launch.domain_name.replace(/^https?:\/\//, '').replace(/\/$/, '');
+    const cleanDomain = domain.replace(/^www\./, '');
+
+    // Serve Firestore cache if < 24h and not forced
+    const cacheRef = db.collection('launches').doc(req.params.id).collection('seo_audits').doc('latest');
+    if (!req.query.force) {
+      const cached = await cacheRef.get();
+      if (cached.exists) {
+        const data = cached.data();
+        if (Date.now() - new Date(data.scannedAt).getTime() < 86_400_000) return res.json(data);
+      }
+    }
+
+    const token = await getAnalyticsAccessToken();
+
+    // Find working GSC siteUrl
+    const candidates = [`sc-domain:${cleanDomain}`, `https://www.${cleanDomain}/`, `https://${cleanDomain}/`];
+    let siteUrl = null;
+    for (const c of candidates) {
+      const r = await fetch(`https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(c)}/sitemaps`, {
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch(() => null);
+      if (r?.ok) { siteUrl = c; break; }
+    }
+
+    // 1. Sitemaps
+    let sitemaps = [], sitemapStatus = 'unknown';
+    if (siteUrl) {
+      const r = await fetch(`https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(siteUrl)}/sitemaps`, {
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch(() => null);
+      if (r?.ok) {
+        const data = await r.json();
+        sitemaps = (data.sitemap || []).map(s => ({
+          path: s.path, lastSubmitted: s.lastSubmitted, lastDownloaded: s.lastDownloaded,
+          errors: s.errors || 0, warnings: s.warnings || 0, isSitemapsIndex: !!s.isSitemapsIndex,
+        }));
+        sitemapStatus = sitemaps.length === 0 ? 'none' : sitemaps.some(s => s.errors > 0) ? 'error' : 'ok';
+      }
+    }
+
+    // 2. Index check via URL Inspection API
+    let indexStatus = 'unknown', indexCoverageState = null;
+    if (siteUrl) {
+      const r = await fetch('https://searchconsole.googleapis.com/v1/urlInspection/index:inspect', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inspectionUrl: `https://${cleanDomain}/`, siteUrl }),
+      }).catch(() => null);
+      if (r?.ok) {
+        const data = await r.json();
+        indexCoverageState = data.inspectionResult?.indexStatusResult?.coverageState || null;
+        const indexed = ['INDEXED', 'SUBMITTED_AND_INDEXED', 'DUPLICATE_WITHOUT_CANONICAL_SELECTED_AS_CANONICAL'];
+        indexStatus = indexed.includes(indexCoverageState) ? 'indexed' : 'not_indexed';
+      }
+    }
+
+    // 3. Broken links
+    const brokenLinks = await scanBrokenLinks(`https://${cleanDomain}/`);
+
+    const result = { scannedAt: new Date().toISOString(), siteUrl, sitemaps, sitemapStatus, indexStatus, indexCoverageState, brokenLinks };
+    await cacheRef.set(result).catch(() => {});
+    res.json(result);
+  } catch (e) {
+    if (e.code === 'not_connected') return res.status(402).json({ error: 'not_connected' });
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── Pages ──
 app.get('/edit-request', (_req, res) => res.sendFile(join(__dirname, 'public', 'edit-request.html')));
 app.get('/dashboard', requireAuth, (_req, res) => res.sendFile(join(__dirname, 'public', 'dashboard.html')));
