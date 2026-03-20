@@ -228,7 +228,7 @@
       <div class="dashboard-header" style="margin-bottom:.6rem">
         <div>
           <h1>Site Analytics</h1>
-          <p class="subtitle" style="margin-bottom:0">GSC, GA4 &amp; Duda performance insights for all active sites.</p>
+          <p class="subtitle" id="analytics-subtitle" style="margin-bottom:0">GSC, GA4 &amp; Duda performance insights for all active sites.</p>
         </div>
         <div id="analytics-connection-status" style="display:flex;align-items:center;gap:.6rem;font-size:.825rem"></div>
       </div>
@@ -2742,8 +2742,15 @@ let _seoLastRanAt      = null;
 let _perfData          = {}; // { [id]: { performance, mobile, desktop, is_post_launch, created_at } }
 let _perfCacheLoaded   = false;
 
+const ANALYTICS_SUBTITLES = {
+  sites:    'GSC, GA4 &amp; Duda performance insights for all active sites.',
+  overview: 'Aggregated traffic, search health, and performance trends across your portfolio.',
+  seo:      'Sitemap, indexing, broken links, schema markup, and safe browsing status per site.',
+};
 function switchAnalyticsView(view) {
   analyticsView = view;
+  const sub = document.getElementById('analytics-subtitle');
+  if (sub) sub.innerHTML = ANALYTICS_SUBTITLES[view] || ANALYTICS_SUBTITLES.sites;
   document.getElementById('ac-view-sites').classList.toggle('ac-view-active', view === 'sites');
   document.getElementById('ac-view-overview').classList.toggle('ac-view-active', view === 'overview');
   document.getElementById('ac-view-seo').classList.toggle('ac-view-active', view === 'seo');
