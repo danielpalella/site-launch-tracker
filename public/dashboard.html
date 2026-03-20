@@ -3662,8 +3662,8 @@ function periodGa4Totals(ga4, period) {
   return {
     sessions: Math.round(sumWeeks(slice, 'sessions')),
     users:    Math.round(sumWeeks(slice, 'users')),
-    newUsers: null,       // not available per-week
-    engagementRate: null, // not available per-week
+    newUsers: ga4.total?.newUsers ?? null,
+    engagementRate: ga4.total?.engagementRate ?? null,
   };
 }
 
