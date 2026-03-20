@@ -1489,6 +1489,16 @@ tr.status-separator:first-child td { border-top: none; }
 .admin-lh-err { font-size: .72rem; color: #ef4444; flex: 1; }
 .admin-lh-summary { padding: .55rem .75rem; font-size: .78rem; background: var(--bg); border-top: 1px solid var(--border); }
 
+/* Analytics cache admin tab */
+.admin-ac-row { display: flex; align-items: center; justify-content: space-between; padding: .5rem .1rem; border-bottom: 1px solid var(--border); gap: .75rem; }
+.admin-ac-row:last-child { border-bottom: none; }
+.admin-ac-info { flex: 1; min-width: 0; }
+.admin-ac-name { font-size: .82rem; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.admin-ac-domain { font-size: .72rem; color: var(--text-muted); margin-top: .05rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.admin-ac-btn { font-size: .72rem; font-weight: 600; padding: .25rem .65rem; border-radius: 6px; border: none; background: var(--primary); color: #fff; cursor: pointer; flex-shrink: 0; transition: opacity .15s, background .2s; }
+.admin-ac-btn:hover:not(:disabled) { opacity: .85; }
+.admin-ac-btn:disabled { opacity: .5; cursor: not-allowed; }
+
 /* Spinner for scanning row */
 .admin-lh-spin {
   display: inline-block; width: 12px; height: 12px; flex-shrink: 0;

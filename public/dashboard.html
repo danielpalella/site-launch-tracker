@@ -574,10 +574,21 @@
     <div class="admin-sheet-tabs">
       <button class="asht-btn asht-active" onclick="switchAdminTab('logs', this)">Activity Log</button>
       <button class="asht-btn" onclick="switchAdminTab('lighthouse', this)">Lighthouse Scan</button>
+      <button class="asht-btn" onclick="switchAdminTab('analytics', this)">Analytics Cache</button>
     </div>
     <div id="admin-tab-logs" class="admin-sheet-body">
       <div id="admin-loading" class="admin-loading-msg">Loading activity…</div>
       <div id="admin-log-list"></div>
+    </div>
+    <div id="admin-tab-analytics" class="admin-sheet-body" style="display:none">
+      <div class="admin-lh-wrap">
+        <p class="admin-lh-hint">Force-refresh the Firestore analytics cache for individual sites. Use this when a site shows missing GSC/GA4 data.</p>
+        <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.85rem">
+          <button class="admin-lh-run-btn" style="margin-top:0" onclick="adminRefreshAllAnalytics(this)">Force Refresh All Sites</button>
+          <span id="admin-ac-status" style="font-size:.75rem;color:var(--text-muted)"></span>
+        </div>
+        <div id="admin-ac-list"></div>
+      </div>
     </div>
     <div id="admin-tab-lighthouse" class="admin-sheet-body" style="display:none">
       <div class="admin-lh-wrap">
@@ -2333,7 +2344,71 @@ function closeAdmin() {
 function switchAdminTab(tab, btn) {
   document.getElementById('admin-tab-logs').style.display       = tab === 'logs'       ? 'flex' : 'none';
   document.getElementById('admin-tab-lighthouse').style.display = tab === 'lighthouse' ? 'flex' : 'none';
+  document.getElementById('admin-tab-analytics').style.display  = tab === 'analytics'  ? 'flex' : 'none';
   document.querySelectorAll('.asht-btn').forEach(b => b.classList.toggle('asht-active', b === btn));
+  if (tab === 'analytics') loadAdminAnalyticsList();
+}
+
+let _adminAcLoaded = false;
+async function loadAdminAnalyticsList() {
+  if (_adminAcLoaded) return;
+  _adminAcLoaded = true;
+  const list = document.getElementById('admin-ac-list');
+  list.innerHTML = '<div class="admin-loading-msg">Loading sites…</div>';
+  try {
+    const res = await fetch('/api/launches?status=launched');
+    const sites = await res.json();
+    sites.sort((a, b) => (a.account_name || '').localeCompare(b.account_name || ''));
+    list.innerHTML = sites.map(s => `
+      <div class="admin-ac-row" id="admin-ac-${s.id}">
+        <div class="admin-ac-info">
+          <div class="admin-ac-name">${esc(s.account_name)}</div>
+          <div class="admin-ac-domain">${esc(s.domain_name || s.domain || '')}</div>
+        </div>
+        <button class="admin-ac-btn" onclick="adminRefreshSite('${esc(s.id)}', this)">Refresh</button>
+      </div>`).join('');
+  } catch { list.innerHTML = '<div class="admin-loading-msg">Failed to load sites.</div>'; }
+}
+
+async function adminRefreshSite(id, btn) {
+  btn.disabled = true;
+  btn.textContent = '…';
+  const row = btn.closest('.admin-ac-row');
+  row.querySelector('.admin-ac-domain').textContent = 'Refreshing…';
+  try {
+    const res = await fetch(`/api/analytics/${id}?force=true`);
+    const d = await res.json();
+    if (res.ok) {
+      row.querySelector('.admin-ac-domain').textContent = d._cachedAt ? `Updated ${new Date(d._cachedAt).toLocaleTimeString()}` : 'Done';
+      btn.textContent = '✓';
+      btn.style.background = '#22c55e';
+      // bust in-memory cache so dashboard reloads fresh data next time
+      if (analyticsData[id]) { delete analyticsData[id]; analyticsLoaded = false; }
+    } else {
+      row.querySelector('.admin-ac-domain').textContent = d.error || 'Error';
+      btn.textContent = '✗'; btn.style.background = '#ef4444';
+    }
+  } catch {
+    row.querySelector('.admin-ac-domain').textContent = 'Network error';
+    btn.textContent = '✗'; btn.style.background = '#ef4444';
+  }
+  btn.disabled = false;
+  setTimeout(() => { btn.textContent = 'Refresh'; btn.style.background = ''; }, 3000);
+}
+
+async function adminRefreshAllAnalytics(btn) {
+  btn.disabled = true;
+  const status = document.getElementById('admin-ac-status');
+  status.textContent = 'Queuing refresh for all sites…';
+  try {
+    await fetch('/api/analytics/warm-all?force=true', { method: 'POST' });
+    status.textContent = 'All sites queued — cache will update in ~1–2 min.';
+    analyticsLoaded = false;
+    for (const k in analyticsData) delete analyticsData[k];
+    _adminAcLoaded = false;
+    loadAdminAnalyticsList();
+  } catch { status.textContent = 'Failed to queue refresh.'; }
+  btn.disabled = false;
 }
 
 function toggleLhAll(cb) {
