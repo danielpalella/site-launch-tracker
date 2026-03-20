@@ -2519,7 +2519,7 @@ async function runSeoAudit(id, btnEl) {
   btnEl.disabled = true;
   btnEl.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="seo-spin"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Scanning…';
   try {
-    const r = await fetch(`/api/analytics/${encodeURIComponent(id)}/seo`);
+    const r = await fetch(`/api/analytics/${encodeURIComponent(id)}/seo?force=true`);
     if (!r.ok) throw new Error((await r.json()).error || r.statusText);
     _seoData[id] = await r.json();
     renderSeoView();
@@ -2538,7 +2538,7 @@ async function auditAllSites() {
     const btn = document.getElementById(`seo-btn-${id}`);
     if (btn) { btn.disabled = true; btn.textContent = '…'; }
     try {
-      const r = await fetch(`/api/analytics/${encodeURIComponent(id)}/seo`);
+      const r = await fetch(`/api/analytics/${encodeURIComponent(id)}/seo?force=true`);
       if (r.ok) _seoData[id] = await r.json();
     } catch { /* skip */ }
     renderSeoView();

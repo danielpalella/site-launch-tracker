@@ -1573,25 +1573,31 @@ app.get('/api/analytics/:id/seo', requireAuth, async (req, res) => {
     // 2. Index check via URL Inspection API
     let indexStatus = 'unknown', indexCoverageState = null;
     if (siteUrl) {
-      const r = await fetch('https://searchconsole.googleapis.com/v1/urlInspection/index:inspect', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ inspectionUrl: `https://${cleanDomain}/`, siteUrl }),
-      }).catch(() => null);
-      if (r?.ok) {
-        const data = await r.json();
-        const result = data.inspectionResult?.indexStatusResult || {};
-        indexCoverageState = result.coverageState || null;
-        // verdict is 'PASS' | 'FAIL' | 'NEUTRAL' | 'VERDICT_UNSPECIFIED'
-        // coverageState is a human-readable string, e.g. "Submitted and indexed"
-        if (result.verdict === 'PASS' || /indexed/i.test(indexCoverageState || '')) {
-          indexStatus = 'indexed';
-        } else if (result.verdict === 'FAIL' || result.verdict === 'NEUTRAL') {
-          indexStatus = 'not_indexed';
+      // Try with both https and www variants in case one fails
+      const inspectUrls = [`https://${cleanDomain}/`, `https://www.${cleanDomain}/`];
+      for (const inspectUrl of inspectUrls) {
+        const r = await fetch('https://searchconsole.googleapis.com/v1/urlInspection/index:inspect', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ inspectionUrl: inspectUrl, siteUrl }),
+        }).catch(() => null);
+        if (r?.ok) {
+          const data = await r.json();
+          const result = data.inspectionResult?.indexStatusResult || {};
+          indexCoverageState = result.coverageState || null;
+          console.log(`[seo] ${cleanDomain} inspectUrl=${inspectUrl} verdict=${result.verdict} coverage="${indexCoverageState}"`);
+          // verdict: 'PASS'=indexed, 'FAIL'/'NEUTRAL'=not indexed
+          if (result.verdict === 'PASS' || /indexed/i.test(indexCoverageState || '')) {
+            indexStatus = 'indexed'; break;
+          } else if (result.verdict === 'FAIL' || result.verdict === 'NEUTRAL') {
+            indexStatus = 'not_indexed'; break;
+          }
+          // VERDICT_UNSPECIFIED — try next URL variant
+        } else {
+          const body = r ? await r.text().catch(() => '') : 'no response';
+          console.log(`[seo] urlInspection ${r?.status} for ${cleanDomain} (${inspectUrl}): ${body.slice(0, 200)}`);
+          break; // auth/quota error — no point retrying with different URL
         }
-        console.log(`[seo] ${cleanDomain} verdict=${result.verdict} coverage="${indexCoverageState}"`);
-      } else {
-        console.log(`[seo] urlInspection failed for ${cleanDomain}: ${r?.status}`);
       }
     }
 
