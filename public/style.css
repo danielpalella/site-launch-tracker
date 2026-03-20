@@ -1872,6 +1872,15 @@ tr.status-separator:first-child td { border-top: none; }
   gap: .35rem;
 }
 .ac-site-count strong { color: var(--text); font-weight: 600; }
+.ac-cache-age {
+  font-size: .72rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  padding: .2rem .5rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 99px;
+}
 .ac-search {
   flex: 1;
   min-width: 120px;

@@ -262,9 +262,10 @@
           <label class="ac-timeframe-option"><input type="radio" name="ac-tf" value="all" onchange="setAnalyticsPeriod('all')"> Since Launch</label>
         </div>
       </div>
-      <button class="btn btn-ghost ac-refresh-btn" onclick="refreshAnalytics()" title="Refresh">
+      <button class="btn btn-ghost ac-refresh-btn" id="ac-refresh-btn" onclick="refreshAnalytics()" title="Refresh data from source">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
       </button>
+      <div id="ac-cache-age" class="ac-cache-age" style="display:none"></div>
       <div id="ac-site-count" class="ac-site-count"></div>
     </div>
     </div><!-- /ac-sticky-header -->
@@ -2566,6 +2567,7 @@ function toggleAdminLog(id) {
 const analyticsCharts  = {};
 const analyticsData    = {}; // raw data keyed by launch id
 let analyticsLoaded    = false;
+let _analyticsCacheTs  = null; // oldest _cachedAt across loaded sites
 let analyticsTotal     = 0;   // total launched sites expected
 let analyticsLoadedCount = 0; // how many have resolved (ok or error)
 let analyticsPeriod    = 'mom'; // 'wow' | 'mom' | 'all'
@@ -4437,6 +4439,8 @@ async function loadAnalytics() {
   analyticsIndustry = 'all';
   analyticsTotal = launched.length;
   analyticsLoadedCount = 0;
+  _analyticsCacheTs = null;
+  document.getElementById('ac-cache-age').style.display = 'none';
   buildAnalyticsIndustryBar(launched);
   grid.innerHTML = launched.map(l => analyticsSkeletonHtml(l)).join('');
 
@@ -4446,6 +4450,10 @@ async function loadAnalytics() {
         const r = await fetch(`/api/analytics/${l.id}`);
         const d = await r.json();
         if (r.ok) {
+          if (d._cachedAt) {
+            const ts = new Date(d._cachedAt).getTime();
+            if (!_analyticsCacheTs || ts < _analyticsCacheTs) _analyticsCacheTs = ts;
+          }
           renderAnalyticsCard(l.id, d);
         } else {
           const card = document.getElementById(`ac-card-${l.id}`);
@@ -4468,6 +4476,7 @@ async function loadAnalytics() {
     }));
   }
   analyticsLoaded = true;
+  updateCacheAgeLabel();
 }
 
 function editAnalyticsStartDate(id, currentVal) {
@@ -4596,9 +4605,33 @@ async function copyAnalyticsCard(id) {
   }
 }
 
-function refreshAnalytics() {
+function updateCacheAgeLabel() {
+  const el = document.getElementById('ac-cache-age');
+  if (!el || !_analyticsCacheTs) return;
+  const diffMs = Date.now() - _analyticsCacheTs;
+  const diffMin = Math.round(diffMs / 60000);
+  let label;
+  if (diffMin < 2) label = 'just now';
+  else if (diffMin < 60) label = `${diffMin}m ago`;
+  else {
+    const h = Math.floor(diffMin / 60);
+    label = `${h}h ago`;
+  }
+  el.textContent = `Data as of ${new Date(_analyticsCacheTs).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} (${label})`;
+  el.style.display = '';
+}
+
+async function refreshAnalytics() {
+  const btn = document.getElementById('ac-refresh-btn');
+  if (btn) { btn.disabled = true; btn.style.opacity = '.5'; }
+  try {
+    await fetch('/api/analytics/warm-all?force=true', { method: 'POST' });
+  } catch { /* ignore — reload anyway */ }
+  if (btn) { btn.disabled = false; btn.style.opacity = ''; }
+
   analyticsLoaded = false;
   analyticsIndustry = 'all';
+  _analyticsCacheTs = null;
   document.getElementById('analytics-search').value = '';
   const sel = document.getElementById('ac-industry-select');
   if (sel) sel.value = 'all';

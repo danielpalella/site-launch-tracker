@@ -1435,77 +1435,129 @@ app.get('/api/launches/:id/forms', requireAuth, async (req, res) => {
   }
 });
 
-app.get('/api/analytics/:id', requireAuth, async (req, res) => {
-  try {
-    const token = await getAnalyticsAccessToken();
-    const doc = await db.collection('launches').doc(req.params.id).get();
-    if (!doc.exists) return res.status(404).json({ error: 'Not found' });
-    const launch = formatLaunch(doc);
-    if (launch.status !== 'launched') return res.status(400).json({ error: 'Not a launched site' });
+// ── Daily analytics cache ──────────────────────────────────────────────────
+// Data is cached in Firestore under launches/{id}/analytics_cache/daily for
+// 23 hours. On a cache miss the live APIs are called and the result is stored.
+// Trigger POST /api/analytics/warm-all each morning via Cloud Scheduler so
+// data is pre-warmed before users open the dashboard.
+const ANALYTICS_CACHE_TTL_MS = 23 * 60 * 60 * 1000;
 
-    const domain = launch.domain_name.replace(/^https?:\/\//, '').replace(/\/$/, '');
-    const rawLaunchDate = launch.status_changed_at || launch.created_at;
-    // analytics_start_date overrides the status_changed_at for data range
-    const analyticsStartDate = launch.analytics_start_date || null;
-    const startDate = analyticsStartDate || rawLaunchDate;
-    const daysSince = Math.floor((Date.now() - new Date(startDate.replace(' ', 'T') + 'Z')) / 86_400_000);
-
-    const [gsc, ga4PropertyId, duda] = await Promise.all([
-      fetchGSC(domain, startDate, token).catch(() => ({ available: false })),
-      getGa4PropertyId(domain, token).catch(() => null),
-      launch.duda_site_name
-        ? fetchDuda(launch.duda_site_name, startDate).catch(e => ({ available: false, reason: e.message }))
-        : Promise.resolve({ available: false, reason: 'No Duda site ID set' }),
-    ]);
-    const ga4 = ga4PropertyId
-      ? await fetchGA4(ga4PropertyId, startDate, token).catch(() => ({ available: false }))
-      : { available: false, reason: 'GA4 property not found for this domain' };
-
-    res.json({ id: launch.id, account_name: launch.account_name, domain, industry: launch.industry || '', launchDate: rawLaunchDate, analyticsStartDate, daysSince, gsc, ga4, duda });
-
-    // Fire-and-forget weekly snapshot
-    (async () => {
-      try {
-        const weekStart = new Date();
-        weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1); // Monday
-        const weekKey = weekStart.toISOString().slice(0, 10);
-        const snapRef = db.collection('launches').doc(req.params.id).collection('snapshots').doc(weekKey);
-        const existing = await snapRef.get();
-        if (!existing.exists) {
-          const isBaseline = daysSince <= 7;
-          const milestone = daysSince >= 88 ? '90day' : daysSince >= 58 ? '60day' : daysSince >= 28 ? '30day' : null;
-          await snapRef.set({
-            weekKey,
-            daysSince,
-            capturedAt: new Date().toISOString(),
-            isBaseline,
-            milestone,
-            gsc: gsc.available ? {
-              clicks: gsc.total?.clicks || 0,
-              impressions: gsc.total?.impressions || 0,
-              ctr: gsc.total?.ctr || 0,
-              position: gsc.total?.position || null,
-              topQueries: (gsc.topQueries || []).slice(0, 10)
-            } : null,
-            ga4: ga4.available ? {
-              sessions: ga4.total?.sessions || 0,
-              users: ga4.total?.users || 0
-            } : null,
-            duda: duda?.available ? {
-              visitors: duda.total?.visitors || 0,
-              pageViews: duda.total?.pageViews || 0
-            } : null
-          });
-        }
-      } catch (e) {
-        console.error('Snapshot error:', e.message);
+async function fetchAndCacheAnalytics(id, { force = false } = {}) {
+  // 1. Return cached response if still fresh
+  if (!force) {
+    const cacheDoc = await db.collection('launches').doc(id)
+      .collection('analytics_cache').doc('daily').get();
+    if (cacheDoc.exists) {
+      const { data, cachedAt } = cacheDoc.data();
+      if (cachedAt && Date.now() - new Date(cachedAt).getTime() < ANALYTICS_CACHE_TTL_MS) {
+        return { ...data, _cached: true, _cachedAt: cachedAt };
       }
+    }
+  }
+
+  // 2. Fetch live from GSC / GA4 / Duda
+  const token = await getAnalyticsAccessToken();
+  const doc = await db.collection('launches').doc(id).get();
+  if (!doc.exists) { const e = new Error('Not found'); e.statusCode = 404; throw e; }
+  const launch = formatLaunch(doc);
+  if (launch.status !== 'launched') { const e = new Error('Not a launched site'); e.statusCode = 400; throw e; }
+
+  const domain = launch.domain_name.replace(/^https?:\/\//, '').replace(/\/$/, '');
+  const rawLaunchDate = launch.status_changed_at || launch.created_at;
+  const analyticsStartDate = launch.analytics_start_date || null;
+  const startDate = analyticsStartDate || rawLaunchDate;
+  const daysSince = Math.floor((Date.now() - new Date(startDate.replace(' ', 'T') + 'Z')) / 86_400_000);
+
+  const [gsc, ga4PropertyId, duda] = await Promise.all([
+    fetchGSC(domain, startDate, token).catch(() => ({ available: false })),
+    getGa4PropertyId(domain, token).catch(() => null),
+    launch.duda_site_name
+      ? fetchDuda(launch.duda_site_name, startDate).catch(e => ({ available: false, reason: e.message }))
+      : Promise.resolve({ available: false, reason: 'No Duda site ID set' }),
+  ]);
+  const ga4 = ga4PropertyId
+    ? await fetchGA4(ga4PropertyId, startDate, token).catch(() => ({ available: false }))
+    : { available: false, reason: 'GA4 property not found for this domain' };
+
+  const responseData = {
+    id: launch.id, account_name: launch.account_name, domain,
+    industry: launch.industry || '', launchDate: rawLaunchDate,
+    analyticsStartDate, daysSince, gsc, ga4, duda,
+  };
+  const cachedAt = new Date().toISOString();
+
+  // 3. Persist cache + weekly snapshot (fire-and-forget)
+  (async () => {
+    try {
+      await db.collection('launches').doc(id)
+        .collection('analytics_cache').doc('daily')
+        .set({ data: responseData, cachedAt });
+    } catch (e) { console.error('[cache] Write error:', e.message); }
+
+    try {
+      const weekStart = new Date();
+      weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1); // Monday
+      const weekKey = weekStart.toISOString().slice(0, 10);
+      const snapRef = db.collection('launches').doc(id).collection('snapshots').doc(weekKey);
+      const existing = await snapRef.get();
+      if (!existing.exists) {
+        const isBaseline = daysSince <= 7;
+        const milestone = daysSince >= 88 ? '90day' : daysSince >= 58 ? '60day' : daysSince >= 28 ? '30day' : null;
+        await snapRef.set({
+          weekKey, daysSince, capturedAt: cachedAt, isBaseline, milestone,
+          gsc: gsc.available ? {
+            clicks: gsc.total?.clicks || 0, impressions: gsc.total?.impressions || 0,
+            ctr: gsc.total?.ctr || 0, position: gsc.total?.position || null,
+            topQueries: (gsc.topQueries || []).slice(0, 10),
+          } : null,
+          ga4: ga4.available ? { sessions: ga4.total?.sessions || 0, users: ga4.total?.users || 0 } : null,
+          duda: duda?.available ? { visitors: duda.total?.visitors || 0, pageViews: duda.total?.pageViews || 0 } : null,
+        });
+      }
+    } catch (e) { console.error('[snapshot] Error:', e.message); }
+  })();
+
+  return { ...responseData, _cached: false, _cachedAt: cachedAt };
+}
+
+// POST /api/analytics/warm-all
+// Pre-warms the daily cache for every launched site in background batches.
+// Set up a Cloud Scheduler job to hit this endpoint at 06:00 America/Chicago
+// so data is ready before the workday: POST https://<app>/api/analytics/warm-all
+app.post('/api/analytics/warm-all', requireAuth, async (req, res) => {
+  const force = req.query.force === 'true';
+  try {
+    const snap = await db.collection('launches').where('status', '==', 'launched').get();
+    const ids = snap.docs.map(d => d.id);
+    res.json({ queued: ids.length, message: `Warming cache for ${ids.length} sites in background` });
+    (async () => {
+      let warmed = 0, skipped = 0, failed = 0;
+      for (let i = 0; i < ids.length; i += 3) {
+        await Promise.all(ids.slice(i, i + 3).map(async id => {
+          try {
+            const result = await fetchAndCacheAnalytics(id, { force });
+            if (result._cached) skipped++; else warmed++;
+          } catch (e) {
+            failed++;
+            console.error(`[warm-all] ${id}:`, e.message);
+          }
+        }));
+      }
+      console.log(`[warm-all] Done — warmed: ${warmed}, skipped (fresh): ${skipped}, failed: ${failed}`);
     })();
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/analytics/:id', requireAuth, async (req, res) => {
+  try {
+    const data = await fetchAndCacheAnalytics(req.params.id, { force: req.query.force === 'true' });
+    res.json(data);
+  } catch (err) {
     console.error('Analytics error:', err.message);
-    if (err.code === 'not_connected')
-      return res.status(503).json({ error: 'not_connected' });
-    res.status(500).json({ error: err.message || 'Failed to fetch analytics' });
+    if (err.code === 'not_connected') return res.status(503).json({ error: 'not_connected' });
+    res.status(err.statusCode || 500).json({ error: err.message || 'Failed to fetch analytics' });
   }
 });
 
