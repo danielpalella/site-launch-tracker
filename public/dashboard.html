@@ -2584,6 +2584,7 @@ async function loadMilestoneThresholds() {
 let analyticsIndustry  = 'all';
 let analyticsView      = 'sites'; // 'sites' | 'overview'
 let overviewChart      = null;
+let gshChart           = null;
 let _indBenchData      = [];
 let _indBenchSortCol   = 'count';
 let _indBenchSortDir   = -1; // -1=desc, 1=asc
@@ -3142,6 +3143,7 @@ function computeRecentlyLaunched(entries) {
 
 function renderAnalyticsOverview(industryFilter) {
   if (overviewChart) { overviewChart.destroy(); overviewChart = null; }
+  if (gshChart) { gshChart.destroy(); gshChart = null; }
   const entries = getAnalyticsEntries(industryFilter || analyticsIndustry);
   if (!entries.length) {
     const isLoading = analyticsTotal > 0 && analyticsLoadedCount < analyticsTotal;
@@ -3276,7 +3278,7 @@ function renderAnalyticsOverview(industryFilter) {
       const bodyId = `gsh-body-${l}`;
       const startCollapsed = true;
       return `
-        <div class="gsh-group-header" onclick="toggleGshGroup('${bodyId}', this)">
+        <div class="gsh-group-header" data-level="${l}" onclick="toggleGshGroup('${bodyId}', this)">
           <span class="gsh-group-dot" style="background:${color}"></span>
           <span style="color:${color};font-weight:700;font-size:.95rem">${GSH_LABELS[l]}</span>
           <span class="gsh-group-count">${gshGrouped[l].length} site${gshGrouped[l].length !== 1 ? 's' : ''}</span>
@@ -3455,12 +3457,69 @@ function renderAnalyticsOverview(industryFilter) {
           </div>
           <span class="ov-section-badge">${healthEntries.length} sites</span>
         </div>
+        <div class="gsh-chart-row">
+          <div class="gsh-donut-wrap">
+            <canvas id="gsh-donut-canvas"></canvas>
+            <div class="gsh-donut-center" style="pointer-events:none">
+              <span class="gsh-donut-total">${healthEntries.length}</span>
+              <span class="gsh-donut-sublabel">sites</span>
+            </div>
+          </div>
+          <div class="gsh-legend">
+            ${GSH_LEVELS.filter(l => gshGrouped[l]?.length).map(l => {
+              const color = gshGrouped[l][0].health.color;
+              const pct = healthEntries.length ? Math.round(gshGrouped[l].length / healthEntries.length * 100) : 0;
+              return `<div class="gsh-legend-row" onclick="gshToggleLevel('${l}')" title="Click to expand ${GSH_LABELS[l]}">
+                <span class="gsh-legend-dot" style="background:${color}"></span>
+                <span class="gsh-legend-name" style="color:${color}">${GSH_LABELS[l]}</span>
+                <span class="gsh-legend-count">${gshGrouped[l].length} site${gshGrouped[l].length !== 1 ? 's' : ''}</span>
+                <div class="gsh-legend-bar-wrap"><div class="gsh-legend-bar" style="width:${pct}%;background:${color}"></div></div>
+                <span class="gsh-legend-pct">${pct}%</span>
+              </div>`;
+            }).join('')}
+          </div>
+        </div>
         ${gshTableHtml}
       </div>
 
     </div>
 
   `;
+
+  // Build GSC Health donut chart
+  const gshDonutCanvas = document.getElementById('gsh-donut-canvas');
+  if (gshDonutCanvas && healthEntries.length) {
+    const gshLevelsWithData = GSH_LEVELS.filter(l => gshGrouped[l]?.length);
+    const gshColors = gshLevelsWithData.map(l => gshGrouped[l][0].health.color);
+    gshChart = new Chart(gshDonutCanvas, {
+      type: 'doughnut',
+      data: {
+        labels: gshLevelsWithData.map(l => GSH_LABELS[l]),
+        datasets: [{
+          data: gshLevelsWithData.map(l => gshGrouped[l].length),
+          backgroundColor: gshColors.map(c => c + 'cc'),
+          borderColor: gshColors,
+          borderWidth: 2,
+          hoverOffset: 8,
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false, cutout: '68%',
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: ctx => ` ${ctx.label}: ${ctx.parsed} site${ctx.parsed !== 1 ? 's' : ''}`,
+            }
+          }
+        },
+        onClick: (evt, elements) => {
+          if (!elements.length) return;
+          gshToggleLevel(gshLevelsWithData[elements[0].index]);
+        }
+      }
+    });
+  }
 
   // Build combined trend chart
   const allWeeks = [...new Set([
@@ -4550,6 +4609,11 @@ function refreshAnalytics() {
 }
 
 // ── GSH collapsible groups ──
+function gshToggleLevel(level) {
+  const header = document.querySelector(`.gsh-group-header[data-level="${level}"]`);
+  if (header) toggleGshGroup(`gsh-body-${level}`, header);
+}
+
 function toggleGshGroup(bodyId, header) {
   const body = document.getElementById(bodyId);
   if (!body) return;
