@@ -6,7 +6,6 @@
   <title>Projects — Launch Tracker</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="/style.css" />
-  <script>document.documentElement.setAttribute('data-theme', localStorage.getItem('theme') || 'light');</script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 </head>
 <body class="dashboard-page">
@@ -559,22 +558,29 @@
   <button class="claim-option" onclick="assignOwner('Thierry')">Thierry</button>
 </div>
 
-<button id="dark-toggle" title="Toggle dark mode" onclick="toggleDark()">🌙</button>
-
-<!-- ── Admin Portal ── -->
-<div id="admin-overlay" style="display:none">
+<!-- ── Admin Panel (right-side sheet) ── -->
+<div id="admin-overlay">
+  <div id="admin-backdrop" onclick="closeAdmin()"></div>
   <div id="admin-panel">
-    <div id="admin-header">
-      <span id="admin-title">Admin Portal</span>
-      <button id="admin-close" onclick="closeAdmin()" title="Close">&times;</button>
+    <div class="admin-sheet-hdr">
+      <div>
+        <div class="admin-sheet-title">Admin Panel</div>
+        <div class="admin-sheet-sub">RealWork Labs · Internal</div>
+      </div>
+      <button class="admin-sheet-close" onclick="closeAdmin()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
     </div>
-
-
-    <div id="admin-body">
-
-      <!-- ── Lighthouse Bulk Scan ── -->
+    <div class="admin-sheet-tabs">
+      <button class="asht-btn asht-active" onclick="switchAdminTab('logs', this)">Activity Log</button>
+      <button class="asht-btn" onclick="switchAdminTab('lighthouse', this)">Lighthouse Scan</button>
+    </div>
+    <div id="admin-tab-logs" class="admin-sheet-body">
+      <div id="admin-loading" class="admin-loading-msg">Loading activity…</div>
+      <div id="admin-log-list"></div>
+    </div>
+    <div id="admin-tab-lighthouse" class="admin-sheet-body" style="display:none">
       <div class="admin-lh-wrap">
-        <div class="admin-sub-label">Lighthouse Bulk Scan</div>
         <p class="admin-lh-hint">Runs PageSpeed Insights (mobile + desktop) on every matching site. Takes ~30s per site — results stream in below.</p>
         <div class="admin-lh-row-filters">
           <span class="admin-lh-filter-label">Scope</span>
@@ -599,13 +605,6 @@
           <div id="admin-lh-summary" class="admin-lh-summary" style="display:none"></div>
         </div>
       </div>
-
-      <!-- ── Audit Log ── -->
-      <div class="admin-log-header-row">
-        <div class="admin-sub-label">Audit Log</div>
-      </div>
-      <div id="admin-loading" style="padding:1.5rem;text-align:center;color:var(--text-muted)">Loading logs…</div>
-      <div id="admin-log-list"></div>
     </div>
   </div>
 </div>
@@ -1515,11 +1514,38 @@ async function fetchLaunches() {
   }
 }
 
-// Logout
-document.getElementById('logout-btn').addEventListener('click', async () => {
-  await fetch('/api/auth/logout', { method: 'POST' });
-  window.location.href = '/login';
-});
+// Sign Out — click logs out; hold 3s opens admin panel
+(function () {
+  const btn = document.getElementById('logout-btn');
+  let holdTimer = null;
+  let holding = false;
+
+  function startHold() {
+    holding = false;
+    holdTimer = setTimeout(() => {
+      holding = true;
+      openAdmin();
+    }, 3000);
+  }
+  function cancelHold() {
+    if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
+  }
+
+  btn.addEventListener('mousedown', startHold);
+  btn.addEventListener('touchstart', startHold, { passive: true });
+  btn.addEventListener('mouseup', () => {
+    cancelHold();
+    if (!holding) { fetch('/api/auth/logout', { method: 'POST' }).then(() => { window.location.href = '/login'; }); }
+    holding = false;
+  });
+  btn.addEventListener('touchend', () => {
+    cancelHold();
+    if (!holding) { fetch('/api/auth/logout', { method: 'POST' }).then(() => { window.location.href = '/login'; }); }
+    holding = false;
+  });
+  btn.addEventListener('mouseleave', cancelHold);
+  btn.addEventListener('touchcancel', cancelHold);
+})();
 
 // Show logged-in user email in nav
 (async () => {
@@ -1690,15 +1716,6 @@ async function assignOwner(name) {
   }
 }
 
-// ── Dark Mode ──
-function toggleDark() {
-  const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-  document.documentElement.setAttribute('data-theme', next);
-  localStorage.setItem('theme', next);
-  document.getElementById('dark-toggle').textContent = next === 'dark' ? '☀️' : '🌙';
-  if (viewMode === 'graph') renderChart();
-}
-
 // ── Analytics tooltips (fixed-position, escapes overflow containers) ──
 (function() {
   const tip = document.getElementById('ac-tooltip');
@@ -1732,10 +1749,6 @@ function toggleDark() {
       hideTimer = setTimeout(() => tip.classList.remove('tip-visible'), 80);
     }
   });
-})();
-(function() {
-  const saved = localStorage.getItem('theme') || 'light';
-  document.getElementById('dark-toggle').textContent = saved === 'dark' ? '☀️' : '🌙';
 })();
 
 // ── Domain Info (RDAP) ──
@@ -2306,29 +2319,21 @@ fetchEditRequests(); // populate badge count
   }
 })();
 
-// ── Admin portal ──
-(function() {
-  let clickTimes = [];
-  const btn = document.getElementById('dark-toggle');
-  btn.addEventListener('click', () => {
-    const now = Date.now();
-    clickTimes.push(now);
-    clickTimes = clickTimes.filter(t => now - t < 800);
-    if (clickTimes.length >= 3) {
-      clickTimes = [];
-      openAdmin();
-    }
-  });
-})();
-
+// ── Admin panel open/close ──
 function openAdmin() {
-  document.getElementById('admin-overlay').style.display = 'flex';
+  const overlay = document.getElementById('admin-overlay');
+  overlay.classList.add('admin-open');
   loadAdminLogs();
 }
 
-
 function closeAdmin() {
-  document.getElementById('admin-overlay').style.display = 'none';
+  document.getElementById('admin-overlay').classList.remove('admin-open');
+}
+
+function switchAdminTab(tab, btn) {
+  document.getElementById('admin-tab-logs').style.display       = tab === 'logs'       ? 'flex' : 'none';
+  document.getElementById('admin-tab-lighthouse').style.display = tab === 'lighthouse' ? 'flex' : 'none';
+  document.querySelectorAll('.asht-btn').forEach(b => b.classList.toggle('asht-active', b === btn));
 }
 
 function toggleLhAll(cb) {
@@ -2472,13 +2477,10 @@ async function runBulkLighthouse() {
   loadPerfCache();
 }
 
-document.getElementById('admin-overlay').addEventListener('click', (e) => {
-  if (e.target === document.getElementById('admin-overlay')) closeAdmin();
-});
-
 async function loadAdminLogs() {
   const loading = document.getElementById('admin-loading');
   const list    = document.getElementById('admin-log-list');
+  if (!loading || !list) return;
   loading.style.display = 'block';
   list.innerHTML = '';
   try {
@@ -2487,80 +2489,135 @@ async function loadAdminLogs() {
     loading.style.display = 'none';
 
     if (!logs.length) {
-      list.innerHTML = '<div style="padding:1.5rem;text-align:center;color:var(--text-muted);font-size:.8rem">No logs yet.</div>';
+      list.innerHTML = '<div class="admin-empty-msg">No activity yet.</div>';
       return;
     }
 
     const TYPE_META = {
-      login:  { label: 'Sign In',  icon: '→',  cls: 'login'  },
-      edit:   { label: 'Edit',     icon: '✎',  cls: 'edit'   },
-      create: { label: 'Created',  icon: '+',  cls: 'create' },
-      delete: { label: 'Deleted',  icon: '✕',  cls: 'delete' },
+      login:  { label: 'Sign In', cls: 'login'  },
+      edit:   { label: 'Edit',    cls: 'edit'   },
+      create: { label: 'Created', cls: 'create' },
+      delete: { label: 'Deleted', cls: 'delete' },
     };
 
-    const buildDetails = (log) => {
-      if (log.type === 'login') {
-        return `<div class="admin-log-detail-row">Signed in to RealWork Labs</div>`;
+    const actionSummary = (log) => {
+      if (log.type === 'login')  return 'Signed in';
+      if (log.type === 'create') return `Created <strong>${esc(log.account_name || log.launch_id || '—')}</strong>`;
+      if (log.type === 'delete') return `Deleted <strong>${esc(log.account_name || log.launch_id || '—')}</strong>`;
+      if (log.type === 'edit') {
+        const fields = Object.keys(log.changes || {});
+        return `Edited ${fields.length ? fields.slice(0,3).map(f => f.replace(/_/g,' ')).join(', ') + (fields.length > 3 ? '…' : '') : 'record'}`;
       }
-      if (log.type === 'create') {
-        return `<div class="admin-log-detail-row">Created site: <strong>${esc(log.account_name || log.launch_id || '—')}</strong></div>`;
-      }
-      if (log.type === 'delete') {
-        return `<div class="admin-log-detail-row">Deleted site: <strong>${esc(log.account_name || log.launch_id || '—')}</strong></div>`;
-      }
+      return log.type;
+    };
+
+    const actionDetail = (log) => {
+      if (log.type === 'login') return '';
       if (log.type === 'edit') {
         const changes = log.changes || {};
-        const entries = Object.entries(changes);
-        if (!entries.length) return `<div class="admin-log-detail-row" style="color:var(--text-muted)">No field changes recorded.</div>`;
-        return entries.map(([field, { from, to }]) => `
-          <div class="admin-log-detail-row">
-            <span class="admin-log-field">${esc(field.replace(/_/g,' '))}</span>
-            <span class="admin-log-from">${esc(String(from) || '—')}</span>
-            <span class="admin-log-arrow">→</span>
-            <span class="admin-log-to">${esc(String(to) || '—')}</span>
+        const pairs = Object.entries(changes);
+        if (!pairs.length) return '<div class="alog-detail-row" style="color:#94a3b8">No field changes recorded.</div>';
+        return pairs.map(([field, { from, to }]) => `
+          <div class="alog-detail-row">
+            <span class="alog-field">${esc(field.replace(/_/g,' '))}</span>
+            <span class="alog-from">${esc(String(from ?? '—'))}</span>
+            <span class="alog-arrow">→</span>
+            <span class="alog-to">${esc(String(to ?? '—'))}</span>
           </div>`).join('');
       }
       return '';
     };
 
-    logs.forEach((log, i) => {
-      const meta     = TYPE_META[log.type] || { label: log.type, icon: '·', cls: 'edit' };
-      const isLogin  = log.type === 'login';
-      const summary  = log.type === 'login'  ? `Signed in`
-                     : log.type === 'create' ? `Created ${esc(log.account_name || '')}`
-                     : log.type === 'delete' ? `Deleted ${esc(log.account_name || log.launch_id || '')}`
-                     : log.type === 'edit'   ? `Edited ${Object.keys(log.changes||{}).join(', ') || 'record'}`
-                     : log.type;
-      const details  = buildDetails(log);
-      const hasDetails = log.type !== 'login';
-      const rowId    = `admin-log-row-${i}`;
+    // Group by email, preserving newest-first order within each group
+    const groups = {};
+    const groupOrder = [];
+    for (const log of logs) {
+      const email = log.email || 'unknown';
+      if (!groups[email]) { groups[email] = []; groupOrder.push(email); }
+      groups[email].push(log);
+    }
 
-      const row = document.createElement('div');
-      row.className = `admin-log-row${isLogin ? ' admin-log-row-login' : ''}`;
-      row.innerHTML = `
-        <div class="admin-log-main" ${hasDetails ? `onclick="toggleAdminLog('${rowId}')"` : ''} style="${hasDetails ? 'cursor:pointer' : ''}">
-          <span class="admin-type admin-type-${meta.cls}">${meta.label}</span>
-          <span class="admin-log-user">${esc(log.email || '—')}</span>
-          <span class="admin-log-summary">${summary}</span>
-          <span class="admin-log-time">${esc(log.at || '')}</span>
-          ${hasDetails ? `<span class="admin-log-chevron" id="${rowId}-chev">›</span>` : ''}
+    const PREVIEW = 15;
+    groupOrder.forEach(email => {
+      const actions = groups[email];
+      const initials = email.split('@')[0].slice(0,2).toUpperCase();
+      const firstName = email.split('@')[0].split('.')[0];
+      const name = firstName.charAt(0).toUpperCase() + firstName.slice(1);
+      const latestTime = actions[0]?.at || '';
+
+      const section = document.createElement('div');
+      section.className = 'alog-user-section';
+
+      const renderActions = (items) => items.map((log, i) => {
+        const meta = TYPE_META[log.type] || { label: log.type, cls: 'edit' };
+        const detail = actionDetail(log);
+        const rowId = `alog-${email.replace(/\W/g,'_')}-${i}`;
+        return `<div class="alog-row">
+          <div class="alog-row-main${detail ? ' alog-expandable' : ''}" ${detail ? `onclick="toggleAlogRow('${rowId}', this)"` : ''}>
+            <span class="alog-type alog-type-${meta.cls}">${meta.label}</span>
+            <span class="alog-summary">${actionSummary(log)}</span>
+            <span class="alog-time">${esc(log.at || '')}</span>
+            ${detail ? '<svg class="alog-chev" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 6 8 10 12 6"/></svg>' : ''}
+          </div>
+          ${detail ? `<div class="alog-detail" id="${rowId}" style="display:none">${detail}</div>` : ''}
+        </div>`;
+      }).join('');
+
+      const visibleActions = actions.slice(0, PREVIEW);
+      const hiddenActions  = actions.slice(PREVIEW);
+
+      section.innerHTML = `
+        <div class="alog-user-hdr">
+          <div class="alog-avatar">${initials}</div>
+          <div class="alog-user-info">
+            <div class="alog-user-name">${esc(name)}</div>
+            <div class="alog-user-email">${esc(email)}</div>
+          </div>
+          <div class="alog-user-meta">
+            <span class="alog-count-badge">${actions.length} action${actions.length !== 1 ? 's' : ''}</span>
+            <span class="alog-latest-time">${esc(latestTime)}</span>
+          </div>
         </div>
-        ${hasDetails ? `<div class="admin-log-details" id="${rowId}" style="display:none">${details}</div>` : ''}
-      `;
-      list.appendChild(row);
+        <div class="alog-actions-list">
+          ${renderActions(visibleActions)}
+          ${hiddenActions.length ? `
+            <div class="alog-more-wrap" id="alog-more-${email.replace(/\W/g,'_')}">
+              <div class="alog-hidden-actions" style="display:none">${renderActions(hiddenActions)}</div>
+              <button class="alog-show-more-btn" onclick="toggleAlogMore('${email.replace(/\W/g,'_')}', this)">
+                Show ${hiddenActions.length} more
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 6 8 10 12 6"/></svg>
+              </button>
+            </div>` : ''}
+        </div>`;
+      list.appendChild(section);
     });
   } catch (err) {
-    loading.textContent = 'Failed to load logs.';
+    if (loading) loading.textContent = 'Failed to load activity.';
   }
 }
 
-function toggleAdminLog(id) {
-  const el   = document.getElementById(id);
-  const chev = document.getElementById(id + '-chev');
+function toggleAlogRow(id, hdr) {
+  const el = document.getElementById(id);
   if (!el) return;
   const open = el.style.display === 'none';
-  el.style.display   = open ? 'block' : 'none';
-  if (chev) chev.style.transform = open ? 'rotate(90deg)' : '';
+  el.style.display = open ? 'block' : 'none';
+  hdr.classList.toggle('alog-expanded', open);
+}
+
+function toggleAlogMore(emailKey, btn) {
+  const wrap = document.getElementById('alog-more-' + emailKey);
+  if (!wrap) return;
+  const hidden = wrap.querySelector('.alog-hidden-actions');
+  const open = hidden.style.display === 'none';
+  hidden.style.display = open ? '' : 'none';
+  const svg = btn.querySelector('svg');
+  if (svg) svg.style.transform = open ? 'rotate(180deg)' : '';
+  btn.firstChild.textContent = open ? 'Show less' : `Show ${wrap.querySelectorAll('.alog-row').length - 0} more`;
+  // Update button text properly
+  btn.innerHTML = open
+    ? `Show less <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" style="transform:rotate(180deg)"><polyline points="4 6 8 10 12 6"/></svg>`
+    : `Show ${hidden.querySelectorAll('.alog-row').length} more <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 6 8 10 12 6"/></svg>`;
+  btn.onclick = () => toggleAlogMore(emailKey, btn);
 }
 
 // ── Analytics Tab ──
@@ -2614,8 +2671,7 @@ function switchAnalyticsView(view) {
   document.getElementById('ac-site-count').style.display        = view === 'seo' ? 'none' : '';
   if (view === 'seo' && !_seoCacheLoaded) loadSeoCache();
   if (view === 'seo' && !_perfCacheLoaded) loadPerfCache();
-  document.getElementById('view-analytics').style.overflowY    = view === 'overview' ? 'auto' : 'hidden';
-  if (view === 'overview') renderAnalyticsOverview(null);
+  if (view === 'overview') { loadAnalytics(); renderAnalyticsOverview(null); }
   if (view === 'sites') applyAnalyticsFilters();
   if (view === 'seo') renderSeoView();
 }
