@@ -1675,7 +1675,7 @@ const SCHEMA_RULES = {
   Organization:   { required: ['name'],           recommended: ['url','logo','contactPoint','description'] },
   Service:        { required: ['name'],            recommended: ['description','provider','areaServed','url'] },
   FAQPage:        { required: ['mainEntity'],      recommended: [] },
-  WebSite:        { required: ['name','url'],      recommended: ['potentialAction'] },
+  WebSite:        { required: ['name','url'],      recommended: [] },
   Product:        { required: ['name'],            recommended: ['description','image','offers','brand'] },
   Article:        { required: ['headline','author','datePublished'], recommended: ['image','description'] },
   BreadcrumbList: { required: ['itemListElement'], recommended: [] },
