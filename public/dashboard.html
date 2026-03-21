@@ -2864,7 +2864,7 @@ function sortSeoTable(col) {
   renderSeoView();
 }
 
-function seoStatusBadge(audit, field) {
+function seoStatusBadge(audit, field, id) {
   if (!audit) return `<span class="seo-badge seo-badge-none">—</span>`;
   if (field === 'sitemap') {
     if (audit.sitemapStatus === 'ok')    return `<span class="seo-badge seo-badge-ok">✓ ${audit.sitemaps.length}</span>`;
@@ -2949,11 +2949,11 @@ function seoTableRow(id, d) {
       <div class="seo-site-name">${esc(d.account_name)}</div>
       <div class="seo-site-domain">${esc(d.domain)}</div>
     </td>
-    <td class="seo-td seo-td-center" onclick="${openGsc}" title="Open in Google Search Console" style="cursor:pointer">${seoStatusBadge(audit,'sitemap')}</td>
-    <td class="seo-td seo-td-center" onclick="${openGsc}" title="Open in Google Search Console" style="cursor:pointer">${seoStatusBadge(audit,'index')}</td>
-    <td class="seo-td seo-td-center" onclick="${openGsc}" title="Open in Google Search Console" style="cursor:pointer">${seoStatusBadge(audit,'broken')}</td>
-    <td class="seo-td seo-td-center">${seoStatusBadge(audit,'schema')}</td>
-    <td class="seo-td seo-td-center">${seoStatusBadge(audit,'security')}</td>
+    <td class="seo-td seo-td-center" onclick="${openGsc}" title="Open in Google Search Console" style="cursor:pointer">${seoStatusBadge(audit,'sitemap',id)}</td>
+    <td class="seo-td seo-td-center" onclick="${openGsc}" title="Open in Google Search Console" style="cursor:pointer">${seoStatusBadge(audit,'index',id)}</td>
+    <td class="seo-td seo-td-center" onclick="${openGsc}" title="Open in Google Search Console" style="cursor:pointer">${seoStatusBadge(audit,'broken',id)}</td>
+    <td class="seo-td seo-td-center">${seoStatusBadge(audit,'schema',id)}</td>
+    <td class="seo-td seo-td-center">${seoStatusBadge(audit,'security',id)}</td>
     <td class="seo-td seo-td-center">${perfBadge(id)}</td>
     <td class="seo-td seo-td-action" onclick="event.stopPropagation()">${auditCell}</td>
   </tr>`;
