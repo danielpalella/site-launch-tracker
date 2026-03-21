@@ -2872,7 +2872,7 @@ function seoStatusBadge(audit, field) {
     const sd = audit.structuredData;
     if (!sd) return `<span class="seo-badge seo-badge-none">—</span>`;
     if (sd.status === 'ok')       return `<span class="seo-badge seo-badge-ok" title="${esc(sd.schemas.join(', '))}">✓ ${sd.schemas.length} type${sd.schemas.length !== 1 ? 's' : ''}</span>`;
-    if (sd.status === 'warnings') return `<span class="seo-badge seo-badge-warn" title="${esc(sd.warnings.join('\n'))}">⚠ ${sd.schemas.length} type${sd.schemas.length !== 1 ? 's' : ''}</span>`;
+    if (sd.status === 'warnings') return `<span class="seo-badge seo-badge-warn" title="${esc('Types: ' + sd.schemas.join(', ') + '\n\n' + sd.warnings.join('\n'))}">⚠ ${sd.schemas.length} type${sd.schemas.length !== 1 ? 's' : ''}</span>`;
     if (sd.status === 'errors')   return `<span class="seo-badge seo-badge-error" title="${esc(sd.errors.join('\n'))}">✗ Errors</span>`;
     if (sd.status === 'missing')  return `<span class="seo-badge seo-badge-error">No Schema</span>`;
     return `<span class="seo-badge seo-badge-none">—</span>`;
