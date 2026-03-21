@@ -2637,3 +2637,71 @@ tr.status-separator:first-child td { border-top: none; }
   line-height: 1;
 }
 .ac-date-edit-btn:hover { opacity: 1; }
+
+/* API Usage tab */
+.admin-au-grid {
+  display: flex;
+  flex-direction: column;
+  gap: .75rem;
+  width: 100%;
+}
+.admin-au-card {
+  background: var(--card-bg, #0d1b33);
+  border: 1px solid var(--border, #1e3a5f);
+  border-radius: 8px;
+  padding: .85rem 1rem;
+}
+.admin-au-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: .5rem;
+}
+.admin-au-label {
+  font-size: .82rem;
+  font-weight: 600;
+  color: var(--text-primary, #e2e8f0);
+}
+.admin-au-count {
+  font-size: .82rem;
+  font-weight: 700;
+  color: var(--text-primary, #e2e8f0);
+}
+.admin-au-limit {
+  font-size: .72rem;
+  font-weight: 400;
+  color: var(--text-muted, #64748b);
+}
+.admin-au-bar-track {
+  width: 100%;
+  height: 6px;
+  background: rgba(255,255,255,.08);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: .4rem;
+}
+.admin-au-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width .4s ease;
+}
+.admin-au-meta {
+  display: flex;
+  justify-content: space-between;
+}
+.admin-au-pct {
+  font-size: .7rem;
+  color: var(--text-muted, #64748b);
+}
+.admin-au-yest {
+  font-size: .7rem;
+  color: var(--text-muted, #64748b);
+}
+.admin-au-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: .75rem;
+  padding-top: .6rem;
+  border-top: 1px solid var(--border, #1e3a5f);
+}

@@ -573,6 +573,7 @@
       <button class="asht-btn asht-active" onclick="switchAdminTab('logs', this)">Activity Log</button>
       <button class="asht-btn" onclick="switchAdminTab('lighthouse', this)">Lighthouse Scan</button>
       <button class="asht-btn" onclick="switchAdminTab('analytics', this)">Analytics Cache</button>
+      <button class="asht-btn" onclick="switchAdminTab('apiusage', this)">API Usage</button>
     </div>
     <div id="admin-tab-logs" class="admin-sheet-body">
       <div id="admin-loading" class="admin-loading-msg">Loading activity…</div>
@@ -586,6 +587,19 @@
           <span id="admin-ac-status" style="font-size:.75rem;color:var(--text-muted)"></span>
         </div>
         <div id="admin-ac-list"></div>
+      </div>
+    </div>
+    <div id="admin-tab-apiusage" class="admin-sheet-body" style="display:none">
+      <div class="admin-lh-wrap">
+        <p class="admin-lh-hint">Outbound API calls tracked today vs yesterday. Counts are fire-and-forget — incremented on each request to external services.</p>
+        <div id="admin-au-loading" class="admin-loading-msg">Loading…</div>
+        <div id="admin-au-content" style="display:none">
+          <div class="admin-au-grid" id="admin-au-grid"></div>
+          <div class="admin-au-footer">
+            <span id="admin-au-updated"></span>
+            <button class="admin-ac-btn" onclick="loadAdminApiUsage(true)">Refresh</button>
+          </div>
+        </div>
       </div>
     </div>
     <div id="admin-tab-lighthouse" class="admin-sheet-body" style="display:none">
@@ -2351,8 +2365,10 @@ function switchAdminTab(tab, btn) {
   document.getElementById('admin-tab-logs').style.display       = tab === 'logs'       ? 'flex' : 'none';
   document.getElementById('admin-tab-lighthouse').style.display = tab === 'lighthouse' ? 'flex' : 'none';
   document.getElementById('admin-tab-analytics').style.display  = tab === 'analytics'  ? 'flex' : 'none';
+  document.getElementById('admin-tab-apiusage').style.display   = tab === 'apiusage'   ? 'flex' : 'none';
   document.querySelectorAll('.asht-btn').forEach(b => b.classList.toggle('asht-active', b === btn));
   if (tab === 'analytics') loadAdminAnalyticsList();
+  if (tab === 'apiusage')  loadAdminApiUsage();
 }
 
 let _adminAcLoaded = false;
@@ -2421,6 +2437,52 @@ async function adminRefreshAllAnalytics(btn) {
     loadAdminAnalyticsList();
   } catch { status.textContent = 'Refresh failed.'; }
   btn.disabled = false;
+}
+
+const AU_LIMITS = {
+  gsc:          { label: 'Google Search Console', limit: 1200,  unit: 'calls/day' },
+  ga4:          { label: 'Google Analytics 4',    limit: 50000, unit: 'tokens/day' },
+  pagespeed:    { label: 'PageSpeed Insights',    limit: 25000, unit: 'calls/day' },
+  duda:         { label: 'Duda Analytics',        limit: 1000,  unit: 'calls/day' },
+  safebrowsing: { label: 'Safe Browsing',         limit: 10000, unit: 'lookups/day' },
+};
+
+let _auLoaded = false;
+async function loadAdminApiUsage(force = false) {
+  if (_auLoaded && !force) return;
+  _auLoaded = true;
+  document.getElementById('admin-au-loading').style.display = 'block';
+  document.getElementById('admin-au-content').style.display = 'none';
+  try {
+    const res = await fetch('/api/admin/api-usage');
+    const { today, yesterday } = await res.json();
+    const grid = document.getElementById('admin-au-grid');
+    grid.innerHTML = Object.entries(AU_LIMITS).map(([key, { label, limit, unit }]) => {
+      const todayVal = today[key] || 0;
+      const yestVal  = yesterday[key] || 0;
+      const pct      = Math.min(100, Math.round(todayVal / limit * 100));
+      const barColor = pct >= 90 ? '#ef4444' : pct >= 70 ? '#f59e0b' : '#22c55e';
+      return `
+        <div class="admin-au-card">
+          <div class="admin-au-card-header">
+            <span class="admin-au-label">${label}</span>
+            <span class="admin-au-count">${todayVal.toLocaleString()} <span class="admin-au-limit">/ ${limit.toLocaleString()} ${unit}</span></span>
+          </div>
+          <div class="admin-au-bar-track">
+            <div class="admin-au-bar-fill" style="width:${pct}%;background:${barColor}"></div>
+          </div>
+          <div class="admin-au-meta">
+            <span class="admin-au-pct">${pct}% used today</span>
+            <span class="admin-au-yest">Yesterday: ${yestVal.toLocaleString()}</span>
+          </div>
+        </div>`;
+    }).join('');
+    document.getElementById('admin-au-updated').textContent = `Last updated ${new Date().toLocaleTimeString()}`;
+    document.getElementById('admin-au-loading').style.display = 'none';
+    document.getElementById('admin-au-content').style.display = 'block';
+  } catch {
+    document.getElementById('admin-au-loading').textContent = 'Failed to load API usage.';
+  }
 }
 
 function toggleLhAll(cb) {

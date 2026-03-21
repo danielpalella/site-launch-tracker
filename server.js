@@ -15,6 +15,14 @@ const PORT = process.env.PORT || 3000;
 if (!getApps().length) initializeApp();
 const db = getFirestore();
 
+// ── API usage instrumentation ──
+function incrApiStat(service) {
+  const key = new Date().toISOString().slice(0, 10);
+  db.collection('api_usage').doc(key)
+    .set({ [service]: FieldValue.increment(1) }, { merge: true })
+    .catch(() => {});
+}
+
 // ── Google OAuth config ──
 const GOOGLE_CLIENT_ID     = process.env.OAUTH_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.OAUTH_CLIENT_SECRET;
@@ -903,6 +911,8 @@ async function runPageSpeedAudit(launchId, domain, isPostLaunch) {
   const keyParam  = `&key=${encodeURIComponent(apiKey)}`;
   const base      = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(url)}${keyParam}${catParams}`;
 
+  incrApiStat('pagespeed'); // mobile
+  incrApiStat('pagespeed'); // desktop
   const [mobileRes, desktopRes] = await Promise.all([
     fetch(`${base}&strategy=mobile`,  { signal: AbortSignal.timeout(110_000) }),
     fetch(`${base}&strategy=desktop`, { signal: AbortSignal.timeout(110_000) }),
@@ -1155,6 +1165,7 @@ async function fetchGSC(domain, launchDate, token) {
   const cleanDomain = domain.replace(/^www\./, '');
 
   async function querySC(siteUrl, body) {
+    incrApiStat('gsc');
     const r = await fetch(
       `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(siteUrl)}/searchAnalytics/query`,
       {
@@ -1233,6 +1244,7 @@ async function fetchGA4(propertyId, launchDate, token) {
   const startDate = isoDate(new Date(launchDate));
 
   async function runReport(body) {
+    incrApiStat('ga4');
     const r = await fetch(
       `https://analyticsdata.googleapis.com/v1beta/${property}:runReport`,
       {
@@ -1337,6 +1349,8 @@ async function fetchDuda(siteName, launchDate) {
   const to   = new Date().toISOString().slice(0, 10);
   const dateParams = from ? `?from=${from}&to=${to}&dateGranularity=DAYS` : `?to=${to}&dateGranularity=DAYS`;
 
+  incrApiStat('duda'); // traffic
+  incrApiStat('duda'); // activities
   const [trafficRes, activityRes] = await Promise.all([
     fetch(`${base}/analytics/site/${siteName}${dateParams}&result=traffic`,     { headers }),
     fetch(`${base}/analytics/site/${siteName}${dateParams}&result=activities`,  { headers }),
@@ -1721,6 +1735,7 @@ async function scanStructuredData(baseUrl) {
 async function checkSafeBrowsing(url, apiKey) {
   if (!apiKey) return { status: 'unknown', threats: [] };
   try {
+    incrApiStat('safebrowsing');
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 8_000);
     const resp = await fetch(`https://safebrowsing.googleapis.com/v4/threatMatches:find?key=${apiKey}`, {
@@ -1843,6 +1858,7 @@ app.get('/api/analytics/:id/seo', requireAuth, async (req, res) => {
     let siteUrl = null;
     let gscHasImpressions = false;
     for (const c of scCandidates) {
+      incrApiStat('gsc');
       const r = await fetch(
         `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(c)}/searchAnalytics/query`,
         {
@@ -1863,6 +1879,7 @@ app.get('/api/analytics/:id/seo', requireAuth, async (req, res) => {
     // 1. Sitemaps
     let sitemaps = [], sitemapStatus = 'unknown';
     if (siteUrl) {
+      incrApiStat('gsc');
       const r = await fetch(`https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(siteUrl)}/sitemaps`, {
         headers: { Authorization: `Bearer ${token}` },
       }).catch(() => null);
@@ -1887,6 +1904,7 @@ app.get('/api/analytics/:id/seo', requireAuth, async (req, res) => {
       // No impressions yet — try URL Inspection API for a definitive answer
       const inspectUrls = [`https://${cleanDomain}/`, `https://www.${cleanDomain}/`];
       for (const inspectUrl of inspectUrls) {
+        incrApiStat('gsc');
         const r = await fetch('https://searchconsole.googleapis.com/v1/urlInspection/index:inspect', {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
@@ -1923,6 +1941,24 @@ app.get('/api/analytics/:id/seo', requireAuth, async (req, res) => {
     res.json(result);
   } catch (e) {
     if (e.code === 'not_connected') return res.status(402).json({ error: 'not_connected' });
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── API Usage stats ──
+app.get('/api/admin/api-usage', requireAuth, async (_req, res) => {
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+    const [todaySnap, ySnap] = await Promise.all([
+      db.collection('api_usage').doc(today).get(),
+      db.collection('api_usage').doc(yesterday).get(),
+    ]);
+    res.json({
+      today:     { date: today,     ...(todaySnap.data() || {}) },
+      yesterday: { date: yesterday, ...(ySnap.data()     || {}) },
+    });
+  } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });
