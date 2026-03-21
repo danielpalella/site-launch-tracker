@@ -307,6 +307,21 @@
   </div>
 </div>
 
+<!-- Schema Modal -->
+<div class="modal-backdrop" id="schema-modal-backdrop" onclick="closeSchemaModal(event)">
+  <div class="modal schema-modal" onclick="event.stopPropagation()">
+    <div class="schema-modal-header">
+      <div>
+        <div id="schema-modal-name" style="font-size:1rem;font-weight:700;color:var(--text)"></div>
+        <div id="schema-modal-domain" style="font-size:.78rem;color:var(--text-muted);margin-top:.15rem"></div>
+      </div>
+      <button class="btn btn-ghost" style="padding:.2rem .55rem;font-size:.85rem;line-height:1" onclick="closeSchemaModal()">✕</button>
+    </div>
+    <div id="schema-modal-issues" class="schema-modal-issues"></div>
+    <div id="schema-modal-body" class="schema-modal-body"></div>
+  </div>
+</div>
+
 <!-- Edit Modal -->
 <div class="modal-backdrop" id="modal">
   <div class="modal crm-modal">
@@ -2871,10 +2886,10 @@ function seoStatusBadge(audit, field) {
   if (field === 'schema') {
     const sd = audit.structuredData;
     if (!sd) return `<span class="seo-badge seo-badge-none">—</span>`;
-    if (sd.status === 'ok')       return `<span class="seo-badge seo-badge-ok" title="${esc(sd.schemas.join(', '))}">✓ ${sd.schemas.length} type${sd.schemas.length !== 1 ? 's' : ''}</span>`;
-    if (sd.status === 'warnings') return `<span class="seo-badge seo-badge-warn" title="${esc('Types: ' + sd.schemas.join(', ') + '\n\n' + sd.warnings.join('\n'))}">⚠ ${sd.schemas.length} type${sd.schemas.length !== 1 ? 's' : ''}</span>`;
-    if (sd.status === 'errors')   return `<span class="seo-badge seo-badge-error" title="${esc(sd.errors.join('\n'))}">✗ Errors</span>`;
-    if (sd.status === 'missing')  return `<span class="seo-badge seo-badge-error">No Schema</span>`;
+    if (sd.status === 'ok')       return `<span class="seo-badge seo-badge-ok seo-badge-clickable" onclick="openSchemaModal('${esc(id)}')">✓ ${sd.schemas.length} type${sd.schemas.length !== 1 ? 's' : ''}</span>`;
+    if (sd.status === 'warnings') return `<span class="seo-badge seo-badge-warn seo-badge-clickable" onclick="openSchemaModal('${esc(id)}')">⚠ ${sd.schemas.length} type${sd.schemas.length !== 1 ? 's' : ''}</span>`;
+    if (sd.status === 'errors')   return `<span class="seo-badge seo-badge-error seo-badge-clickable" onclick="openSchemaModal('${esc(id)}')">✗ Errors</span>`;
+    if (sd.status === 'missing')  return `<span class="seo-badge seo-badge-error seo-badge-clickable" onclick="openSchemaModal('${esc(id)}')">No Schema</span>`;
     return `<span class="seo-badge seo-badge-none">—</span>`;
   }
   if (field === 'security') {
@@ -3071,6 +3086,169 @@ function renderSeoView() {
         </table>
       </div>
     </div>`;
+}
+
+// ── Schema Modal ──
+
+const SCHEMA_BUILDERS = {
+  WebSite(site, url) {
+    return {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": site.account_name,
+      "url": url,
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": { "@type": "EntryPoint", "urlTemplate": `${url}?s={search_term_string}` },
+        "query-input": "required name=search_term_string"
+      }
+    };
+  },
+  Organization(site, url) {
+    return {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": site.account_name,
+      "url": url,
+      "telephone": site.phone || "",
+      "logo": `${url}/logo.png`,
+      "sameAs": []
+    };
+  },
+  LocalBusiness(site, url) {
+    return {
+      "@context": "https://schema.org",
+      "@type": "LocalBusiness",
+      "name": site.account_name,
+      "url": url,
+      "telephone": site.phone || "",
+      "address": {
+        "@type": "PostalAddress",
+        "streetAddress": "",
+        "addressLocality": "",
+        "addressRegion": "",
+        "postalCode": "",
+        "addressCountry": "US"
+      },
+      "openingHoursSpecification": [],
+      "priceRange": "$$"
+    };
+  },
+  WebPage(site, url) {
+    return {
+      "@context": "https://schema.org",
+      "@type": "WebPage",
+      "name": site.account_name,
+      "url": url,
+      "description": `Welcome to ${site.account_name}`,
+      "isPartOf": { "@type": "WebSite", "url": url }
+    };
+  },
+  BreadcrumbList(site, url) {
+    return {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": url }
+      ]
+    };
+  },
+  Product(site, url) {
+    return {
+      "@context": "https://schema.org",
+      "@type": "Product",
+      "name": site.account_name,
+      "url": url,
+      "description": "",
+      "brand": { "@type": "Brand", "name": site.account_name },
+      "offers": { "@type": "Offer", "priceCurrency": "USD", "price": "", "availability": "https://schema.org/InStock" }
+    };
+  },
+  Service(site, url) {
+    return {
+      "@context": "https://schema.org",
+      "@type": "Service",
+      "name": site.account_name,
+      "url": url,
+      "provider": { "@type": "Organization", "name": site.account_name, "url": url },
+      "serviceType": site.industry || "",
+      "areaServed": { "@type": "Country", "name": "US" }
+    };
+  },
+  Person(site, url) {
+    return {
+      "@context": "https://schema.org",
+      "@type": "Person",
+      "name": site.account_name,
+      "url": url,
+      "telephone": site.phone || ""
+    };
+  },
+};
+
+function buildSchemaJson(type, site, url) {
+  const builder = SCHEMA_BUILDERS[type];
+  if (builder) return JSON.stringify(builder(site, url), null, 2);
+  // Generic fallback for unknown types
+  return JSON.stringify({ "@context": "https://schema.org", "@type": type, "name": site.account_name, "url": url }, null, 2);
+}
+
+function openSchemaModal(id) {
+  const site  = allLaunches.find(r => r.id === id);
+  const audit = _seoData[id];
+  if (!site || !audit) return;
+
+  const sd  = audit.structuredData;
+  const url = `https://${site.domain_name}`;
+
+  document.getElementById('schema-modal-name').textContent   = site.account_name;
+  document.getElementById('schema-modal-domain').textContent = site.domain_name;
+
+  // Issues banner
+  const issues = [...(sd?.errors || []), ...(sd?.warnings || [])];
+  const issuesEl = document.getElementById('schema-modal-issues');
+  if (issues.length) {
+    issuesEl.innerHTML = issues.map(i => {
+      const isErr = (sd.errors || []).includes(i);
+      return `<div class="schema-issue ${isErr ? 'schema-issue-error' : 'schema-issue-warn'}">${isErr ? '✗' : '⚠'} ${esc(i)}</div>`;
+    }).join('');
+    issuesEl.style.display = 'block';
+  } else {
+    issuesEl.innerHTML = '';
+    issuesEl.style.display = 'none';
+  }
+
+  // Schema blocks
+  const types = sd?.schemas?.length ? sd.schemas : ['WebSite', 'Organization'];
+  const body  = document.getElementById('schema-modal-body');
+  body.innerHTML = types.map((type, i) => {
+    const json = buildSchemaJson(type, site, url);
+    const blockId = `schema-block-${i}`;
+    return `
+      <div class="schema-block">
+        <div class="schema-block-header">
+          <span class="schema-block-type">${esc(type)}</span>
+          <button class="schema-copy-btn" onclick="copySchemaBlock('${blockId}', this)">Copy</button>
+        </div>
+        <pre class="schema-pre" id="${blockId}"><code>${esc(json)}</code></pre>
+      </div>`;
+  }).join('');
+
+  document.getElementById('schema-modal-backdrop').classList.add('open');
+}
+
+function closeSchemaModal(e) {
+  if (e && e.target !== document.getElementById('schema-modal-backdrop')) return;
+  document.getElementById('schema-modal-backdrop').classList.remove('open');
+}
+
+async function copySchemaBlock(blockId, btn) {
+  const text = document.getElementById(blockId).textContent;
+  await navigator.clipboard.writeText(text).catch(() => {});
+  const orig = btn.textContent;
+  btn.textContent = 'Copied!';
+  btn.style.background = '#22c55e';
+  setTimeout(() => { btn.textContent = orig; btn.style.background = ''; }, 2000);
 }
 
 async function runSeoAudit(id, btnEl) {

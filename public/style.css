@@ -2705,3 +2705,95 @@ tr.status-separator:first-child td { border-top: none; }
   padding-top: .6rem;
   border-top: 1px solid var(--border, #1e3a5f);
 }
+
+/* Schema Modal */
+.schema-modal {
+  width: min(680px, 94vw);
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  padding: 1.25rem 1.4rem;
+  overflow: hidden;
+}
+.schema-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: .85rem;
+  flex-shrink: 0;
+}
+.schema-modal-issues {
+  display: none;
+  margin-bottom: .85rem;
+  flex-shrink: 0;
+}
+.schema-issue {
+  font-size: .77rem;
+  padding: .3rem .6rem;
+  border-radius: 5px;
+  margin-bottom: .3rem;
+}
+.schema-issue-error {
+  background: rgba(239,68,68,.12);
+  color: #fca5a5;
+  border: 1px solid rgba(239,68,68,.25);
+}
+.schema-issue-warn {
+  background: rgba(245,158,11,.1);
+  color: #fcd34d;
+  border: 1px solid rgba(245,158,11,.2);
+}
+.schema-modal-body {
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: .85rem;
+}
+.schema-block {
+  border: 1px solid var(--border, #1e3a5f);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.schema-block-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: .45rem .75rem;
+  background: rgba(255,255,255,.04);
+  border-bottom: 1px solid var(--border, #1e3a5f);
+}
+.schema-block-type {
+  font-size: .78rem;
+  font-weight: 700;
+  color: var(--text-primary, #e2e8f0);
+  letter-spacing: .02em;
+}
+.schema-copy-btn {
+  font-size: .72rem;
+  font-weight: 600;
+  padding: .2rem .55rem;
+  border-radius: 4px;
+  border: 1px solid var(--border, #1e3a5f);
+  background: transparent;
+  color: var(--text-muted, #64748b);
+  cursor: pointer;
+  transition: background .15s, color .15s, border-color .15s;
+}
+.schema-copy-btn:hover { border-color: var(--primary); color: var(--primary); }
+.schema-pre {
+  margin: 0;
+  padding: .75rem 1rem;
+  font-size: .72rem;
+  line-height: 1.55;
+  color: #93c5fd;
+  background: transparent;
+  white-space: pre;
+  overflow-x: auto;
+}
+.schema-pre code { font-family: 'SF Mono', 'Fira Code', monospace; }
+.seo-badge-clickable {
+  cursor: pointer;
+  transition: opacity .15s;
+}
+.seo-badge-clickable:hover { opacity: .78; }
