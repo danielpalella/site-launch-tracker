@@ -1963,6 +1963,114 @@ app.get('/api/admin/api-usage', requireAuth, async (_req, res) => {
   }
 });
 
+// ── Page-level index check ──
+async function fetchSitemapUrls(domain) {
+  const candidates = [
+    `https://${domain}/sitemap.xml`,
+    `https://www.${domain}/sitemap.xml`,
+    `https://${domain}/sitemap_index.xml`,
+    `https://${domain}/page-sitemap.xml`,
+  ];
+  for (const sUrl of candidates) {
+    try {
+      const r = await fetch(sUrl, { signal: AbortSignal.timeout(8_000), headers: { 'User-Agent': 'RealWork-SEO-Scanner/1.0' } });
+      if (!r.ok) continue;
+      const xml = await r.text();
+      const urls = [];
+      // Expand sitemap index → fetch first child sitemap
+      const indexLoc = /<sitemap>[\s\S]*?<loc>\s*(https?:\/\/[^\s<]+)\s*<\/loc>/i.exec(xml)?.[1];
+      if (indexLoc && !urls.length) {
+        try {
+          const r2 = await fetch(indexLoc, { signal: AbortSignal.timeout(8_000), headers: { 'User-Agent': 'RealWork-SEO-Scanner/1.0' } });
+          if (r2.ok) {
+            const xml2 = await r2.text();
+            const re2 = /<loc>\s*(https?:\/\/[^\s<]+)\s*<\/loc>/gi;
+            let m2;
+            while ((m2 = re2.exec(xml2)) !== null && urls.length < 25) {
+              if (!m2[1].endsWith('.xml')) urls.push(m2[1]);
+            }
+          }
+        } catch { /* ignore */ }
+      }
+      if (!urls.length) {
+        const re = /<loc>\s*(https?:\/\/[^\s<]+)\s*<\/loc>/gi;
+        let m;
+        while ((m = re.exec(xml)) !== null && urls.length < 25) {
+          if (!m[1].endsWith('.xml')) urls.push(m[1]);
+        }
+      }
+      if (urls.length) return { urls, source: sUrl };
+    } catch { /* try next */ }
+  }
+  return { urls: [], source: null };
+}
+
+app.get('/api/seo/page-index/:id', requireAuth, async (req, res) => {
+  try {
+    const doc = await db.collection('launches').doc(req.params.id).get();
+    if (!doc.exists) return res.status(404).json({ error: 'not_found' });
+    const launch = formatLaunch(doc);
+    const domain = launch.domain_name.replace(/^https?:\/\//, '').replace(/\/$/, '');
+    const cleanDomain = domain.replace(/^www\./, '');
+
+    const token = await getAnalyticsAccessToken();
+
+    // Find working GSC siteUrl
+    const scCandidates = [
+      `sc-domain:${cleanDomain}`,
+      `https://www.${cleanDomain}/`,
+      `https://${cleanDomain}/`,
+    ];
+    let siteUrl = null;
+    for (const c of scCandidates) {
+      incrApiStat('gsc');
+      const r = await fetch(
+        `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(c)}/searchAnalytics/query`,
+        { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ startDate: new Date(Date.now()-30*86400000).toISOString().slice(0,10), endDate: new Date().toISOString().slice(0,10), dimensions:['date'], rowLimit:1 }) }
+      ).catch(() => null);
+      if (r?.ok) { siteUrl = c; break; }
+    }
+    if (!siteUrl) return res.json({ error: 'gsc_not_connected', pages: [] });
+
+    // Get page URLs from sitemap
+    const { urls: sitemapUrls, source } = await fetchSitemapUrls(cleanDomain);
+
+    // Fallback: just check homepage if no sitemap
+    const urlsToCheck = sitemapUrls.length ? sitemapUrls.slice(0, 20) : [`https://${cleanDomain}/`];
+
+    // URL Inspection for each page (sequential to avoid rate limits)
+    const pages = [];
+    for (const pageUrl of urlsToCheck) {
+      incrApiStat('gsc');
+      const r = await fetch('https://searchconsole.googleapis.com/v1/urlInspection/index:inspect', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inspectionUrl: pageUrl, siteUrl }),
+      }).catch(() => null);
+
+      if (!r?.ok) {
+        pages.push({ url: pageUrl, verdict: 'ERROR', coverageState: null });
+        continue;
+      }
+      const data = await r.json().catch(() => ({}));
+      const result = data.inspectionResult?.indexStatusResult || {};
+      pages.push({
+        url: pageUrl,
+        verdict: result.verdict || 'UNKNOWN',
+        coverageState: result.coverageState || null,
+        robotsTxtState: result.robotsTxtState || null,
+        crawledAs: result.crawledAs || null,
+        lastCrawlTime: result.lastCrawlTime || null,
+      });
+    }
+
+    res.json({ siteUrl, sitemapSource: source, pages });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── Pages ──
 app.get('/edit-request', (_req, res) => res.sendFile(join(__dirname, 'public', 'edit-request.html')));
 app.get('/dashboard', requireAuth, (_req, res) => res.sendFile(join(__dirname, 'public', 'dashboard.html')));

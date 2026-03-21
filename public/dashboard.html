@@ -322,6 +322,20 @@
   </div>
 </div>
 
+<!-- Page Index Modal -->
+<div class="modal-backdrop" id="pi-modal-backdrop" onclick="closePageIndexModal(event)">
+  <div class="modal schema-modal" onclick="event.stopPropagation()">
+    <div class="schema-modal-header">
+      <div>
+        <div id="pi-modal-name" style="font-size:1rem;font-weight:700;color:var(--text)"></div>
+        <div id="pi-modal-domain" style="font-size:.78rem;color:var(--text-muted);margin-top:.15rem"></div>
+      </div>
+      <button class="btn btn-ghost" style="padding:.2rem .55rem;font-size:.85rem;line-height:1" onclick="closePageIndexModal()">✕</button>
+    </div>
+    <div id="pi-modal-body" class="schema-modal-body"></div>
+  </div>
+</div>
+
 <!-- Edit Modal -->
 <div class="modal-backdrop" id="modal">
   <div class="modal crm-modal">
@@ -2873,9 +2887,10 @@ function seoStatusBadge(audit, field, id) {
     return `<span class="seo-badge seo-badge-none">—</span>`;
   }
   if (field === 'index') {
-    if (audit.indexStatus === 'indexed')     return `<span class="seo-badge seo-badge-ok">✓ Indexed</span>`;
-    if (audit.indexStatus === 'not_indexed') return `<span class="seo-badge seo-badge-error">✗ Not Indexed</span>`;
-    if (audit.indexStatus === 'unknown')     return `<span class="seo-badge seo-badge-warn" title="GSC not connected or URL Inspection API returned no verdict">? Unknown</span>`;
+    const click = `event.stopPropagation();openPageIndexModal('${esc(id)}')`;
+    if (audit.indexStatus === 'indexed')     return `<span class="seo-badge seo-badge-ok seo-badge-clickable" onclick="${click}" title="Check all pages">✓ Indexed</span>`;
+    if (audit.indexStatus === 'not_indexed') return `<span class="seo-badge seo-badge-error seo-badge-clickable" onclick="${click}" title="Check all pages">✗ Not Indexed</span>`;
+    if (audit.indexStatus === 'unknown')     return `<span class="seo-badge seo-badge-warn seo-badge-clickable" onclick="${click}" title="Check all pages">? Unknown</span>`;
     return `<span class="seo-badge seo-badge-none">—</span>`;
   }
   if (field === 'broken') {
@@ -3289,6 +3304,70 @@ function openSchemaModal(id) {
     }).join('');
 
   document.getElementById('schema-modal-backdrop').classList.add('open');
+}
+
+// ── Page Index Modal ──
+
+function openPageIndexModal(id) {
+  const site = allLaunches.find(r => r.id === id);
+  if (!site) return;
+  document.getElementById('pi-modal-name').textContent   = site.account_name;
+  document.getElementById('pi-modal-domain').textContent = site.domain_name;
+  const body = document.getElementById('pi-modal-body');
+  body.innerHTML = `
+    <div style="text-align:center;padding:1.5rem 0">
+      <button class="admin-lh-run-btn" style="margin:0" onclick="runPageIndexCheck('${esc(id)}')">Check All Pages</button>
+      <p style="font-size:.73rem;color:var(--text-muted);margin-top:.6rem">Fetches your sitemap and runs Google URL Inspection on each page.<br>Takes a few seconds per page.</p>
+    </div>`;
+  document.getElementById('pi-modal-backdrop').classList.add('open');
+}
+
+function closePageIndexModal(e) {
+  if (e && e.target !== document.getElementById('pi-modal-backdrop')) return;
+  document.getElementById('pi-modal-backdrop').classList.remove('open');
+}
+
+async function runPageIndexCheck(id) {
+  const body = document.getElementById('pi-modal-body');
+  body.innerHTML = `<div class="admin-loading-msg" style="padding:2rem 0"><div class="ac-ov-spinner" style="margin:0 auto .75rem"></div>Inspecting pages via Google Search Console…<br><span style="font-size:.72rem;color:var(--text-muted)">This takes a few seconds per page</span></div>`;
+  try {
+    const r   = await fetch(`/api/seo/page-index/${id}`);
+    const d   = await r.json();
+    if (!r.ok || d.error) {
+      body.innerHTML = `<div class="schema-issue schema-issue-error" style="margin:.5rem 0">✗ ${esc(d.error === 'gsc_not_connected' ? 'GSC not connected for this site.' : (d.error || 'Failed to fetch page index data.'))}</div>`;
+      return;
+    }
+
+    const total   = d.pages.length;
+    const indexed = d.pages.filter(p => p.verdict === 'PASS').length;
+    const verdictClass = v => v === 'PASS' ? 'seo-badge-ok' : v === 'FAIL' ? 'seo-badge-error' : 'seo-badge-warn';
+    const verdictLabel = p => {
+      if (p.verdict === 'PASS')    return '✓ Indexed';
+      if (p.verdict === 'FAIL')    return '✗ Not Indexed';
+      if (p.verdict === 'NEUTRAL') return '○ Excluded';
+      return '? Unknown';
+    };
+
+    body.innerHTML = `
+      <div class="pi-summary">
+        <span class="pi-summary-count ${indexed === total ? 'pi-ok' : indexed === 0 ? 'pi-bad' : 'pi-partial'}">${indexed}/${total} pages indexed</span>
+        ${d.sitemapSource ? `<span class="pi-source">via ${esc(d.sitemapSource.replace(/https?:\/\/[^/]+/, ''))}</span>` : '<span class="pi-source">homepage only (no sitemap found)</span>'}
+      </div>
+      <div class="pi-list">
+        ${d.pages.map(p => `
+          <div class="pi-row">
+            <span class="seo-badge ${verdictClass(p.verdict)} pi-verdict">${verdictLabel(p)}</span>
+            <div class="pi-url-wrap">
+              <a class="pi-url" href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.url.replace(/^https?:\/\//, ''))}</a>
+              ${p.coverageState ? `<span class="pi-coverage">${esc(p.coverageState)}</span>` : ''}
+              ${p.lastCrawlTime ? `<span class="pi-crawl">Last crawled: ${new Date(p.lastCrawlTime).toLocaleDateString()}</span>` : ''}
+            </div>
+          </div>`).join('')}
+      </div>
+      <button class="schema-copy-btn" style="margin-top:.75rem" onclick="runPageIndexCheck('${esc(id)}')">Re-check</button>`;
+  } catch (e) {
+    body.innerHTML = `<div class="schema-issue schema-issue-error">✗ ${esc(e.message)}</div>`;
+  }
 }
 
 function closeSchemaModal(e) {
