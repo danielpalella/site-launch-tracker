@@ -2797,3 +2797,25 @@ tr.status-separator:first-child td { border-top: none; }
   transition: opacity .15s;
 }
 .seo-badge-clickable:hover { opacity: .78; }
+
+.schema-fill-notice {
+  font-size: .76rem;
+  padding: .5rem .75rem;
+  border-radius: 6px;
+  background: rgba(245,158,11,.1);
+  border: 1px solid rgba(245,158,11,.25);
+  color: #fcd34d;
+  margin-bottom: .75rem;
+  flex-shrink: 0;
+  line-height: 1.5;
+}
+.schema-fill-notice code {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: .72rem;
+}
+mark.schema-fill-mark {
+  background: rgba(245,158,11,.22);
+  color: #fcd34d;
+  border-radius: 3px;
+  padding: 0 2px;
+}

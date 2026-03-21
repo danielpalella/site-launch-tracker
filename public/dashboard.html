@@ -3090,58 +3090,97 @@ function renderSeoView() {
 
 // ── Schema Modal ──
 
+// Industry → schema.org LocalBusiness subtype
+const INDUSTRY_SUBTYPE = {
+  'HVAC': 'HVACBusiness',
+  'Plumbing': 'Plumber',
+  'Electrical': 'Electrician',
+  'Roofing': 'RoofingContractor',
+  'Landscaping': 'LandscapingBusiness',
+  'Cleaning': 'HousePainter', // closest available; leave as LocalBusiness if no match
+  'Painting': 'HousePainter',
+  'Legal': 'LegalService',
+  'Medical': 'MedicalBusiness',
+  'Dental': 'Dentist',
+  'Veterinary': 'VeterinaryCare',
+  'Real Estate': 'RealEstateAgent',
+  'Restaurant': 'Restaurant',
+  'Hotel': 'LodgingBusiness',
+  'Auto': 'AutoRepair',
+  'Beauty': 'BeautySalon',
+  'Fitness': 'ExerciseGym',
+  'Financial': 'FinancialService',
+  'Insurance': 'InsuranceAgency',
+  'Accounting': 'AccountingService',
+  'Moving': 'MovingCompany',
+  'Photography': 'PhotographAction',
+  'Pet': 'PetStore',
+  'Childcare': 'ChildCare',
+};
+
+function localBizType(industry) {
+  if (!industry) return 'LocalBusiness';
+  const key = Object.keys(INDUSTRY_SUBTYPE).find(k => industry.toLowerCase().includes(k.toLowerCase()));
+  return key ? INDUSTRY_SUBTYPE[key] : 'LocalBusiness';
+}
+
 const SCHEMA_BUILDERS = {
   WebSite(site, url) {
+    // No potentialAction — only add SearchAction if the site has working site search
     return {
       "@context": "https://schema.org",
       "@type": "WebSite",
       "name": site.account_name,
-      "url": url,
-      "potentialAction": {
-        "@type": "SearchAction",
-        "target": { "@type": "EntryPoint", "urlTemplate": `${url}?s={search_term_string}` },
-        "query-input": "required name=search_term_string"
-      }
+      "url": url
     };
   },
   Organization(site, url) {
-    return {
+    const o = {
       "@context": "https://schema.org",
       "@type": "Organization",
       "name": site.account_name,
       "url": url,
-      "telephone": site.phone || "",
-      "logo": `${url}/logo.png`,
-      "sameAs": []
+      "sameAs": ["FILL_IN: Google Business Profile URL", "FILL_IN: Facebook URL"]
     };
+    if (site.phone) o.telephone = site.phone;
+    return o;
   },
   LocalBusiness(site, url) {
-    return {
+    const type = localBizType(site.industry);
+    const o = {
       "@context": "https://schema.org",
-      "@type": "LocalBusiness",
+      "@type": type,
       "name": site.account_name,
       "url": url,
-      "telephone": site.phone || "",
       "address": {
         "@type": "PostalAddress",
-        "streetAddress": "",
-        "addressLocality": "",
-        "addressRegion": "",
-        "postalCode": "",
+        "streetAddress": "FILL_IN",
+        "addressLocality": "FILL_IN: City",
+        "addressRegion": "FILL_IN: State (e.g. WA)",
+        "postalCode": "FILL_IN",
         "addressCountry": "US"
       },
-      "openingHoursSpecification": [],
-      "priceRange": "$$"
+      "geo": {
+        "@type": "GeoCoordinates",
+        "latitude": "FILL_IN",
+        "longitude": "FILL_IN"
+      },
+      "openingHoursSpecification": [
+        { "@type": "OpeningHoursSpecification", "dayOfWeek": ["Monday","Tuesday","Wednesday","Thursday","Friday"], "opens": "08:00", "closes": "17:00" }
+      ],
+      "sameAs": ["FILL_IN: Google Business Profile URL"]
     };
+    if (site.phone) o.telephone = site.phone;
+    return o;
   },
   WebPage(site, url) {
     return {
       "@context": "https://schema.org",
       "@type": "WebPage",
-      "name": site.account_name,
+      "name": "FILL_IN: Page title",
       "url": url,
-      "description": `Welcome to ${site.account_name}`,
-      "isPartOf": { "@type": "WebSite", "url": url }
+      "description": "FILL_IN: Page description",
+      "isPartOf": { "@type": "WebSite", "name": site.account_name, "url": url }
     };
   },
   BreadcrumbList(site, url) {
@@ -3149,39 +3188,48 @@ const SCHEMA_BUILDERS = {
       "@context": "https://schema.org",
       "@type": "BreadcrumbList",
       "itemListElement": [
-        { "@type": "ListItem", "position": 1, "name": "Home", "item": url }
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": url },
+        { "@type": "ListItem", "position": 2, "name": "FILL_IN: Page Name", "item": `${url}/FILL_IN` }
       ]
-    };
-  },
-  Product(site, url) {
-    return {
-      "@context": "https://schema.org",
-      "@type": "Product",
-      "name": site.account_name,
-      "url": url,
-      "description": "",
-      "brand": { "@type": "Brand", "name": site.account_name },
-      "offers": { "@type": "Offer", "priceCurrency": "USD", "price": "", "availability": "https://schema.org/InStock" }
     };
   },
   Service(site, url) {
     return {
       "@context": "https://schema.org",
       "@type": "Service",
-      "name": site.account_name,
-      "url": url,
-      "provider": { "@type": "Organization", "name": site.account_name, "url": url },
-      "serviceType": site.industry || "",
-      "areaServed": { "@type": "Country", "name": "US" }
+      "name": "FILL_IN: Service name",
+      "description": "FILL_IN: Service description",
+      "provider": { "@type": "LocalBusiness", "name": site.account_name, "url": url },
+      "areaServed": { "@type": "City", "name": "FILL_IN: City" },
+      "serviceType": site.industry || "FILL_IN: Service type"
     };
   },
   Person(site, url) {
-    return {
+    const o = {
       "@context": "https://schema.org",
       "@type": "Person",
       "name": site.account_name,
       "url": url,
-      "telephone": site.phone || ""
+      "jobTitle": "FILL_IN",
+      "worksFor": { "@type": "Organization", "name": site.account_name, "url": url }
+    };
+    if (site.phone) o.telephone = site.phone;
+    return o;
+  },
+  Product(site, url) {
+    return {
+      "@context": "https://schema.org",
+      "@type": "Product",
+      "name": "FILL_IN: Product name",
+      "description": "FILL_IN: Product description",
+      "brand": { "@type": "Brand", "name": site.account_name },
+      "offers": {
+        "@type": "Offer",
+        "priceCurrency": "USD",
+        "price": "FILL_IN",
+        "availability": "https://schema.org/InStock",
+        "url": url
+      }
     };
   },
 };
@@ -3189,8 +3237,11 @@ const SCHEMA_BUILDERS = {
 function buildSchemaJson(type, site, url) {
   const builder = SCHEMA_BUILDERS[type];
   if (builder) return JSON.stringify(builder(site, url), null, 2);
-  // Generic fallback for unknown types
   return JSON.stringify({ "@context": "https://schema.org", "@type": type, "name": site.account_name, "url": url }, null, 2);
+}
+
+function schemaHasPlaceholders(json) {
+  return json.includes('FILL_IN');
 }
 
 function openSchemaModal(id) {
@@ -3219,20 +3270,23 @@ function openSchemaModal(id) {
   }
 
   // Schema blocks
-  const types = sd?.schemas?.length ? sd.schemas : ['WebSite', 'Organization'];
+  const types = sd?.schemas?.length ? sd.schemas : ['WebSite', 'LocalBusiness'];
+  const hasFillIn = types.some(t => schemaHasPlaceholders(buildSchemaJson(t, site, url)));
   const body  = document.getElementById('schema-modal-body');
-  body.innerHTML = types.map((type, i) => {
-    const json = buildSchemaJson(type, site, url);
-    const blockId = `schema-block-${i}`;
-    return `
-      <div class="schema-block">
-        <div class="schema-block-header">
-          <span class="schema-block-type">${esc(type)}</span>
-          <button class="schema-copy-btn" onclick="copySchemaBlock('${blockId}', this)">Copy</button>
-        </div>
-        <pre class="schema-pre" id="${blockId}"><code>${esc(json)}</code></pre>
-      </div>`;
-  }).join('');
+  body.innerHTML = (hasFillIn ? `<div class="schema-fill-notice">Fields marked <code>FILL_IN</code> must be completed before adding to the site. Do not publish with placeholder values.</div>` : '') +
+    types.map((type, i) => {
+      const json    = buildSchemaJson(type, site, url);
+      const blockId = `schema-block-${i}`;
+      const highlighted = esc(json).replace(/&quot;FILL_IN[^&]*&quot;/g, m => `<mark class="schema-fill-mark">${m}</mark>`);
+      return `
+        <div class="schema-block">
+          <div class="schema-block-header">
+            <span class="schema-block-type">${esc(type)}</span>
+            <button class="schema-copy-btn" onclick="copySchemaBlock('${blockId}', this)">Copy</button>
+          </div>
+          <pre class="schema-pre" id="${blockId}"><code>${highlighted}</code></pre>
+        </div>`;
+    }).join('');
 
   document.getElementById('schema-modal-backdrop').classList.add('open');
 }
@@ -3243,7 +3297,7 @@ function closeSchemaModal(e) {
 }
 
 async function copySchemaBlock(blockId, btn) {
-  const text = document.getElementById(blockId).textContent;
+  const text = document.getElementById(blockId).innerText;
   await navigator.clipboard.writeText(text).catch(() => {});
   const orig = btn.textContent;
   btn.textContent = 'Copied!';
