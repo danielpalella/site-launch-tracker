@@ -2826,6 +2826,7 @@ let _indBenchData      = [];
 let _indBenchSortCol   = 'count';
 let _indBenchSortDir   = -1; // -1=desc, 1=asc
 let _seoData           = {}; // { [id]: seoAuditResult }
+let _pageIndexResults  = {}; // { [id]: { pages, sitemapSource, checkedAt } }
 let _seoSortCol        = 'name';
 let _seoSortDir        = 1;
 let _seoCacheLoaded    = false;
@@ -2878,6 +2879,24 @@ function sortSeoTable(col) {
   renderSeoView();
 }
 
+function buildIndexBadge(id, audit, click) {
+  const pi = _pageIndexResults[id];
+  if (pi?.pages?.length) {
+    const total   = pi.pages.length;
+    const indexed = pi.pages.filter(p => p.verdict === 'PASS').length;
+    const pct     = indexed / total;
+    const cls     = pct === 1 ? 'seo-badge-ok' : pct >= 0.5 ? 'seo-badge-warn' : 'seo-badge-error';
+    const icon    = pct === 1 ? '✓' : '⚠';
+    return `<span class="seo-badge ${cls} seo-badge-clickable" onclick="${click}" title="Click to see page-by-page breakdown">${icon} ${indexed}/${total}</span>`;
+  }
+  // Fallback to homepage-only audit result
+  if (!audit) return `<span class="seo-badge seo-badge-none">—</span>`;
+  if (audit.indexStatus === 'indexed')     return `<span class="seo-badge seo-badge-ok seo-badge-clickable"    onclick="${click}" title="Check all pages">✓ Indexed</span>`;
+  if (audit.indexStatus === 'not_indexed') return `<span class="seo-badge seo-badge-error seo-badge-clickable" onclick="${click}" title="Check all pages">✗ Not Indexed</span>`;
+  if (audit.indexStatus === 'unknown')     return `<span class="seo-badge seo-badge-warn seo-badge-clickable"  onclick="${click}" title="Check all pages">? Unknown</span>`;
+  return `<span class="seo-badge seo-badge-none">—</span>`;
+}
+
 function seoStatusBadge(audit, field, id) {
   if (!audit) return `<span class="seo-badge seo-badge-none">—</span>`;
   if (field === 'sitemap') {
@@ -2888,10 +2907,7 @@ function seoStatusBadge(audit, field, id) {
   }
   if (field === 'index') {
     const click = `event.stopPropagation();openPageIndexModal('${esc(id)}')`;
-    if (audit.indexStatus === 'indexed')     return `<span class="seo-badge seo-badge-ok seo-badge-clickable" onclick="${click}" title="Check all pages">✓ Indexed</span>`;
-    if (audit.indexStatus === 'not_indexed') return `<span class="seo-badge seo-badge-error seo-badge-clickable" onclick="${click}" title="Check all pages">✗ Not Indexed</span>`;
-    if (audit.indexStatus === 'unknown')     return `<span class="seo-badge seo-badge-warn seo-badge-clickable" onclick="${click}" title="Check all pages">? Unknown</span>`;
-    return `<span class="seo-badge seo-badge-none">—</span>`;
+    return `<span id="idx-badge-${esc(id)}">${buildIndexBadge(id, audit, click)}</span>`;
   }
   if (field === 'broken') {
     const n = audit.brokenLinks?.length ?? 0;
@@ -2979,11 +2995,9 @@ async function loadSeoCache() {
   const el = document.getElementById('ac-seo');
   if (el) el.innerHTML = '<div class="ac-overview-loading"><div class="ac-ov-spinner"></div><div>Loading cached audits…</div></div>';
   try {
-    const r = await fetch('/api/seo-cache');
-    if (r.ok) {
-      const data = await r.json();
-      Object.assign(_seoData, data);
-    }
+    const [seoR, piR] = await Promise.all([fetch('/api/seo-cache'), fetch('/api/page-index-cache')]);
+    if (seoR.ok) Object.assign(_seoData, await seoR.json());
+    if (piR.ok)  Object.assign(_pageIndexResults, await piR.json());
   } catch { /* silent — fall through to render with whatever we have */ }
   renderSeoView();
 }
@@ -3314,11 +3328,16 @@ function openPageIndexModal(id) {
   document.getElementById('pi-modal-name').textContent   = site.account_name;
   document.getElementById('pi-modal-domain').textContent = site.domain_name;
   const body = document.getElementById('pi-modal-body');
-  body.innerHTML = `
-    <div style="text-align:center;padding:1.5rem 0">
-      <button class="admin-lh-run-btn" style="margin:0" onclick="runPageIndexCheck('${esc(id)}')">Check All Pages</button>
-      <p style="font-size:.73rem;color:var(--text-muted);margin-top:.6rem">Fetches your sitemap and runs Google URL Inspection on each page.<br>Takes a few seconds per page.</p>
-    </div>`;
+  const cached = _pageIndexResults[id];
+  if (cached?.pages) {
+    renderPageIndexResults(id, cached, body);
+  } else {
+    body.innerHTML = `
+      <div style="text-align:center;padding:1.5rem 0">
+        <button class="admin-lh-run-btn" style="margin:0" onclick="runPageIndexCheck('${esc(id)}')">Check All Pages</button>
+        <p style="font-size:.73rem;color:var(--text-muted);margin-top:.6rem">Fetches your sitemap and runs Google URL Inspection on each page.<br>Takes a few seconds per page.</p>
+      </div>`;
+  }
   document.getElementById('pi-modal-backdrop').classList.add('open');
 }
 
@@ -3327,44 +3346,65 @@ function closePageIndexModal(e) {
   document.getElementById('pi-modal-backdrop').classList.remove('open');
 }
 
+function renderPageIndexResults(id, d, body) {
+  const total   = d.pages.length;
+  const indexed = d.pages.filter(p => p.verdict === 'PASS').length;
+  const pct     = total ? indexed / total : 0;
+  const summaryClass = pct === 1 ? 'pi-ok' : pct >= 0.5 ? 'pi-partial' : 'pi-bad';
+  const verdictClass = v => v === 'PASS' ? 'seo-badge-ok' : v === 'FAIL' ? 'seo-badge-error' : 'seo-badge-warn';
+  const verdictLabel = p => {
+    if (p.verdict === 'PASS')    return '✓ Indexed';
+    if (p.verdict === 'FAIL')    return '✗ Not Indexed';
+    if (p.verdict === 'NEUTRAL') return '○ Excluded';
+    return '? Unknown';
+  };
+  const checkedAgo = d.checkedAt ? (() => {
+    const ms = Date.now() - new Date(d.checkedAt).getTime();
+    if (ms < 3600000) return `${Math.floor(ms/60000)}m ago`;
+    if (ms < 86400000) return `${Math.floor(ms/3600000)}h ago`;
+    return `${Math.floor(ms/86400000)}d ago`;
+  })() : null;
+
+  body.innerHTML = `
+    <div class="pi-summary">
+      <span class="pi-summary-count ${summaryClass}">${indexed}/${total} pages indexed</span>
+      ${d.sitemapSource ? `<span class="pi-source">via ${esc(d.sitemapSource.replace(/https?:\/\/[^/]+/, ''))}</span>` : '<span class="pi-source">homepage only (no sitemap found)</span>'}
+      ${checkedAgo ? `<span class="pi-source" style="margin-left:auto">Checked ${checkedAgo}</span>` : ''}
+    </div>
+    <div class="pi-list">
+      ${d.pages.map(p => `
+        <div class="pi-row">
+          <span class="seo-badge ${verdictClass(p.verdict)} pi-verdict">${verdictLabel(p)}</span>
+          <div class="pi-url-wrap">
+            <a class="pi-url" href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.url.replace(/^https?:\/\//, ''))}</a>
+            ${p.coverageState ? `<span class="pi-coverage">${esc(p.coverageState)}</span>` : ''}
+            ${p.lastCrawlTime ? `<span class="pi-crawl">Last crawled: ${new Date(p.lastCrawlTime).toLocaleDateString()}</span>` : ''}
+          </div>
+        </div>`).join('')}
+    </div>
+    <button class="schema-copy-btn" style="margin-top:.75rem" onclick="runPageIndexCheck('${esc(id)}')">Re-check</button>`;
+
+  // Update the badge in the table in-place
+  const badgeWrap = document.getElementById(`idx-badge-${id}`);
+  if (badgeWrap) {
+    const audit = _seoData[id];
+    const click  = `event.stopPropagation();openPageIndexModal('${esc(id)}')`;
+    badgeWrap.innerHTML = buildIndexBadge(id, audit, click);
+  }
+}
+
 async function runPageIndexCheck(id) {
   const body = document.getElementById('pi-modal-body');
-  body.innerHTML = `<div class="admin-loading-msg" style="padding:2rem 0"><div class="ac-ov-spinner" style="margin:0 auto .75rem"></div>Inspecting pages via Google Search Console…<br><span style="font-size:.72rem;color:var(--text-muted)">This takes a few seconds per page</span></div>`;
+  body.innerHTML = `<div class="admin-loading-msg" style="padding:2rem 0"><div class="ac-ov-spinner" style="margin:0 auto .75rem"></div>Inspecting pages via Google Search Console…<br><span style="font-size:.72rem;color:var(--text-muted)">This takes ~5–10s per page</span></div>`;
   try {
-    const r   = await fetch(`/api/seo/page-index/${id}`);
-    const d   = await r.json();
+    const r = await fetch(`/api/seo/page-index/${id}`);
+    const d = await r.json();
     if (!r.ok || d.error) {
       body.innerHTML = `<div class="schema-issue schema-issue-error" style="margin:.5rem 0">✗ ${esc(d.error === 'gsc_not_connected' ? 'GSC not connected for this site.' : (d.error || 'Failed to fetch page index data.'))}</div>`;
       return;
     }
-
-    const total   = d.pages.length;
-    const indexed = d.pages.filter(p => p.verdict === 'PASS').length;
-    const verdictClass = v => v === 'PASS' ? 'seo-badge-ok' : v === 'FAIL' ? 'seo-badge-error' : 'seo-badge-warn';
-    const verdictLabel = p => {
-      if (p.verdict === 'PASS')    return '✓ Indexed';
-      if (p.verdict === 'FAIL')    return '✗ Not Indexed';
-      if (p.verdict === 'NEUTRAL') return '○ Excluded';
-      return '? Unknown';
-    };
-
-    body.innerHTML = `
-      <div class="pi-summary">
-        <span class="pi-summary-count ${indexed === total ? 'pi-ok' : indexed === 0 ? 'pi-bad' : 'pi-partial'}">${indexed}/${total} pages indexed</span>
-        ${d.sitemapSource ? `<span class="pi-source">via ${esc(d.sitemapSource.replace(/https?:\/\/[^/]+/, ''))}</span>` : '<span class="pi-source">homepage only (no sitemap found)</span>'}
-      </div>
-      <div class="pi-list">
-        ${d.pages.map(p => `
-          <div class="pi-row">
-            <span class="seo-badge ${verdictClass(p.verdict)} pi-verdict">${verdictLabel(p)}</span>
-            <div class="pi-url-wrap">
-              <a class="pi-url" href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.url.replace(/^https?:\/\//, ''))}</a>
-              ${p.coverageState ? `<span class="pi-coverage">${esc(p.coverageState)}</span>` : ''}
-              ${p.lastCrawlTime ? `<span class="pi-crawl">Last crawled: ${new Date(p.lastCrawlTime).toLocaleDateString()}</span>` : ''}
-            </div>
-          </div>`).join('')}
-      </div>
-      <button class="schema-copy-btn" style="margin-top:.75rem" onclick="runPageIndexCheck('${esc(id)}')">Re-check</button>`;
+    _pageIndexResults[id] = d;
+    renderPageIndexResults(id, d, body);
   } catch (e) {
     body.innerHTML = `<div class="schema-issue schema-issue-error">✗ ${esc(e.message)}</div>`;
   }

@@ -1808,6 +1808,20 @@ async function scanBrokenLinks(baseUrl) {
 }
 
 // Returns all cached SEO audits from Firestore without triggering any scans
+app.get('/api/page-index-cache', requireAuth, async (req, res) => {
+  try {
+    const launchSnap = await db.collection('launches').where('status', '!=', 'decommissioned').get();
+    const results = {};
+    await Promise.all(launchSnap.docs.map(async doc => {
+      const cache = await db.collection('launches').doc(doc.id).collection('page_index_cache').doc('latest').get();
+      if (cache.exists) results[doc.id] = cache.data();
+    }));
+    res.json(results);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/api/seo-cache', requireAuth, async (req, res) => {
   try {
     const launchSnap = await db.collection('launches').where('status', '!=', 'decommissioned').get();
@@ -2065,7 +2079,10 @@ app.get('/api/seo/page-index/:id', requireAuth, async (req, res) => {
       });
     }
 
-    res.json({ siteUrl, sitemapSource: source, pages });
+    const payload = { siteUrl, sitemapSource: source, pages, checkedAt: new Date().toISOString() };
+    db.collection('launches').doc(req.params.id).collection('page_index_cache').doc('latest')
+      .set(payload).catch(() => {});
+    res.json(payload);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
