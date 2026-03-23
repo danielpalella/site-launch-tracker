@@ -121,6 +121,7 @@ async function sendSlack(blocks) {
     });
   } catch (err) {
     console.error('Slack notify error:', err.message);
+    logApiError('slack', err.message || 'Slack notification failed');
   }
 }
 
@@ -134,6 +135,18 @@ async function logAudit(event) {
   } catch (err) {
     console.error('audit log error:', err.message);
   }
+}
+
+// ── API error log ──
+async function logApiError(integration, message, context = {}) {
+  try {
+    await db.collection('api_error_log').add({
+      integration,
+      message: String(message).slice(0, 500),
+      context,
+      at: FieldValue.serverTimestamp(),
+    });
+  } catch { /* silent — never throw from a logger */ }
 }
 
 // ── Firestore helpers ──
@@ -865,6 +878,7 @@ app.get('/api/gmail/threads', requireAuth, async (req, res) => {
     res.json(detailed);
   } catch (err) {
     console.error('Gmail threads error:', err);
+    logApiError('gmail', err.message || 'Gmail threads fetch failed');
     res.status(500).json({ error: 'Failed to fetch Gmail threads.' });
   }
 });
@@ -969,6 +983,7 @@ app.post('/api/launches/:id/lighthouse', requireAuth, async (req, res) => {
   } catch (err) {
     if (err.name === 'TimeoutError') return res.status(504).json({ error: 'PageSpeed timed out.' });
     console.error('Lighthouse error:', err);
+    logApiError('lighthouse', err.message || 'PageSpeed audit failed');
     res.status(500).json({ error: err.message || 'Lighthouse audit failed.' });
   }
 });
@@ -1578,6 +1593,7 @@ app.get('/api/analytics/:id', requireAuth, async (req, res) => {
   } catch (err) {
     console.error('Analytics error:', err.message);
     if (err.code === 'not_connected') return res.status(503).json({ error: 'not_connected' });
+    logApiError('analytics', err.message || 'Failed to fetch analytics', { id: req.params.id });
     res.status(err.statusCode || 500).json({ error: err.message || 'Failed to fetch analytics' });
   }
 });
@@ -2085,6 +2101,23 @@ app.get('/api/seo/page-index/:id', requireAuth, async (req, res) => {
     res.json(payload);
   } catch (e) {
     res.status(500).json({ error: e.message });
+  }
+});
+
+// ── API Error Logs ──
+app.get('/api/admin/error-logs', requireAuth, async (req, res) => {
+  try {
+    const snapshot = await db.collection('api_error_log')
+      .orderBy('at', 'desc')
+      .limit(200)
+      .get();
+    const logs = snapshot.docs.map(doc => {
+      const d = doc.data();
+      return { id: doc.id, ...d, at: fmtTs(d.at) };
+    });
+    res.json(logs);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 

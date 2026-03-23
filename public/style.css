@@ -434,6 +434,57 @@ tr.row-frozen .sticky-col { background: rgba(147,197,253,.05); }
 [data-theme="dark"] tr.row-frozen td { background: rgba(30,50,80,.35); }
 [data-theme="dark"] tr.row-frozen .sticky-col { background: rgba(30,50,80,.35); }
 
+/* ── ADMIN SEARCH INPUT ── */
+.admin-search-input {
+  width: 100%;
+  padding: .45rem .7rem;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  font-size: .82rem;
+  background: var(--bg);
+  color: var(--text);
+  margin-bottom: .6rem;
+  box-sizing: border-box;
+  outline: none;
+}
+.admin-search-input:focus {
+  border-color: var(--primary);
+}
+
+/* ── ERROR LOG ROWS ── */
+.admin-el-row {
+  padding: .55rem .1rem;
+  border-bottom: 1px solid var(--border);
+}
+.admin-el-row:last-child { border-bottom: none; }
+.admin-el-top {
+  display: flex;
+  align-items: flex-start;
+  gap: .5rem;
+  margin-bottom: .25rem;
+}
+.admin-el-badge {
+  flex-shrink: 0;
+  font-size: .65rem;
+  font-weight: 700;
+  color: #fff;
+  padding: .15rem .45rem;
+  border-radius: 5px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  margin-top: .05rem;
+}
+.admin-el-msg {
+  font-size: .8rem;
+  color: var(--text);
+  word-break: break-word;
+}
+.admin-el-meta {
+  font-size: .7rem;
+  color: var(--text-muted);
+  padding-left: 0;
+}
+
 /* ── FROZEN SECTION ── */
 tr.frozen-section-header td {
   background: #eef6ff;

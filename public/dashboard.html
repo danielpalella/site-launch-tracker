@@ -603,6 +603,7 @@
       <button class="asht-btn" onclick="switchAdminTab('lighthouse', this)">Lighthouse Scan</button>
       <button class="asht-btn" onclick="switchAdminTab('analytics', this)">Analytics Cache</button>
       <button class="asht-btn" onclick="switchAdminTab('apiusage', this)">API Usage</button>
+      <button class="asht-btn" onclick="switchAdminTab('errorlog', this)">Error Log</button>
     </div>
     <div id="admin-tab-logs" class="admin-sheet-body">
       <div id="admin-loading" class="admin-loading-msg">Loading activity…</div>
@@ -611,10 +612,11 @@
     <div id="admin-tab-analytics" class="admin-sheet-body" style="display:none">
       <div class="admin-lh-wrap">
         <p class="admin-lh-hint">Force-refresh the Firestore analytics cache for individual sites. Use this when a site shows missing GSC/GA4 data.</p>
-        <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.85rem">
+        <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.6rem">
           <button class="admin-lh-run-btn" style="margin-top:0" onclick="adminRefreshAllAnalytics(this)">Force Refresh All Sites</button>
           <span id="admin-ac-status" style="font-size:.75rem;color:var(--text-muted)"></span>
         </div>
+        <input type="search" id="admin-ac-search" class="admin-search-input" placeholder="Search sites…" oninput="filterAdminAcList(this.value)">
         <div id="admin-ac-list"></div>
       </div>
     </div>
@@ -629,6 +631,17 @@
             <button class="admin-ac-btn" onclick="loadAdminApiUsage(true)">Refresh</button>
           </div>
         </div>
+      </div>
+    </div>
+    <div id="admin-tab-errorlog" class="admin-sheet-body" style="display:none">
+      <div class="admin-lh-wrap">
+        <p class="admin-lh-hint">Failed API calls across all integrations (Lighthouse, Analytics, Gmail, Slack). Most recent 200 errors.</p>
+        <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.6rem">
+          <input type="search" id="admin-el-search" class="admin-search-input" placeholder="Search errors…" oninput="filterAdminErrorLog(this.value)" style="flex:1;margin-bottom:0">
+          <button class="admin-ac-btn" onclick="loadAdminErrorLogs(true)">Refresh</button>
+        </div>
+        <div id="admin-el-loading" class="admin-loading-msg">Loading…</div>
+        <div id="admin-el-list" style="display:none"></div>
       </div>
     </div>
     <div id="admin-tab-lighthouse" class="admin-sheet-body" style="display:none">
@@ -653,6 +666,7 @@
             <span id="admin-lh-log-title">Scanning…</span>
             <span id="admin-lh-log-counter" class="admin-lh-counter"></span>
           </div>
+          <input type="search" id="admin-lh-search" class="admin-search-input" placeholder="Filter results…" oninput="filterAdminLhLog(this.value)" style="margin-bottom:.5rem">
           <div id="admin-lh-log-body" class="admin-lh-log-body"></div>
           <div id="admin-lh-summary" class="admin-lh-summary" style="display:none"></div>
         </div>
@@ -2456,9 +2470,11 @@ function switchAdminTab(tab, btn) {
   document.getElementById('admin-tab-lighthouse').style.display = tab === 'lighthouse' ? 'flex' : 'none';
   document.getElementById('admin-tab-analytics').style.display  = tab === 'analytics'  ? 'flex' : 'none';
   document.getElementById('admin-tab-apiusage').style.display   = tab === 'apiusage'   ? 'flex' : 'none';
+  document.getElementById('admin-tab-errorlog').style.display   = tab === 'errorlog'   ? 'flex' : 'none';
   document.querySelectorAll('.asht-btn').forEach(b => b.classList.toggle('asht-active', b === btn));
   if (tab === 'analytics') loadAdminAnalyticsList();
   if (tab === 'apiusage')  loadAdminApiUsage();
+  if (tab === 'errorlog')  loadAdminErrorLogs();
 }
 
 let _adminAcLoaded = false;
@@ -2527,6 +2543,81 @@ async function adminRefreshAllAnalytics(btn) {
     loadAdminAnalyticsList();
   } catch { status.textContent = 'Refresh failed.'; }
   btn.disabled = false;
+}
+
+// ── Analytics Cache search ──
+function filterAdminAcList(q) {
+  const term = q.trim().toLowerCase();
+  document.querySelectorAll('#admin-ac-list .admin-ac-row').forEach(row => {
+    const text = row.textContent.toLowerCase();
+    row.style.display = !term || text.includes(term) ? '' : 'none';
+  });
+}
+
+// ── Lighthouse log search ──
+function filterAdminLhLog(q) {
+  const term = q.trim().toLowerCase();
+  document.querySelectorAll('#admin-lh-log-body .admin-lh-row').forEach(row => {
+    const text = row.textContent.toLowerCase();
+    row.style.display = !term || text.includes(term) ? '' : 'none';
+  });
+}
+
+// ── Error Log ──
+const INTEGRATION_COLORS = {
+  lighthouse: '#f97316',
+  analytics:  '#3b82f6',
+  gmail:      '#ec4899',
+  slack:      '#8b5cf6',
+  rdap:       '#14b8a6',
+};
+
+let _elLoaded = false;
+let _elData = [];
+
+async function loadAdminErrorLogs(force = false) {
+  if (_elLoaded && !force) return;
+  _elLoaded = true;
+  const loading = document.getElementById('admin-el-loading');
+  const list    = document.getElementById('admin-el-list');
+  loading.style.display = '';
+  list.style.display = 'none';
+  try {
+    const res = await fetch('/api/admin/error-logs');
+    _elData = await res.json();
+    renderAdminErrorLog(_elData);
+  } catch {
+    loading.textContent = 'Failed to load error logs.';
+  }
+}
+
+function renderAdminErrorLog(logs) {
+  const loading = document.getElementById('admin-el-loading');
+  const list    = document.getElementById('admin-el-list');
+  loading.style.display = 'none';
+  if (!logs.length) {
+    list.style.display = '';
+    list.innerHTML = '<div class="admin-loading-msg" style="color:var(--text-muted)">No errors logged.</div>';
+    return;
+  }
+  list.innerHTML = logs.map(e => {
+    const color = INTEGRATION_COLORS[e.integration] || '#6b7280';
+    return `<div class="admin-el-row">
+      <div class="admin-el-top">
+        <span class="admin-el-badge" style="background:${color}">${esc(e.integration || '?')}</span>
+        <span class="admin-el-msg">${esc(e.message || '')}</span>
+      </div>
+      <div class="admin-el-meta">${esc(e.at || '')}</div>
+    </div>`;
+  }).join('');
+  list.style.display = '';
+}
+
+function filterAdminErrorLog(q) {
+  const term = q.trim().toLowerCase();
+  document.querySelectorAll('#admin-el-list .admin-el-row').forEach(row => {
+    row.style.display = !term || row.textContent.toLowerCase().includes(term) ? '' : 'none';
+  });
 }
 
 const AU_LIMITS = {
