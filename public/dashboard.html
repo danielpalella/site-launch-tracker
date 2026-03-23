@@ -3777,7 +3777,7 @@ function topBottomPerformers(entries, period, metric) {
 
   // Needs Attention: 30+ days old, sort by worst GSC health score
   const attentionEligible = entries
-    .filter(([, d]) => (d.daysSince == null || d.daysSince >= 30))
+    .filter(([, d]) => d.daysSince != null && d.daysSince >= 30)
     .map(([id, d]) => {
       const h = computeGscHealth(d);
       const gscT  = periodGscTotals(d.gsc, period);
