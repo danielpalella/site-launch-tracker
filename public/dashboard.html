@@ -4077,7 +4077,7 @@ function renderAnalyticsOverview(industryFilter) {
         </div>
         <div id="rl-sec-body" class="ov-sec-body">
           ${recentlyLaunched.length ? recentlyLaunched.map(s => {
-            const barColor = s.days <= 7 ? '#22c55e' : s.days <= 14 ? '#1259FF' : s.days <= 21 ? '#f59e0b' : '#f97316';
+            const barColor = '#1259FF';
             return `<div class="ov-att-row" style="border-left:3px solid ${barColor}" onclick="openAnalyticsModal('${esc(s.id)}')">
               <div class="ov-att-top">
                 <div class="ov-att-name">
