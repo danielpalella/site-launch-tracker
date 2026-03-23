@@ -3714,6 +3714,13 @@ function computeGscHealth(d) {
 
   const total      = gsc.total || {};
   const impressions = total.impressions || 0;
+
+  // Don't score sites under 30 days old with no impressions yet — they'd
+  // score 10/100 (neutral trend only) and falsely land in "Needs Attention"
+  if (daysSince != null && daysSince < 30 && impressions === 0) {
+    return { score: null, level: 'no-data', label: 'No GSC Data', color: '#94a3b8', issues: [], impPerDay: 0, ctr: 0, position: null, trendPct: null };
+  }
+
   const ctr        = total.ctr        || 0;
   const position   = total.position   || null;
   const weeks      = gsc.weeks        || [];
