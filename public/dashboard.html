@@ -3808,12 +3808,18 @@ function topBottomPerformers(entries, period, metric) {
 }
 
 function computeTrafficDrops(entries) {
+  const now = Date.now();
   return entries
     .filter(([, d]) => d.ga4?.available && (d.ga4.weeks || []).length >= 2)
     .map(([id, d]) => {
       const weeks = d.ga4.weeks;
-      const lastWeek = weeks[weeks.length - 1]?.sessions || 0;
-      const prevWeek = weeks[weeks.length - 2]?.sessions || 0;
+      // Walk back to the last fully-completed week (start + 7 days in the past)
+      // so a partial current week (e.g. Monday) never triggers a false alert
+      let i = weeks.length - 1;
+      while (i >= 0 && new Date(weeks[i].week + 'T00:00:00Z').getTime() + 7 * 86_400_000 > now) i--;
+      if (i < 1) return null; // need at least 2 complete weeks
+      const lastWeek = weeks[i].sessions     || 0;
+      const prevWeek = weeks[i - 1].sessions || 0;
       if (prevWeek < 5) return null;
       const dropPct = Math.round((lastWeek - prevWeek) / prevWeek * 100);
       if (dropPct >= -20) return null;
@@ -4118,7 +4124,7 @@ function renderAnalyticsOverview(industryFilter) {
           <div class="ov-section-hdr-left">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>
             <span class="ov-section-title">Traffic Alerts</span>
-            <span class="ac-tip" data-tip="Sites where GA4 sessions dropped 20% or more week-over-week. Only triggered when the prior week had at least 5 sessions to avoid noise from brand-new sites.">?</span>
+            <span class="ac-tip" data-tip="Sites where GA4 sessions dropped 20%+ comparing the last two fully-completed weeks. Partial current weeks are excluded so a Monday with 1 day of data never triggers a false alert.">?</span>
           </div>
           <span class="ov-section-badge" style="background:#ef444418;color:#ef4444;border-color:#ef444440">${trafficDrops.length} alert${trafficDrops.length !== 1 ? 's' : ''}</span>
         </div>
@@ -4136,9 +4142,9 @@ function renderAnalyticsOverview(industryFilter) {
               </div>
             </div>
             <div class="ov-att-metrics">
-              <span class="traffic-week-stat"><span class="traffic-week-label">This week</span><b>${fmtNum(s.lastWeek)}</b><span class="ov-att-unit"> sess</span></span>
+              <span class="traffic-week-stat"><span class="traffic-week-label">Last week</span><b>${fmtNum(s.lastWeek)}</b><span class="ov-att-unit"> sess</span></span>
               <span class="ov-att-sep">·</span>
-              <span class="traffic-week-stat"><span class="traffic-week-label">Last week</span><b>${fmtNum(s.prevWeek)}</b><span class="ov-att-unit"> sess</span></span>
+              <span class="traffic-week-stat"><span class="traffic-week-label">Prior week</span><b>${fmtNum(s.prevWeek)}</b><span class="ov-att-unit"> sess</span></span>
             </div>
           </div>`).join('')}
         </div>
