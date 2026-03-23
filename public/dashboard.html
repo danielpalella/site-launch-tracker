@@ -3823,7 +3823,14 @@ function computeTrafficDrops(entries) {
       if (prevWeek < 5) return null;
       const dropPct = Math.round((lastWeek - prevWeek) / prevWeek * 100);
       if (dropPct >= -20) return null;
-      return { id, account_name: d.account_name, domain: d.domain, dropPct, lastWeek, prevWeek };
+      const fmtWkRange = (weekKey) => {
+        const start = new Date(weekKey + 'T00:00:00Z');
+        const end   = new Date(start.getTime() + 6 * 86_400_000);
+        const fmt   = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+        return `${fmt(start)}–${fmt(end)}`;
+      };
+      return { id, account_name: d.account_name, domain: d.domain, dropPct, lastWeek, prevWeek,
+               lastWeekRange: fmtWkRange(weeks[i].week), prevWeekRange: fmtWkRange(weeks[i - 1].week) };
     })
     .filter(Boolean)
     .sort((a, b) => a.dropPct - b.dropPct);
@@ -4142,9 +4149,9 @@ function renderAnalyticsOverview(industryFilter) {
               </div>
             </div>
             <div class="ov-att-metrics">
-              <span class="traffic-week-stat"><span class="traffic-week-label">Last week</span><b>${fmtNum(s.lastWeek)}</b><span class="ov-att-unit"> sess</span></span>
-              <span class="ov-att-sep">·</span>
-              <span class="traffic-week-stat"><span class="traffic-week-label">Prior week</span><b>${fmtNum(s.prevWeek)}</b><span class="ov-att-unit"> sess</span></span>
+              <span class="traffic-week-stat"><span class="traffic-week-label">${s.lastWeekRange}</span><b>${fmtNum(s.lastWeek)}</b><span class="ov-att-unit"> sess</span></span>
+              <span class="ov-att-sep">vs</span>
+              <span class="traffic-week-stat"><span class="traffic-week-label">${s.prevWeekRange}</span><b>${fmtNum(s.prevWeek)}</b><span class="ov-att-unit"> sess</span></span>
             </div>
           </div>`).join('')}
         </div>
