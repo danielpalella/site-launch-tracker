@@ -2305,9 +2305,6 @@ tr.status-separator:first-child td { border-top: none; }
 /* Show-more collapse */
 .ov-sec-body .ov-att-row:nth-child(n+4) { display: none; }
 .ov-sec-body.ov-sec-expanded .ov-att-row { display: block; }
-/* For industry benchmarks table rows inside ov-sec-body */
-.ov-sec-body tbody tr:nth-child(n+6) { display: none; }
-.ov-sec-body.ov-sec-expanded tbody tr { display: table-row; }
 .ov-sec-show-more {
   display: flex; align-items: center; gap: .3rem;
   width: 100%; margin-top: auto; padding: .5rem 0 0;
