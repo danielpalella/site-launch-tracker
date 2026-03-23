@@ -434,6 +434,41 @@ tr.row-frozen .sticky-col { background: rgba(147,197,253,.05); }
 [data-theme="dark"] tr.row-frozen td { background: rgba(30,50,80,.35); }
 [data-theme="dark"] tr.row-frozen .sticky-col { background: rgba(30,50,80,.35); }
 
+/* ── FROZEN SECTION ── */
+tr.frozen-section-header td {
+  background: #eef6ff;
+  cursor: pointer;
+  user-select: none;
+}
+tr.frozen-section-header:hover td {
+  background: #dbeafe;
+}
+[data-theme="dark"] tr.frozen-section-header td {
+  background: #1a2d4a;
+}
+[data-theme="dark"] tr.frozen-section-header:hover td {
+  background: #1e3560;
+}
+.frozen-section-icon {
+  font-size: .85rem;
+  margin-right: .35rem;
+  vertical-align: middle;
+}
+.frozen-toggle-arrow {
+  float: right;
+  font-size: .65rem;
+  opacity: .5;
+  vertical-align: middle;
+  line-height: 1.8;
+}
+tr.frozen-subseparator td {
+  padding-left: 1.5rem;
+  background: rgba(147,197,253,.06);
+}
+[data-theme="dark"] tr.frozen-subseparator td {
+  background: rgba(30,50,80,.25);
+}
+
 /* ── EMPTY STATE ── */
 .empty {
   text-align: center;

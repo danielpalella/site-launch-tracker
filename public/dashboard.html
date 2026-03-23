@@ -679,6 +679,7 @@ let editingId = null;
 let deletingId = null;
 let deletingType = 'launch'; // 'launch' | 'edit-request'
 let showArchivedLaunches = false;
+let frozenSectionExpanded = false;
 const STATUS_ORDER = ['new', 'in_progress', 'awaiting_approval', 'awaiting_dns', 'launched', 'decommissioned'];
 const FROZEN_PARENT = {
   in_progress_frozen:       'in_progress',
@@ -1215,61 +1216,8 @@ function updateSortHeaders() {
   if (th) th.innerHTML = 'Status' + (sortState.col === 'status' ? ` <span style="opacity:.5;font-size:.65em">${sortState.dir === 1 ? '▲' : '▼'}</span>` : '');
 }
 
-function renderTable(data) {
-  const tbody = document.getElementById('table-body');
-  document.getElementById('row-count').textContent = `${data.length} record${data.length !== 1 ? 's' : ''}`;
-
-  let active        = data.filter(r => r.status !== 'launched' && r.status !== 'decommissioned');
-  let launched      = data.filter(r => r.status === 'launched');
-  let decommissioned = data.filter(r => r.status === 'decommissioned');
-
-  if (sortState.col === 'status') {
-    active = active.sort((a, b) =>
-      (statusSortKey(a.status) - statusSortKey(b.status)) * sortState.dir
-    );
-  } else if (sortState.col === 'created_at') {
-    active = active.sort((a, b) =>
-      ((toDate(a.created_at) || 0) - (toDate(b.created_at) || 0)) * sortState.dir
-    );
-  } else {
-    // Default: sort by status pipeline order, frozen at bottom of their group
-    active = active.sort((a, b) => statusSortKey(a.status) - statusSortKey(b.status));
-  }
-
-  const byDate = (a, b) =>
-    (toDate(a.status_changed_at || a.created_at) || 0) - (toDate(b.status_changed_at || b.created_at) || 0);
-  launched       = launched.sort(byDate);
-  decommissioned = decommissioned.sort(byDate);
-
-  data = [...active, ...launched, ...decommissioned];
-
-  if (!data.length) {
-    tbody.innerHTML = `<tr><td colspan="9"><div class="empty">
-      <svg width="48" height="48" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-          d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
-      </svg>
-      <p>No launches found.</p>
-    </div></td></tr>`;
-    return;
-  }
-
-  let html = '';
-  let lastGroup = null;
-  for (const r of data) {
-    const grp = statusGroup(r.status);
-    if (grp !== lastGroup) {
-      const count = data.filter(x => statusGroup(x.status) === grp).length;
-      html += `<tr class="status-separator">
-        <td colspan="8">
-          <span class="status-sep-dot" style="background:${STATUS_COLORS[grp]}"></span>
-          <span class="status-sep-label">${STATUS_LABELS[grp]}</span>
-          <span class="status-sep-count">${count}</span>
-        </td>
-      </tr>`;
-      lastGroup = grp;
-    }
-    html += `
+function renderRow(r) {
+  return `
     <tr data-id="${r.id}" ondblclick="handleRowDblClick(event,'${r.id}')" style="cursor:pointer" ${r.status === 'launched' ? 'class="row-launched"' : r.status === 'decommissioned' ? 'class="row-decommissioned"' : r.status.endsWith('_frozen') ? 'class="row-frozen"' : ''}>
       <td class="sticky-col">
         <div class="account-name">${esc(r.account_name)}<span class="gmail-unread-badge" id="gmail-badge-${r.id}" data-email="${esc(r.email)}" style="display:none"></span></div>
@@ -1306,10 +1254,123 @@ function renderTable(data) {
       <td style="text-align:center">${r.notes ? `<span class="note-dot" data-note="${esc(r.notes)}" onmouseenter="showNoteTooltip(event,this)" onmouseleave="hideNoteTooltip()">···</span>` : '<span style="color:var(--text-muted);font-size:.8rem">—</span>'}</td>
       <td style="font-size:.8rem;color:var(--text-muted)">${esc(r.department)}</td>
     </tr>`;
+}
+
+function toggleFrozenSection() {
+  frozenSectionExpanded = !frozenSectionExpanded;
+  renderTable(allLaunches);
+}
+
+function renderTable(data) {
+  const tbody = document.getElementById('table-body');
+  document.getElementById('row-count').textContent = `${data.length} record${data.length !== 1 ? 's' : ''}`;
+
+  let frozen        = data.filter(r => r.status.endsWith('_frozen'));
+  let active        = data.filter(r => r.status !== 'launched' && r.status !== 'decommissioned' && !r.status.endsWith('_frozen'));
+  let launched      = data.filter(r => r.status === 'launched');
+  let decommissioned = data.filter(r => r.status === 'decommissioned');
+
+  if (sortState.col === 'status') {
+    active = active.sort((a, b) =>
+      (statusSortKey(a.status) - statusSortKey(b.status)) * sortState.dir
+    );
+  } else if (sortState.col === 'created_at') {
+    active = active.sort((a, b) =>
+      ((toDate(a.created_at) || 0) - (toDate(b.created_at) || 0)) * sortState.dir
+    );
+  } else {
+    // Default: sort by status pipeline order
+    active = active.sort((a, b) => statusSortKey(a.status) - statusSortKey(b.status));
   }
+
+  frozen = frozen.sort((a, b) => statusSortKey(a.status) - statusSortKey(b.status));
+
+  const byDate = (a, b) =>
+    (toDate(a.status_changed_at || a.created_at) || 0) - (toDate(b.status_changed_at || b.created_at) || 0);
+  launched       = launched.sort(byDate);
+  decommissioned = decommissioned.sort(byDate);
+
+  if (!active.length && !frozen.length && !launched.length && !decommissioned.length) {
+    tbody.innerHTML = `<tr><td colspan="9"><div class="empty">
+      <svg width="48" height="48" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+          d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+      </svg>
+      <p>No launches found.</p>
+    </div></td></tr>`;
+    return;
+  }
+
+  let html = '';
+  let lastGroup = null;
+
+  // Active (non-frozen) rows grouped by status
+  for (const r of active) {
+    const grp = statusGroup(r.status);
+    if (grp !== lastGroup) {
+      const count = active.filter(x => statusGroup(x.status) === grp).length;
+      html += `<tr class="status-separator">
+        <td colspan="8">
+          <span class="status-sep-dot" style="background:${STATUS_COLORS[grp]}"></span>
+          <span class="status-sep-label">${STATUS_LABELS[grp]}</span>
+          <span class="status-sep-count">${count}</span>
+        </td>
+      </tr>`;
+      lastGroup = grp;
+    }
+    html += renderRow(r);
+  }
+
+  // Frozen section — collapsed by default
+  if (frozen.length) {
+    html += `<tr class="status-separator frozen-section-header" onclick="toggleFrozenSection()">
+      <td colspan="8">
+        <span class="frozen-section-icon">🧊</span>
+        <span class="status-sep-label">Frozen</span>
+        <span class="status-sep-count">${frozen.length}</span>
+        <span class="frozen-toggle-arrow">${frozenSectionExpanded ? '▲' : '▼'}</span>
+      </td>
+    </tr>`;
+    if (frozenSectionExpanded) {
+      let lastFrozenGroup = null;
+      for (const r of frozen) {
+        const grp = statusGroup(r.status);
+        if (grp !== lastFrozenGroup) {
+          const count = frozen.filter(x => statusGroup(x.status) === grp).length;
+          html += `<tr class="status-separator frozen-subseparator">
+            <td colspan="8">
+              <span class="status-sep-dot" style="background:${STATUS_COLORS[grp]}"></span>
+              <span class="status-sep-label">${STATUS_LABELS[grp]}</span>
+              <span class="status-sep-count">${count}</span>
+            </td>
+          </tr>`;
+          lastFrozenGroup = grp;
+        }
+        html += renderRow(r);
+      }
+    }
+  }
+
+  // Launched and decommissioned rows
+  for (const r of [...launched, ...decommissioned]) {
+    const grp = statusGroup(r.status);
+    if (grp !== lastGroup) {
+      const count = [...launched, ...decommissioned].filter(x => statusGroup(x.status) === grp).length;
+      html += `<tr class="status-separator">
+        <td colspan="8">
+          <span class="status-sep-dot" style="background:${STATUS_COLORS[grp]}"></span>
+          <span class="status-sep-label">${STATUS_LABELS[grp]}</span>
+          <span class="status-sep-count">${count}</span>
+        </td>
+      </tr>`;
+      lastGroup = grp;
+    }
+    html += renderRow(r);
+  }
+
   tbody.innerHTML = html;
 
-  loadGmailUnreadBadges(data);
+  loadGmailUnreadBadges([...active, ...frozen, ...launched, ...decommissioned]);
 }
 
 function esc(str) {
