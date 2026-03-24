@@ -141,7 +141,6 @@
 </div>
 
 <div id="toast"></div>
-<button id="dark-toggle" title="Toggle dark mode" onclick="toggleDark()">🌙</button>
 
 <script>
 document.getElementById('logout-btn').addEventListener('click', async () => {
@@ -226,16 +225,6 @@ document.getElementById('launch-form').addEventListener('submit', async (e) => {
   }
 });
 
-function toggleDark() {
-  const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-  document.documentElement.setAttribute('data-theme', next);
-  localStorage.setItem('theme', next);
-  document.getElementById('dark-toggle').textContent = next === 'dark' ? '☀️' : '🌙';
-}
-(function() {
-  const saved = localStorage.getItem('theme') || 'light';
-  document.getElementById('dark-toggle').textContent = saved === 'dark' ? '☀️' : '🌙';
-})();
 
 document.getElementById('submit-another').addEventListener('click', () => {
   document.getElementById('launch-form').reset();
