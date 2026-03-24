@@ -2132,39 +2132,25 @@ app.get('/api/admin/error-logs', requireAuth, async (req, res) => {
 async function checkSiteUptime(domain) {
   const url = `https://${domain}`;
   const start = Date.now();
-  // Realistic UA — some WAFs reject minimal UAs
-  const headers = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' };
-
-  async function attempt(method) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 15000);
-    try {
-      const r = await fetch(url, { method, redirect: 'follow', signal: controller.signal, headers });
-      clearTimeout(timer);
-      return { status: 'up', statusCode: r.status, error: null };
-    } catch (e) {
-      clearTimeout(timer);
-      return {
-        status: e.name === 'AbortError' ? 'timeout' : 'down',
-        statusCode: null,
-        error: e.message?.slice(0, 200) || null,
-      };
-    }
+  // Honest monitoring UA — bot protection systems are more likely to pass known
+  // monitor bots through than to pass spoofed Chrome UAs from cloud IPs
+  const headers = { 'User-Agent': 'RealWorkLabs-UptimeMonitor/1.0 (+https://realworklabs.com)' };
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
+  let statusCode = null, error = null, status;
+  try {
+    // GET — more universally supported than HEAD; server-side fetch doesn't run
+    // JS so GA4/Duda tracking won't fire
+    const r = await fetch(url, { method: 'GET', redirect: 'follow', signal: controller.signal, headers });
+    clearTimeout(timer);
+    statusCode = r.status;
+    status = 'up'; // any HTTP response = server is reachable
+  } catch (e) {
+    clearTimeout(timer);
+    status = e.name === 'AbortError' ? 'timeout' : 'down';
+    error = e.message?.slice(0, 200) || null;
   }
-
-  // Try HEAD first (no page load, no GA4 tracking)
-  let result = await attempt('HEAD');
-
-  // If HEAD failed with a network error (not timeout), some servers silently drop
-  // HEAD — fall back to GET immediately before counting it as down
-  if (result.status === 'down') {
-    const fallback = await attempt('GET');
-    if (fallback.status === 'up') {
-      result = { ...fallback, method: 'GET' };
-    }
-  }
-
-  return { ...result, latencyMs: Date.now() - start };
+  return { status, statusCode, latencyMs: Date.now() - start, error };
 }
 
 // POST /api/uptime/check-all  — called by Cloud Scheduler every 15 min
