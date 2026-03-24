@@ -5445,7 +5445,10 @@ function acdFormTab(safeId, tab) {
 
 function fmtAnalyticsDate(dateStr) {
   if (!dateStr) return '—';
-  const d = new Date(dateStr.replace(' ', 'T').replace(/Z?$/, 'Z'));
+  // Parse only the date portion (YYYY-MM-DD) to avoid UTC→local timezone shift
+  // causing off-by-one day errors for users not in UTC
+  const parts = dateStr.slice(0, 10).split('-').map(Number);
+  const d = new Date(parts[0], parts[1] - 1, parts[2]);
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
