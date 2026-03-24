@@ -5420,10 +5420,15 @@ function renderAnalyticsCard(id, data) {
       </div>
     </details>` : '';
 
+  const health = computeGscHealth(data);
+  const healthBadge = health && health.level
+    ? `<span class="ac-health-badge ac-health-${health.level}" title="GSC Health Score: ${health.score}/100">${health.label}</span>`
+    : '';
+
   card.innerHTML = `
     <div class="ac-card-header">
       <div>
-        <div class="ac-name">${esc(account_name)}</div>
+        <div class="ac-name-row">${esc(account_name)}${healthBadge}</div>
         <a class="ac-domain" href="https://${esc(domain)}" target="_blank" rel="noopener">${esc(domain)}</a>
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:.3rem">

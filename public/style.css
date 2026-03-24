@@ -1776,12 +1776,34 @@ tr.status-separator:first-child td { border-top: none; }
   justify-content: space-between;
   gap: .5rem;
 }
+.ac-name-row {
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+  font-size: .88rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: .15rem;
+  flex-wrap: wrap;
+}
 .ac-name {
   font-size: .88rem;
   font-weight: 700;
   color: var(--text);
   margin-bottom: .15rem;
 }
+.ac-health-badge {
+  font-size: .62rem;
+  font-weight: 600;
+  padding: .15rem .45rem;
+  border-radius: 20px;
+  letter-spacing: .02em;
+  white-space: nowrap;
+}
+.ac-health-healthy   { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
+.ac-health-moderate  { background: #fef9c3; color: #b45309; border: 1px solid #fde68a; }
+.ac-health-review    { background: #ffedd5; color: #c2410c; border: 1px solid #fed7aa; }
+.ac-health-attention { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
 .ac-domain {
   font-size: .72rem;
   color: var(--primary);
