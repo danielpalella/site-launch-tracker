@@ -2988,7 +2988,7 @@ let _seoFilterIssues   = false;
 let _seoLastRanAt      = null;
 let _perfData          = {}; // { [id]: { performance, mobile, desktop, is_post_launch, created_at } }
 let _perfCacheLoaded   = false;
-let _uptimeData = {}; // { [id]: { current_status, uptime_30d_pct, last_checked_at, down_since } }
+let _uptimeData = {}; // { [id]: { current_status, uptime_pct, last_checked_at, down_since } }
 
 const ANALYTICS_SUBTITLES = {
   sites:    'GSC, GA4 &amp; Duda performance insights for all active sites.',
@@ -4925,7 +4925,7 @@ async function openAnalyticsModal(id) {
   if (modalDot) {
     const u = _uptimeData[id];
     modalDot.className = 'ac-uptime-dot ac-uptime-' + (u ? (u.current_status || 'unknown') : 'unknown');
-    modalDot.title = u ? (u.current_status === 'up' ? 'Up · ' + (u.uptime_30d_pct != null ? u.uptime_30d_pct + '% uptime (30d)' : '') : u.current_status === 'down' ? 'DOWN' : 'Unknown') : '';
+    modalDot.title = u ? (u.current_status === 'up' ? 'Up · ' + (u.uptime_pct != null ? u.uptime_pct + '% uptime (30d)' : '') : u.current_status === 'down' ? 'DOWN' : 'Unknown') : '';
   }
   document.getElementById('ac-detail-backdrop').classList.add('open');
   document.body.style.overflow = 'hidden';
@@ -5296,7 +5296,7 @@ function renderAnalyticsModalBody(id, data, forms) {
   var uptimeSection = '';
   if (uptimeEntry) {
     var uStatus = uptimeEntry.current_status || 'unknown';
-    var uPct = uptimeEntry.uptime_30d_pct != null ? uptimeEntry.uptime_30d_pct + '%' : '—';
+    var uPct = uptimeEntry.uptime_pct != null ? uptimeEntry.uptime_pct + '%' : '—';
     var uChecked = uptimeEntry.last_checked_at ? new Date(uptimeEntry.last_checked_at).toLocaleString() : '—';
     var downBanner = (uStatus === 'down' || uStatus === 'timeout') && uptimeEntry.down_since
       ? '<div class="uptime-banner-down">⚠ Site has been down since ' + new Date(uptimeEntry.down_since).toLocaleString() + '</div>'
@@ -5390,7 +5390,7 @@ function updateUptimeDot(id) {
   var u = _uptimeData[id];
   if (!u) return;
   dot.className = 'ac-uptime-dot ac-uptime-' + (u.current_status || 'unknown');
-  var pct = u.uptime_30d_pct != null ? u.uptime_30d_pct + '% uptime (30d)' : '';
+  var pct = u.uptime_pct != null ? u.uptime_pct + '% uptime (30d)' : '';
   var lastChecked = u.last_checked_at ? 'Checked ' + new Date(u.last_checked_at).toLocaleTimeString() : '';
   dot.title = [u.current_status === 'up' ? 'Up' : u.current_status === 'down' ? 'DOWN' : 'Unknown', pct, lastChecked].filter(Boolean).join(' · ');
 }

@@ -2184,43 +2184,41 @@ app.post('/api/uptime/check-all', requireAuthOrWarmKey, async (req, res) => {
         const checkedAt = new Date().toISOString();
         const statusRef = db.collection('uptime_status').doc(id);
         const prev = await statusRef.get();
-        const prevStatus = prev.exists ? prev.data().current_status : 'unknown';
+        const prevData = prev.exists ? prev.data() : {};
+        const prevStatus = prevData.current_status || 'unknown';
 
-        // Write raw check to time-series collection
-        await db.collection('uptime_checks').add({
-          launch_id: id, domain, checked_at: checkedAt,
-          status: result.status, status_code: result.statusCode,
-          latency_ms: result.latencyMs, error: result.error || null,
-        });
+        // Rolling uptime % — no historical query needed (avoids composite index)
+        const totalChecks = (prevData.total_checks || 0) + 1;
+        const upChecks    = (prevData.up_checks    || 0) + (result.status === 'up' ? 1 : 0);
+        const uptimePct   = Math.round((upChecks / totalChecks) * 1000) / 10;
 
-        // Compute 30-day uptime %
-        const since30d = new Date(Date.now() - 30 * 86400000).toISOString();
-        const recent = await db.collection('uptime_checks')
-          .where('launch_id', '==', id)
-          .where('checked_at', '>=', since30d)
-          .get();
-        const total30d = recent.size + 1;
-        const up30d = recent.docs.filter(d => d.data().status === 'up').length + (result.status === 'up' ? 1 : 0);
-        const uptime30dPct = Math.round((up30d / total30d) * 1000) / 10;
-
-        // Update summary doc
         const statusUpdate = {
           launch_id: id, domain,
-          current_status: result.status,
+          current_status:  result.status,
           last_checked_at: checkedAt,
-          uptime_30d_pct: uptime30dPct,
-          checks_30d: total30d,
+          uptime_pct:      uptimePct,
+          total_checks:    totalChecks,
+          up_checks:       upChecks,
+          last_status_code: result.statusCode,
+          last_latency_ms:  result.latencyMs,
         };
         if (result.status !== 'up' && prevStatus === 'up') {
-          statusUpdate.down_since = checkedAt;
+          statusUpdate.down_since   = checkedAt;
           statusUpdate.last_down_at = checkedAt;
         } else if (result.status === 'up' && prevStatus !== 'up') {
           statusUpdate.down_since = null;
-        } else if (prev.exists) {
-          statusUpdate.down_since = prev.data().down_since || null;
-          statusUpdate.last_down_at = prev.data().last_down_at || null;
+        } else {
+          statusUpdate.down_since   = prevData.down_since   || null;
+          statusUpdate.last_down_at = prevData.last_down_at || null;
         }
         await statusRef.set(statusUpdate, { merge: true });
+
+        // Write individual check record (best-effort, no compound query ever needed)
+        db.collection('uptime_checks').add({
+          launch_id: id, domain, checked_at: checkedAt,
+          status: result.status, status_code: result.statusCode,
+          latency_ms: result.latencyMs, error: result.error || null,
+        }).catch(() => {});
       }));
     }
     console.log(`[uptime] Checked ${sites.length} sites`);
