@@ -1206,12 +1206,15 @@ function hideNoteTooltip() {
 
 function toDate(iso) {
   if (!iso) return null;
-  return new Date(iso.replace(' ', 'T') + 'Z'); // treat SQLite UTC as UTC
+  return new Date(iso.replace(' ', 'T') + 'Z'); // treat as UTC for duration/diff calculations
 }
 
 function formatDate(iso) {
-  const d = toDate(iso);
-  if (!d || isNaN(d.getTime())) return '—';
+  if (!iso) return '—';
+  // Parse only the date portion to avoid UTC→local shift (e.g. midnight UTC = prev day CDT)
+  const parts = iso.slice(0, 10).split('-').map(Number);
+  const d = new Date(parts[0], parts[1] - 1, parts[2]);
+  if (isNaN(d.getTime())) return '—';
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
