@@ -2132,24 +2132,39 @@ app.get('/api/admin/error-logs', requireAuth, async (req, res) => {
 async function checkSiteUptime(domain) {
   const url = `https://${domain}`;
   const start = Date.now();
-  let statusCode = null, latencyMs = null, error = null;
-  const headers = { 'User-Agent': 'Mozilla/5.0 (compatible; UptimeMonitor/1.0)' };
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 15000);
-  let status;
-  try {
-    const r = await fetch(url, { method: 'HEAD', redirect: 'follow', signal: controller.signal, headers });
-    clearTimeout(timer);
-    statusCode = r.status;
-    // Any HTTP response = server is up (no page load, no tracking fires)
-    status = 'up';
-  } catch (e) {
-    clearTimeout(timer);
-    status = e.name === 'AbortError' ? 'timeout' : 'down';
-    error = e.message?.slice(0, 200) || null;
+  // Realistic UA — some WAFs reject minimal UAs
+  const headers = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' };
+
+  async function attempt(method) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 15000);
+    try {
+      const r = await fetch(url, { method, redirect: 'follow', signal: controller.signal, headers });
+      clearTimeout(timer);
+      return { status: 'up', statusCode: r.status, error: null };
+    } catch (e) {
+      clearTimeout(timer);
+      return {
+        status: e.name === 'AbortError' ? 'timeout' : 'down',
+        statusCode: null,
+        error: e.message?.slice(0, 200) || null,
+      };
+    }
   }
-  latencyMs = Date.now() - start;
-  return { status, statusCode, latencyMs, error };
+
+  // Try HEAD first (no page load, no GA4 tracking)
+  let result = await attempt('HEAD');
+
+  // If HEAD failed with a network error (not timeout), some servers silently drop
+  // HEAD — fall back to GET immediately before counting it as down
+  if (result.status === 'down') {
+    const fallback = await attempt('GET');
+    if (fallback.status === 'up') {
+      result = { ...fallback, method: 'GET' };
+    }
+  }
+
+  return { ...result, latencyMs: Date.now() - start };
 }
 
 // POST /api/uptime/check-all  — called by Cloud Scheduler every 15 min
