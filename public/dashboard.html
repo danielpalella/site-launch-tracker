@@ -295,7 +295,7 @@
   <div class="modal ac-detail-modal" onclick="event.stopPropagation()">
     <div class="ac-detail-header">
       <div>
-        <div id="acd-name" style="font-size:1rem;font-weight:700;color:var(--text)"></div>
+        <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap"><span id="acd-name" style="font-size:1rem;font-weight:700;color:var(--text)"></span><span id="acd-health-badge"></span></div>
         <a id="acd-domain" class="ac-domain" target="_blank" rel="noopener" style="font-size:.8rem"></a>
       </div>
       <div style="display:flex;align-items:center;gap:.75rem">
@@ -4903,6 +4903,18 @@ async function openAnalyticsModal(id) {
   const data = analyticsData[id];
   if (!data) return;
   document.getElementById('acd-name').textContent = data.account_name;
+  const health = computeGscHealth(data);
+  const healthBadgeEl = document.getElementById('acd-health-badge');
+  if (healthBadgeEl) {
+    if (health && health.level) {
+      healthBadgeEl.className = 'ac-health-badge ac-health-' + health.level;
+      healthBadgeEl.textContent = health.label;
+      healthBadgeEl.title = 'GSC Health Score: ' + health.score + '/100';
+    } else {
+      healthBadgeEl.className = '';
+      healthBadgeEl.textContent = '';
+    }
+  }
   const domainEl = document.getElementById('acd-domain');
   domainEl.textContent = data.domain;
   domainEl.href = 'https://' + data.domain;
@@ -5420,15 +5432,10 @@ function renderAnalyticsCard(id, data) {
       </div>
     </details>` : '';
 
-  const health = computeGscHealth(data);
-  const healthBadge = health && health.level
-    ? `<span class="ac-health-badge ac-health-${health.level}" title="GSC Health Score: ${health.score}/100">${health.label}</span>`
-    : '';
-
   card.innerHTML = `
     <div class="ac-card-header">
       <div>
-        <div class="ac-name-row">${esc(account_name)}${healthBadge}</div>
+        <div class="ac-name">${esc(account_name)}</div>
         <a class="ac-domain" href="https://${esc(domain)}" target="_blank" rel="noopener">${esc(domain)}</a>
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:.3rem">
