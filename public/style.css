@@ -1947,6 +1947,14 @@ tr.status-separator:first-child td { border-top: none; }
 
 /* Form submissions */
 .acd-forms-list { display: flex; flex-direction: column; gap: .55rem; }
+.acd-form-tabs { display: flex; gap: .25rem; margin-left: auto; }
+.acd-form-tab {
+  font-size: .7rem; font-weight: 500; padding: .18rem .55rem; border-radius: 20px; cursor: pointer;
+  background: none; border: 1px solid var(--border); color: var(--text-muted);
+  transition: background .12s, color .12s, border-color .12s;
+}
+.acd-form-tab:hover { background: var(--bg); color: var(--text); }
+.acd-form-tab-active { background: var(--primary) !important; border-color: var(--primary) !important; color: #fff !important; }
 .acd-form-row {
   background: var(--bg);
   border: 1px solid var(--border);

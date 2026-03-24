@@ -5182,8 +5182,17 @@ function renderAnalyticsModalBody(id, data, forms) {
   } else if (forms.available && forms.submissions?.length) {
     // Sort newest first
     const subs = [...forms.submissions].sort((a, b) => new Date(b.date) - new Date(a.date));
+    // Detect zip-code-only submissions (no name/email/phone, only zip field)
+    const isZipOnly = s => {
+      const ents = (s.message && typeof s.message === 'object' && !Array.isArray(s.message))
+        ? Object.entries(s.message).filter(([, v]) => v !== '' && v != null)
+        : [];
+      if (!ents.length) return false;
+      return ents.every(([k]) => /zip|postal/i.test(k));
+    };
+    const leads  = subs.filter(s => !isZipOnly(s));
+    const zipSubs = subs.filter(s => isZipOnly(s));
     const renderSub = s => {
-      // Duda actual response: message is a flat {label: value} object
       const entries = (s.message && typeof s.message === 'object' && !Array.isArray(s.message))
         ? Object.entries(s.message).filter(([, v]) => v !== '' && v != null)
         : [];
@@ -5199,32 +5208,35 @@ function renderAnalyticsModalBody(id, data, forms) {
       const phone = phonePair?.[1] || '';
       const msg   = msgPair?.[1]   || '';
       const dateStr = s.date ? new Date(s.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
-      return `<div class="acd-form-row">
-        <div class="acd-form-meta">
-          <span class="acd-form-name">${esc(name)}</span>
-          <span class="acd-form-date">${dateStr}</span>
-        </div>
-        <div class="acd-form-contact">${esc(email)}${phone ? ' · ' + esc(phone) : ''}</div>
-        ${msg ? `<div class="acd-form-msg">${esc(msg)}</div>` : ''}
-        ${others.map(([k, v]) => `<div class="acd-form-field"><span class="acd-form-field-label">${esc(k)}:</span> ${esc(String(v))}</div>`).join('')}
-      </div>`;
+      return '<div class="acd-form-row">'
+        + '<div class="acd-form-meta"><span class="acd-form-name">' + esc(name) + '</span><span class="acd-form-date">' + dateStr + '</span></div>'
+        + '<div class="acd-form-contact">' + esc(email) + (phone ? ' · ' + esc(phone) : '') + '</div>'
+        + (msg ? '<div class="acd-form-msg">' + esc(msg) + '</div>' : '')
+        + others.map(([k, v]) => '<div class="acd-form-field"><span class="acd-form-field-label">' + esc(k) + ':</span> ' + esc(String(v)) + '</div>').join('')
+        + '</div>';
     };
-    const first5 = subs.slice(0, 5).map(renderSub).join('');
-    const rest   = subs.slice(5).map(renderSub).join('');
-    formsSection = `
-      <div class="acd-section">
-        <div class="acd-section-title">Form Submissions <span class="acd-period-tag">${subs.length} total</span></div>
-        <div class="acd-forms-list">
-          ${first5}
-          ${rest ? `
-            <div id="acd-forms-extra" style="display:none">${rest}</div>
-            <button class="btn btn-ghost" style="font-size:.75rem;padding:.25rem .6rem;margin-top:.15rem" onclick="
-              document.getElementById('acd-forms-extra').style.display='block';
-              this.style.display='none';
-            ">Show all ${subs.length} submissions</button>
-          ` : ''}
-        </div>
-      </div>`;
+    const renderList = (list, extraId) => {
+      if (!list.length) return '<div style="font-size:.8rem;color:var(--text-muted);padding:.3rem 0">None.</div>';
+      const first5 = list.slice(0, 5).map(renderSub).join('');
+      const rest   = list.slice(5).map(renderSub).join('');
+      return first5 + (rest
+        ? '<div id="' + extraId + '" style="display:none">' + rest + '</div>'
+          + '<button class="btn btn-ghost" style="font-size:.75rem;padding:.25rem .6rem;margin-top:.15rem" onclick="document.getElementById(\'' + extraId + '\').style.display=\'block\';this.style.display=\'none\'">Show all ' + list.length + ' submissions</button>'
+        : '');
+    };
+    const safeId = id.replace(/[^a-z0-9]/gi, '_');
+    formsSection = '<div class="acd-section">'
+      + '<div class="acd-section-title" style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">'
+      + 'Form Submissions'
+      + '<span class="acd-period-tag">' + subs.length + ' total</span>'
+      + '<div class="acd-form-tabs" id="acd-ftabs-' + safeId + '">'
+      + '<button class="acd-form-tab acd-form-tab-active" onclick="acdFormTab(\'' + safeId + '\',\'leads\')">Leads (' + leads.length + ')</button>'
+      + '<button class="acd-form-tab" onclick="acdFormTab(\'' + safeId + '\',\'zip\')">Zip checks (' + zipSubs.length + ')</button>'
+      + '</div>'
+      + '</div>'
+      + '<div id="acd-flist-leads-' + safeId + '" class="acd-forms-list">' + renderList(leads, 'acd-fext-leads-' + safeId) + '</div>'
+      + '<div id="acd-flist-zip-' + safeId + '" class="acd-forms-list" style="display:none">' + renderList(zipSubs, 'acd-fext-zip-' + safeId) + '</div>'
+      + '</div>';
   } else if (forms.available && !forms.submissions?.length) {
     formsSection = `<div class="acd-section"><div class="acd-section-title">Form Submissions</div><div style="font-size:.8rem;color:var(--text-muted)">No submissions yet.</div></div>`;
   } else if (forms && !forms.available) {
@@ -5304,6 +5316,15 @@ function analyticsSkeletonHtml(launch) {
       <div class="ac-skeleton ac-skeleton-sm"></div>
     </div>
   </div>`;
+}
+
+function acdFormTab(safeId, tab) {
+  const leadsEl = document.getElementById('acd-flist-leads-' + safeId);
+  const zipEl   = document.getElementById('acd-flist-zip-'   + safeId);
+  const tabs    = document.querySelectorAll('#acd-ftabs-' + safeId + ' .acd-form-tab');
+  if (leadsEl) leadsEl.style.display = tab === 'leads' ? '' : 'none';
+  if (zipEl)   zipEl.style.display   = tab === 'zip'   ? '' : 'none';
+  tabs.forEach((btn, i) => btn.classList.toggle('acd-form-tab-active', (i === 0) === (tab === 'leads')));
 }
 
 function fmtAnalyticsDate(dateStr) {
