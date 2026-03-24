@@ -2597,6 +2597,7 @@ async function loadAdminErrorLogs(force = false) {
 }
 
 function renderAdminErrorLog(logs) {
+  logs = logs.filter(e => e.integration !== 'uptime');
   const loading = document.getElementById('admin-el-loading');
   const list    = document.getElementById('admin-el-list');
   loading.style.display = 'none';
