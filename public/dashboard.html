@@ -3715,9 +3715,8 @@ function computeGscHealth(d) {
   const total      = gsc.total || {};
   const impressions = total.impressions || 0;
 
-  // Don't score sites under 30 days old with no impressions yet — they'd
-  // score 10/100 (neutral trend only) and falsely land in "Needs Attention"
-  if (daysSince != null && daysSince < 30 && impressions === 0) {
+  // No impressions yet = nothing to score, regardless of age
+  if (impressions === 0) {
     return { score: null, level: 'no-data', label: 'Ramping Up', color: '#94a3b8', issues: [], impPerDay: 0, ctr: 0, position: null, trendPct: null };
   }
 
@@ -4020,7 +4019,7 @@ function renderAnalyticsOverview(industryFilter) {
         <div class="gsh-group-header" data-level="${l}" onclick="toggleGshGroup('${bodyId}', this)">
           <span class="gsh-group-dot" style="background:${color}"></span>
           <span style="color:${color};font-weight:700;font-size:.95rem">${GSH_LABELS[l]}</span>
-          ${l === 'no-data' ? `<span class="ac-tip" data-tip="These sites have GSC connected but need at least 30 days of search data before a health score can be calculated.">?</span>` : ''}
+          ${l === 'no-data' ? `<span class="ac-tip" data-tip="GSC is connected but no search impressions have been recorded yet. A health score will appear once Google starts returning data for this site.">?</span>` : ''}
           <span class="gsh-group-count">${gshGrouped[l].length} site${gshGrouped[l].length !== 1 ? 's' : ''}</span>
           <svg class="gsh-group-chevron${startCollapsed ? ' rot' : ''}" viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="4 6 8 10 12 6"/></svg>
         </div>
