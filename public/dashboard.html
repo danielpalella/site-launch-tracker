@@ -5162,10 +5162,11 @@ function renderAnalyticsModalBody(id, data, forms) {
   // Top Queries
   const queriesSection = gsc.available && gsc.topQueries?.length ? `
   <div class="acd-section">
-    <div class="acd-section-title" style="margin-bottom:.5rem">
-      <img src="/gsc-icon.png" style="width:13px;height:13px;vertical-align:middle;margin-right:.35rem">Top Keywords
+    <div class="acd-section-title" style="margin-bottom:.5rem;display:flex;align-items:center;justify-content:space-between">
+      <span><img src="/gsc-icon.png" style="width:13px;height:13px;vertical-align:middle;margin-right:.35rem">Top Keywords</span>
+      ${gsc.topQueries.length > 5 ? `<button class="kw-expand-btn" id="kw-expand-${id}" onclick="toggleKwExpand('${id}')">Show all ${gsc.topQueries.length}</button>` : ''}
     </div>
-    <div class="kw-list" id="kw-list-${id}">
+    <div class="kw-list kw-list-collapsed" id="kw-list-${id}">
       ${gsc.topQueries.map(q => {
         const pos = q.position ? Math.round(q.position) : null;
         const posColor = !pos ? '#94a3b8' : pos <= 3 ? '#22c55e' : pos <= 10 ? '#f59e0b' : pos <= 20 ? '#f97316' : '#ef4444';
@@ -5396,6 +5397,14 @@ function updateUptimeDot(id) {
   var pct = u.uptime_pct != null ? u.uptime_pct + '% uptime (30d)' : '';
   var lastChecked = u.last_checked_at ? 'Checked ' + new Date(u.last_checked_at).toLocaleTimeString() : '';
   dot.title = [u.current_status === 'up' ? 'Up' : u.current_status === 'down' ? 'DOWN' : 'Unknown', pct, lastChecked].filter(Boolean).join(' · ');
+}
+
+function toggleKwExpand(id) {
+  const list = document.getElementById('kw-list-' + id);
+  const btn  = document.getElementById('kw-expand-' + id);
+  if (!list) return;
+  const collapsed = list.classList.toggle('kw-list-collapsed');
+  if (btn) btn.textContent = collapsed ? 'Show all' : 'Show less';
 }
 
 function wireNoteAutoSave(id, data) {
