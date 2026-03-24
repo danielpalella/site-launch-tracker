@@ -58,8 +58,7 @@
     <a href="/" class="btn btn-primary">+ Submit</a>
   </div>
 
-  <div class="card">
-    <div class="toolbar">
+  <div class="toolbar">
       <input type="search" id="search" placeholder="Search account, domain, or contact…" />
       <div class="fp-wrap" id="fp-wrap">
         <button class="btn btn-ghost fp-btn" id="fp-btn" onclick="toggleFilterPanel()">
@@ -132,13 +131,16 @@
         <button class="view-btn" id="view-board-btn" onclick="setView('board')">Board</button>
       </div>
       <span class="tb-divider"></span>
-      <button class="btn btn-ghost tb-archived-btn" id="archived-launches-btn" onclick="toggleArchivedLaunches()">Archived</button>
       <button class="btn btn-ghost tb-export-btn" id="export-btn" onclick="handleExportClick(this)">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         CSV
       </button>
-    </div>
+      <button class="btn btn-ghost tb-icon-btn" id="archived-launches-btn" onclick="toggleArchivedLaunches()" title="Toggle archived">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+      </button>
+  </div>
 
+  <div class="card">
     <div class="table-wrap" id="table-wrap">
       <table id="launch-table">
         <thead>
@@ -194,20 +196,21 @@
     </div>
     <a href="/edit-request" target="_blank" class="btn btn-primary">+ Submit Request</a>
   </div>
+  <div class="toolbar">
+    <span class="count" id="er-row-count"></span>
+    <span class="tb-divider"></span>
+    <button class="er-status-chip er-chip-active" data-status="all"  onclick="setErStatus('all',this)">All</button>
+    <button class="er-status-chip" data-status="new"         onclick="setErStatus('new',this)">New</button>
+    <button class="er-status-chip" data-status="in_progress" onclick="setErStatus('in_progress',this)">In Progress</button>
+    <button class="er-status-chip" data-status="need_info"   onclick="setErStatus('need_info',this)">Need Info</button>
+    <button class="er-status-chip" data-status="completed"   onclick="setErStatus('completed',this)">Completed</button>
+    <button class="er-status-chip" data-status="rejected"    onclick="setErStatus('rejected',this)">Rejected</button>
+    <span class="tb-divider" style="margin-left:auto"></span>
+    <button class="btn btn-ghost tb-icon-btn" data-status="archived" onclick="setErStatus('archived',this)" title="Toggle archived">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+    </button>
+  </div>
   <div class="card">
-    <div class="toolbar">
-      <span class="count" id="er-row-count"></span>
-      <div style="margin-left:auto;display:flex;gap:.5rem;flex-wrap:wrap">
-        <button class="er-status-chip er-chip-active" data-status="all"  onclick="setErStatus('all',this)">All</button>
-        <button class="er-status-chip" data-status="new"         onclick="setErStatus('new',this)">New</button>
-        <button class="er-status-chip" data-status="in_progress" onclick="setErStatus('in_progress',this)">In Progress</button>
-        <button class="er-status-chip" data-status="need_info"   onclick="setErStatus('need_info',this)">Need Info</button>
-        <button class="er-status-chip" data-status="completed"   onclick="setErStatus('completed',this)">Completed</button>
-        <button class="er-status-chip" data-status="rejected"    onclick="setErStatus('rejected',this)">Rejected</button>
-        <span style="width:1px;background:var(--border);height:18px;align-self:center;flex-shrink:0"></span>
-        <button class="er-status-chip" data-status="archived"    onclick="setErStatus('archived',this)">Archived</button>
-      </div>
-    </div>
     <div class="table-wrap">
       <table id="er-table">
         <thead>
@@ -1965,9 +1968,7 @@ function renderDomainInfo(data) {
 function toggleArchivedLaunches() {
   showArchivedLaunches = !showArchivedLaunches;
   const btn = document.getElementById('archived-launches-btn');
-  btn.style.background   = showArchivedLaunches ? 'var(--primary)' : '';
-  btn.style.color        = showArchivedLaunches ? '#fff'           : '';
-  btn.style.borderColor  = showArchivedLaunches ? 'var(--primary)' : '';
+  btn.classList.toggle('active-archive', showArchivedLaunches);
   // Board and graph views don't make sense for archived — switch to list
   if (showArchivedLaunches && (viewMode === 'graph' || viewMode === 'board')) setView('table');
   fetchLaunches();

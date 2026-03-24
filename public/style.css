@@ -322,11 +322,11 @@ input.error, select.error { border-color: var(--s-awaiting); }
 .toolbar {
   display: flex;
   gap: .5rem;
-  margin-bottom: 1.25rem;
+  margin-bottom: 1.5rem;
   align-items: center;
   flex-wrap: nowrap;
   overflow-x: auto;
-  padding: .45rem .6rem;
+  padding: .5rem .75rem;
   background: var(--surface);
   border: 1.5px solid var(--border);
   border-radius: 10px;
@@ -365,6 +365,18 @@ input.error, select.error { border-color: var(--s-awaiting); }
   font-size: .78rem !important;
   padding: .4rem .7rem !important;
 }
+/* Icon-only buttons (archive) */
+.tb-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: .38rem .5rem !important;
+  color: var(--text-muted) !important;
+  border-color: transparent !important;
+  border-radius: 6px !important;
+}
+.tb-icon-btn:hover { border-color: var(--border) !important; color: var(--text) !important; }
+.tb-icon-btn.active-archive { color: var(--primary) !important; background: rgba(18,89,255,.07) !important; border-color: var(--primary) !important; }
 
 /* ── TABLE ── */
 .table-wrap { overflow-x: auto; }
