@@ -5892,5 +5892,30 @@ function toggleGshGroup(bodyId, header) {
 }
 
 </script>
+<script>
+// Animated favicon — cycle through globe emojis to simulate spin
+(function () {
+  const frames = ['🌍', '🌎', '🌏'];
+  let i = 0;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 32;
+  const ctx = canvas.getContext('2d');
+  const link = document.querySelector("link[rel='icon']") || (() => {
+    const l = document.createElement('link'); l.rel = 'icon'; document.head.appendChild(l); return l;
+  })();
+  function draw() {
+    ctx.clearRect(0, 0, 32, 32);
+    ctx.font = '26px serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(frames[i], 16, 17);
+    link.type = 'image/png';
+    link.href = canvas.toDataURL();
+    i = (i + 1) % frames.length;
+  }
+  draw();
+  setInterval(draw, 1200);
+})();
+</script>
 </body>
 </html>
