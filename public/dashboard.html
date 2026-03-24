@@ -3346,7 +3346,8 @@ function renderSeoDetailPanel(id) {
       if (audit.sitemapStatus === 'ok') {
         sitemapBody = '<span class="seo-badge seo-badge-ok">✓ ' + sitemaps.length + ' sitemap' + (sitemaps.length !== 1 ? 's' : '') + ' found</span>'
           + (sitemaps.length ? '<div class="seo-dp-list">' + sitemaps.map(function(s) {
-            return '<div class="seo-dp-list-item"><a href="' + esc(s) + '" target="_blank" rel="noopener" class="seo-dp-link">' + esc(s.replace(/^https?:\/\//, '')) + '</a></div>';
+            const href = (s && typeof s === 'object') ? (s.path || s.url || s.loc || JSON.stringify(s)) : String(s);
+            return '<div class="seo-dp-list-item"><a href="' + esc(href) + '" target="_blank" rel="noopener" class="seo-dp-link">' + esc(href.replace(/^https?:\/\//, '')) + '</a></div>';
           }).join('') + '</div>' : '');
       } else if (audit.sitemapStatus === 'none') {
         sitemapBody = '<span class="seo-badge seo-badge-error">No sitemap found</span><p class="seo-dp-hint">Submit a sitemap.xml in Google Search Console.</p>';
