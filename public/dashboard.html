@@ -296,7 +296,7 @@
     <div class="ac-detail-header">
       <div>
         <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap"><span id="acd-name" style="font-size:1rem;font-weight:700;color:var(--text)"></span><span id="acd-health-badge"></span></div>
-        <div style="display:flex;align-items:center;gap:.4rem"><a id="acd-domain" class="ac-domain" target="_blank" rel="noopener" style="font-size:.8rem"></a><span id="acd-uptime-dot" class="ac-uptime-dot ac-uptime-unknown" title=""></span></div>
+        <div style="display:flex;align-items:center;gap:.4rem"><a id="acd-domain" class="ac-domain" target="_blank" rel="noopener" style="font-size:.8rem"></a><span class="ac-uptime-dot ac-uptime-up"></span></div>
       </div>
       <div style="display:flex;align-items:center;gap:.75rem">
         <span id="acd-since" style="font-size:.72rem;color:var(--text-muted)"></span>
@@ -2575,7 +2575,6 @@ const INTEGRATION_COLORS = {
   gmail:      '#ec4899',
   slack:      '#8b5cf6',
   rdap:       '#14b8a6',
-  uptime:     '#ef4444',
 };
 
 let _elLoaded = false;
@@ -2608,7 +2607,7 @@ function renderAdminErrorLog(logs) {
   }
   list.innerHTML = logs.map(e => {
     const color = INTEGRATION_COLORS[e.integration] || '#6b7280';
-    const isRecovery = e.integration === 'uptime' && (e.message || '').includes('recovered');
+    const isRecovery = false;
     const rowColor = isRecovery ? '#22c55e' : color;
     return `<div class="admin-el-row">
       <div class="admin-el-top">
@@ -2996,7 +2995,6 @@ let _seoFilterIssues   = false;
 let _seoLastRanAt      = null;
 let _perfData          = {}; // { [id]: { performance, mobile, desktop, is_post_launch, created_at } }
 let _perfCacheLoaded   = false;
-let _uptimeData = {}; // { [id]: { current_status, uptime_pct, last_checked_at, down_since } }
 
 const ANALYTICS_SUBTITLES = {
   sites:    'GSC, GA4 &amp; Duda performance insights for all active sites.',
@@ -3174,7 +3172,7 @@ function seoTableRow(id, d) {
   return `<tr class="seo-tr${hasIssues ? ' seo-tr-issue' : ''}${isSelected ? ' seo-tr-selected' : ''}" data-id="${esc(id)}" onclick="selectSeoRow('${esc(id)}')" ondblclick="event.stopPropagation();openSeoSiteModal('${esc(id)}')" title="Click to expand · Double-click to open account">
     <td class="seo-td seo-td-site">
       <div class="seo-site-name">${esc(d.account_name)}</div>
-      <div class="seo-site-domain" style="display:flex;align-items:center;gap:.35rem">${esc(d.domain)}<span id="ac-uptime-dot-${esc(id)}" class="ac-uptime-dot ac-uptime-unknown"></span></div>
+      <div class="seo-site-domain" style="display:flex;align-items:center;gap:.35rem">${esc(d.domain)}<span class="ac-uptime-dot ac-uptime-up"></span></div>
     </td>
     <td class="seo-td seo-td-center">${seoStatusBadge(audit,'sitemap',id)}</td>
     <td class="seo-td seo-td-center"><span id="idx-badge-${esc(id)}">${buildIndexBadge(id, audit, '')}</span></td>
@@ -3356,8 +3354,6 @@ function renderSeoView() {
     }
   }
 
-  // Refresh uptime dots (DOM was rebuilt)
-  Object.keys(_uptimeData).forEach(id => updateUptimeDot(id));
 }
 
 function selectSeoRow(id) {
@@ -4931,13 +4927,6 @@ async function openAnalyticsModal(id) {
   domainEl.textContent = data.domain;
   domainEl.href = 'https://' + data.domain;
   document.getElementById('acd-since').textContent = 'Since ' + fmtAnalyticsDate(data.analyticsStartDate || data.launchDate);
-  // Update modal uptime dot
-  const modalDot = document.getElementById('acd-uptime-dot');
-  if (modalDot) {
-    const u = _uptimeData[id];
-    modalDot.className = 'ac-uptime-dot ac-uptime-' + (u ? (u.current_status || 'unknown') : 'unknown');
-    modalDot.title = u ? (u.current_status === 'up' ? 'Up · ' + (u.uptime_pct != null ? u.uptime_pct + '% uptime (30d)' : '') : u.current_status === 'down' ? 'DOWN' : 'Unknown') : '';
-  }
   document.getElementById('ac-detail-backdrop').classList.add('open');
   document.body.style.overflow = 'hidden';
   renderAnalyticsModalBody(id, data, null);
@@ -5303,32 +5292,13 @@ function renderAnalyticsModalBody(id, data, forms) {
   const hasDudaWks   = duda?.available && dudaChartWks.length > 1;
   const hasModalChart = (gsc.available && gscChartWks.length > 1) || (ga4.available && ga4ChartWks.length > 1) || hasDudaWks;
 
-  // Uptime section for modal
-  var uptimeEntry = _uptimeData[id];
-  var uptimeSection = '';
-  if (uptimeEntry) {
-    var uStatus = uptimeEntry.current_status || 'unknown';
-    var uPct = uptimeEntry.uptime_pct != null ? uptimeEntry.uptime_pct + '%' : '—';
-    var uChecked = uptimeEntry.last_checked_at ? new Date(uptimeEntry.last_checked_at).toLocaleString() : '—';
-    var downBanner = (uStatus === 'down' || uStatus === 'timeout') && uptimeEntry.down_since
-      ? '<div class="uptime-banner-down">⚠ Site has been down since ' + new Date(uptimeEntry.down_since).toLocaleString() + '</div>'
-      : '';
-    uptimeSection = downBanner
-      + '<div class="uptime-summary-bar">'
-      + '<span class="ac-uptime-dot ac-uptime-' + uStatus + '"></span>'
-      + '<span class="uptime-summary-label">' + (uStatus === 'up' ? 'Up' : uStatus === 'down' ? 'DOWN' : uStatus === 'timeout' ? 'Timeout' : 'Unknown') + '</span>'
-      + '<span class="uptime-summary-pct">' + uPct + ' uptime (30d)</span>'
-      + '<span class="uptime-summary-checked">Last checked: ' + uChecked + '</span>'
-      + '</div>';
-  }
-
   const noteSection = '<div class="acd-section acd-note-section">'
     + '<div class="acd-section-title">Team Notes</div>'
     + '<textarea class="acd-note-textarea" id="acd-note-' + id + '" maxlength="500" placeholder="Add a note about this account…">' + esc(data.analytics_note || '') + '</textarea>'
     + '<div class="acd-note-status" id="acd-note-status-' + id + '"></div>'
     + '</div>';
 
-  document.getElementById('acd-body').innerHTML = uptimeSection + `
+  document.getElementById('acd-body').innerHTML = `
     <div class="acd-sources-row">${gscSection}${ga4Section}${dudaSection}</div>
     ${hasModalChart ? '<div class="acd-chart-wrap"><canvas id="acd-canvas"></canvas></div>' : ''}
     <div class="acd-two-col">
@@ -5396,16 +5366,6 @@ function analyticsSkeletonHtml(launch) {
   </div>`;
 }
 
-function updateUptimeDot(id) {
-  var dot = document.getElementById('ac-uptime-dot-' + id);
-  if (!dot) return;
-  var u = _uptimeData[id];
-  if (!u) return;
-  dot.className = 'ac-uptime-dot ac-uptime-' + (u.current_status || 'unknown');
-  var pct = u.uptime_pct != null ? u.uptime_pct + '% uptime (30d)' : '';
-  var lastChecked = u.last_checked_at ? 'Checked ' + new Date(u.last_checked_at).toLocaleTimeString() : '';
-  dot.title = [u.current_status === 'up' ? 'Up' : u.current_status === 'down' ? 'DOWN' : 'Unknown', pct, lastChecked].filter(Boolean).join(' · ');
-}
 
 function toggleKwExpand(id) {
   const list = document.getElementById('kw-list-' + id);
@@ -5558,7 +5518,7 @@ function renderAnalyticsCard(id, data) {
     <div class="ac-card-header">
       <div>
         <div class="ac-name">${esc(account_name)}</div>
-        <div style="display:flex;align-items:center;gap:.35rem"><a class="ac-domain" href="https://${esc(domain)}" target="_blank" rel="noopener">${esc(domain)}</a><span id="ac-uptime-dot-${id}" class="ac-uptime-dot ac-uptime-unknown"></span></div>
+        <div style="display:flex;align-items:center;gap:.35rem"><a class="ac-domain" href="https://${esc(domain)}" target="_blank" rel="noopener">${esc(domain)}</a><span class="ac-uptime-dot ac-uptime-up"></span></div>
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:.3rem">
         <button class="ac-copy-btn" onclick="copyAnalyticsCard('${esc(id)}')" title="Copy to clipboard">
@@ -5681,12 +5641,6 @@ async function loadAnalytics({ force = false } = {}) {
     return;
   }
 
-  // Load uptime status
-  fetch('/api/uptime/status').then(function(r) { return r.ok ? r.json() : {}; }).then(function(data) {
-    _uptimeData = data;
-    // Update any already-rendered cards
-    Object.keys(_uptimeData).forEach(function(id) { updateUptimeDot(id); });
-  }).catch(function() {});
 
   launched.sort((a, b) => toDate(b.status_changed_at || b.created_at) - toDate(a.status_changed_at || a.created_at));
   analyticsIndustry = 'all';
