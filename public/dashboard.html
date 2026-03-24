@@ -5910,8 +5910,8 @@ function toggleGshGroup(bodyId, header) {
     // outer glow ring — fades in/out
     const glowR = 10 + pulse * 3;
     const glow = ctx.createRadialGradient(cx, cy, 4, cx, cy, glowR);
-    glow.addColorStop(0, `rgba(34,197,94,${0.35 * pulse})`);
-    glow.addColorStop(1, 'rgba(34,197,94,0)');
+    glow.addColorStop(0, `rgba(207,255,4,${0.35 * pulse})`);
+    glow.addColorStop(1, 'rgba(207,255,4,0)');
     ctx.beginPath();
     ctx.arc(cx, cy, glowR, 0, Math.PI * 2);
     ctx.fillStyle = glow;
@@ -5919,7 +5919,7 @@ function toggleGshGroup(bodyId, header) {
     // solid core dot
     ctx.beginPath();
     ctx.arc(cx, cy, 7, 0, Math.PI * 2);
-    ctx.fillStyle = '#22c55e';
+    ctx.fillStyle = '#cfff04';
     ctx.fill();
     // highlight
     ctx.beginPath();
