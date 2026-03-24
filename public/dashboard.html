@@ -2981,6 +2981,7 @@ let _seoData           = {}; // { [id]: seoAuditResult }
 let _pageIndexResults  = {}; // { [id]: { pages, sitemapSource, checkedAt } }
 let _seoSortCol        = 'date'; // default: newest account first
 let _seoSortDir        = -1;
+let _seoSortClicks     = 0;     // 0=default, 1=first click, 2=second click
 let _seoCacheLoaded    = false;
 let _selectedSeoId     = null;
 let _seoFilterIssues   = false;
@@ -3028,11 +3029,21 @@ function toggleOvSection(bodyId, btnEl) {
 // ── SEO View ──────────────────────────────────────────────────────────────────
 
 function sortSeoTable(col) {
-  if (_seoSortCol === col) { _seoSortDir *= -1; }
-  else {
-    _seoSortCol = col;
-    // name/date: ascending default (A→Z, oldest→newest); issue columns: descending (issues first)
-    _seoSortDir = (col === 'name') ? 1 : (col === 'date') ? -1 : -1;
+  if (_seoSortCol === col) {
+    _seoSortClicks++;
+    if (_seoSortClicks >= 3) {
+      // 3rd click: back to default (newest first)
+      _seoSortCol = 'date'; _seoSortDir = -1; _seoSortClicks = 0;
+      renderSeoView(); return;
+    }
+  } else {
+    _seoSortCol = col; _seoSortClicks = 1;
+  }
+  if (col === 'name') {
+    _seoSortDir = _seoSortClicks === 1 ? 1 : -1; // click1=A→Z, click2=Z→A
+  } else {
+    // direction is handled per-column in comparator using _seoSortClicks
+    _seoSortDir = _seoSortClicks === 1 ? -1 : 1;
   }
   renderSeoView();
 }
@@ -3201,7 +3212,24 @@ function renderSeoView() {
   const el = document.getElementById('ac-seo');
   if (!el) return;
 
-  // Apply search + industry filters
+  // seoHasIssue defined here so it's available for filter and sort below
+  function seoHasIssue(id) {
+    const a = _seoData[id];
+    if (!a) return false;
+    const pi = _pageIndexResults[id];
+    const pageIndexRed = pi?.pages?.length
+      ? (pi.pages.filter(p => p.verdict === 'PASS').length / pi.pages.length) < 0.5
+      : a.indexStatus === 'not_indexed';
+    return (
+      a.sitemapStatus !== 'ok' ||
+      pageIndexRed ||
+      (a.brokenLinks?.length || 0) > 0 ||
+      ['errors','missing'].includes(a.structuredData?.status) ||
+      a.safeBrowsing?.status === 'flagged'
+    );
+  }
+
+  // Apply search + industry + issues filters
   const searchVal = (document.getElementById('analytics-search')?.value || '').toLowerCase().trim();
   let entries = Object.entries(analyticsData);
   if (analyticsIndustry && analyticsIndustry !== 'all') {
@@ -3222,24 +3250,7 @@ function renderSeoView() {
     return;
   }
 
-  function seoHasIssue(id) {
-    const a = _seoData[id];
-    if (!a) return false;
-    // Check page-index detailed results first (red = < 50% indexed)
-    const pi = _pageIndexResults[id];
-    const pageIndexRed = pi?.pages?.length
-      ? (pi.pages.filter(p => p.verdict === 'PASS').length / pi.pages.length) < 0.5
-      : a.indexStatus === 'not_indexed';
-    return (
-      a.sitemapStatus !== 'ok' ||
-      pageIndexRed ||
-      (a.brokenLinks?.length || 0) > 0 ||
-      ['errors','missing'].includes(a.structuredData?.status) ||
-      a.safeBrowsing?.status === 'flagged'
-    );
-  }
   const sorted = [...entries].sort(([idA, a], [idB, b]) => {
-    // 'name' and 'date' columns: pure sort, no issue-tier grouping
     if (_seoSortCol === 'name') {
       return (a.account_name||'').localeCompare(b.account_name||'') * _seoSortDir;
     }
@@ -3250,29 +3261,36 @@ function renderSeoView() {
       const tb = launchB ? (toDate(launchB.status_changed_at || launchB.created_at)?.getTime() || 0) : 0;
       return (ta - tb) * _seoSortDir;
     }
-    // All other columns: issues float to top, then sort by value
+    // All other columns: worse first on click 1, best first on click 2
+    const worseFirst = _seoSortClicks === 1;
+    // Tier: 0=issue (worst), 1=audited-ok, 2=unaudited (best)
     const ia = seoHasIssue(idA) ? 0 : _seoData[idA] ? 1 : 2;
     const ib = seoHasIssue(idB) ? 0 : _seoData[idB] ? 1 : 2;
-    if (ia !== ib) return ia - ib;
-    let av, bv;
-    if (_seoSortCol === 'broken')           { av = (_seoData[idA]?.brokenLinks?.length ?? -1); bv = (_seoData[idB]?.brokenLinks?.length ?? -1); }
-    else if (_seoSortCol === 'performance') { av = (_perfData[idA]?.performance ?? -1);        bv = (_perfData[idB]?.performance ?? -1); }
-    else { av = 0; bv = 0; }
-    return (av - bv) * _seoSortDir;
+    if (ia !== ib) return worseFirst ? (ia - ib) : (ib - ia);
+    // Numeric tiebreak within same tier
+    if (_seoSortCol === 'broken') {
+      const av = _seoData[idA]?.brokenLinks?.length ?? -1;
+      const bv = _seoData[idB]?.brokenLinks?.length ?? -1;
+      return worseFirst ? (bv - av) : (av - bv); // worse=more broken
+    }
+    if (_seoSortCol === 'performance') {
+      const av = _perfData[idA]?.performance ?? 101;
+      const bv = _perfData[idB]?.performance ?? 101;
+      return worseFirst ? (av - bv) : (bv - av); // worse=lower score
+    }
+    return 0;
   });
 
   const audited = Object.keys(_seoData).length;
-  const issues = Object.values(_seoData).filter(d =>
-    d.sitemapStatus !== 'ok' ||
-    d.indexStatus !== 'indexed' ||
-    (d.brokenLinks?.length||0) > 0 ||
-    ['errors','missing'].includes(d.structuredData?.status) ||
-    d.safeBrowsing?.status === 'flagged'
-  ).length;
+  const issues = Object.keys(analyticsData).filter(id => seoHasIssue(id)).length;
 
   const th = (col, label, cls = '') => {
-    const active = _seoSortCol === col;
-    const arrow = active ? (_seoSortDir === 1 ? '▲' : '▼') : '';
+    const active = _seoSortCol === col && _seoSortClicks > 0;
+    let arrow = '';
+    if (active) {
+      if (col === 'name') { arrow = _seoSortDir === 1 ? '▲' : '▼'; }
+      else { arrow = _seoSortClicks === 1 ? '▼' : '▲'; } // ▼=worse first, ▲=best first
+    }
     return `<th class="seo-th${cls ? ' '+cls : ''}${active ? ' seo-th-active' : ''}" onclick="sortSeoTable('${col}')">${label}${arrow ? ' <span class="seo-sort-arrow">' + arrow + '</span>' : ''}</th>`;
   };
 
