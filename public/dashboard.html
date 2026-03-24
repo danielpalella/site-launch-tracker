@@ -296,7 +296,7 @@
     <div class="ac-detail-header">
       <div>
         <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap"><span id="acd-name" style="font-size:1rem;font-weight:700;color:var(--text)"></span><span id="acd-health-badge"></span></div>
-        <a id="acd-domain" class="ac-domain" target="_blank" rel="noopener" style="font-size:.8rem"></a>
+        <div style="display:flex;align-items:center;gap:.4rem"><a id="acd-domain" class="ac-domain" target="_blank" rel="noopener" style="font-size:.8rem"></a><span id="acd-uptime-dot" class="ac-uptime-dot ac-uptime-unknown" title=""></span></div>
       </div>
       <div style="display:flex;align-items:center;gap:.75rem">
         <span id="acd-since" style="font-size:.72rem;color:var(--text-muted)"></span>
@@ -4920,6 +4920,13 @@ async function openAnalyticsModal(id) {
   domainEl.textContent = data.domain;
   domainEl.href = 'https://' + data.domain;
   document.getElementById('acd-since').textContent = 'Since ' + fmtAnalyticsDate(data.analyticsStartDate || data.launchDate);
+  // Update modal uptime dot
+  const modalDot = document.getElementById('acd-uptime-dot');
+  if (modalDot) {
+    const u = _uptimeData[id];
+    modalDot.className = 'ac-uptime-dot ac-uptime-' + (u ? (u.current_status || 'unknown') : 'unknown');
+    modalDot.title = u ? (u.current_status === 'up' ? 'Up · ' + (u.uptime_30d_pct != null ? u.uptime_30d_pct + '% uptime (30d)' : '') : u.current_status === 'down' ? 'DOWN' : 'Unknown') : '';
+  }
   document.getElementById('ac-detail-backdrop').classList.add('open');
   document.body.style.overflow = 'hidden';
   renderAnalyticsModalBody(id, data, null);
@@ -5317,8 +5324,7 @@ function renderAnalyticsModalBody(id, data, forms) {
       ${cwvSection}
       ${channelsSection}
     </div>
-    ${formsSection}
-  ` + opportunitiesBlock + noteSection;
+  ` + opportunitiesBlock + noteSection + `${formsSection}`;
 
   if (hasModalChart) {
     const allWks = [...new Set([
@@ -5545,7 +5551,6 @@ function renderAnalyticsCard(id, data) {
     ${ga4Block}
     ${dudaBlock}
     ${chartBlock}
-    ${oppBadge}
     ${notePreview}
   `;
   updateUptimeDot(id);

@@ -2165,9 +2165,9 @@ app.post('/api/uptime/check-all', requireAuthOrWarmKey, async (req, res) => {
   try {
     const snapshot = await db.collection('launches')
       .where('status', '==', 'launched')
-      .where('archived', '==', false)
       .get();
     const sites = snapshot.docs
+      .filter(d => !d.data().archived)
       .map(d => ({ id: d.id, domain: (d.data().domain_name || '').replace(/^https?:\/\//, '').replace(/\/$/, '') }))
       .filter(s => s.domain);
 
