@@ -5492,9 +5492,7 @@ function renderAnalyticsCard(id, data) {
   const hasChart = (gsc.available && gscChartWeeks.length > 1) || (ga4.available && ga4ChartWeeks.length > 1) || hasDudaChart;
   const chartBlock = hasChart ? `<div class="ac-chart-wrap"><canvas id="ac-chart-${id}"></canvas></div>` : '';
 
-  const notePreview = data.analytics_note
-    ? '<div class="ac-note-preview">' + esc(data.analytics_note.slice(0, 80)) + (data.analytics_note.length > 80 ? '…' : '') + '</div>'
-    : '';
+  const notePreview = '';
 
   const queriesBlock = gsc.available && gsc.topQueries?.length ? `
     <details class="ac-collapsible">
