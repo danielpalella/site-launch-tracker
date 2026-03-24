@@ -3288,3 +3288,59 @@ mark.schema-fill-mark {
 }
 .seo-dp-schema-block { flex: 1 1 300px; min-width: 0; }
 .seo-dp-schema-block .schema-pre { max-height: 200px; overflow: auto; }
+
+/* ── Analytics Notes ── */
+.ac-note-preview {
+  font-size: .72rem; color: var(--text-muted); font-style: italic;
+  border-top: 1px solid var(--border); padding-top: .5rem;
+  line-height: 1.4; margin-top: .35rem;
+}
+.acd-note-section { margin-top: .5rem; }
+.acd-note-textarea {
+  width: 100%; min-height: 70px; resize: vertical;
+  font-size: .82rem; padding: .5rem .6rem;
+  border: 1px solid var(--border); border-radius: 8px;
+  background: var(--bg); color: var(--text); font-family: inherit;
+  transition: border-color .15s; box-sizing: border-box;
+}
+.acd-note-textarea:focus { border-color: var(--primary); outline: none; }
+.acd-note-status { font-size: .7rem; margin-top: .2rem; min-height: 1em; }
+
+/* ── Uptime Monitoring ── */
+.ac-uptime-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  display: inline-block; flex-shrink: 0; cursor: default;
+}
+.ac-uptime-up      { background: #22c55e; }
+.ac-uptime-down    { background: #ef4444; box-shadow: 0 0 0 2px #fee2e250; }
+.ac-uptime-timeout { background: #f59e0b; }
+.ac-uptime-unknown { background: #94a3b8; }
+.uptime-banner-down {
+  background: #fee2e2; border: 1px solid #fecaca; border-radius: 8px;
+  padding: .5rem .75rem; font-size: .8rem; color: #b91c1c; font-weight: 600;
+  margin-bottom: .75rem;
+}
+.uptime-summary-bar {
+  display: flex; align-items: center; gap: .5rem; flex-wrap: wrap;
+  font-size: .75rem; color: var(--text-muted);
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 8px; padding: .4rem .75rem; margin-bottom: .75rem;
+}
+.uptime-summary-label { font-weight: 600; color: var(--text); }
+.uptime-summary-pct { color: var(--text); }
+.uptime-summary-checked { margin-left: auto; }
+
+/* ── Keyword Opportunities ── */
+.ac-opp-badge {
+  font-size: .67rem; color: #b45309; background: #fef9c3;
+  border: 1px solid #fde68a; border-radius: 5px;
+  padding: .15rem .45rem; display: inline-block; margin-top: .2rem;
+}
+.acd-opp-list { display: flex; flex-direction: column; gap: .3rem; }
+.acd-opp-row {
+  display: flex; align-items: center; gap: .5rem;
+  font-size: .8rem; padding: .25rem .1rem;
+}
+.acd-opp-query { flex: 1; color: var(--text); }
+.acd-opp-clicks { color: var(--text-muted); font-size: .75rem; white-space: nowrap; }
+.kw-pos-amber { background: #fef9c3 !important; color: #b45309 !important; border-color: #fde68a !important; }

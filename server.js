@@ -178,6 +178,7 @@ function formatLaunch(doc) {
     status_changed_at: fmtTs(d.status_changed_at),
     analytics_start_date: d.analytics_start_date || null,
     duda_site_name:       d.duda_site_name       || null,
+    analytics_note:       d.analytics_note       || '',
   };
 }
 
@@ -364,7 +365,7 @@ app.post('/api/launches', requireAuth, async (req, res) => {
 
 app.patch('/api/launches/:id', requireAuth, async (req, res) => {
   try {
-    const { status, notes, department, industry, account_name, domain_name, contact_name, email, phone, owner, is_renewal, archived, analytics_start_date, launch_date, duda_site_name } = req.body;
+    const { status, notes, analytics_note, department, industry, account_name, domain_name, contact_name, email, phone, owner, is_renewal, archived, analytics_start_date, launch_date, duda_site_name } = req.body;
     const ref = db.collection('launches').doc(req.params.id);
     const doc = await ref.get();
     if (!doc.exists) return res.status(404).json({ error: 'Not found' });
@@ -393,6 +394,7 @@ app.patch('/api/launches/:id', requireAuth, async (req, res) => {
     if (archived  !== undefined) updates.archived = Boolean(archived);
     if (analytics_start_date !== undefined) updates.analytics_start_date = analytics_start_date || null;
     if (duda_site_name       !== undefined) updates.duda_site_name       = duda_site_name       || null;
+    if (analytics_note !== undefined) updates.analytics_note = String(analytics_note).slice(0, 500);
     if (statusChanged) {
       updates.status_changed_at = FieldValue.serverTimestamp();
     } else if (launch_date) {
@@ -1213,7 +1215,7 @@ async function fetchGSC(domain, launchDate, token) {
   }
   if (!siteUrl) return { available: false };
 
-  const topData = await querySC(siteUrl, { startDate, endDate, dimensions: ['query'], rowLimit: 5 })
+  const topData = await querySC(siteUrl, { startDate, endDate, dimensions: ['query'], rowLimit: 25 })
     .catch(() => ({ rows: [] }));
 
   const weekMap = {};
@@ -1512,6 +1514,7 @@ async function fetchAndCacheAnalytics(id, { force = false } = {}) {
     id: launch.id, account_name: launch.account_name, domain,
     industry: launch.industry || '', launchDate: rawLaunchDate,
     analyticsStartDate, daysSince, gsc, ga4, duda,
+    analytics_note: launch.analytics_note || '',
   };
   const cachedAt = new Date().toISOString();
 
@@ -1537,7 +1540,7 @@ async function fetchAndCacheAnalytics(id, { force = false } = {}) {
           gsc: gsc.available ? {
             clicks: gsc.total?.clicks || 0, impressions: gsc.total?.impressions || 0,
             ctr: gsc.total?.ctr || 0, position: gsc.total?.position || null,
-            topQueries: (gsc.topQueries || []).slice(0, 10),
+            topQueries: (gsc.topQueries || []).slice(0, 25),
           } : null,
           ga4: ga4.available ? { sessions: ga4.total?.sessions || 0, users: ga4.total?.users || 0 } : null,
           duda: duda?.available ? { visitors: duda.total?.visitors || 0, pageViews: duda.total?.pageViews || 0 } : null,
@@ -1589,7 +1592,10 @@ app.post('/api/analytics/warm-all', requireAuthOrWarmKey, async (req, res) => {
 app.get('/api/analytics/:id', requireAuth, async (req, res) => {
   try {
     const data = await fetchAndCacheAnalytics(req.params.id, { force: req.query.force === 'true' });
-    res.json(data);
+    // Always serve a fresh analytics_note (not frozen in cache)
+    const noteDoc = await db.collection('launches').doc(req.params.id).get();
+    const freshNote = noteDoc.exists ? (noteDoc.data().analytics_note || '') : '';
+    res.json({ ...data, analytics_note: freshNote });
   } catch (err) {
     console.error('Analytics error:', err.message);
     if (err.code === 'not_connected') return res.status(503).json({ error: 'not_connected' });
@@ -2118,6 +2124,134 @@ app.get('/api/admin/error-logs', requireAuth, async (req, res) => {
     res.json(logs);
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Uptime Monitoring ──────────────────────────────────────────────────────
+
+async function checkSiteUptime(domain) {
+  const url = `https://${domain}`;
+  const start = Date.now();
+  let status = 'down', statusCode = null, latencyMs = null, error = null;
+  const attempt = async (method) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10000);
+    try {
+      const r = await fetch(url, { method, redirect: 'follow', signal: controller.signal });
+      clearTimeout(timer);
+      return { ok: true, statusCode: r.status };
+    } catch (e) {
+      clearTimeout(timer);
+      return { ok: false, error: e.name === 'AbortError' ? 'timeout' : e.message?.slice(0, 200) };
+    }
+  };
+  let result = await attempt('HEAD');
+  // Some servers reject HEAD — fall back to GET
+  if (!result.ok || result.statusCode === 405) result = await attempt('GET');
+  latencyMs = Date.now() - start;
+  if (result.ok) {
+    statusCode = result.statusCode;
+    status = statusCode >= 200 && statusCode < 400 ? 'up' : 'down';
+  } else {
+    status = result.error === 'timeout' ? 'timeout' : 'down';
+    error = result.error || null;
+  }
+  return { status, statusCode, latencyMs, error };
+}
+
+// POST /api/uptime/check-all  — called by Cloud Scheduler every 15 min
+app.post('/api/uptime/check-all', requireAuthOrWarmKey, async (req, res) => {
+  res.json({ ok: true, message: 'Uptime checks started' });
+  try {
+    const snapshot = await db.collection('launches')
+      .where('status', '==', 'launched')
+      .where('archived', '==', false)
+      .get();
+    const sites = snapshot.docs
+      .map(d => ({ id: d.id, domain: (d.data().domain_name || '').replace(/^https?:\/\//, '').replace(/\/$/, '') }))
+      .filter(s => s.domain);
+
+    // Process in batches of 5
+    for (let i = 0; i < sites.length; i += 5) {
+      const batch = sites.slice(i, i + 5);
+      await Promise.all(batch.map(async ({ id, domain }) => {
+        let result = await checkSiteUptime(domain);
+        // Two-strike: retry once after 10s if not up
+        if (result.status !== 'up') {
+          await new Promise(r => setTimeout(r, 10000));
+          result = await checkSiteUptime(domain);
+        }
+        const checkedAt = new Date().toISOString();
+        const statusRef = db.collection('uptime_status').doc(id);
+        const prev = await statusRef.get();
+        const prevStatus = prev.exists ? prev.data().current_status : 'unknown';
+
+        // Write raw check to time-series collection
+        await db.collection('uptime_checks').add({
+          launch_id: id, domain, checked_at: checkedAt,
+          status: result.status, status_code: result.statusCode,
+          latency_ms: result.latencyMs, error: result.error || null,
+        });
+
+        // Compute 30-day uptime %
+        const since30d = new Date(Date.now() - 30 * 86400000).toISOString();
+        const recent = await db.collection('uptime_checks')
+          .where('launch_id', '==', id)
+          .where('checked_at', '>=', since30d)
+          .get();
+        const total30d = recent.size + 1;
+        const up30d = recent.docs.filter(d => d.data().status === 'up').length + (result.status === 'up' ? 1 : 0);
+        const uptime30dPct = Math.round((up30d / total30d) * 1000) / 10;
+
+        // Update summary doc
+        const statusUpdate = {
+          launch_id: id, domain,
+          current_status: result.status,
+          last_checked_at: checkedAt,
+          uptime_30d_pct: uptime30dPct,
+          checks_30d: total30d,
+        };
+        if (result.status !== 'up' && prevStatus === 'up') {
+          statusUpdate.down_since = checkedAt;
+          statusUpdate.last_down_at = checkedAt;
+        } else if (result.status === 'up' && prevStatus !== 'up') {
+          statusUpdate.down_since = null;
+        } else if (prev.exists) {
+          statusUpdate.down_since = prev.data().down_since || null;
+          statusUpdate.last_down_at = prev.data().last_down_at || null;
+        }
+        await statusRef.set(statusUpdate, { merge: true });
+      }));
+    }
+    console.log(`[uptime] Checked ${sites.length} sites`);
+  } catch (e) {
+    console.error('[uptime] check-all error:', e.message);
+  }
+});
+
+// GET /api/uptime/status  — all sites' current uptime summary
+app.get('/api/uptime/status', requireAuth, async (req, res) => {
+  try {
+    const snapshot = await db.collection('uptime_status').get();
+    const result = {};
+    snapshot.docs.forEach(d => { result[d.id] = d.data(); });
+    res.json(result);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// GET /api/uptime/:id/history  — last 48 checks for one site
+app.get('/api/uptime/:id/history', requireAuth, async (req, res) => {
+  try {
+    const snap = await db.collection('uptime_checks')
+      .where('launch_id', '==', req.params.id)
+      .orderBy('checked_at', 'desc')
+      .limit(48)
+      .get();
+    res.json(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+  } catch (e) {
+    res.status(500).json({ error: e.message });
   }
 });
 
