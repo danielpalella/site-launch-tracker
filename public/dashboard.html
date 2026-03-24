@@ -3153,6 +3153,11 @@ function seoTableRow(id, d) {
     <td class="seo-td seo-td-center">${seoStatusBadge(audit,'security',id)}</td>
     <td class="seo-td seo-td-center">${perfBadge(id)}</td>
     <td class="seo-td seo-td-action" onclick="event.stopPropagation()">${auditCell}</td>
+  </tr>
+  <tr class="seo-detail-row" id="seo-dr-${esc(id)}" style="display:${isSelected ? '' : 'none'}">
+    <td colspan="8" class="seo-detail-td">
+      <div class="seo-detail-content" id="seo-dp-${esc(id)}"></div>
+    </td>
   </tr>`;
 }
 
@@ -3262,48 +3267,55 @@ function renderSeoView() {
     }
   }
 
-  // Auto-select: restore previous or pick first
-  if (_selectedSeoId && !analyticsData[_selectedSeoId]) _selectedSeoId = null;
-  if (!_selectedSeoId && sorted.length) _selectedSeoId = sorted[0][0];
-
-  el.innerHTML = `<div class="seo-split-layout">
-      <div class="seo-table-pane">
-        <div class="seo-table-wrap">
-          <table class="seo-table">
-            <thead><tr>
-              ${th('name', 'Site', 'seo-th-site')}
-              ${th('sitemap', 'Sitemap', 'seo-th-center')}
-              ${th('index', 'Indexed', 'seo-th-center')}
-              ${th('broken', 'Broken Links', 'seo-th-center')}
-              ${th('schema', 'Schema', 'seo-th-center')}
-              ${th('security', 'Security', 'seo-th-center')}
-              ${th('performance', 'Performance', 'seo-th-center')}
-              <th class="seo-th seo-th-action">Last Audit</th>
-            </tr></thead>
-            <tbody>
-              ${sorted.map(([id, d]) => seoTableRow(id, d)).join('')}
-            </tbody>
-          </table>
-        </div>
-      </div>
-      <div class="seo-detail-pane" id="seo-detail-pane">
-        ${_selectedSeoId ? '' : '<div class="seo-dp-empty">Select a site to view audit details</div>'}
+  el.innerHTML = `<div class="card seo-table-card">
+      <div class="seo-table-wrap">
+        <table class="seo-table">
+          <thead><tr>
+            ${th('name', 'Site', 'seo-th-site')}
+            ${th('sitemap', 'Sitemap', 'seo-th-center')}
+            ${th('index', 'Indexed', 'seo-th-center')}
+            ${th('broken', 'Broken Links', 'seo-th-center')}
+            ${th('schema', 'Schema', 'seo-th-center')}
+            ${th('security', 'Security', 'seo-th-center')}
+            ${th('performance', 'Performance', 'seo-th-center')}
+            <th class="seo-th seo-th-action">Last Audit</th>
+          </tr></thead>
+          <tbody>
+            ${sorted.map(([id, d]) => seoTableRow(id, d)).join('')}
+          </tbody>
+        </table>
       </div>
     </div>`;
 
-  if (_selectedSeoId) renderSeoDetailPanel(_selectedSeoId);
+  // Re-open previously selected row
+  if (_selectedSeoId && analyticsData[_selectedSeoId]) {
+    const detailRow = document.getElementById(`seo-dr-${_selectedSeoId}`);
+    if (detailRow) {
+      detailRow.style.display = '';
+      renderSeoDetailPanel(_selectedSeoId);
+    }
+  }
 }
 
 function selectSeoRow(id) {
+  const wasSelected = _selectedSeoId === id;
+  // Collapse any open detail row
+  if (_selectedSeoId) {
+    const prev = document.getElementById(`seo-dr-${_selectedSeoId}`);
+    if (prev) prev.style.display = 'none';
+    document.querySelectorAll('.seo-tr-selected').forEach(el => el.classList.remove('seo-tr-selected'));
+  }
+  if (wasSelected) { _selectedSeoId = null; return; } // toggle off
   _selectedSeoId = id;
-  document.querySelectorAll('.seo-tr').forEach(el => {
-    el.classList.toggle('seo-tr-selected', el.dataset.id === id);
-  });
+  const row = document.querySelector(`.seo-tr[data-id="${CSS.escape(id)}"]`);
+  if (row) row.classList.add('seo-tr-selected');
+  const detailRow = document.getElementById(`seo-dr-${id}`);
+  if (detailRow) detailRow.style.display = '';
   renderSeoDetailPanel(id);
 }
 
 function renderSeoDetailPanel(id) {
-  const pane = document.getElementById('seo-detail-pane');
+  const pane = document.getElementById(`seo-dp-${id}`);
   if (!pane) return;
   const site  = allLaunches.find(r => r.id === id);
   const d     = analyticsData[id];
@@ -3320,14 +3332,14 @@ function renderSeoDetailPanel(id) {
 
   // ── sections ──────────────────────────────────────────────────────────────
   function dpSection(title, body) {
-    return `<div class="seo-dp-section"><div class="seo-dp-section-title">${title}</div>${body}</div>`;
+    return `<div class="seo-dp-section"><div class="seo-dp-section-title">${title}</div><div class="seo-dp-section-body">${body}</div></div>`;
   }
 
   let sections = '';
 
   if (!audit) {
-    sections = `<div class="seo-dp-empty" style="padding:2rem 0">No audit data yet.<br>
-      <button class="seo-audit-btn" style="margin:.75rem auto 0;display:block" onclick="runSeoAudit('${esc(id)}',document.getElementById('seo-btn-${esc(id)}'))">Run Audit Now</button></div>`;
+    sections = `<div class="seo-dp-no-audit">No audit data yet.
+      <button class="seo-audit-btn" style="margin-left:.75rem" onclick="runSeoAudit('${esc(id)}',document.getElementById('seo-btn-${esc(id)}'))">Run Audit Now</button></div>`;
   } else {
     // Sitemap
     let sitemapBody;
@@ -3487,7 +3499,7 @@ function renderSeoDetailPanel(id) {
         ${ageStr ? `<span class="seo-dp-meta">Audited ${ageStr}</span>` : ''}
       </div>
     </div>
-    ${sections}`;
+    <div class="seo-dp-grid">${sections}</div>`;
 }
 
 // ── Schema Modal ──
