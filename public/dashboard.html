@@ -3154,9 +3154,11 @@ function seoTableRow(id, d) {
     <td class="seo-td seo-td-center">${perfBadge(id)}</td>
     <td class="seo-td seo-td-action" onclick="event.stopPropagation()">${auditCell}</td>
   </tr>
-  <tr class="seo-detail-row" id="seo-dr-${esc(id)}" style="display:${isSelected ? '' : 'none'}">
+  <tr class="seo-detail-row${isSelected ? ' seo-dr-open' : ''}" id="seo-dr-${esc(id)}">
     <td colspan="8" class="seo-detail-td">
-      <div class="seo-detail-content" id="seo-dp-${esc(id)}"></div>
+      <div class="seo-detail-anim-wrap">
+        <div class="seo-detail-content" id="seo-dp-${esc(id)}"></div>
+      </div>
     </td>
   </tr>`;
 }
@@ -3287,11 +3289,11 @@ function renderSeoView() {
       </div>
     </div>`;
 
-  // Re-open previously selected row
+  // Re-open previously selected row (no entrance animation on re-render)
   if (_selectedSeoId && analyticsData[_selectedSeoId]) {
     const detailRow = document.getElementById(`seo-dr-${_selectedSeoId}`);
     if (detailRow) {
-      detailRow.style.display = '';
+      detailRow.classList.add('seo-dr-open');
       renderSeoDetailPanel(_selectedSeoId);
     }
   }
@@ -3299,19 +3301,47 @@ function renderSeoView() {
 
 function selectSeoRow(id) {
   const wasSelected = _selectedSeoId === id;
-  // Collapse any open detail row
+
+  // Collapse any currently open row
   if (_selectedSeoId) {
-    const prev = document.getElementById(`seo-dr-${_selectedSeoId}`);
-    if (prev) prev.style.display = 'none';
-    document.querySelectorAll('.seo-tr-selected').forEach(el => el.classList.remove('seo-tr-selected'));
+    const prev = document.getElementById('seo-dr-' + _selectedSeoId);
+    if (prev) {
+      prev.classList.remove('seo-dr-open', 'seo-dr-entering');
+    }
+    document.querySelectorAll('.seo-tr-selected').forEach(function(el) { el.classList.remove('seo-tr-selected'); });
   }
-  if (wasSelected) { _selectedSeoId = null; return; } // toggle off
+
+  if (wasSelected) { _selectedSeoId = null; return; } // toggle off on second click
+
   _selectedSeoId = id;
-  const row = document.querySelector(`.seo-tr[data-id="${CSS.escape(id)}"]`);
+  const row = document.querySelector('.seo-tr[data-id="' + CSS.escape(id) + '"]');
   if (row) row.classList.add('seo-tr-selected');
-  const detailRow = document.getElementById(`seo-dr-${id}`);
-  if (detailRow) detailRow.style.display = '';
-  renderSeoDetailPanel(id);
+
+  const detailRow = document.getElementById('seo-dr-' + id);
+  if (detailRow) {
+    // Render content first so it has height to animate
+    renderSeoDetailPanel(id);
+    // Double rAF: let browser paint the new innerHTML before triggering CSS transition
+    requestAnimationFrame(function() {
+      requestAnimationFrame(function() {
+        detailRow.classList.add('seo-dr-open', 'seo-dr-entering');
+        // Remove entering class after animations finish
+        setTimeout(function() { detailRow.classList.remove('seo-dr-entering'); }, 900);
+      });
+    });
+    // Pulse the badges in the clicked row
+    _seoBadgePulse(row);
+  }
+}
+
+function _seoBadgePulse(row) {
+  const badges = row.querySelectorAll('.seo-badge, .perf-pill');
+  badges.forEach(function(b, i) {
+    setTimeout(function() {
+      b.classList.add('seo-badge-pulse');
+      setTimeout(function() { b.classList.remove('seo-badge-pulse'); }, 400);
+    }, i * 35);
+  });
 }
 
 function renderSeoDetailPanel(id) {
@@ -3342,7 +3372,10 @@ function renderSeoDetailPanel(id) {
       + '<span class="seo-dp-name">' + esc(name) + '</span>'
       + (url ? '<a class="seo-dp-domain-link" href="' + esc(url) + '" target="_blank" rel="noopener">' + esc(domain) + ' ↗</a>' : '')
       + '<a class="seo-dp-gsc-link" href="' + esc(gscUrl) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">Open GSC ↗</a>'
-      + (ageStr ? '<span class="seo-dp-meta" style="margin-left:auto">Audited ' + ageStr + '</span>' : '')
+      + (ageStr ? '<span class="seo-dp-meta">Audited ' + ageStr + '</span>' : '')
+      + '<button class="seo-dp-collapse-btn" onclick="event.stopPropagation();selectSeoRow(\'' + esc(id) + '\')" title="Collapse this row">'
+      + '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>'
+      + 'Collapse</button>'
       + '</div>';
 
     if (!audit) {

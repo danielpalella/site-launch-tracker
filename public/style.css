@@ -2971,6 +2971,7 @@ mark.schema-fill-mark {
 
 /* ── SEO Inline Detail Row ──────────────────────────────────────────────── */
 .seo-tr-selected td { background: #1259ff08 !important; }
+.seo-tr-selected td:first-child { border-left: 3px solid var(--primary) !important; }
 .seo-tr-selected:hover td { background: #1259ff12 !important; }
 [data-theme="dark"] .seo-tr-selected td { background: #1259ff14 !important; }
 .seo-detail-row { background: var(--bg); }
@@ -2978,8 +2979,59 @@ mark.schema-fill-mark {
   padding: 0 !important;
   border-bottom: 2px solid var(--border) !important;
 }
+
+/* Slide animation using max-height */
+.seo-detail-anim-wrap {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height .45s cubic-bezier(.4, 0, .2, 1);
+}
+.seo-dr-open .seo-detail-anim-wrap {
+  max-height: 4000px;
+  transition: max-height .6s cubic-bezier(.4, 0, .2, 1);
+}
 .seo-detail-content {
   padding: 1.1rem 1.25rem 1.25rem;
+}
+
+/* Stagger fade-in animations on entering */
+@keyframes seo-dp-fadein {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.seo-dr-entering .seo-dp-header     { animation: seo-dp-fadein .22s ease both; animation-delay: .08s; }
+.seo-dr-entering .seo-dp-status-bar { animation: seo-dp-fadein .22s ease both; animation-delay: .16s; }
+.seo-dr-entering .seo-dp-main-grid  { animation: seo-dp-fadein .25s ease both; animation-delay: .24s; }
+.seo-dr-entering .seo-dp-card-full  { animation: seo-dp-fadein .25s ease both; animation-delay: .32s; }
+
+/* Badge pulse when row is selected */
+@keyframes seo-badge-pulse {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.18); box-shadow: 0 0 0 3px rgba(18,89,255,.15); }
+  100% { transform: scale(1); box-shadow: none; }
+}
+.seo-badge-pulse { animation: seo-badge-pulse .38s cubic-bezier(.4,0,.2,1) both; }
+
+/* Collapse button */
+.seo-dp-collapse-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  margin-left: auto;
+  padding: .3rem .7rem;
+  font-size: .72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  cursor: pointer;
+  transition: color .15s, border-color .15s, background .15s;
+}
+.seo-dp-collapse-btn:hover {
+  color: var(--text);
+  border-color: var(--text-muted);
+  background: var(--surface);
 }
 .seo-dp-no-audit {
   display: flex;
@@ -2991,8 +3043,8 @@ mark.schema-fill-mark {
 }
 .seo-dp-header {
   display: flex;
-  align-items: baseline;
-  gap: .75rem;
+  align-items: center;
+  gap: .6rem;
   flex-wrap: wrap;
   margin-bottom: .9rem;
 }
