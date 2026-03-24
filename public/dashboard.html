@@ -2570,6 +2570,7 @@ const INTEGRATION_COLORS = {
   gmail:      '#ec4899',
   slack:      '#8b5cf6',
   rdap:       '#14b8a6',
+  uptime:     '#ef4444',
 };
 
 let _elLoaded = false;
@@ -2602,9 +2603,11 @@ function renderAdminErrorLog(logs) {
   }
   list.innerHTML = logs.map(e => {
     const color = INTEGRATION_COLORS[e.integration] || '#6b7280';
+    const isRecovery = e.integration === 'uptime' && (e.message || '').includes('recovered');
+    const rowColor = isRecovery ? '#22c55e' : color;
     return `<div class="admin-el-row">
       <div class="admin-el-top">
-        <span class="admin-el-badge" style="background:${color}">${esc(e.integration || '?')}</span>
+        <span class="admin-el-badge" style="background:${rowColor}">${esc(e.integration || '?')}</span>
         <span class="admin-el-msg">${esc(e.message || '')}</span>
       </div>
       <div class="admin-el-meta">${esc(e.at || '')}</div>

@@ -2205,8 +2205,12 @@ app.post('/api/uptime/check-all', requireAuthOrWarmKey, async (req, res) => {
         if (result.status !== 'up' && prevStatus === 'up') {
           statusUpdate.down_since   = checkedAt;
           statusUpdate.last_down_at = checkedAt;
-        } else if (result.status === 'up' && prevStatus !== 'up') {
+          // Log the downtime event to the error log
+          logApiError('uptime', `${domain} is ${result.status}${result.statusCode ? ' (HTTP ' + result.statusCode + ')' : ''}${result.error ? ': ' + result.error : ''}`, { launch_id: id, domain, status: result.status, status_code: result.statusCode });
+        } else if (result.status === 'up' && prevStatus !== 'up' && prevStatus !== 'unknown') {
           statusUpdate.down_since = null;
+          // Log the recovery
+          logApiError('uptime', `${domain} recovered (was ${prevStatus})`, { launch_id: id, domain, status: 'recovered' });
         } else {
           statusUpdate.down_since   = prevData.down_since   || null;
           statusUpdate.last_down_at = prevData.last_down_at || null;
