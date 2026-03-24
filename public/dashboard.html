@@ -5360,8 +5360,16 @@ function analyticsSkeletonHtml(launch) {
       <div class="ac-launched-badge">Launched ${days}d ago</div>
     </div>
     <div class="ac-skeleton-wrap">
-      <div class="ac-skeleton"></div>
-      <div class="ac-skeleton ac-skeleton-sm"></div>
+      <div class="ac-skeleton ac-skeleton-section"></div>
+      <div class="ac-skeleton-metrics">
+        <div class="ac-skeleton"></div><div class="ac-skeleton"></div>
+        <div class="ac-skeleton"></div><div class="ac-skeleton"></div>
+      </div>
+      <div class="ac-skeleton ac-skeleton-section" style="margin-top:.25rem"></div>
+      <div class="ac-skeleton-metrics">
+        <div class="ac-skeleton"></div><div class="ac-skeleton"></div>
+        <div class="ac-skeleton"></div><div class="ac-skeleton"></div>
+      </div>
     </div>
   </div>`;
 }
@@ -5526,6 +5534,9 @@ function renderAnalyticsCard(id, data) {
           Copy
         </button>
         <div style="font-size:.7rem;color:var(--text-muted)">Since ${fmtAnalyticsDate(displayDate)}</div>
+        ${(data._cachedAt && (Date.now() - new Date(data._cachedAt).getTime()) > 20 * 3600 * 1000)
+          ? `<span class="ac-stale-badge" title="Data cached ${Math.floor((Date.now() - new Date(data._cachedAt).getTime()) / 3600000)}h ago — click Refresh to update">⚠ Stale data</span>`
+          : ''}
       </div>
     </div>
     ${gscBlock}
@@ -5534,8 +5545,6 @@ function renderAnalyticsCard(id, data) {
     ${chartBlock}
     ${notePreview}
   `;
-  updateUptimeDot(id);
-
   if (hasChart) {
     const allWeeks = [...new Set([
       ...gscChartWeeks.map(w => w.week),
