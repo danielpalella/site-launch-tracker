@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Projects — Launch Tracker</title>
+  <title>RealWork Websites — Tracker</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="/style.css" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
@@ -1978,6 +1978,8 @@ function switchTab(tab) {
   document.getElementById('tab-launches').classList.toggle('nav-tab-active',      tab === 'launches');
   document.getElementById('tab-edit-requests').classList.toggle('nav-tab-active', tab === 'edit-requests');
   document.getElementById('tab-analytics').classList.toggle('nav-tab-active',     tab === 'analytics');
+  const titles = { launches: 'Tracker', 'edit-requests': 'Edits', analytics: 'Insights' };
+  document.title = `RealWork Websites — ${titles[tab] || 'Tracker'}`;
   if (tab === 'edit-requests') fetchEditRequests();
   if (tab === 'analytics') loadAnalytics();
 }
