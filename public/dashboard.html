@@ -3172,7 +3172,7 @@ function seoTableRow(id, d) {
   return `<tr class="seo-tr${hasIssues ? ' seo-tr-issue' : ''}${isSelected ? ' seo-tr-selected' : ''}" data-id="${esc(id)}" onclick="selectSeoRow('${esc(id)}')" ondblclick="event.stopPropagation();openSeoSiteModal('${esc(id)}')" title="Click to expand · Double-click to open account">
     <td class="seo-td seo-td-site">
       <div class="seo-site-name">${esc(d.account_name)}</div>
-      <div class="seo-site-domain">${esc(d.domain)}</div>
+      <div class="seo-site-domain" style="display:flex;align-items:center;gap:.35rem">${esc(d.domain)}<span id="ac-uptime-dot-${esc(id)}" class="ac-uptime-dot ac-uptime-unknown"></span></div>
     </td>
     <td class="seo-td seo-td-center">${seoStatusBadge(audit,'sitemap',id)}</td>
     <td class="seo-td seo-td-center"><span id="idx-badge-${esc(id)}">${buildIndexBadge(id, audit, '')}</span></td>
@@ -3353,6 +3353,9 @@ function renderSeoView() {
       renderSeoDetailPanel(_selectedSeoId);
     }
   }
+
+  // Refresh uptime dots (DOM was rebuilt)
+  Object.keys(_uptimeData).forEach(id => updateUptimeDot(id));
 }
 
 function selectSeoRow(id) {
