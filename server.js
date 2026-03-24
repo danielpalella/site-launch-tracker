@@ -2134,30 +2134,21 @@ async function checkSiteUptime(domain) {
   const start = Date.now();
   let statusCode = null, latencyMs = null, error = null;
   const headers = { 'User-Agent': 'Mozilla/5.0 (compatible; UptimeMonitor/1.0)' };
-  const attempt = async (method) => {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 15000);
-    try {
-      const r = await fetch(url, { method, redirect: 'follow', signal: controller.signal, headers });
-      clearTimeout(timer);
-      return { ok: true, statusCode: r.status };
-    } catch (e) {
-      clearTimeout(timer);
-      return { ok: false, error: e.name === 'AbortError' ? 'timeout' : e.message?.slice(0, 200) };
-    }
-  };
-  let result = await attempt('GET');
-  latencyMs = Date.now() - start;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
   let status;
-  if (result.ok) {
-    statusCode = result.statusCode;
-    // Any response from the server = site is up (4xx means server responded, just rejecting us)
-    // Only 5xx = genuinely down
-    status = statusCode < 500 ? 'up' : 'down';
-  } else {
-    status = result.error === 'timeout' ? 'timeout' : 'down';
-    error = result.error || null;
+  try {
+    const r = await fetch(url, { method: 'HEAD', redirect: 'follow', signal: controller.signal, headers });
+    clearTimeout(timer);
+    statusCode = r.status;
+    // Any HTTP response = server is up (no page load, no tracking fires)
+    status = 'up';
+  } catch (e) {
+    clearTimeout(timer);
+    status = e.name === 'AbortError' ? 'timeout' : 'down';
+    error = e.message?.slice(0, 200) || null;
   }
+  latencyMs = Date.now() - start;
   return { status, statusCode, latencyMs, error };
 }
 
