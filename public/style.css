@@ -3307,12 +3307,17 @@ mark.schema-fill-mark {
 .acd-note-status { font-size: .7rem; margin-top: .2rem; min-height: 1em; }
 
 /* ── Uptime Monitoring ── */
+@keyframes uptime-pulse {
+  0%   { box-shadow: 0 0 0 0 currentColor; }
+  70%  { box-shadow: 0 0 0 4px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
 .ac-uptime-dot {
   width: 7px; height: 7px; border-radius: 50%;
   display: inline-block; flex-shrink: 0; cursor: default;
 }
-.ac-uptime-up      { background: #22c55e; }
-.ac-uptime-down    { background: #ef4444; box-shadow: 0 0 0 2px #fee2e250; }
+.ac-uptime-up      { background: #22c55e; color: #22c55e; animation: uptime-pulse 2s ease-out infinite; }
+.ac-uptime-down    { background: #ef4444; color: #ef4444; animation: uptime-pulse 2s ease-out infinite; }
 .ac-uptime-timeout { background: #f59e0b; }
 .ac-uptime-unknown { background: #94a3b8; }
 .uptime-banner-down {
