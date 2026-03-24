@@ -3141,7 +3141,7 @@ function seoTableRow(id, d) {
   );
 
   const isSelected = _selectedSeoId === id;
-  return `<tr class="seo-tr${hasIssues ? ' seo-tr-issue' : ''}${isSelected ? ' seo-tr-selected' : ''}" data-id="${esc(id)}" onclick="selectSeoRow('${esc(id)}')">
+  return `<tr class="seo-tr${hasIssues ? ' seo-tr-issue' : ''}${isSelected ? ' seo-tr-selected' : ''}" data-id="${esc(id)}" onclick="selectSeoRow('${esc(id)}')" ondblclick="event.stopPropagation();openSeoSiteModal('${esc(id)}')" title="Click to expand · Double-click to open account">
     <td class="seo-td seo-td-site">
       <div class="seo-site-name">${esc(d.account_name)}</div>
       <div class="seo-site-domain">${esc(d.domain)}</div>
@@ -3315,191 +3315,196 @@ function selectSeoRow(id) {
 }
 
 function renderSeoDetailPanel(id) {
-  const pane = document.getElementById(`seo-dp-${id}`);
-  if (!pane) return;
-  const site  = allLaunches.find(r => r.id === id);
-  const d     = analyticsData[id];
-  const audit = _seoData[id];
-  const perf  = _perfData[id];
-  const pi    = _pageIndexResults[id];
-  if (!site && !d) { pane.innerHTML = '<div class="seo-dp-empty">No data available.</div>'; return; }
+  const pane = document.getElementById('seo-dp-' + id);
+  if (!pane) { console.warn('seo-dp not found for', id); return; }
 
-  const name   = (site || d)?.account_name || id;
-  const domain = (site?.domain_name) || d?.domain || '';
-  const url    = domain ? `https://${domain}` : '';
-  const gscSiteUrl = audit?.siteUrl || `sc-domain:${domain.replace(/^www\./,'')}`;
-  const gscUrl = `https://search.google.com/search-console?resource_id=${encodeURIComponent(gscSiteUrl)}`;
+  try {
+    const site  = (typeof allLaunches !== 'undefined') ? allLaunches.find(r => r.id === id) : null;
+    const d     = (typeof analyticsData !== 'undefined') ? analyticsData[id] : null;
+    const audit = _seoData[id];
+    const perf  = _perfData[id];
+    const pi    = _pageIndexResults[id];
 
-  // ── sections ──────────────────────────────────────────────────────────────
-  function dpSection(title, body) {
-    return `<div class="seo-dp-section"><div class="seo-dp-section-title">${title}</div><div class="seo-dp-section-body">${body}</div></div>`;
+    const name   = (d && d.account_name) || (site && site.account_name) || id;
+    const domain = (site && site.domain_name) || (d && d.domain) || '';
+    const url    = domain ? 'https://' + domain : '';
+    const gscSiteUrl = (audit && audit.siteUrl) || ('sc-domain:' + domain.replace(/^www\./, ''));
+    const gscUrl = 'https://search.google.com/search-console?resource_id=' + encodeURIComponent(gscSiteUrl);
+
+    function dpSection(title, body) {
+      return '<div class="seo-dp-section"><div class="seo-dp-section-title">' + title + '</div><div class="seo-dp-section-body">' + body + '</div></div>';
+    }
+
+    let sections = '';
+
+    if (!audit) {
+      sections = '<div class="seo-dp-no-audit">No audit data yet. <button class="seo-audit-btn" style="margin-left:.5rem" onclick="runSeoAudit(\'' + esc(id) + '\',document.getElementById(\'seo-btn-' + esc(id) + '\'))">Run Audit Now</button></div>';
+    } else {
+      // Sitemap
+      const sitemaps = audit.sitemaps || [];
+      let sitemapBody;
+      if (audit.sitemapStatus === 'ok') {
+        sitemapBody = '<span class="seo-badge seo-badge-ok">✓ ' + sitemaps.length + ' sitemap' + (sitemaps.length !== 1 ? 's' : '') + ' found</span>'
+          + (sitemaps.length ? '<div class="seo-dp-list">' + sitemaps.map(function(s) {
+            return '<div class="seo-dp-list-item"><a href="' + esc(s) + '" target="_blank" rel="noopener" class="seo-dp-link">' + esc(s.replace(/^https?:\/\//, '')) + '</a></div>';
+          }).join('') + '</div>' : '');
+      } else if (audit.sitemapStatus === 'none') {
+        sitemapBody = '<span class="seo-badge seo-badge-error">No sitemap found</span><p class="seo-dp-hint">Submit a sitemap.xml in Google Search Console.</p>';
+      } else {
+        sitemapBody = '<span class="seo-badge seo-badge-warn">⚠ Error fetching sitemap</span>';
+      }
+      sections += dpSection('Sitemap', sitemapBody);
+
+      // Page Index
+      let piBody;
+      if (pi && pi.pages && pi.pages.length) {
+        const total   = pi.pages.length;
+        const indexed = pi.pages.filter(function(p) { return p.verdict === 'PASS'; }).length;
+        const pct     = indexed / total;
+        const sumCls  = pct === 1 ? 'seo-badge-ok' : pct >= 0.5 ? 'seo-badge-warn' : 'seo-badge-error';
+        const vCls    = function(v) { return v === 'PASS' ? 'seo-badge-ok' : v === 'FAIL' ? 'seo-badge-error' : 'seo-badge-warn'; };
+        const vLabel  = function(p) { return p.verdict === 'PASS' ? '✓ Indexed' : p.verdict === 'FAIL' ? '✗ Not Indexed' : '○ Excluded'; };
+        let checkedAgo = '';
+        if (pi.checkedAt) {
+          const ms = Date.now() - new Date(pi.checkedAt).getTime();
+          checkedAgo = ms < 3600000 ? Math.floor(ms/60000) + 'm ago' : ms < 86400000 ? Math.floor(ms/3600000) + 'h ago' : Math.floor(ms/86400000) + 'd ago';
+        }
+        piBody = '<div class="seo-dp-pi-summary">'
+          + '<span class="seo-badge ' + sumCls + '">' + indexed + '/' + total + ' pages indexed</span>'
+          + (pi.sitemapSource ? '<span class="seo-dp-meta">via ' + esc(pi.sitemapSource.replace(/https?:\/\/[^/]+/, '')) + '</span>' : '')
+          + (checkedAgo ? '<span class="seo-dp-meta">' + checkedAgo + '</span>' : '')
+          + '<button class="schema-copy-btn" style="margin-left:auto" onclick="runPageIndexCheck(\'' + esc(id) + '\')">Re-check</button>'
+          + '</div>'
+          + '<div class="seo-dp-pi-list" id="seo-pi-body">'
+          + pi.pages.map(function(p) {
+            return '<div class="pi-row">'
+              + '<span class="seo-badge ' + vCls(p.verdict) + ' pi-verdict">' + vLabel(p) + '</span>'
+              + '<div class="pi-url-wrap">'
+              + '<a class="pi-url" href="' + esc(p.url) + '" target="_blank" rel="noopener">' + esc(p.url.replace(/^https?:\/\//, '')) + '</a>'
+              + (p.coverageState ? '<span class="pi-coverage">' + esc(p.coverageState) + '</span>' : '')
+              + (p.lastCrawlTime ? '<span class="pi-crawl">Last crawled: ' + new Date(p.lastCrawlTime).toLocaleDateString() + '</span>' : '')
+              + '</div></div>';
+          }).join('')
+          + '</div>';
+      } else {
+        const idxCls = audit.indexStatus === 'indexed' ? 'seo-badge-ok' : audit.indexStatus === 'not_indexed' ? 'seo-badge-error' : 'seo-badge-none';
+        const idxLbl = audit.indexStatus === 'indexed' ? '✓ Homepage indexed' : audit.indexStatus === 'not_indexed' ? '✗ Not indexed' : '— Unknown';
+        piBody = '<div id="seo-pi-body">'
+          + '<div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">'
+          + '<span class="seo-badge ' + idxCls + '">' + idxLbl + '</span>'
+          + '<button class="seo-audit-btn" onclick="runPageIndexCheck(\'' + esc(id) + '\')">Check All Pages</button>'
+          + '</div>'
+          + '<p class="seo-dp-hint" style="margin-top:.4rem">Fetches sitemap &amp; inspects each URL via Google Search Console.</p>'
+          + '</div>';
+      }
+      sections += dpSection('Page Index', piBody);
+
+      // Broken Links
+      const bl = audit.brokenLinks || [];
+      let blBody;
+      if (bl.length === 0) {
+        blBody = '<span class="seo-badge seo-badge-ok">✓ No broken links</span>';
+      } else {
+        blBody = '<span class="seo-badge seo-badge-error">' + bl.length + ' broken link' + (bl.length !== 1 ? 's' : '') + '</span>'
+          + '<div class="seo-dp-list">' + bl.map(function(l) {
+            const href = (l && l.url) ? l.url : String(l);
+            return '<div class="seo-dp-list-item seo-dp-list-error">'
+              + '<a href="' + esc(href) + '" target="_blank" rel="noopener" class="seo-dp-link">' + esc(href.replace(/^https?:\/\//, '')) + '</a>'
+              + (l.status ? '<span class="seo-dp-meta">' + l.status + '</span>' : '')
+              + '</div>';
+          }).join('') + '</div>';
+      }
+      sections += dpSection('Broken Links', blBody);
+
+      // Schema
+      const sd = audit.structuredData;
+      let schemaBody;
+      if (!sd) {
+        schemaBody = '<span class="seo-badge seo-badge-none">No data</span>';
+      } else {
+        try {
+          const issues = [].concat(sd.errors || []).concat(sd.warnings || []);
+          const types  = (sd.schemas && sd.schemas.length) ? sd.schemas : ['WebSite', 'LocalBusiness'];
+          const fakeSite = site || { account_name: name, domain_name: domain };
+          let schParts = '';
+          if (issues.length) {
+            schParts += '<div class="seo-dp-issues">' + issues.map(function(i) {
+              const isErr = (sd.errors || []).indexOf(i) !== -1;
+              return '<div class="schema-issue ' + (isErr ? 'schema-issue-error' : 'schema-issue-warn') + '">' + (isErr ? '✗' : '⚠') + ' ' + esc(String(i)) + '</div>';
+            }).join('') + '</div>';
+          }
+          types.forEach(function(type, i) {
+            const t = typeof type === 'string' ? type : 'LocalBusiness';
+            const json = buildSchemaJson(t, fakeSite, url);
+            const blockId = 'seo-dp-schema-' + i;
+            const highlighted = esc(json).replace(/&quot;FILL_IN[^&]*&quot;/g, function(m) { return '<mark class="schema-fill-mark">' + m + '</mark>'; });
+            schParts += '<div class="schema-block">'
+              + '<div class="schema-block-header">'
+              + '<span class="schema-block-type">' + esc(t) + '</span>'
+              + '<button class="schema-copy-btn" onclick="copySchemaBlock(\'' + blockId + '\',this)">Copy</button>'
+              + '</div>'
+              + '<pre class="schema-pre" id="' + blockId + '"><code>' + highlighted + '</code></pre>'
+              + '</div>';
+          });
+          schemaBody = schParts || '<span class="seo-badge seo-badge-none">—</span>';
+        } catch(schErr) {
+          schemaBody = '<span class="seo-badge seo-badge-warn">Error loading schema: ' + esc(String(schErr.message)) + '</span>';
+        }
+      }
+      sections += dpSection('Schema', schemaBody);
+
+      // Security
+      const sb = audit.safeBrowsing;
+      let secBody;
+      if (!sb) {
+        secBody = '<span class="seo-badge seo-badge-none">No data</span>';
+      } else if (sb.status === 'safe') {
+        secBody = '<span class="seo-badge seo-badge-ok">✓ No threats detected</span>';
+      } else {
+        secBody = '<span class="seo-badge seo-badge-error">✗ Flagged</span>'
+          + '<div class="seo-dp-list">' + (sb.threats || []).map(function(t) {
+            return '<div class="seo-dp-list-item seo-dp-list-error">' + esc(String(t)) + '</div>';
+          }).join('') + '</div>';
+      }
+      sections += dpSection('Security', secBody);
+
+      // Performance
+      let perfBody;
+      if (!perf) {
+        perfBody = '<span class="seo-badge seo-badge-none">No performance data</span>';
+      } else {
+        const isPost = perf.is_post_launch ? '● Post-launch' : '○ Pre-launch';
+        const mScore = (perf.mobile && perf.mobile.performance != null) ? perf.mobile.performance : perf.performance;
+        const dScore = perf.desktop && perf.desktop.performance != null ? perf.desktop.performance : null;
+        const scoreBadge = function(score, label) {
+          if (score == null) return '';
+          const cls = score >= 90 ? 'seo-badge-ok' : score >= 50 ? 'seo-badge-warn' : 'seo-badge-error';
+          return '<span class="seo-badge ' + cls + '">' + label + ': ' + score + '/100</span> ';
+        };
+        const mRow = function(label, val) { return val != null ? '<div class="seo-dp-metric"><span class="seo-dp-metric-label">' + label + '</span><span class="seo-dp-metric-val">' + val + '</span></div>' : ''; };
+        perfBody = '<div class="seo-dp-meta" style="margin-bottom:.4rem">' + isPost + '</div>'
+          + '<div class="seo-dp-perf-grid">' + scoreBadge(mScore, 'Mobile') + scoreBadge(dScore, 'Desktop') + '</div>'
+          + (perf.mobile ? '<div class="seo-dp-metrics-group"><div class="seo-dp-metrics-label">Mobile CWV</div>' + mRow('LCP', perf.mobile.lcp) + mRow('CLS', perf.mobile.cls) + mRow('FCP', perf.mobile.fcp) + mRow('INP', perf.mobile.fid) + '</div>' : '')
+          + (perf.desktop ? '<div class="seo-dp-metrics-group"><div class="seo-dp-metrics-label">Desktop CWV</div>' + mRow('LCP', perf.desktop.lcp) + mRow('CLS', perf.desktop.cls) + mRow('FCP', perf.desktop.fcp) + mRow('INP', perf.desktop.fid) + '</div>' : '');
+      }
+      sections += dpSection('Performance', perfBody);
+    }
+
+    const ageMs  = (audit && audit.scannedAt) ? Date.now() - new Date(audit.scannedAt).getTime() : null;
+    const ageStr = ageMs != null && !isNaN(ageMs) ? (ageMs < 3600000 ? Math.floor(ageMs/60000) + 'm ago' : ageMs < 86400000 ? Math.floor(ageMs/3600000) + 'h ago' : Math.floor(ageMs/86400000) + 'd ago') : null;
+
+    pane.innerHTML = '<div class="seo-dp-header">'
+      + '<span class="seo-dp-name">' + esc(name) + '</span>'
+      + (url ? '<a class="seo-dp-domain-link" href="' + esc(url) + '" target="_blank" rel="noopener">' + esc(domain) + '</a>' : '<span class="seo-dp-domain">' + esc(domain) + '</span>')
+      + '<a class="seo-dp-gsc-link" href="' + esc(gscUrl) + '" target="_blank" rel="noopener">Open in GSC ↗</a>'
+      + (ageStr ? '<span class="seo-dp-meta">Audited ' + ageStr + '</span>' : '')
+      + '</div>'
+      + '<div class="seo-dp-grid">' + sections + '</div>';
+
+  } catch(err) {
+    console.error('renderSeoDetailPanel error:', err);
+    pane.innerHTML = '<div style="color:#ef4444;padding:.75rem;font-size:.78rem">Error loading details: ' + esc(String(err.message || err)) + '</div>';
   }
-
-  let sections = '';
-
-  if (!audit) {
-    sections = `<div class="seo-dp-no-audit">No audit data yet.
-      <button class="seo-audit-btn" style="margin-left:.75rem" onclick="runSeoAudit('${esc(id)}',document.getElementById('seo-btn-${esc(id)}'))">Run Audit Now</button></div>`;
-  } else {
-    // Sitemap
-    let sitemapBody;
-    if (audit.sitemapStatus === 'ok') {
-      sitemapBody = `<span class="seo-badge seo-badge-ok" style="margin-bottom:.4rem">✓ ${audit.sitemaps.length} sitemap${audit.sitemaps.length !== 1 ? 's' : ''} found</span>
-        <div class="seo-dp-list">${(audit.sitemaps||[]).map(s => `<div class="seo-dp-list-item"><a href="${esc(s)}" target="_blank" rel="noopener" class="seo-dp-link">${esc(s.replace(/^https?:\/\//,''))}</a></div>`).join('')}</div>`;
-    } else if (audit.sitemapStatus === 'none') {
-      sitemapBody = `<span class="seo-badge seo-badge-error">No sitemap found</span>
-        <p class="seo-dp-hint">Add a sitemap.xml and submit it in Google Search Console.</p>`;
-    } else {
-      sitemapBody = `<span class="seo-badge seo-badge-warn">⚠ Error fetching sitemap</span>`;
-    }
-    sections += dpSection('Sitemap', sitemapBody);
-
-    // Page Index
-    let piBody;
-    if (pi?.pages?.length) {
-      const total   = pi.pages.length;
-      const indexed = pi.pages.filter(p => p.verdict === 'PASS').length;
-      const pct     = indexed / total;
-      const summaryClass = pct === 1 ? 'seo-badge-ok' : pct >= 0.5 ? 'seo-badge-warn' : 'seo-badge-error';
-      const verdictClass = v => v === 'PASS' ? 'seo-badge-ok' : v === 'FAIL' ? 'seo-badge-error' : 'seo-badge-warn';
-      const verdictLabel = p => p.verdict === 'PASS' ? '✓ Indexed' : p.verdict === 'FAIL' ? '✗ Not Indexed' : '○ Excluded';
-      const checkedAgo = pi.checkedAt ? (() => {
-        const ms = Date.now() - new Date(pi.checkedAt).getTime();
-        if (ms < 3600000) return `${Math.floor(ms/60000)}m ago`;
-        if (ms < 86400000) return `${Math.floor(ms/3600000)}h ago`;
-        return `${Math.floor(ms/86400000)}d ago`;
-      })() : null;
-      piBody = `<div class="seo-dp-pi-summary">
-          <span class="seo-badge ${summaryClass}">${indexed}/${total} pages indexed</span>
-          ${pi.sitemapSource ? `<span class="seo-dp-meta">via ${esc(pi.sitemapSource.replace(/https?:\/\/[^/]+/,''))}</span>` : ''}
-          ${checkedAgo ? `<span class="seo-dp-meta">${checkedAgo}</span>` : ''}
-          <button class="schema-copy-btn" style="margin-left:auto" onclick="runPageIndexCheck('${esc(id)}')">Re-check</button>
-        </div>
-        <div class="seo-dp-pi-list" id="seo-pi-body">
-          ${pi.pages.map(p => `<div class="pi-row">
-            <span class="seo-badge ${verdictClass(p.verdict)} pi-verdict">${verdictLabel(p)}</span>
-            <div class="pi-url-wrap">
-              <a class="pi-url" href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.url.replace(/^https?:\/\//,''))}</a>
-              ${p.coverageState ? `<span class="pi-coverage">${esc(p.coverageState)}</span>` : ''}
-              ${p.lastCrawlTime ? `<span class="pi-crawl">Last crawled: ${new Date(p.lastCrawlTime).toLocaleDateString()}</span>` : ''}
-            </div>
-          </div>`).join('')}
-        </div>`;
-    } else {
-      piBody = `<div id="seo-pi-body">
-        <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap">
-          <span class="seo-badge ${audit.indexStatus === 'indexed' ? 'seo-badge-ok' : audit.indexStatus === 'not_indexed' ? 'seo-badge-error' : 'seo-badge-none'}">${audit.indexStatus === 'indexed' ? '✓ Homepage indexed' : audit.indexStatus === 'not_indexed' ? '✗ Not indexed' : '— Unknown'}</span>
-          <button class="seo-audit-btn" onclick="runPageIndexCheck('${esc(id)}')">Check All Pages</button>
-        </div>
-        <p class="seo-dp-hint" style="margin-top:.4rem">Fetches sitemap and inspects each URL in Google Search Console.</p>
-      </div>`;
-    }
-    sections += dpSection('Page Index', piBody);
-
-    // Broken Links
-    const bl = audit.brokenLinks || [];
-    let blBody;
-    if (bl.length === 0) {
-      blBody = `<span class="seo-badge seo-badge-ok">✓ No broken links found</span>`;
-    } else {
-      blBody = `<span class="seo-badge seo-badge-error" style="margin-bottom:.5rem">${bl.length} broken link${bl.length !== 1 ? 's' : ''}</span>
-        <div class="seo-dp-list">
-          ${bl.map(l => `<div class="seo-dp-list-item seo-dp-list-error">
-            <a href="${esc(l.url||l)}" target="_blank" rel="noopener" class="seo-dp-link">${esc((l.url||l).replace(/^https?:\/\//,''))}</a>
-            ${l.status ? `<span class="seo-dp-meta">${l.status}</span>` : ''}
-          </div>`).join('')}
-        </div>`;
-    }
-    sections += dpSection('Broken Links', blBody);
-
-    // Schema
-    const sd = audit.structuredData;
-    let schemaBody;
-    if (!sd) {
-      schemaBody = `<span class="seo-badge seo-badge-none">No data</span>`;
-    } else {
-      const issues = [...(sd.errors||[]), ...(sd.warnings||[])];
-      const types  = sd.schemas?.length ? sd.schemas : ['WebSite','LocalBusiness'];
-      const hasFillIn = types.some(t => (buildSchemaJson(t, site||{account_name:name,domain_name:domain}, url)).includes('FILL_IN'));
-      schemaBody = (issues.length ? `<div class="seo-dp-issues">${issues.map(i => {
-        const isErr = (sd.errors||[]).includes(i);
-        return `<div class="schema-issue ${isErr?'schema-issue-error':'schema-issue-warn'}">${isErr?'✗':'⚠'} ${esc(i)}</div>`;
-      }).join('')}</div>` : '') +
-      (hasFillIn ? `<div class="schema-fill-notice" style="margin-bottom:.5rem">Fields marked <code>FILL_IN</code> must be completed before publishing.</div>` : '') +
-      types.map((type, i) => {
-        const json = buildSchemaJson(type, site||{account_name:name,domain_name:domain}, url);
-        const blockId = `seo-dp-schema-${i}`;
-        const highlighted = esc(json).replace(/&quot;FILL_IN[^&]*&quot;/g, m => `<mark class="schema-fill-mark">${m}</mark>`);
-        return `<div class="schema-block">
-          <div class="schema-block-header">
-            <span class="schema-block-type">${esc(type)}</span>
-            <button class="schema-copy-btn" onclick="copySchemaBlock('${blockId}',this)">Copy</button>
-          </div>
-          <pre class="schema-pre" id="${blockId}"><code>${highlighted}</code></pre>
-        </div>`;
-      }).join('');
-    }
-    sections += dpSection('Schema / Structured Data', schemaBody);
-
-    // Security
-    const sb = audit.safeBrowsing;
-    let secBody;
-    if (!sb) {
-      secBody = `<span class="seo-badge seo-badge-none">No data</span>`;
-    } else if (sb.status === 'safe') {
-      secBody = `<span class="seo-badge seo-badge-ok">✓ No threats detected</span>`;
-    } else {
-      secBody = `<span class="seo-badge seo-badge-error">✗ Flagged by Safe Browsing</span>
-        <div class="seo-dp-list">${(sb.threats||[]).map(t => `<div class="seo-dp-list-item seo-dp-list-error">${esc(t)}</div>`).join('')}</div>`;
-    }
-    sections += dpSection('Security', secBody);
-
-    // Performance
-    let perfBody;
-    if (!perf) {
-      perfBody = `<span class="seo-badge seo-badge-none">No performance data</span>`;
-    } else {
-      const isPost = perf.is_post_launch ? '● Post-launch' : '○ Pre-launch';
-      const metricRow = (label, val, unit='') => val != null ? `<div class="seo-dp-metric"><span class="seo-dp-metric-label">${label}</span><span class="seo-dp-metric-val">${val}${unit}</span></div>` : '';
-      const scoreBar = (score, label) => {
-        if (score == null) return '';
-        const cls = score >= 90 ? 'seo-badge-ok' : score >= 50 ? 'seo-badge-warn' : 'seo-badge-error';
-        return `<div class="seo-dp-perf-score"><span class="seo-badge ${cls}">${label}: ${score}/100</span></div>`;
-      };
-      perfBody = `<div class="seo-dp-perf-header"><span class="seo-dp-meta">${isPost}</span></div>
-        <div class="seo-dp-perf-grid">
-          ${scoreBar(perf.mobile?.performance ?? perf.performance, 'Mobile')}
-          ${scoreBar(perf.desktop?.performance, 'Desktop')}
-        </div>
-        ${perf.mobile ? `<div class="seo-dp-metrics-group"><div class="seo-dp-metrics-label">Mobile Core Web Vitals</div>
-          ${metricRow('LCP', perf.mobile.lcp)}
-          ${metricRow('CLS', perf.mobile.cls)}
-          ${metricRow('FCP', perf.mobile.fcp)}
-          ${metricRow('INP', perf.mobile.fid)}
-        </div>` : ''}
-        ${perf.desktop ? `<div class="seo-dp-metrics-group"><div class="seo-dp-metrics-label">Desktop Core Web Vitals</div>
-          ${metricRow('LCP', perf.desktop.lcp)}
-          ${metricRow('CLS', perf.desktop.cls)}
-          ${metricRow('FCP', perf.desktop.fcp)}
-          ${metricRow('INP', perf.desktop.fid)}
-        </div>` : ''}`;
-    }
-    sections += dpSection('Performance', perfBody);
-  }
-
-  const ageMs = audit ? Date.now() - new Date(audit.scannedAt).getTime() : null;
-  const ageStr = ageMs != null ? (ageMs < 3600000 ? `${Math.floor(ageMs/60000)}m ago` : ageMs < 86400000 ? `${Math.floor(ageMs/3600000)}h ago` : `${Math.floor(ageMs/86400000)}d ago`) : null;
-
-  pane.innerHTML = `
-    <div class="seo-dp-header">
-      <div class="seo-dp-name">${esc(name)}</div>
-      <div class="seo-dp-domain-row">
-        ${url ? `<a class="seo-dp-domain-link" href="${esc(url)}" target="_blank" rel="noopener">${esc(domain)}</a>` : `<span class="seo-dp-domain">${esc(domain)}</span>`}
-        <a class="seo-dp-gsc-link" href="${esc(gscUrl)}" target="_blank" rel="noopener">Open in GSC ↗</a>
-        ${ageStr ? `<span class="seo-dp-meta">Audited ${ageStr}</span>` : ''}
-      </div>
-    </div>
-    <div class="seo-dp-grid">${sections}</div>`;
 }
 
 // ── Schema Modal ──
