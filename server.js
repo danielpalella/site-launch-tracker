@@ -2132,12 +2132,13 @@ app.get('/api/admin/error-logs', requireAuth, async (req, res) => {
 async function checkSiteUptime(domain) {
   const url = `https://${domain}`;
   const start = Date.now();
-  let status = 'down', statusCode = null, latencyMs = null, error = null;
+  let statusCode = null, latencyMs = null, error = null;
+  const headers = { 'User-Agent': 'Mozilla/5.0 (compatible; UptimeMonitor/1.0)' };
   const attempt = async (method) => {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 10000);
+    const timer = setTimeout(() => controller.abort(), 15000);
     try {
-      const r = await fetch(url, { method, redirect: 'follow', signal: controller.signal });
+      const r = await fetch(url, { method, redirect: 'follow', signal: controller.signal, headers });
       clearTimeout(timer);
       return { ok: true, statusCode: r.status };
     } catch (e) {
@@ -2145,13 +2146,14 @@ async function checkSiteUptime(domain) {
       return { ok: false, error: e.name === 'AbortError' ? 'timeout' : e.message?.slice(0, 200) };
     }
   };
-  let result = await attempt('HEAD');
-  // Some servers reject HEAD — fall back to GET
-  if (!result.ok || result.statusCode === 405) result = await attempt('GET');
+  let result = await attempt('GET');
   latencyMs = Date.now() - start;
+  let status;
   if (result.ok) {
     statusCode = result.statusCode;
-    status = statusCode >= 200 && statusCode < 400 ? 'up' : 'down';
+    // Any response from the server = site is up (4xx means server responded, just rejecting us)
+    // Only 5xx = genuinely down
+    status = statusCode < 500 ? 'up' : 'down';
   } else {
     status = result.error === 'timeout' ? 'timeout' : 'down';
     error = result.error || null;
