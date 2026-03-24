@@ -321,17 +321,46 @@ input.error, select.error { border-color: var(--s-awaiting); }
 /* ── DASHBOARD TOOLBAR ── */
 .toolbar {
   display: flex;
-  gap: .6rem;
+  gap: .5rem;
   margin-bottom: 1.25rem;
   align-items: center;
   flex-wrap: nowrap;
   overflow-x: auto;
   padding-bottom: 2px;
 }
-.toolbar input { min-width: 160px; flex: 1; font-size: .82rem; padding: .5rem .75rem; }
+.toolbar input { min-width: 160px; max-width: 260px; flex: 0 0 260px; font-size: .82rem; padding: .5rem .75rem; }
 .toolbar select { width: auto; min-width: 0; flex-shrink: 0; font-size: .82rem; padding: .5rem .6rem; }
-.toolbar .count { white-space: nowrap; font-size: .8rem; color: var(--text-muted); flex-shrink: 0; }
+.toolbar .count {
+  white-space: nowrap;
+  font-size: .78rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
 .toolbar .btn { flex-shrink: 0; padding: .5rem .9rem; font-size: .82rem; white-space: nowrap; }
+.tb-divider {
+  width: 1px;
+  height: 18px;
+  background: var(--border);
+  flex-shrink: 0;
+  margin: 0 .15rem;
+}
+/* Demoted secondary actions */
+.tb-archived-btn {
+  font-size: .78rem !important;
+  padding: .4rem .7rem !important;
+  color: var(--text-muted) !important;
+  border-color: transparent !important;
+}
+.tb-archived-btn:hover { border-color: var(--border) !important; color: var(--text) !important; }
+/* Compact export button */
+.tb-export-btn {
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+  font-size: .78rem !important;
+  padding: .4rem .7rem !important;
+}
 
 /* ── TABLE ── */
 .table-wrap { overflow-x: auto; }
@@ -1067,25 +1096,33 @@ tr.frozen-subseparator td {
 .view-toggle {
   display: flex;
   gap: 0;
+  background: var(--bg);
   border: 1.5px solid var(--border);
   border-radius: 7px;
   overflow: hidden;
   flex-shrink: 0;
+  padding: 2px;
 }
 .view-btn {
   background: transparent;
   border: none;
-  padding: .38rem .85rem;
+  border-radius: 5px;
+  padding: .32rem .8rem;
   font-size: .78rem;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--text-muted);
   cursor: pointer;
-  transition: background .12s, color .12s;
+  transition: background .15s, color .15s, box-shadow .15s;
   white-space: nowrap;
   font-family: inherit;
 }
-.view-btn:hover { background: var(--bg); color: var(--text); }
-.view-btn.view-btn-active { background: var(--primary); color: #fff; }
+.view-btn:hover { color: var(--text); }
+.view-btn.view-btn-active {
+  background: var(--surface);
+  color: var(--primary);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0,0,0,.1);
+}
 
 /* ── LIST VIEW STATUS SEPARATORS ── */
 tr.status-separator td {

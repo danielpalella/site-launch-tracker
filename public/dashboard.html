@@ -123,14 +123,20 @@
           </div>
         </div>
       </div>
+      <span class="tb-divider"></span>
       <span class="count" id="row-count"></span>
+      <span class="tb-divider"></span>
       <div class="view-toggle">
         <button class="view-btn view-btn-active" id="view-table-btn" onclick="setView('table')">List</button>
         <button class="view-btn" id="view-graph-btn" onclick="setView('graph')">Graph</button>
         <button class="view-btn" id="view-board-btn" onclick="setView('board')">Board</button>
       </div>
-      <button class="btn btn-ghost" id="archived-launches-btn" onclick="toggleArchivedLaunches()">Archived</button>
-      <button class="btn btn-ghost" id="export-btn" onclick="handleExportClick(this)">⬇ Export CSV</button>
+      <span class="tb-divider"></span>
+      <button class="btn btn-ghost tb-archived-btn" id="archived-launches-btn" onclick="toggleArchivedLaunches()">Archived</button>
+      <button class="btn btn-ghost tb-export-btn" id="export-btn" onclick="handleExportClick(this)">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        CSV
+      </button>
     </div>
 
     <div class="table-wrap" id="table-wrap">
