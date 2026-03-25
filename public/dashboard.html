@@ -3050,8 +3050,8 @@ function switchAnalyticsView(view) {
   document.getElementById('ac-overview').style.display          = view === 'overview' ? '' : 'none';
   document.getElementById('ac-seo').style.display               = view === 'seo' ? '' : 'none';
   document.getElementById('analytics-search').style.display     = (view === 'sites' || view === 'seo') ? '' : 'none';
-  document.getElementById('ac-industry-select').style.display   = view === 'overview' ? 'none' : '';
-  document.getElementById('ac-tag-select-wrap').style.display   = view === 'overview' ? 'none' : '';
+  document.getElementById('ac-industry-select').style.display   = view === 'seo' ? 'none' : '';
+  document.getElementById('ac-tag-select-wrap').style.display   = view === 'seo' ? 'none' : '';
   document.getElementById('seo-toolbar-extras').style.display   = view === 'seo' ? 'flex' : 'none';
   document.getElementById('ac-toolbar-right').style.display     = view === 'seo' ? 'none' : 'flex';
   if (view === 'seo' && !_seoCacheLoaded) loadSeoCache();
