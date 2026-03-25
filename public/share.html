@@ -29,10 +29,8 @@
       align-items: center;
       justify-content: space-between;
     }
-    .rw-logo { display: flex; align-items: center; gap: .6rem; text-decoration: none; }
+    .rw-logo { display: flex; align-items: center; text-decoration: none; }
     .rw-logo img { height: 28px; width: auto; }
-    .rw-logo-text { font-size: .9rem; font-weight: 700; color: #fff; letter-spacing: -.01em; }
-    .rw-logo-text span { color: var(--lime); }
     .rw-tagline { font-size: .75rem; color: rgba(255,255,255,.5); }
 
     /* Main */
@@ -123,6 +121,9 @@
       border-bottom: 1px solid var(--border);
     }
     .rw-metric:nth-child(4n) { border-right: none; }
+    .rw-metric:last-child:nth-child(4n+1),
+    .rw-metric:last-child:nth-child(4n+2),
+    .rw-metric:last-child:nth-child(4n+3) { border-right: none; }
     .rw-metric-val {
       font-size: 1.6rem;
       font-weight: 800;
@@ -145,17 +146,6 @@
     }
     .rw-delta-up { color: var(--green); }
     .rw-delta-down { color: #ef4444; }
-
-    /* Unavailable */
-    .rw-unavailable {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 1.1rem 1rem;
-      font-size: .82rem;
-      color: var(--muted);
-      font-style: italic;
-    }
 
     /* Top keywords */
     .rw-keywords {
@@ -185,17 +175,12 @@
       background: var(--bg);
       white-space: nowrap;
     }
-    .rw-kw-pos.top3 { background: #dcfce7; color: #15803d; border-color: #bbf7d0; }
+    .rw-kw-pos.top3  { background: #dcfce7; color: #15803d; border-color: #bbf7d0; }
     .rw-kw-pos.top10 { background: #fef9c3; color: #b45309; border-color: #fde68a; }
     .rw-kw-clicks { font-size: .75rem; color: var(--muted); white-space: nowrap; }
 
     /* Footer */
-    .rw-footer {
-      text-align: center;
-      margin-top: 3rem;
-      font-size: .75rem;
-      color: var(--muted);
-    }
+    .rw-footer { text-align: center; margin-top: 3rem; font-size: .75rem; color: var(--muted); }
     .rw-footer a { color: var(--blue); text-decoration: none; }
     .rw-footer a:hover { text-decoration: underline; }
 
@@ -221,8 +206,7 @@
 
 <div class="rw-header">
   <a class="rw-logo" href="https://realworklabs.com" target="_blank" rel="noopener">
-    <img src="/logo.png" alt="RealWork Labs" onerror="this.style.display='none'">
-    <span class="rw-logo-text">RealWork <span>Websites</span></span>
+    <img src="/logo.png" alt="RealWork Labs">
   </a>
   <span class="rw-tagline">Site Performance Report</span>
 </div>
@@ -241,7 +225,7 @@ const id = location.pathname.split('/').pop();
 let _data = null;
 let _period = 'mom';
 
-const PERIOD_LABELS = { wow: 'Last 7 days', mom: 'Last 30 days', all: 'Since Launch' };
+const PERIOD_LABELS = { mom: 'Last 30 days', '60d': 'Last 60 days' };
 
 function esc(s) {
   if (s == null) return '';
@@ -259,29 +243,22 @@ function fmtDate(s) {
   return new Date(p[0], p[1]-1, p[2]).toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' });
 }
 
-function periodWeeks(weeks, p) {
-  if (!weeks?.length) return weeks || [];
-  if (p === 'wow') return weeks.slice(-2);
-  if (p === 'mom') return weeks.slice(-8);
-  return weeks;
-}
+function weeksForPeriod(p) { return p === '60d' ? 9 : 4; } // 9wks≈63d, 4wks≈28d
 function sumWeeks(weeks, key) { return weeks.reduce((s,w) => s + (w[key]||0), 0); }
 function avgWeeks(weeks, key) { const v = weeks.filter(w=>w[key]!=null); return v.length ? v.reduce((s,w)=>s+(w[key]||0),0)/v.length : null; }
 
 function gscTotals(gsc, p) {
   if (!gsc.available) return {};
-  if (p === 'all') return gsc.total || {};
-  const n = p === 'wow' ? 1 : 4;
-  const slice = gsc.weeks.slice(-n);
+  const n = weeksForPeriod(p);
+  const slice = (gsc.weeks||[]).slice(-n);
   const clicks = sumWeeks(slice, 'clicks');
   const impressions = sumWeeks(slice, 'impressions');
   return { clicks, impressions, ctr: impressions > 0 ? Math.round(clicks/impressions*10000)/100 : 0, position: gsc.total?.position };
 }
 function ga4Totals(ga4, p) {
   if (!ga4.available) return {};
-  if (p === 'all') return { sessions: ga4.total?.sessions, users: ga4.total?.users, newUsers: ga4.total?.newUsers, engagementRate: ga4.total?.engagementRate };
-  const n = p === 'wow' ? 1 : 4;
-  const slice = ga4.weeks.slice(-n);
+  const n = weeksForPeriod(p);
+  const slice = (ga4.weeks||[]).slice(-n);
   return {
     sessions: sumWeeks(slice, 'sessions'),
     users: sumWeeks(slice, 'users'),
@@ -289,17 +266,16 @@ function ga4Totals(ga4, p) {
     engagementRate: (() => { const v = avgWeeks(slice,'engagementRate'); return v != null ? Math.round(v*10)/10 : null; })(),
   };
 }
-function dudaTotals(duda, p) {
-  if (!duda?.available) return {};
-  if (p === 'all') return duda.total || {};
-  const n = p === 'wow' ? 1 : 4;
+function dudaLeads(duda, p) {
+  if (!duda?.available) return null;
+  const n = weeksForPeriod(p);
   const slice = (duda.weeks||[]).slice(-n);
-  return { visitors: sumWeeks(slice,'visitors'), pageViews: sumWeeks(slice,'pageViews'), formSubmits: sumWeeks(slice,'formSubmits'), callClicks: sumWeeks(slice,'callClicks') };
+  return { formSubmits: sumWeeks(slice,'formSubmits'), callClicks: sumWeeks(slice,'callClicks') };
 }
 
 function pctDelta(weeks, key, p) {
   if (!weeks?.length) return null;
-  const n = p === 'wow' ? 1 : 4;
+  const n = weeksForPeriod(p);
   const curr = weeks.slice(-n);
   const prev = weeks.slice(-n*2, -n);
   if (!prev.length) return null;
@@ -327,7 +303,7 @@ function render() {
   const p = _period;
   const gscT = gscTotals(gsc, p);
   const ga4T = ga4Totals(ga4, p);
-  const dudaT = dudaTotals(duda, p);
+  const leads = dudaLeads(duda, p);
   const startDate = analyticsStartDate || launchDate;
   const daysSince = Math.floor((Date.now() - new Date((startDate||'').replace(' ','T')+'Z')) / 86_400_000);
 
@@ -353,14 +329,12 @@ function render() {
       </div>
     </div>` : '';
 
-  const dudaSection = duda?.available ? `
+  const leadsSection = leads ? `
     <div class="rw-section">
-      <div class="rw-section-title"><img src="/duda-icon.png" alt="" style="border-radius:3px">Site Activity <span style="font-weight:400;text-transform:none;letter-spacing:0;margin-left:.25rem">${PERIOD_LABELS[p]}</span></div>
+      <div class="rw-section-title"><img src="/duda-icon.png" alt="" style="border-radius:3px">Lead Activity <span style="font-weight:400;text-transform:none;letter-spacing:0;margin-left:.25rem">${PERIOD_LABELS[p]}</span></div>
       <div class="rw-metrics">
-        ${metric(fmt(dudaT.visitors), 'Visitors', pctDelta(duda.weeks,'visitors',p))}
-        ${metric(fmt(dudaT.pageViews), 'Page Views', null)}
-        ${metric(fmt(dudaT.formSubmits), 'Form Submissions', null)}
-        ${metric(fmt(dudaT.callClicks), 'Call Clicks', null)}
+        ${metric(fmt(leads.formSubmits), 'Form Submissions', pctDelta(duda.weeks,'formSubmits',p))}
+        ${metric(fmt(leads.callClicks), 'Call Clicks', pctDelta(duda.weeks,'callClicks',p))}
       </div>
     </div>` : '';
 
@@ -382,8 +356,7 @@ function render() {
 
   document.getElementById('rw-content').innerHTML = `
     <div class="rw-site-hero">
-      <img class="rw-site-favicon" src="https://${esc(domain)}/favicon.ico" alt=""
-        onerror="this.onerror=null;this.src='https://www.google.com/s2/favicons?domain=${esc(domain)}&sz=64'">
+      <img class="rw-site-favicon" src="https://www.google.com/s2/favicons?domain=${esc(domain)}&sz=64" alt="">
       <div>
         <div class="rw-site-name">${esc(account_name)}</div>
         <a class="rw-site-domain" href="https://${esc(domain)}" target="_blank" rel="noopener">${esc(domain)}</a>
@@ -392,12 +365,11 @@ function render() {
     </div>
 
     <div class="rw-period-bar">
-      <button class="rw-period-btn ${p==='wow'?'rw-period-active':''}" onclick="setPeriod('wow')">Last 7 days</button>
       <button class="rw-period-btn ${p==='mom'?'rw-period-active':''}" onclick="setPeriod('mom')">Last 30 days</button>
-      <button class="rw-period-btn ${p==='all'?'rw-period-active':''}" onclick="setPeriod('all')">Since Launch</button>
+      <button class="rw-period-btn ${p==='60d'?'rw-period-active':''}" onclick="setPeriod('60d')">Last 60 days</button>
     </div>
 
-    ${gscSection}${ga4Section}${dudaSection}${topKws}
+    ${gscSection}${ga4Section}${leadsSection}${topKws}
 
     <div class="rw-footer">
       Report generated by <a href="https://realworklabs.com" target="_blank" rel="noopener">RealWork Labs</a>
