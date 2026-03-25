@@ -1305,15 +1305,23 @@ async function fetchGA4(propertyId, launchDate, token) {
     d.setDate(d.getDate() - d.getDay());
     const wk = isoDate(d);
     const [s, u, n, e] = row.metricValues.map(m => parseFloat(m.value) || 0);
-    if (!weekMap[wk]) weekMap[wk] = { sessions: 0, users: 0 };
+    if (!weekMap[wk]) weekMap[wk] = { sessions: 0, users: 0, newUsers: 0, engSum: 0, engCount: 0 };
     weekMap[wk].sessions += s;
     weekMap[wk].users += u;
+    weekMap[wk].newUsers += n;
+    if (e > 0) { weekMap[wk].engSum += e; weekMap[wk].engCount++; }
     sessions += s; users += u; newUsers += n;
     if (e > 0) { engSum += e; engCount++; }
   }
   const weeks = Object.entries(weekMap)
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([week, d]) => ({ week, sessions: Math.round(d.sessions), users: Math.round(d.users) }));
+    .map(([week, d]) => ({
+      week,
+      sessions: Math.round(d.sessions),
+      users: Math.round(d.users),
+      newUsers: Math.round(d.newUsers),
+      engagementRate: d.engCount > 0 ? Math.round(d.engSum / d.engCount * 1000) / 10 : null,
+    }));
 
   return {
     available: true,
@@ -2207,12 +2215,15 @@ app.delete('/api/launches/:id/favicon', requireAuth, async (req, res) => {
 // ── Public Share Report ──
 app.get('/api/share/:id', async (req, res) => {
   try {
-    const cacheDoc = await db.collection('launches').doc(req.params.id)
-      .collection('analytics_cache').doc('daily').get();
+    const [cacheDoc, launchDoc] = await Promise.all([
+      db.collection('launches').doc(req.params.id).collection('analytics_cache').doc('daily').get(),
+      db.collection('launches').doc(req.params.id).get(),
+    ]);
     if (!cacheDoc.exists) return res.status(404).json({ error: 'Report not available yet' });
     const { data, cachedAt } = cacheDoc.data();
     const { account_name, domain, launchDate, analyticsStartDate, daysSince, gsc, ga4, duda } = data;
-    res.json({ account_name, domain, launchDate, analyticsStartDate, daysSince, gsc, ga4, duda, cachedAt });
+    const custom_favicon = launchDoc.exists ? (launchDoc.data().custom_favicon || null) : null;
+    res.json({ account_name, domain, launchDate, analyticsStartDate, daysSince, gsc, ga4, duda, cachedAt, custom_favicon });
   } catch (err) {
     res.status(500).json({ error: 'Failed to load report' });
   }

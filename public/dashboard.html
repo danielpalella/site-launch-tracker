@@ -4847,11 +4847,13 @@ function periodGa4Totals(ga4, period) {
   if (!ga4.available || period === 'all') return ga4.total || {};
   const n = period === 'wow' ? 1 : 4;
   const slice = ga4.weeks.slice(-n);
+  const hasPerWeekData = slice.some(w => 'newUsers' in w);
+  const engVals = slice.filter(w => w.engagementRate != null);
   return {
     sessions: Math.round(sumWeeks(slice, 'sessions')),
     users:    Math.round(sumWeeks(slice, 'users')),
-    newUsers: ga4.total?.newUsers ?? null,
-    engagementRate: ga4.total?.engagementRate ?? null,
+    newUsers: hasPerWeekData ? Math.round(sumWeeks(slice, 'newUsers')) : (ga4.total?.newUsers ?? null),
+    engagementRate: engVals.length ? Math.round(engVals.reduce((s,w) => s + w.engagementRate, 0) / engVals.length * 10) / 10 : (ga4.total?.engagementRate ?? null),
   };
 }
 
