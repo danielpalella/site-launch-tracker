@@ -4428,7 +4428,7 @@ function renderAnalyticsOverview(industryFilter) {
     }).join('');
 
   const siteCountEl = document.getElementById('ac-site-count');
-  if (siteCountEl) siteCountEl.innerHTML = `<strong>${entries.length} Active Sites</strong> <span class="acd-period-tag">${periodLabel}</span>${isPartial ? `<span class="ov-loading-tag">Loading ${analyticsLoadedCount}/${analyticsTotal}</span>` : ''}`;
+  if (siteCountEl) siteCountEl.innerHTML = `<strong>${entries.length} Active Sites</strong>${isPartial ? `<span class="ov-loading-tag">Loading ${analyticsLoadedCount}/${analyticsTotal}</span>` : ''}`;
 
   _indBenchData = industryBenchmarks;
   document.getElementById('ac-overview').innerHTML = `
@@ -4728,7 +4728,7 @@ function applyAnalyticsFilters() {
   });
   if (analyticsView === 'sites') {
     const el = document.getElementById('ac-site-count');
-    if (el) el.innerHTML = `<strong>${visible} Active Sites</strong> <span class="acd-period-tag">${PERIOD_LABELS[analyticsPeriod]}</span>`;
+    if (el) el.innerHTML = `<strong>${visible} Active Sites</strong>`;
   }
 }
 
