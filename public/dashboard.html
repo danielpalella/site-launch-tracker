@@ -5382,7 +5382,7 @@ function renderAnalyticsModalBody(id, data, forms) {
   const hasDudaWks   = duda?.available && dudaChartWks.length > 1;
   const hasModalChart = (gsc.available && gscChartWks.length > 1) || (ga4.available && ga4ChartWks.length > 1) || hasDudaWks;
 
-  const dudaSection = `<div class="acd-section">
+  const dudaIdSection = `<div class="acd-section">
     <div class="acd-section-title">Duda Site ID</div>
     <div style="display:flex;gap:.4rem;align-items:center">
       <input type="text" class="acd-duda-input" id="acd-duda-${id}"
@@ -5464,7 +5464,7 @@ function renderAnalyticsModalBody(id, data, forms) {
       <div class="acd-account-grid">
         ${tagsSection}
         <div style="display:flex;flex-direction:column;gap:.75rem">
-          ${dudaSection}
+          ${dudaIdSection}
           ${noteSection}
         </div>
       </div>
