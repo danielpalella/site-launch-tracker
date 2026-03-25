@@ -2020,16 +2020,21 @@ tr.status-separator:first-child td { border-top: none; }
 .acd-metric-label { font-size: .68rem; color: var(--text-muted); display: flex; align-items: center; gap: .25rem; }
 .acd-chart-wrap {
   height: 220px;
-  margin-bottom: 1.25rem;
+  margin-bottom: 0;
+  border-top: 1px solid var(--border);
+  padding-top: 1.1rem;
+  margin-top: .2rem;
 }
 .acd-chart-wrap canvas { width: 100% !important; height: 100% !important; }
 .acd-two-col {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  grid-template-rows: auto auto;
   gap: 1.25rem;
-  margin-bottom: 1.1rem;
+  margin-bottom: 0;
   align-items: start;
+  border-top: 1px solid var(--border);
+  padding-top: 1.1rem;
+  margin-top: .2rem;
 }
 .acd-section-span {
   grid-column: 2;
@@ -3387,9 +3392,15 @@ mark.schema-fill-mark {
   border-top: 1px solid var(--border); padding-top: .5rem;
   line-height: 1.4; margin-top: .35rem;
 }
-.acd-note-section { margin-top: .5rem; }
+.acd-note-section {
+  margin: 0;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+}
+.acd-note-section .acd-section-title { margin-bottom: .5rem; }
 .acd-note-textarea {
-  width: 100%; min-height: 70px; resize: vertical;
+  width: 100%; flex: 1; min-height: 80px; resize: none;
   font-size: .82rem; padding: .5rem .6rem;
   border: 1px solid var(--border); border-radius: 8px;
   background: var(--bg); color: var(--text); font-family: inherit;

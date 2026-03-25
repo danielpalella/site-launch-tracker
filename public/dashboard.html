@@ -5328,7 +5328,8 @@ function renderAnalyticsModalBody(id, data, forms) {
       ${opportunitiesBlock}
       ${noteSection}
     </div>
-  ` + `${formsSection}`;
+    ${formsSection ? '<div style="border-top:1px solid var(--border);margin:1.1rem 0 0"></div>' + formsSection : ''}
+  `;
 
   if (hasModalChart) {
     const allWks = [...new Set([
