@@ -10,38 +10,33 @@
     .intake-launch-btn {
       display: inline-flex;
       align-items: center;
-      gap: 0;
+      gap: .6rem;
       background: var(--primary);
       color: #fff;
       border: none;
-      border-radius: 999px;
-      padding: .65rem .65rem .65rem 2rem;
-      font-size: .95rem;
+      border-radius: 8px;
+      padding: .55rem 1.25rem .55rem 1.25rem;
+      font-size: .875rem;
       font-weight: 600;
       cursor: pointer;
       font-family: inherit;
       transition: background .15s, box-shadow .15s, transform .1s;
-      box-shadow: 0 4px 14px rgba(18,89,255,.35);
-      overflow: hidden;
-      position: relative;
+      box-shadow: 0 2px 8px rgba(18,89,255,.28);
+      letter-spacing: .01em;
     }
-    .intake-launch-btn:hover { background: #0a46d6; box-shadow: 0 6px 20px rgba(18,89,255,.45); transform: translateY(-1px); }
-    .intake-launch-btn:active { transform: translateY(0); }
-    .intake-launch-btn:disabled { opacity: .7; cursor: not-allowed; transform: none; }
-    .intake-launch-label { flex: 1; white-space: nowrap; }
+    .intake-launch-btn:hover { background: #0a46d6; box-shadow: 0 4px 14px rgba(18,89,255,.38); transform: translateY(-1px); }
+    .intake-launch-btn:active { transform: translateY(0); box-shadow: 0 1px 4px rgba(18,89,255,.2); }
+    .intake-launch-btn:disabled { opacity: .65; cursor: not-allowed; transform: none; }
+    .intake-launch-label { white-space: nowrap; }
     .intake-rocket-wrap {
       display: flex;
-      align-items: flex-end;
+      align-items: center;
       justify-content: center;
-      width: 52px;
-      height: 44px;
-      background: rgba(255,255,255,.15);
-      border-radius: 999px;
-      margin-left: 1.25rem;
-      overflow: hidden;
+      width: 22px;
+      height: 22px;
       flex-shrink: 0;
     }
-    .intake-rocket { width: 34px; height: 44px; margin-bottom: -6px; }
+    .intake-rocket { width: 18px; height: 18px; }
   </style>
   <script>document.documentElement.setAttribute('data-theme', localStorage.getItem('theme') || 'light');</script>
 </head>
@@ -156,8 +151,7 @@
 
       </div>
 
-      <div class="form-actions">
-        <button type="reset" class="btn btn-ghost">Clear</button>
+      <div class="form-actions" style="justify-content:flex-end;border-top:1px solid var(--border);padding-top:1.25rem;margin-top:.5rem">
         <button type="submit" class="intake-launch-btn" id="submit-btn">
           <span class="intake-launch-label">Submit Launch</span>
           <span class="intake-rocket-wrap">
