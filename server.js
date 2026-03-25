@@ -1515,6 +1515,7 @@ async function fetchAndCacheAnalytics(id, { force = false } = {}) {
     industry: launch.industry || '', launchDate: rawLaunchDate,
     analyticsStartDate, daysSince, gsc, ga4, duda,
     analytics_note: launch.analytics_note || '',
+    duda_site_name: launch.duda_site_name || '',
   };
   const cachedAt = new Date().toISOString();
 
@@ -1643,9 +1644,10 @@ app.get('/api/analytics/:id', requireAuth, async (req, res) => {
     const data = await fetchAndCacheAnalytics(req.params.id, { force: req.query.force === 'true' });
     // Always serve a fresh analytics_note and tags (not frozen in cache)
     const noteDoc = await db.collection('launches').doc(req.params.id).get();
-    const freshNote = noteDoc.exists ? (noteDoc.data().analytics_note || '') : '';
-    const freshTags = noteDoc.exists ? (noteDoc.data().tags || []) : [];
-    res.json({ ...data, analytics_note: freshNote, tags: freshTags });
+    const freshNote     = noteDoc.exists ? (noteDoc.data().analytics_note || '') : '';
+    const freshTags     = noteDoc.exists ? (noteDoc.data().tags || []) : [];
+    const freshDudaName = noteDoc.exists ? (noteDoc.data().duda_site_name || '') : '';
+    res.json({ ...data, analytics_note: freshNote, tags: freshTags, duda_site_name: freshDudaName });
   } catch (err) {
     console.error('Analytics error:', err.message);
     if (err.code === 'not_connected') return res.status(503).json({ error: 'not_connected' });

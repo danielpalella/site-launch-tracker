@@ -4982,7 +4982,7 @@ async function openAnalyticsModal(id) {
   loadCwvSection(id);
   loadKeywordSnapshots(id, data);
   // Wire note auto-save
-  setTimeout(function() { wireNoteAutoSave(id, data); }, 50);
+  setTimeout(function() { wireNoteAutoSave(id, data); wireDudaAutoSave(id); }, 50);
   try {
     const r = await fetch('/api/launches/' + id + '/forms');
     const forms = r.ok ? await r.json() : { available: false };
@@ -4990,6 +4990,7 @@ async function openAnalyticsModal(id) {
     loadCwvSection(id);
     loadKeywordSnapshots(id, data);
     wireNoteAutoSave(id, data);
+    wireDudaAutoSave(id);
   } catch {
     renderAnalyticsModalBody(id, data, { available: false });
     loadCwvSection(id);
@@ -5350,6 +5351,17 @@ function renderAnalyticsModalBody(id, data, forms) {
   const hasDudaWks   = duda?.available && dudaChartWks.length > 1;
   const hasModalChart = (gsc.available && gscChartWks.length > 1) || (ga4.available && ga4ChartWks.length > 1) || hasDudaWks;
 
+  const dudaSection = `<div class="acd-section">
+    <div class="acd-section-title">Duda Site ID</div>
+    <div style="display:flex;gap:.4rem;align-items:center">
+      <input type="text" class="acd-duda-input" id="acd-duda-${id}"
+        value="${esc(data.duda_site_name || '')}"
+        placeholder="e.g. a1b2c3d4e5f6"
+        spellcheck="false" autocomplete="off">
+      <div class="acd-note-status" id="acd-duda-status-${id}" style="white-space:nowrap"></div>
+    </div>
+  </div>`;
+
   const noteSection = '<div class="acd-section acd-note-section">'
     + '<div class="acd-section-title">Internal Notes</div>'
     + '<textarea class="acd-note-textarea" id="acd-note-' + id + '" maxlength="500" placeholder="Add a note about this account…">' + esc(data.analytics_note || '') + '</textarea>'
@@ -5420,7 +5432,10 @@ function renderAnalyticsModalBody(id, data, forms) {
     <div id="acd-tp-account-${id}" class="acd-tab-pane" style="display:none">
       <div class="acd-account-grid">
         ${tagsSection}
-        ${noteSection}
+        <div style="display:flex;flex-direction:column;gap:.75rem">
+          ${dudaSection}
+          ${noteSection}
+        </div>
       </div>
     </div>
   `;
@@ -5690,6 +5705,33 @@ function toggleKwExpand(id) {
   const hidden = extra.style.display === 'none';
   extra.style.display = hidden ? '' : 'none';
   if (btn) btn.textContent = hidden ? 'Show less' : 'Show all';
+}
+
+function wireDudaAutoSave(id) {
+  var el = document.getElementById('acd-duda-' + id);
+  if (!el) return;
+  var lastSaved = el.value;
+  el.onblur = async function() {
+    const val = el.value.trim();
+    if (val === lastSaved) return;
+    var statusEl = document.getElementById('acd-duda-status-' + id);
+    try {
+      var r = await fetch('/api/launches/' + id, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ duda_site_name: val }),
+      });
+      if (r.ok) {
+        lastSaved = val;
+        if (analyticsData[id]) analyticsData[id].duda_site_name = val;
+        if (statusEl) { statusEl.textContent = 'Saved'; statusEl.style.color = '#22c55e'; setTimeout(function() { if(statusEl) statusEl.textContent = ''; }, 2000); }
+      } else {
+        if (statusEl) { statusEl.textContent = 'Failed'; statusEl.style.color = '#ef4444'; }
+      }
+    } catch(e) {
+      if (statusEl) { statusEl.textContent = 'Failed'; statusEl.style.color = '#ef4444'; }
+    }
+  };
 }
 
 function wireNoteAutoSave(id, data) {

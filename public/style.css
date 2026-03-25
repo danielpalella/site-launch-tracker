@@ -3604,6 +3604,15 @@ mark.schema-fill-mark {
 }
 .tag-new-btn:hover { opacity: .88; }
 
+.acd-duda-input {
+  flex: 1; min-width: 0;
+  font-size: .82rem; padding: .4rem .6rem;
+  border: 1px solid var(--border); border-radius: 8px;
+  background: var(--bg); color: var(--text); font-family: monospace;
+  transition: border-color .15s;
+}
+.acd-duda-input:focus { border-color: var(--primary); outline: none; }
+
 .acd-note-section {
   margin: 0;
   display: flex;
