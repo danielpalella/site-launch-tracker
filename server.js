@@ -2180,6 +2180,21 @@ app.get('/api/admin/error-logs', requireAuth, async (req, res) => {
 });
 
 
+// ── Public Share Report ──
+app.get('/api/share/:id', async (req, res) => {
+  try {
+    const cacheDoc = await db.collection('launches').doc(req.params.id)
+      .collection('analytics_cache').doc('daily').get();
+    if (!cacheDoc.exists) return res.status(404).json({ error: 'Report not available yet' });
+    const { data, cachedAt } = cacheDoc.data();
+    const { account_name, domain, launchDate, analyticsStartDate, daysSince, gsc, ga4, duda } = data;
+    res.json({ account_name, domain, launchDate, analyticsStartDate, daysSince, gsc, ga4, duda, cachedAt });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to load report' });
+  }
+});
+app.get('/share/:id', (_req, res) => res.sendFile(join(__dirname, 'public', 'share.html')));
+
 // ── Pages ──
 app.get('/edit-request', (_req, res) => res.sendFile(join(__dirname, 'public', 'edit-request.html')));
 app.get('/dashboard', requireAuth, (_req, res) => res.sendFile(join(__dirname, 'public', 'dashboard.html')));

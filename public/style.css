@@ -3639,6 +3639,37 @@ mark.schema-fill-mark {
 }
 .tag-new-btn:hover { opacity: .88; }
 
+.acd-report-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+.acd-report-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  padding: .45rem .9rem;
+  font-size: .8rem;
+  font-weight: 600;
+  font-family: inherit;
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+  border: 1.5px solid color-mix(in srgb, var(--primary) 25%, transparent);
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background .12s, border-color .12s;
+  flex-shrink: 0;
+}
+.acd-report-copy-btn:hover {
+  background: color-mix(in srgb, var(--primary) 14%, transparent);
+  border-color: color-mix(in srgb, var(--primary) 40%, transparent);
+}
+
 .acd-duda-input {
   flex: 1; min-width: 0;
   font-size: .82rem; padding: .4rem .6rem;

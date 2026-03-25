@@ -5477,6 +5477,16 @@ function renderAnalyticsModalBody(id, data, forms) {
           ${noteSection}
         </div>
       </div>
+      <div class="acd-report-row">
+        <div>
+          <div style="font-size:.82rem;font-weight:600;color:var(--text);margin-bottom:.2rem">Client Report Link</div>
+          <div style="font-size:.76rem;color:var(--text-muted)">Share a live, client-friendly view of this site's performance.</div>
+        </div>
+        <button class="acd-report-copy-btn" id="acd-report-btn-${id}" onclick="copyReportLink('${esc(id)}')">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+          Copy Link
+        </button>
+      </div>
     </div>
   `;
 
@@ -5927,10 +5937,6 @@ function renderAnalyticsCard(id, data) {
         </div>
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:.3rem">
-        <button class="ac-copy-btn" onclick="copyAnalyticsCard('${esc(id)}')" title="Copy to clipboard">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-          Copy
-        </button>
         <div style="font-size:.7rem;color:var(--text-muted)">Since ${fmtAnalyticsDate(displayDate)}</div>
         ${(data._cachedAt && (Date.now() - new Date(data._cachedAt).getTime()) > 20 * 3600 * 1000)
           ? `<span class="ac-stale-badge" title="Data cached ${Math.floor((Date.now() - new Date(data._cachedAt).getTime()) / 3600000)}h ago — click Refresh to update">⚠ Stale data</span>`
@@ -6132,6 +6138,21 @@ async function saveAnalyticsStartDate(id) {
     else { if (card) card.innerHTML = `<div class="ac-unavailable">${esc(d.error || 'Failed to load')}</div>`; }
   } catch {
     showToast('Failed to save start date', 'error');
+  }
+}
+
+async function copyReportLink(id) {
+  const url = window.location.origin + '/share/' + id;
+  try {
+    await navigator.clipboard.writeText(url);
+    const btn = document.getElementById('acd-report-btn-' + id);
+    if (btn) {
+      const orig = btn.innerHTML;
+      btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Copied!';
+      setTimeout(() => { btn.innerHTML = orig; }, 2000);
+    }
+  } catch {
+    showToast('Failed to copy link', 'error');
   }
 }
 
