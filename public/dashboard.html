@@ -5249,14 +5249,8 @@ function renderAnalyticsModalBody(id, data, forms) {
     + '</div>'
   ) : '';
 
-  // CWV section - loaded async after modal opens
-  const cwvSection = `
-  <div class="acd-section acd-section-span" id="cwv-section-${id}">
-    <div class="acd-section-title" style="margin-bottom:.5rem">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:.35rem"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Lighthouse &amp; Core Web Vitals
-    </div>
-    <div id="cwv-body-${id}" style="color:var(--text-muted);font-size:.78rem">Loading…</div>
-  </div>`;
+  // CWV section - loaded async, lives in Performance tab
+  const cwvSection = `<div id="cwv-body-${id}" style="color:var(--text-muted);font-size:.78rem">Loading…</div>`;
 
   // Traffic Sources
   const channelsSection = ga4.available && ga4.channels?.length ? `
@@ -5275,7 +5269,7 @@ function renderAnalyticsModalBody(id, data, forms) {
   // Form Submissions
   let formsSection = '';
   if (forms === null) {
-    formsSection = `<div class="acd-section"><div class="acd-section-title">Form Submissions</div><div style="font-size:.8rem;color:var(--text-muted)">Loading…</div></div>`;
+    formsSection = `<div class="leads-tab-wrap"><div style="font-size:.85rem;color:var(--text-muted);padding:1rem 0">Loading…</div></div>`;
   } else if (forms.available && forms.submissions?.length) {
     // Sort newest first
     const subs = [...forms.submissions].sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -5305,11 +5299,20 @@ function renderAnalyticsModalBody(id, data, forms) {
       const phone = phonePair?.[1] || '';
       const msg   = msgPair?.[1]   || '';
       const dateStr = s.date ? new Date(s.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
-      return '<div class="acd-form-row">'
-        + '<div class="acd-form-meta"><span class="acd-form-name">' + esc(name) + '</span><span class="acd-form-date">' + dateStr + '</span></div>'
-        + '<div class="acd-form-contact">' + esc(email) + (phone ? ' · ' + esc(phone) : '') + '</div>'
-        + (msg ? '<div class="acd-form-msg">' + esc(msg) + '</div>' : '')
-        + others.map(([k, v]) => '<div class="acd-form-field"><span class="acd-form-field-label">' + esc(k) + ':</span> ' + esc(String(v)) + '</div>').join('')
+      const isNew = s.date && (Date.now() - new Date(s.date).getTime()) < 30 * 86400000;
+      const initial = name && name !== '—' ? name.trim()[0].toUpperCase() : '?';
+      const avatarHue = name && name !== '—' ? ((name.charCodeAt(0) * 47 + name.charCodeAt(1 % name.length) * 13) % 360) : 200;
+      return '<div class="lead-card">'
+        + '<div class="lead-card-top">'
+        + `<div class="lead-avatar" style="background:hsl(${avatarHue},50%,42%)">${initial}</div>`
+        + '<div class="lead-card-info">'
+        + '<div class="lead-name">' + esc(name) + (isNew ? '<span class="lead-new-badge">New</span>' : '') + '</div>'
+        + '<div class="lead-contact">' + esc(email) + (phone ? ' · ' + esc(phone) : '') + '</div>'
+        + '</div>'
+        + '<div class="lead-date">' + dateStr + '</div>'
+        + '</div>'
+        + (msg ? '<div class="lead-message">' + esc(msg) + '</div>' : '')
+        + others.map(([k, v]) => '<div class="lead-field"><span class="lead-field-label">' + esc(k) + ':</span> ' + esc(String(v)) + '</div>').join('')
         + '</div>';
     };
     const renderList = (list, extraId) => {
@@ -5322,22 +5325,21 @@ function renderAnalyticsModalBody(id, data, forms) {
         : '');
     };
     const safeId = id.replace(/[^a-z0-9]/gi, '_');
-    formsSection = '<div class="acd-section">'
-      + '<div class="acd-section-title" style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">'
-      + 'Form Submissions'
-      + '<span class="acd-period-tag">' + subs.length + ' total</span>'
-      + '<div class="acd-form-tabs" id="acd-ftabs-' + safeId + '">'
-      + '<button class="acd-form-tab acd-form-tab-active" onclick="acdFormTab(\'' + safeId + '\',\'leads\')">Leads (' + leads.length + ')</button>'
-      + '<button class="acd-form-tab" onclick="acdFormTab(\'' + safeId + '\',\'zip\')">Zip checks (' + zipSubs.length + ')</button>'
+    formsSection = '<div class="leads-tab-wrap">'
+      + '<div class="leads-tab-header">'
+      + '<div class="leads-tab-toggle" id="acd-ftabs-' + safeId + '">'
+      + '<button class="leads-toggle-btn leads-toggle-active" onclick="acdFormTab(\'' + safeId + '\',\'leads\')">Leads <span class="leads-count">' + leads.length + '</span></button>'
+      + '<button class="leads-toggle-btn" onclick="acdFormTab(\'' + safeId + '\',\'zip\')">Zip checks <span class="leads-count">' + zipSubs.length + '</span></button>'
       + '</div>'
+      + '<span class="leads-total">' + subs.length + ' total</span>'
       + '</div>'
-      + '<div id="acd-flist-leads-' + safeId + '" class="acd-forms-list">' + renderList(leads, 'acd-fext-leads-' + safeId) + '</div>'
-      + '<div id="acd-flist-zip-' + safeId + '" class="acd-forms-list" style="display:none">' + renderList(zipSubs, 'acd-fext-zip-' + safeId) + '</div>'
+      + '<div id="acd-flist-leads-' + safeId + '" class="leads-list">' + renderList(leads, 'acd-fext-leads-' + safeId) + '</div>'
+      + '<div id="acd-flist-zip-' + safeId + '" class="leads-list" style="display:none">' + renderList(zipSubs, 'acd-fext-zip-' + safeId) + '</div>'
       + '</div>';
   } else if (forms.available && !forms.submissions?.length) {
-    formsSection = `<div class="acd-section"><div class="acd-section-title">Form Submissions</div><div style="font-size:.8rem;color:var(--text-muted)">No submissions yet.</div></div>`;
+    formsSection = `<div class="leads-tab-wrap"><div style="font-size:.85rem;color:var(--text-muted);padding:1rem 0">No form submissions yet.</div></div>`;
   } else if (forms && !forms.available) {
-    formsSection = `<div class="acd-section"><div class="acd-section-title">Form Submissions</div><div style="font-size:.8rem;color:var(--text-muted)">${esc(forms.reason || 'Unavailable')}</div></div>`;
+    formsSection = `<div class="leads-tab-wrap"><div style="font-size:.85rem;color:var(--text-muted);padding:1rem 0">${esc(forms.reason || 'Form submissions unavailable')}</div></div>`;
   }
 
   const gscChartWks  = period === 'all' ? (gsc.weeks || [])   : periodWeeks(gsc.weeks, period);
@@ -5379,20 +5381,46 @@ function renderAnalyticsModalBody(id, data, forms) {
     </div>
   </div>`;
 
+  // Lead count for tab badge
+  let leadCount = 0;
+  if (forms?.available && forms.submissions?.length) {
+    const _isZip = s => {
+      const ents = (s.message && typeof s.message === 'object' && !Array.isArray(s.message))
+        ? Object.entries(s.message).filter(([, v]) => v !== '' && v != null) : [];
+      return ents.length > 0 && ents.every(([k]) => /zip|postal/i.test(k));
+    };
+    leadCount = forms.submissions.filter(s => !_isZip(s)).length;
+  }
+
   document.getElementById('acd-body').innerHTML = `
-    <div class="acd-sources-row">${gscSection}${ga4Section}${dudaSection}</div>
-    ${hasModalChart ? '<div class="acd-chart-wrap"><canvas id="acd-canvas"></canvas></div>' : ''}
-    <div class="acd-two-col">
-      ${queriesSection}
-      ${cwvSection}
+    <div class="acd-tabs-nav" id="acd-tnav-${id}">
+      <button class="acd-tab-btn acd-tab-active" onclick="switchAcdTab('overview','${esc(id)}')">Overview</button>
+      <button class="acd-tab-btn" onclick="switchAcdTab('seo','${esc(id)}')">SEO &amp; Keywords</button>
+      <button class="acd-tab-btn" onclick="switchAcdTab('perf','${esc(id)}')">Performance</button>
+      <button class="acd-tab-btn" onclick="switchAcdTab('leads','${esc(id)}')" id="acd-leads-tab-btn-${id}">Leads${leadCount > 0 ? `<span class="acd-tab-count">${leadCount}</span>` : ''}</button>
+      <button class="acd-tab-btn" onclick="switchAcdTab('account','${esc(id)}')">Account</button>
+    </div>
+    <div id="acd-tp-overview-${id}" class="acd-tab-pane">
+      <div class="acd-sources-row">${gscSection}${ga4Section}${dudaSection}</div>
+      ${hasModalChart ? '<div class="acd-chart-wrap"><canvas id="acd-canvas"></canvas></div>' : ''}
       ${channelsSection}
+    </div>
+    <div id="acd-tp-seo-${id}" class="acd-tab-pane" style="display:none">
+      ${queriesSection || '<div style="color:var(--text-muted);font-size:.85rem;padding:.75rem 0">No keyword data available yet.</div>'}
       ${opportunitiesBlock}
-      <div class="acd-col2-bottom">
+    </div>
+    <div id="acd-tp-perf-${id}" class="acd-tab-pane" style="display:none">
+      ${cwvSection}
+    </div>
+    <div id="acd-tp-leads-${id}" class="acd-tab-pane" style="display:none">
+      ${formsSection}
+    </div>
+    <div id="acd-tp-account-${id}" class="acd-tab-pane" style="display:none">
+      <div class="acd-account-grid">
         ${tagsSection}
         ${noteSection}
       </div>
     </div>
-    ${formsSection ? '<div style="border-top:1px solid var(--border);margin:1.1rem 0 0"></div>' + formsSection : ''}
   `;
 
   if (hasModalChart) {
@@ -5640,6 +5668,18 @@ async function createAndAddTag(siteId) {
   }
 }
 
+function switchAcdTab(tab, id) {
+  const tabs = ['overview', 'seo', 'perf', 'leads', 'account'];
+  tabs.forEach(t => {
+    const el = document.getElementById(`acd-tp-${t}-${id}`);
+    if (el) el.style.display = t === tab ? '' : 'none';
+  });
+  const nav = document.getElementById(`acd-tnav-${id}`);
+  if (nav) nav.querySelectorAll('.acd-tab-btn').forEach((btn, i) => {
+    btn.classList.toggle('acd-tab-active', tabs[i] === tab);
+  });
+}
+
 function toggleKwExpand(id) {
   const extra = document.getElementById('kw-extra-' + id);
   const btn   = document.getElementById('kw-expand-' + id);
@@ -5679,10 +5719,10 @@ function wireNoteAutoSave(id, data) {
 function acdFormTab(safeId, tab) {
   const leadsEl = document.getElementById('acd-flist-leads-' + safeId);
   const zipEl   = document.getElementById('acd-flist-zip-'   + safeId);
-  const tabs    = document.querySelectorAll('#acd-ftabs-' + safeId + ' .acd-form-tab');
+  const tabs    = document.querySelectorAll('#acd-ftabs-' + safeId + ' .leads-toggle-btn');
   if (leadsEl) leadsEl.style.display = tab === 'leads' ? '' : 'none';
   if (zipEl)   zipEl.style.display   = tab === 'zip'   ? '' : 'none';
-  tabs.forEach((btn, i) => btn.classList.toggle('acd-form-tab-active', (i === 0) === (tab === 'leads')));
+  tabs.forEach((btn, i) => btn.classList.toggle('leads-toggle-active', (i === 0) === (tab === 'leads')));
 }
 
 function fmtAnalyticsDate(dateStr) {
