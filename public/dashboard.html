@@ -327,7 +327,21 @@
   <div class="modal ac-detail-modal" onclick="event.stopPropagation()">
     <div class="ac-detail-header">
       <div>
-        <div style="display:flex;align-items:center;gap:.55rem;flex-wrap:wrap"><img id="acd-favicon" class="ac-favicon ac-favicon-lg" src="" alt="" style="display:none"><span id="acd-name" style="font-size:1rem;font-weight:700;color:var(--text)"></span><span id="acd-health-badge"></span><span id="acd-header-tags" style="display:contents"></span></div>
+        <div style="display:flex;align-items:center;gap:.55rem;flex-wrap:wrap">
+          <div class="acd-favicon-wrap" id="acd-favicon-wrap" style="display:none">
+            <img id="acd-favicon" class="ac-favicon ac-favicon-lg" src="" alt="">
+            <div class="acd-favicon-actions" id="acd-favicon-actions">
+              <label class="acd-fav-btn" title="Upload custom favicon">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
+                <input type="file" accept="image/*" style="display:none" onchange="uploadModalFavicon(event)">
+              </label>
+              <button class="acd-fav-btn acd-fav-btn-del" title="Remove custom favicon" onclick="deleteModalFavicon()">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+              </button>
+            </div>
+          </div>
+          <span id="acd-name" style="font-size:1rem;font-weight:700;color:var(--text)"></span><span id="acd-health-badge"></span><span id="acd-header-tags" style="display:contents"></span>
+        </div>
         <div style="display:flex;align-items:center;gap:.4rem"><a id="acd-domain" class="ac-domain" target="_blank" rel="noopener" style="font-size:.8rem"></a><span class="ac-uptime-dot ac-uptime-up"></span></div>
       </div>
       <div style="display:flex;align-items:center;gap:.75rem">
@@ -4990,10 +5004,13 @@ async function openAnalyticsModal(id) {
   const data = analyticsData[id];
   if (!data) return;
   document.getElementById('acd-name').textContent = data.account_name;
-  const faviconEl = document.getElementById('acd-favicon');
+  _currentModalId = id;
+  const faviconWrap = document.getElementById('acd-favicon-wrap');
+  const faviconEl   = document.getElementById('acd-favicon');
   if (faviconEl && data.domain) {
-    faviconEl.src = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(data.domain)}&sz=32`;
-    faviconEl.style.display = '';
+    faviconEl.src = data.custom_favicon || `https://www.google.com/s2/favicons?domain=${encodeURIComponent(data.domain)}&sz=32`;
+    faviconWrap.style.display = '';
+    wireFaviconLongPress();
   }
   renderModalHeaderTags(id);
   const health = computeGscHealth(data);
@@ -5926,7 +5943,7 @@ function renderAnalyticsCard(id, data) {
   card.innerHTML = `
     <div class="ac-card-header">
       <div style="display:flex;align-items:center;gap:.55rem">
-        <img class="ac-favicon" src="https://www.google.com/s2/favicons?domain=${esc(domain)}&sz=32" alt="" loading="lazy">
+        <img class="ac-favicon" src="${esc(data.custom_favicon || `https://www.google.com/s2/favicons?domain=${domain}&sz=32`)}" alt="" loading="lazy">
         <div>
           <div class="ac-name">${esc(account_name)}</div>
           <div style="display:flex;align-items:center;gap:.35rem"><a class="ac-domain" href="https://${esc(domain)}" target="_blank" rel="noopener">${esc(domain)}</a><span class="ac-uptime-dot ac-uptime-up"></span></div>
@@ -6134,6 +6151,81 @@ async function saveAnalyticsStartDate(id) {
     else { if (card) card.innerHTML = `<div class="ac-unavailable">${esc(d.error || 'Failed to load')}</div>`; }
   } catch {
     showToast('Failed to save start date', 'error');
+  }
+}
+
+let _currentModalId = null;
+let _faviconLongPressTimer = null;
+
+function wireFaviconLongPress() {
+  const el = document.getElementById('acd-favicon');
+  if (!el) return;
+  el.onmousedown = el.ontouchstart = (e) => {
+    e.preventDefault();
+    _faviconLongPressTimer = setTimeout(startFaviconShake, 600);
+  };
+  el.onmouseup = el.onmouseleave = el.ontouchend = () => {
+    clearTimeout(_faviconLongPressTimer);
+  };
+}
+
+function startFaviconShake() {
+  const el    = document.getElementById('acd-favicon');
+  const acts  = document.getElementById('acd-favicon-actions');
+  if (!el) return;
+  el.classList.add('acd-favicon-shaking');
+  if (acts) acts.style.display = 'flex';
+  document.addEventListener('click', stopFaviconShakeOnOutsideClick, true);
+}
+
+function stopFaviconShake() {
+  const el   = document.getElementById('acd-favicon');
+  const acts = document.getElementById('acd-favicon-actions');
+  if (el)   el.classList.remove('acd-favicon-shaking');
+  if (acts) acts.style.display = 'none';
+  document.removeEventListener('click', stopFaviconShakeOnOutsideClick, true);
+}
+
+function stopFaviconShakeOnOutsideClick(e) {
+  if (!e.target.closest('#acd-favicon-wrap')) stopFaviconShake();
+}
+
+async function uploadModalFavicon(e) {
+  const file = e.target.files[0];
+  if (!file || !_currentModalId) return;
+  const fd = new FormData();
+  fd.append('favicon', file);
+  try {
+    const r = await fetch(`/api/launches/${_currentModalId}/favicon`, { method: 'POST', body: fd });
+    if (!r.ok) throw new Error('Upload failed');
+    const { custom_favicon } = await r.json();
+    document.getElementById('acd-favicon').src = custom_favicon;
+    if (analyticsData[_currentModalId]) analyticsData[_currentModalId].custom_favicon = custom_favicon;
+    // also update the card favicon
+    const cardImg = document.querySelector(`#ac-card-${_currentModalId} .ac-favicon`);
+    if (cardImg) cardImg.src = custom_favicon;
+    stopFaviconShake();
+    showToast('Favicon updated');
+  } catch {
+    showToast('Failed to upload favicon', 'error');
+  }
+  e.target.value = '';
+}
+
+async function deleteModalFavicon() {
+  if (!_currentModalId) return;
+  try {
+    await fetch(`/api/launches/${_currentModalId}/favicon`, { method: 'DELETE' });
+    const data = analyticsData[_currentModalId];
+    if (data) data.custom_favicon = null;
+    const fallback = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(data?.domain||'')}&sz=32`;
+    document.getElementById('acd-favicon').src = fallback;
+    const cardImg = document.querySelector(`#ac-card-${_currentModalId} .ac-favicon`);
+    if (cardImg) cardImg.src = fallback;
+    stopFaviconShake();
+    showToast('Custom favicon removed');
+  } catch {
+    showToast('Failed to remove favicon', 'error');
   }
 }
 

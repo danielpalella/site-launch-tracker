@@ -1856,6 +1856,45 @@ tr.status-separator:first-child td { border-top: none; }
   margin-bottom: .15rem;
   flex-wrap: wrap;
 }
+/* ── Modal favicon long-press edit ── */
+@keyframes fav-shake {
+  0%, 100% { transform: rotate(0deg) scale(1); }
+  20%       { transform: rotate(-12deg) scale(1.1); }
+  40%       { transform: rotate(12deg) scale(1.1); }
+  60%       { transform: rotate(-10deg) scale(1.1); }
+  80%       { transform: rotate(10deg) scale(1.1); }
+}
+.acd-favicon-wrap {
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+  position: relative;
+}
+.acd-favicon-shaking {
+  animation: fav-shake .4s ease-in-out infinite;
+  cursor: pointer;
+}
+.acd-favicon-actions {
+  display: none;
+  align-items: center;
+  gap: .2rem;
+}
+.acd-fav-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px; height: 24px;
+  border-radius: 6px;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-family: inherit;
+  transition: background .12s, border-color .12s, color .12s;
+}
+.acd-fav-btn:hover { background: var(--bg); border-color: var(--text-muted); color: var(--text); }
+.acd-fav-btn-del:hover { border-color: #ef4444; color: #ef4444; background: #fee2e2; }
+
 .ac-favicon {
   width: 20px; height: 20px;
   border-radius: 4px;

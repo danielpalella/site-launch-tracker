@@ -179,6 +179,7 @@ function formatLaunch(doc) {
     analytics_start_date: d.analytics_start_date || null,
     duda_site_name:       d.duda_site_name       || null,
     analytics_note:       d.analytics_note       || '',
+    custom_favicon:       d.custom_favicon        || null,
   };
 }
 
@@ -1644,10 +1645,11 @@ app.get('/api/analytics/:id', requireAuth, async (req, res) => {
     const data = await fetchAndCacheAnalytics(req.params.id, { force: req.query.force === 'true' });
     // Always serve a fresh analytics_note and tags (not frozen in cache)
     const noteDoc = await db.collection('launches').doc(req.params.id).get();
-    const freshNote     = noteDoc.exists ? (noteDoc.data().analytics_note || '') : '';
-    const freshTags     = noteDoc.exists ? (noteDoc.data().tags || []) : [];
-    const freshDudaName = noteDoc.exists ? (noteDoc.data().duda_site_name || '') : '';
-    res.json({ ...data, analytics_note: freshNote, tags: freshTags, duda_site_name: freshDudaName });
+    const freshNote     = noteDoc.exists ? (noteDoc.data().analytics_note  || '') : '';
+    const freshTags     = noteDoc.exists ? (noteDoc.data().tags            || []) : [];
+    const freshDudaName = noteDoc.exists ? (noteDoc.data().duda_site_name  || '') : '';
+    const freshFavicon  = noteDoc.exists ? (noteDoc.data().custom_favicon  || null) : null;
+    res.json({ ...data, analytics_note: freshNote, tags: freshTags, duda_site_name: freshDudaName, custom_favicon: freshFavicon });
   } catch (err) {
     console.error('Analytics error:', err.message);
     if (err.code === 'not_connected') return res.status(503).json({ error: 'not_connected' });
@@ -2179,6 +2181,28 @@ app.get('/api/admin/error-logs', requireAuth, async (req, res) => {
   }
 });
 
+
+// ── Custom Favicon ──
+const faviconUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 512 * 1024, files: 1 } });
+app.post('/api/launches/:id/favicon', requireAuth, faviconUpload.single('favicon'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No file provided' });
+    if (!req.file.mimetype.startsWith('image/')) return res.status(400).json({ error: 'File must be an image' });
+    const dataUrl = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+    await db.collection('launches').doc(req.params.id).update({ custom_favicon: dataUrl });
+    res.json({ custom_favicon: dataUrl });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+app.delete('/api/launches/:id/favicon', requireAuth, async (req, res) => {
+  try {
+    await db.collection('launches').doc(req.params.id).update({ custom_favicon: null });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // ── Public Share Report ──
 app.get('/api/share/:id', async (req, res) => {
