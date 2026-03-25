@@ -6,6 +6,43 @@
   <title>RealWork Websites — Intake</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="/style.css" />
+  <style>
+    .intake-launch-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0;
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: 999px;
+      padding: .65rem .65rem .65rem 2rem;
+      font-size: .95rem;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background .15s, box-shadow .15s, transform .1s;
+      box-shadow: 0 4px 14px rgba(18,89,255,.35);
+      overflow: hidden;
+      position: relative;
+    }
+    .intake-launch-btn:hover { background: #0a46d6; box-shadow: 0 6px 20px rgba(18,89,255,.45); transform: translateY(-1px); }
+    .intake-launch-btn:active { transform: translateY(0); }
+    .intake-launch-btn:disabled { opacity: .7; cursor: not-allowed; transform: none; }
+    .intake-launch-label { flex: 1; white-space: nowrap; }
+    .intake-rocket-wrap {
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      width: 52px;
+      height: 44px;
+      background: rgba(255,255,255,.15);
+      border-radius: 999px;
+      margin-left: 1.25rem;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .intake-rocket { width: 34px; height: 44px; margin-bottom: -6px; }
+  </style>
   <script>document.documentElement.setAttribute('data-theme', localStorage.getItem('theme') || 'light');</script>
 </head>
 <body>
@@ -121,8 +158,16 @@
 
       <div class="form-actions">
         <button type="reset" class="btn btn-ghost">Clear</button>
-        <button type="submit" class="btn btn-primary" id="submit-btn">
-          Submit Launch Request
+        <button type="submit" class="intake-launch-btn" id="submit-btn">
+          <span class="intake-launch-label">Submit Launch</span>
+          <span class="intake-rocket-wrap">
+            <svg class="intake-rocket" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M32 4C32 4 18 16 18 34c0 6 2.5 11.5 6 15.5L32 60l8-10.5C43.5 45.5 46 40 46 34 46 16 32 4 32 4z" fill="rgba(255,255,255,0.25)" stroke="white" stroke-width="2" stroke-linejoin="round"/>
+              <circle cx="32" cy="30" r="5" fill="white" opacity="0.9"/>
+              <path d="M22 44c-3 2-6 8-6 8s6-1 10-4" fill="rgba(255,255,255,0.35)" stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
+              <path d="M42 44c3 2 6 8 6 8s-6-1-10-4" fill="rgba(255,255,255,0.35)" stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
+            </svg>
+          </span>
         </button>
       </div>
     </form>
@@ -205,7 +250,8 @@ document.getElementById('launch-form').addEventListener('submit', async (e) => {
 
   const btn = document.getElementById('submit-btn');
   btn.disabled = true;
-  btn.textContent = 'Submitting…';
+  const label = btn.querySelector('.intake-launch-label');
+  if (label) label.textContent = 'Submitting…';
 
   try {
     const res = await fetch('/api/launches', {
@@ -216,12 +262,15 @@ document.getElementById('launch-form').addEventListener('submit', async (e) => {
     const json = await res.json();
     if (!res.ok) throw new Error(json.error || 'Submission failed.');
 
-    document.getElementById('form-card').style.display = 'none';
-    document.getElementById('success-card').style.display = 'block';
+    launchRocketAnimation(() => {
+      document.getElementById('form-card').style.display = 'none';
+      document.getElementById('success-card').style.display = 'block';
+    });
   } catch (err) {
     showToast(err.message, 'error');
     btn.disabled = false;
-    btn.textContent = 'Submit Launch Request';
+    const label = btn.querySelector('.intake-launch-label');
+    if (label) label.textContent = 'Submit Launch';
   }
 });
 
@@ -232,8 +281,65 @@ document.getElementById('submit-another').addEventListener('click', () => {
   document.getElementById('form-card').style.display = 'block';
   const btn = document.getElementById('submit-btn');
   btn.disabled = false;
-  btn.textContent = 'Submit Launch Request';
+  const label = btn.querySelector('.intake-launch-label');
+  if (label) label.textContent = 'Submit Launch';
 });
+
+function launchRocketAnimation(onComplete) {
+  const btn = document.getElementById('submit-btn');
+  const pipelineTab = document.querySelector('a[href="/dashboard"]');
+  if (!btn || !pipelineTab) { onComplete(); return; }
+
+  const btnRect = btn.getBoundingClientRect();
+  const tabRect = pipelineTab.getBoundingClientRect();
+
+  // Create a flying rocket clone
+  const flyer = document.createElement('div');
+  flyer.style.cssText = `
+    position:fixed;
+    z-index:9999;
+    pointer-events:none;
+    width:40px;height:40px;
+    left:${btnRect.right - 50}px;
+    top:${btnRect.top + (btnRect.height/2) - 20}px;
+    transition:none;
+  `;
+  flyer.innerHTML = `<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:40px;height:40px;filter:drop-shadow(0 2px 8px rgba(18,89,255,.5))">
+    <path d="M32 4C32 4 18 16 18 34c0 6 2.5 11.5 6 15.5L32 60l8-10.5C43.5 45.5 46 40 46 34 46 16 32 4 32 4z" fill="#1259FF" stroke="#1259FF" stroke-width="2" stroke-linejoin="round"/>
+    <circle cx="32" cy="30" r="5" fill="white"/>
+    <path d="M22 44c-3 2-6 8-6 8s6-1 10-4" fill="#93c5fd" stroke="#1259FF" stroke-width="1.5"/>
+    <path d="M42 44c3 2 6 8 6 8s-6-1-10-4" fill="#93c5fd" stroke="#1259FF" stroke-width="1.5"/>
+  </svg>`;
+  document.body.appendChild(flyer);
+
+  const destX = tabRect.left + tabRect.width / 2 - 20;
+  const destY = tabRect.top + tabRect.height / 2 - 20;
+  const startX = btnRect.right - 50;
+  const startY = btnRect.top + btnRect.height / 2 - 20;
+  const dx = destX - startX;
+  const dy = destY - startY;
+
+  // Animate with requestAnimationFrame for smooth arc
+  const duration = 700;
+  const start = performance.now();
+  function step(now) {
+    const t = Math.min((now - start) / duration, 1);
+    const ease = t < 0.5 ? 2*t*t : -1+(4-2*t)*t;
+    // Slight arc: midpoint rises above the straight line
+    const arc = Math.sin(Math.PI * t) * -80;
+    const x = startX + dx * ease;
+    const y = startY + dy * ease + arc;
+    const scale = 1 - t * 0.6;
+    const rotate = -45 + t * 10;
+    flyer.style.left = x + 'px';
+    flyer.style.top = y + 'px';
+    flyer.style.transform = `scale(${scale}) rotate(${rotate}deg)`;
+    flyer.style.opacity = t > 0.8 ? (1 - t) * 5 : 1;
+    if (t < 1) requestAnimationFrame(step);
+    else { flyer.remove(); onComplete(); }
+  }
+  requestAnimationFrame(step);
+}
 
 (async () => {
   try {
