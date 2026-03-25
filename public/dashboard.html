@@ -249,34 +249,48 @@
         <button class="ac-view-btn" id="ac-view-seo" onclick="switchAnalyticsView('seo')">Site Audit</button>
       </div>
       <div class="ac-toolbar-divider"></div>
-      <select id="ac-industry-select" class="ac-industry-select" onchange="filterAnalyticsIndustry(this.value)">
-        <option value="all">All Industries</option>
-      </select>
-      <select id="ac-tag-filter" class="ac-industry-select" onchange="filterAnalyticsTags(this.value)">
-        <option value="">All Tags</option>
-      </select>
-      <input type="search" id="analytics-search" placeholder="Search accounts…" oninput="filterAnalyticsSearch(this.value)" class="ac-search">
-      <div id="seo-toolbar-extras" style="display:none;align-items:center;gap:.6rem;margin-left:auto">
+      <div class="ac-filters-group" id="ac-filters-group">
+        <select id="ac-industry-select" class="ac-filter-select" onchange="filterAnalyticsIndustry(this.value)">
+          <option value="all">All Industries</option>
+        </select>
+        <div class="ac-tag-select-wrap" id="ac-tag-select-wrap">
+          <button class="ac-tag-select-btn" id="ac-tag-select-btn" onclick="toggleTagFilterDrop(event)">
+            <span id="ac-tag-select-display">All Tags</span>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="ac-tag-select-drop" id="ac-tag-select-drop">
+            <button class="ac-tag-select-opt ac-tag-opt-active" data-val="" onclick="setTagFilterVal('')">All Tags</button>
+          </div>
+        </div>
+        <input type="search" id="analytics-search" placeholder="Search accounts…" oninput="filterAnalyticsSearch(this.value)" class="ac-search">
+      </div>
+      <div id="seo-toolbar-extras" style="display:none;align-items:center;gap:.6rem">
         <span id="seo-tb-stats" class="seo-tb-stats"></span>
         <button class="seo-audit-all-tb-btn" id="seo-audit-all-btn" onclick="auditAllSites()">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           <span id="seo-audit-all-label">Audit All Sites</span>
         </button>
       </div>
-      <div id="ac-timeframe-wrap" class="ac-timeframe-wrap">
-        <button class="ac-timeframe-btn" id="ac-timeframe-btn" onclick="toggleTimeframeDropdown(event)">
-          <span id="ac-timeframe-value">Last 30 days</span>
-          <svg id="ac-timeframe-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transition:transform .15s"><polyline points="6 9 12 15 18 9"/></svg>
-        </button>
-        <div class="ac-timeframe-dropdown" id="ac-timeframe-dropdown">
-          <label class="ac-timeframe-option"><input type="radio" name="ac-tf" value="wow" onchange="setAnalyticsPeriod('wow')"> Last 7 days</label>
-          <label class="ac-timeframe-option"><input type="radio" name="ac-tf" value="mom" checked onchange="setAnalyticsPeriod('mom')"> Last 30 days</label>
-          <label class="ac-timeframe-option"><input type="radio" name="ac-tf" value="all" onchange="setAnalyticsPeriod('all')"> Since Launch</label>
+      <div class="ac-toolbar-right" id="ac-toolbar-right">
+        <div id="ac-timeframe-wrap" class="ac-timeframe-wrap">
+          <button class="ac-timeframe-btn" id="ac-timeframe-btn" onclick="toggleTimeframeDropdown(event)">
+            <span id="ac-timeframe-value">Last 30 days</span>
+            <svg id="ac-timeframe-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transition:transform .15s"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="ac-timeframe-dropdown" id="ac-timeframe-dropdown">
+            <label class="ac-timeframe-option"><input type="radio" name="ac-tf" value="wow" onchange="setAnalyticsPeriod('wow')"> Last 7 days</label>
+            <label class="ac-timeframe-option"><input type="radio" name="ac-tf" value="mom" checked onchange="setAnalyticsPeriod('mom')"> Last 30 days</label>
+            <label class="ac-timeframe-option"><input type="radio" name="ac-tf" value="all" onchange="setAnalyticsPeriod('all')"> Since Launch</label>
+          </div>
+        </div>
+        <div class="ac-toolbar-divider"></div>
+        <div class="ac-meta-group">
+          <div id="ac-site-count" class="ac-site-count"></div>
+          <div id="ac-cache-age" class="ac-cache-age" style="display:none"></div>
         </div>
       </div>
-      <div id="ac-cache-age" class="ac-cache-age" style="display:none"></div>
-      <div id="ac-site-count" class="ac-site-count"></div>
     </div>
+    <div id="ac-active-filters" class="ac-active-filters" style="display:none"></div>
     </div><!-- /ac-sticky-header -->
 
     <div class="ac-scroll-area">
@@ -1054,6 +1068,14 @@ document.addEventListener('click', (e) => {
   if (!claimPop.contains(e.target) && !e.target.closest('.claim-btn') && !e.target.closest('.owner-badge')) {
     claimPop.classList.remove('open');
   }
+  // Close tag filter dropdown
+  const tagWrap = document.getElementById('ac-tag-select-wrap');
+  if (tagWrap && !tagWrap.contains(e.target)) {
+    document.getElementById('ac-tag-select-drop')?.classList.remove('open');
+  }
+  // Close timeframe dropdown
+  const tfWrap = document.getElementById('ac-timeframe-wrap');
+  if (tfWrap && !tfWrap.contains(e.target)) closeTimeframeDropdown();
 });
 
 function showToast(msg, type = 'success') {
@@ -3028,9 +3050,10 @@ function switchAnalyticsView(view) {
   document.getElementById('ac-overview').style.display          = view === 'overview' ? '' : 'none';
   document.getElementById('ac-seo').style.display               = view === 'seo' ? '' : 'none';
   document.getElementById('analytics-search').style.display     = (view === 'sites' || view === 'seo') ? '' : 'none';
-  document.getElementById('ac-timeframe-wrap').style.display    = view === 'seo' ? 'none' : '';
+  document.getElementById('ac-industry-select').style.display   = view === 'overview' ? 'none' : '';
+  document.getElementById('ac-tag-select-wrap').style.display   = view === 'overview' ? 'none' : '';
   document.getElementById('seo-toolbar-extras').style.display   = view === 'seo' ? 'flex' : 'none';
-  document.getElementById('ac-site-count').style.display        = view === 'seo' ? 'none' : '';
+  document.getElementById('ac-toolbar-right').style.display     = view === 'seo' ? 'none' : 'flex';
   if (view === 'seo' && !_seoCacheLoaded) loadSeoCache();
   if (view === 'seo' && !_perfCacheLoaded) loadPerfCache();
   if (view === 'overview') { loadAnalytics(); try { renderAnalyticsOverview(null); } catch(e) { console.error('Overview render error:', e); } }
@@ -4717,11 +4740,13 @@ function filterAnalyticsIndustry(val) {
   renderIndustrySummary(val);
   if (analyticsView === 'overview') renderAnalyticsOverview(null);
   if (analyticsView === 'seo') renderSeoView();
+  renderActiveFilters();
 }
 
 function filterAnalyticsSearch(val) {
   applyAnalyticsFilters();
   if (analyticsView === 'seo') renderSeoView();
+  renderActiveFilters();
 }
 
 function buildAnalyticsIndustryBar(launches) {
@@ -5451,17 +5476,71 @@ async function loadTagsRegistry() {
 }
 
 function renderTagFilterSelect() {
-  const sel = document.getElementById('ac-tag-filter');
-  if (!sel) return;
-  const cur = sel.value;
-  sel.innerHTML = `<option value="">All Tags</option>`
-    + _tagsRegistry.map(t => `<option value="${esc(t.id)}">${esc(t.name)}</option>`).join('');
-  if (_tagsRegistry.find(t => t.id === cur)) sel.value = cur;
+  const drop = document.getElementById('ac-tag-select-drop');
+  if (!drop) return;
+  drop.innerHTML = `<button class="ac-tag-select-opt ${!_tagFilter ? 'ac-tag-opt-active' : ''}" data-val="" onclick="setTagFilterVal('')">All Tags</button>`
+    + _tagsRegistry.map(t =>
+      `<button class="ac-tag-select-opt ${_tagFilter === t.id ? 'ac-tag-opt-active' : ''}" data-val="${esc(t.id)}" onclick="setTagFilterVal('${esc(t.id)}')" style="--tag-c:${t.color}"><span class="ac-tag-dot" style="background:${t.color}"></span>${esc(t.name)}</button>`
+    ).join('');
+}
+
+function toggleTagFilterDrop(e) {
+  e.stopPropagation();
+  const drop = document.getElementById('ac-tag-select-drop');
+  drop.classList.toggle('open');
+}
+
+function setTagFilterVal(tagId) {
+  filterAnalyticsTags(tagId);
+  const display = document.getElementById('ac-tag-select-display');
+  const btn = document.getElementById('ac-tag-select-btn');
+  if (tagId && _tagMap[tagId]) {
+    const t = _tagMap[tagId];
+    display.innerHTML = `<span class="ac-tag-dot" style="background:${t.color}"></span>${esc(t.name)}`;
+    btn.classList.add('ac-tag-select-active');
+  } else {
+    display.textContent = 'All Tags';
+    btn.classList.remove('ac-tag-select-active');
+  }
+  document.querySelectorAll('.ac-tag-select-opt').forEach(o => o.classList.toggle('ac-tag-opt-active', o.dataset.val === tagId));
+  document.getElementById('ac-tag-select-drop').classList.remove('open');
+}
+
+function renderActiveFilters() {
+  const el = document.getElementById('ac-active-filters');
+  if (!el) return;
+  const pills = [];
+  if (analyticsIndustry && analyticsIndustry !== 'all') {
+    pills.push(`<span class="ac-filter-pill"><span>${esc(analyticsIndustry)}</span><button onclick="filterAnalyticsIndustry('all')">×</button></span>`);
+  }
+  if (_tagFilter && _tagMap[_tagFilter]) {
+    const t = _tagMap[_tagFilter];
+    pills.push(`<span class="ac-filter-pill" style="--pill-c:${t.color}"><span class="ac-tag-dot" style="background:${t.color}"></span><span>${esc(t.name)}</span><button onclick="setTagFilterVal('')">×</button></span>`);
+  }
+  const search = (document.getElementById('analytics-search')?.value || '').trim();
+  if (search) {
+    pills.push(`<span class="ac-filter-pill"><span>"${esc(search)}"</span><button onclick="document.getElementById('analytics-search').value='';filterAnalyticsSearch('')">×</button></span>`);
+  }
+  if (pills.length) {
+    el.innerHTML = `<span class="ac-filter-label">Filtered by:</span>${pills.join('')}<button class="ac-filter-clear" onclick="clearAnalyticsFilters()">Clear all</button>`;
+    el.style.display = 'flex';
+  } else {
+    el.innerHTML = '';
+    el.style.display = 'none';
+  }
+}
+
+function clearAnalyticsFilters() {
+  filterAnalyticsIndustry('all');
+  setTagFilterVal('');
+  const s = document.getElementById('analytics-search');
+  if (s) { s.value = ''; filterAnalyticsSearch(''); }
 }
 
 function filterAnalyticsTags(val) {
   _tagFilter = val;
   applyAnalyticsFilters();
+  renderActiveFilters();
 }
 
 function toggleTagPicker(id) {
