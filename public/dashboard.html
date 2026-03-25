@@ -5165,24 +5165,31 @@ function renderAnalyticsModalBody(id, data, forms) {
     </div>` : '';
 
   // Top Queries
-  const queriesSection = gsc.available && gsc.topQueries?.length ? `
-  <div class="acd-section">
-    <div class="acd-section-title" style="margin-bottom:.5rem;display:flex;align-items:center;justify-content:space-between">
-      <span><img src="/gsc-icon.png" style="width:13px;height:13px;vertical-align:middle;margin-right:.35rem">Top Keywords</span>
-      ${gsc.topQueries.length > 5 ? `<button class="kw-expand-btn" id="kw-expand-${id}" onclick="toggleKwExpand('${id}')">Show all ${gsc.topQueries.length}</button>` : ''}
-    </div>
-    <div class="kw-list kw-list-collapsed" id="kw-list-${id}">
-      ${gsc.topQueries.map(q => {
-        const pos = q.position ? Math.round(q.position) : null;
-        const posColor = !pos ? '#94a3b8' : pos <= 3 ? '#22c55e' : pos <= 10 ? '#f59e0b' : pos <= 20 ? '#f97316' : '#ef4444';
-        return `<div class="kw-row">
-          <span class="kw-query">${esc(q.query)}</span>
-          <span class="kw-clicks">${q.clicks} clk</span>
-          <span class="kw-pos" style="background:${posColor}18;color:${posColor};border:1px solid ${posColor}35">${pos ? '#' + pos : '—'}</span>
-        </div>`;
-      }).join('')}
-    </div>
-  </div>` : '';
+  const queriesSection = gsc.available && gsc.topQueries?.length ? (() => {
+    const kwLimit = 12;
+    const all = gsc.topQueries;
+    const visible = all.slice(0, kwLimit);
+    const hidden  = all.slice(kwLimit);
+    const renderRow = q => {
+      const pos = q.position ? Math.round(q.position) : null;
+      const posColor = !pos ? '#94a3b8' : pos <= 3 ? '#22c55e' : pos <= 10 ? '#f59e0b' : pos <= 20 ? '#f97316' : '#ef4444';
+      return `<div class="kw-row">
+        <span class="kw-query">${esc(q.query)}</span>
+        <span class="kw-clicks">${q.clicks} clk</span>
+        <span class="kw-pos" style="background:${posColor}18;color:${posColor};border:1px solid ${posColor}35">${pos ? '#' + pos : '—'}</span>
+      </div>`;
+    };
+    return `<div class="acd-section">
+      <div class="acd-section-title" style="margin-bottom:.5rem;display:flex;align-items:center;justify-content:space-between">
+        <span><img src="/gsc-icon.png" style="width:13px;height:13px;vertical-align:middle;margin-right:.35rem">Top Keywords</span>
+        ${hidden.length ? `<button class="kw-expand-btn" id="kw-expand-${id}" onclick="toggleKwExpand('${esc(id)}')">Show all ${all.length}</button>` : ''}
+      </div>
+      <div class="kw-list" id="kw-list-${id}">
+        ${visible.map(renderRow).join('')}
+        ${hidden.length ? `<div id="kw-extra-${id}" style="display:none">${hidden.map(renderRow).join('')}</div>` : ''}
+      </div>
+    </div>`;
+  })() : '';
 
   const opportunities = (gsc.topQueries || []).filter(function(q) {
     return q.position != null && q.position >= 4 && q.position <= 10;
@@ -5384,11 +5391,12 @@ function analyticsSkeletonHtml(launch) {
 
 
 function toggleKwExpand(id) {
-  const list = document.getElementById('kw-list-' + id);
-  const btn  = document.getElementById('kw-expand-' + id);
-  if (!list) return;
-  const collapsed = list.classList.toggle('kw-list-collapsed');
-  if (btn) btn.textContent = collapsed ? 'Show all' : 'Show less';
+  const extra = document.getElementById('kw-extra-' + id);
+  const btn   = document.getElementById('kw-expand-' + id);
+  if (!extra) return;
+  const hidden = extra.style.display === 'none';
+  extra.style.display = hidden ? '' : 'none';
+  if (btn) btn.textContent = hidden ? 'Show less' : 'Show all';
 }
 
 function wireNoteAutoSave(id, data) {

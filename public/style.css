@@ -2416,8 +2416,7 @@ tr.status-separator:first-child td { border-top: none; }
 .ov-sec-show-more:hover { color: var(--text); }
 
 /* ── Keyword list in modal ── */
-.kw-list { display: flex; flex-direction: column; gap: .25rem; overflow: hidden; }
-.kw-list-collapsed { max-height: 390px; overflow-y: auto; }
+.kw-list { display: flex; flex-direction: column; gap: .25rem; }
 .kw-expand-btn {
   font-size: .68rem; font-weight: 500; color: var(--primary);
   background: none; border: none; cursor: pointer; padding: 0;
