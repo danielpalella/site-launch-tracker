@@ -4992,11 +4992,7 @@ async function openAnalyticsModal(id) {
   document.getElementById('acd-name').textContent = data.account_name;
   const faviconEl = document.getElementById('acd-favicon');
   if (faviconEl && data.domain) {
-    faviconEl.onerror = () => {
-      faviconEl.onerror = null;
-      faviconEl.src = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(data.domain)}&sz=32`;
-    };
-    faviconEl.src = `https://${data.domain}/favicon.ico`;
+    faviconEl.src = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(data.domain)}&sz=32`;
     faviconEl.style.display = '';
   }
   renderModalHeaderTags(id);
@@ -5536,7 +5532,7 @@ function analyticsSkeletonHtml(launch) {
   return `<div class="ac-card" id="ac-card-${launch.id}" data-industry="${esc(launch.industry || '')}" data-name="${esc((launch.account_name || '').toLowerCase())}" data-domain="${esc((launch.domain_name || '').toLowerCase())}" data-tags="${esc((launch.tags || []).join(','))}" title="Double-click to view full analytics">
     <div class="ac-card-header">
       <div style="display:flex;align-items:center;gap:.55rem">
-        <img class="ac-favicon" src="https://${esc(launch.domain_name)}/favicon.ico" alt="" loading="lazy" onerror="this.onerror=null;this.src='https://www.google.com/s2/favicons?domain=${esc(launch.domain_name)}&sz=32'">
+        <img class="ac-favicon" src="https://www.google.com/s2/favicons?domain=${esc(launch.domain_name)}&sz=32" alt="" loading="lazy">
         <div>
           <div class="ac-name">${esc(launch.account_name)}</div>
           <a class="ac-domain" href="https://${esc(launch.domain_name)}" target="_blank" rel="noopener">${esc(launch.domain_name)}</a>
@@ -5930,7 +5926,7 @@ function renderAnalyticsCard(id, data) {
   card.innerHTML = `
     <div class="ac-card-header">
       <div style="display:flex;align-items:center;gap:.55rem">
-        <img class="ac-favicon" src="https://${esc(domain)}/favicon.ico" alt="" loading="lazy" onerror="this.onerror=null;this.src='https://www.google.com/s2/favicons?domain=${esc(domain)}&sz=32'">
+        <img class="ac-favicon" src="https://www.google.com/s2/favicons?domain=${esc(domain)}&sz=32" alt="" loading="lazy">
         <div>
           <div class="ac-name">${esc(account_name)}</div>
           <div style="display:flex;align-items:center;gap:.35rem"><a class="ac-domain" href="https://${esc(domain)}" target="_blank" rel="noopener">${esc(domain)}</a><span class="ac-uptime-dot ac-uptime-up"></span></div>
