@@ -327,7 +327,7 @@
   <div class="modal ac-detail-modal" onclick="event.stopPropagation()">
     <div class="ac-detail-header">
       <div>
-        <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap"><span id="acd-name" style="font-size:1rem;font-weight:700;color:var(--text)"></span><span id="acd-health-badge"></span><span id="acd-header-tags" style="display:contents"></span></div>
+        <div style="display:flex;align-items:center;gap:.55rem;flex-wrap:wrap"><img id="acd-favicon" class="ac-favicon ac-favicon-lg" src="" alt="" style="display:none"><span id="acd-name" style="font-size:1rem;font-weight:700;color:var(--text)"></span><span id="acd-health-badge"></span><span id="acd-header-tags" style="display:contents"></span></div>
         <div style="display:flex;align-items:center;gap:.4rem"><a id="acd-domain" class="ac-domain" target="_blank" rel="noopener" style="font-size:.8rem"></a><span class="ac-uptime-dot ac-uptime-up"></span></div>
       </div>
       <div style="display:flex;align-items:center;gap:.75rem">
@@ -4990,6 +4990,11 @@ async function openAnalyticsModal(id) {
   const data = analyticsData[id];
   if (!data) return;
   document.getElementById('acd-name').textContent = data.account_name;
+  const faviconEl = document.getElementById('acd-favicon');
+  if (faviconEl && data.domain) {
+    faviconEl.src = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(data.domain)}&sz=32`;
+    faviconEl.style.display = '';
+  }
   renderModalHeaderTags(id);
   const health = computeGscHealth(data);
   const healthBadgeEl = document.getElementById('acd-health-badge');
@@ -5516,9 +5521,12 @@ function analyticsSkeletonHtml(launch) {
   const days = Math.floor((Date.now() - toDate(launched).getTime()) / 86_400_000);
   return `<div class="ac-card" id="ac-card-${launch.id}" data-industry="${esc(launch.industry || '')}" data-name="${esc((launch.account_name || '').toLowerCase())}" data-domain="${esc((launch.domain_name || '').toLowerCase())}" data-tags="${esc((launch.tags || []).join(','))}" title="Double-click to view full analytics">
     <div class="ac-card-header">
-      <div>
-        <div class="ac-name">${esc(launch.account_name)}</div>
-        <a class="ac-domain" href="https://${esc(launch.domain_name)}" target="_blank" rel="noopener">${esc(launch.domain_name)}</a>
+      <div style="display:flex;align-items:center;gap:.55rem">
+        <img class="ac-favicon" src="https://www.google.com/s2/favicons?domain=${esc(launch.domain_name)}&sz=32" alt="" loading="lazy">
+        <div>
+          <div class="ac-name">${esc(launch.account_name)}</div>
+          <a class="ac-domain" href="https://${esc(launch.domain_name)}" target="_blank" rel="noopener">${esc(launch.domain_name)}</a>
+        </div>
       </div>
       <div class="ac-launched-badge">Launched ${days}d ago</div>
     </div>
@@ -5907,9 +5915,12 @@ function renderAnalyticsCard(id, data) {
 
   card.innerHTML = `
     <div class="ac-card-header">
-      <div>
-        <div class="ac-name">${esc(account_name)}</div>
-        <div style="display:flex;align-items:center;gap:.35rem"><a class="ac-domain" href="https://${esc(domain)}" target="_blank" rel="noopener">${esc(domain)}</a><span class="ac-uptime-dot ac-uptime-up"></span></div>
+      <div style="display:flex;align-items:center;gap:.55rem">
+        <img class="ac-favicon" src="https://www.google.com/s2/favicons?domain=${esc(domain)}&sz=32" alt="" loading="lazy">
+        <div>
+          <div class="ac-name">${esc(account_name)}</div>
+          <div style="display:flex;align-items:center;gap:.35rem"><a class="ac-domain" href="https://${esc(domain)}" target="_blank" rel="noopener">${esc(domain)}</a><span class="ac-uptime-dot ac-uptime-up"></span></div>
+        </div>
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:.3rem">
         <button class="ac-copy-btn" onclick="copyAnalyticsCard('${esc(id)}')" title="Copy to clipboard">

@@ -1856,6 +1856,16 @@ tr.status-separator:first-child td { border-top: none; }
   margin-bottom: .15rem;
   flex-wrap: wrap;
 }
+.ac-favicon {
+  width: 20px; height: 20px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+.ac-favicon-lg {
+  width: 24px; height: 24px;
+  border-radius: 5px;
+}
 .ac-name {
   font-size: .88rem;
   font-weight: 700;
