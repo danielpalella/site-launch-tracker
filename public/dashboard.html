@@ -5548,14 +5548,14 @@ function analyticsSkeletonHtml(launch) {
   const days = Math.floor((Date.now() - toDate(launched).getTime()) / 86_400_000);
   return `<div class="ac-card" id="ac-card-${launch.id}" data-industry="${esc(launch.industry || '')}" data-name="${esc((launch.account_name || '').toLowerCase())}" data-domain="${esc((launch.domain_name || '').toLowerCase())}" data-tags="${esc((launch.tags || []).join(','))}" title="Double-click to view full analytics">
     <div class="ac-card-header">
-      <div style="display:flex;align-items:center;gap:.55rem">
-        <img class="ac-favicon" src="https://www.google.com/s2/favicons?domain=${esc(launch.domain_name)}&sz=32" alt="" loading="lazy">
-        <div>
-          <div class="ac-name">${esc(launch.account_name)}</div>
+      <img class="ac-favicon" src="https://www.google.com/s2/favicons?domain=${esc(launch.domain_name)}&sz=32" alt="" loading="lazy" style="flex-shrink:0;align-self:flex-start;margin-top:.1rem">
+      <div style="flex:1;min-width:0">
+        <div class="ac-name" title="${esc(launch.account_name)}">${esc(launch.account_name)}</div>
+        <div style="display:flex;align-items:center;gap:.35rem;flex-wrap:wrap">
           <a class="ac-domain" href="https://${esc(launch.domain_name)}" target="_blank" rel="noopener">${esc(launch.domain_name)}</a>
+          <span class="ac-launched-badge">Launched ${days}d ago</span>
         </div>
       </div>
-      <div class="ac-launched-badge">Launched ${days}d ago</div>
     </div>
     <div class="ac-skeleton-wrap">
       <div class="ac-skeleton ac-skeleton-section"></div>
@@ -5942,18 +5942,17 @@ function renderAnalyticsCard(id, data) {
 
   card.innerHTML = `
     <div class="ac-card-header">
-      <div style="display:flex;align-items:center;gap:.55rem">
-        <img class="ac-favicon" src="${esc(data.custom_favicon || `https://www.google.com/s2/favicons?domain=${domain}&sz=32`)}" alt="" loading="lazy">
-        <div>
-          <div class="ac-name">${esc(account_name)}</div>
-          <div style="display:flex;align-items:center;gap:.35rem"><a class="ac-domain" href="https://${esc(domain)}" target="_blank" rel="noopener">${esc(domain)}</a><span class="ac-uptime-dot ac-uptime-up"></span></div>
+      <img class="ac-favicon" src="${esc(data.custom_favicon || `https://www.google.com/s2/favicons?domain=${domain}&sz=32`)}" alt="" loading="lazy" style="flex-shrink:0;align-self:flex-start;margin-top:.1rem">
+      <div style="flex:1;min-width:0">
+        <div class="ac-name" title="${esc(account_name)}">${esc(account_name)}</div>
+        <div style="display:flex;align-items:center;gap:.35rem;flex-wrap:wrap">
+          <a class="ac-domain" href="https://${esc(domain)}" target="_blank" rel="noopener">${esc(domain)}</a>
+          <span class="ac-uptime-dot ac-uptime-up"></span>
+          <span style="font-size:.7rem;color:var(--text-muted)">Since ${fmtAnalyticsDate(displayDate)}</span>
+          ${(data._cachedAt && (Date.now() - new Date(data._cachedAt).getTime()) > 20 * 3600 * 1000)
+            ? `<span class="ac-stale-badge" title="Data cached ${Math.floor((Date.now() - new Date(data._cachedAt).getTime()) / 3600000)}h ago — click Refresh to update">⚠ Stale data</span>`
+            : ''}
         </div>
-      </div>
-      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:.3rem">
-        <div style="font-size:.7rem;color:var(--text-muted)">Since ${fmtAnalyticsDate(displayDate)}</div>
-        ${(data._cachedAt && (Date.now() - new Date(data._cachedAt).getTime()) > 20 * 3600 * 1000)
-          ? `<span class="ac-stale-badge" title="Data cached ${Math.floor((Date.now() - new Date(data._cachedAt).getTime()) / 3600000)}h ago — click Refresh to update">⚠ Stale data</span>`
-          : ''}
       </div>
     </div>
     ${gscBlock}

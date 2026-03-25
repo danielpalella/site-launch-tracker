@@ -1843,8 +1843,8 @@ tr.status-separator:first-child td { border-top: none; }
 .ac-card-header {
   display: flex;
   align-items: flex-start;
-  justify-content: space-between;
-  gap: .5rem;
+  gap: .55rem;
+  margin-bottom: .65rem;
 }
 .ac-name-row {
   display: flex;
@@ -1910,6 +1910,9 @@ tr.status-separator:first-child td { border-top: none; }
   font-weight: 700;
   color: var(--text);
   margin-bottom: .15rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .ac-health-badge {
   font-size: .62rem;
