@@ -2423,9 +2423,9 @@ tr.status-separator:first-child td { border-top: none; }
   white-space: nowrap; flex-shrink: 0;
 }
 .kw-expand-btn:hover { text-decoration: underline; }
-.kw-row { display: flex; align-items: center; gap: .5rem; padding: .25rem 0; border-bottom: 1px solid var(--border); }
+.kw-row { display: flex; align-items: center; gap: .5rem; padding: .25rem 0; border-bottom: 1px solid var(--border); min-width: 0; }
 .kw-row:last-child { border-bottom: none; }
-.kw-query { flex: 1; font-size: .78rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kw-query { flex: 1; min-width: 0; font-size: .78rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .kw-clicks { font-size: .7rem; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
 .kw-pos { font-size: .72rem; font-weight: 700; padding: .1rem .4rem; border-radius: 5px; white-space: nowrap; flex-shrink: 0; }
 
