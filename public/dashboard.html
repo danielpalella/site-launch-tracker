@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>RealWork Websites — Tracker</title>
-  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="icon" href="/favicon.png" type="image/png" />
   <link rel="stylesheet" href="/style.css" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 </head>
@@ -5864,47 +5864,6 @@ function toggleGshGroup(bodyId, header) {
   if (chevron) chevron.classList.toggle('rot', isCollapsed);
 }
 
-</script>
-<script>
-// Animated favicon — pulsing green dot
-(function () {
-  const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = 32;
-  const ctx = canvas.getContext('2d');
-  const link = document.querySelector("link[rel='icon']") || (() => {
-    const l = document.createElement('link'); l.rel = 'icon'; document.head.appendChild(l); return l;
-  })();
-  const cx = 16, cy = 16;
-  let t = 0;
-  function draw() {
-    ctx.clearRect(0, 0, 32, 32);
-    // pulse: sine wave between 0 and 1, period ~2s at 30fps
-    const pulse = (Math.sin(t) + 1) / 2;
-    // outer glow ring — fades in/out
-    const glowR = 10 + pulse * 3;
-    const glow = ctx.createRadialGradient(cx, cy, 4, cx, cy, glowR);
-    glow.addColorStop(0, `rgba(207,255,4,${0.35 * pulse})`);
-    glow.addColorStop(1, 'rgba(207,255,4,0)');
-    ctx.beginPath();
-    ctx.arc(cx, cy, glowR, 0, Math.PI * 2);
-    ctx.fillStyle = glow;
-    ctx.fill();
-    // solid core dot
-    ctx.beginPath();
-    ctx.arc(cx, cy, 7, 0, Math.PI * 2);
-    ctx.fillStyle = '#cfff04';
-    ctx.fill();
-    // highlight
-    ctx.beginPath();
-    ctx.arc(cx - 2, cy - 2, 2.5, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(255,255,255,0.4)';
-    ctx.fill();
-    link.type = 'image/png';
-    link.href = canvas.toDataURL();
-    t += 0.07; // ~2s pulse cycle at 30fps
-  }
-  setInterval(draw, 33); // ~30fps
-})();
 </script>
 </body>
 </html>
