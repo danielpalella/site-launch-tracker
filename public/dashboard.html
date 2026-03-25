@@ -4050,9 +4050,11 @@ function indBenchRowHtml(b) {
 // ── Aggregate helpers ──
 function getAnalyticsEntries(industryFilter) {
   return Object.entries(analyticsData).filter(([id]) => {
-    if (!industryFilter || industryFilter === 'all') return true;
     const card = document.getElementById('ac-card-' + id);
-    return card && card.dataset.industry === industryFilter;
+    if (!card) return false;
+    if (industryFilter && industryFilter !== 'all' && card.dataset.industry !== industryFilter) return false;
+    if (_tagFilter && !(card.dataset.tags || '').split(',').filter(Boolean).includes(_tagFilter)) return false;
+    return true;
   });
 }
 
@@ -5568,6 +5570,7 @@ function clearAnalyticsFilters() {
 function filterAnalyticsTags(val) {
   _tagFilter = val;
   applyAnalyticsFilters();
+  if (analyticsView === 'overview') renderAnalyticsOverview(null);
   renderActiveFilters();
 }
 
