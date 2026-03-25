@@ -5313,7 +5313,7 @@ function renderAnalyticsModalBody(id, data, forms) {
   const hasModalChart = (gsc.available && gscChartWks.length > 1) || (ga4.available && ga4ChartWks.length > 1) || hasDudaWks;
 
   const noteSection = '<div class="acd-section acd-note-section">'
-    + '<div class="acd-section-title">Team Notes</div>'
+    + '<div class="acd-section-title">Internal Notes</div>'
     + '<textarea class="acd-note-textarea" id="acd-note-' + id + '" maxlength="500" placeholder="Add a note about this account…">' + esc(data.analytics_note || '') + '</textarea>'
     + '<div class="acd-note-status" id="acd-note-status-' + id + '"></div>'
     + '</div>';
@@ -5326,8 +5326,9 @@ function renderAnalyticsModalBody(id, data, forms) {
       ${cwvSection}
       ${channelsSection}
       ${opportunitiesBlock}
+      ${noteSection}
     </div>
-  ` + noteSection + `${formsSection}`;
+  ` + `${formsSection}`;
 
   if (hasModalChart) {
     const allWks = [...new Set([
