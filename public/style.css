@@ -3392,11 +3392,105 @@ mark.schema-fill-mark {
   border-top: 1px solid var(--border); padding-top: .5rem;
   line-height: 1.4; margin-top: .35rem;
 }
-.acd-note-section {
-  margin: 0;
-  align-self: stretch;
+/* ── Tags ── */
+.acd-col2-bottom {
   display: flex;
   flex-direction: column;
+  gap: .75rem;
+  align-self: stretch;
+}
+.acd-tags-section { /* no margin needed, gap handles spacing */ }
+.site-tag-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .35rem;
+  min-height: 1.6rem;
+  margin: .3rem 0 .4rem;
+}
+.site-tag-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: .2rem;
+  padding: .2rem .55rem;
+  border-radius: 99px;
+  font-size: .72rem;
+  font-weight: 600;
+  background: color-mix(in srgb, var(--tag-c) 12%, transparent);
+  color: var(--tag-c);
+  border: 1px solid color-mix(in srgb, var(--tag-c) 30%, transparent);
+  white-space: nowrap;
+}
+.site-tag-pill-sm {
+  display: inline-flex;
+  align-items: center;
+  padding: .15rem .45rem;
+  border-radius: 99px;
+  font-size: .65rem;
+  font-weight: 600;
+  background: color-mix(in srgb, var(--tag-c) 12%, transparent);
+  color: var(--tag-c);
+  border: 1px solid color-mix(in srgb, var(--tag-c) 25%, transparent);
+  white-space: nowrap;
+}
+.site-tag-remove {
+  background: none; border: none; cursor: pointer;
+  padding: 0 0 0 .1rem; font-size: .9rem; line-height: 1;
+  color: inherit; opacity: .65; font-family: inherit;
+}
+.site-tag-remove:hover { opacity: 1; }
+.tag-add-btn {
+  font-size: .7rem; padding: .15rem .55rem;
+  background: none; border: 1px solid var(--border); border-radius: 99px;
+  cursor: pointer; color: var(--text-muted); font-family: inherit;
+  transition: border-color .15s, color .15s;
+}
+.tag-add-btn:hover { border-color: var(--primary); color: var(--primary); }
+.tag-picker {
+  border: 1px solid var(--border); border-radius: 8px;
+  overflow: hidden; background: var(--surface);
+}
+.tag-picker-list {
+  display: flex; flex-wrap: wrap; gap: .3rem; padding: .5rem;
+  min-height: 2rem;
+}
+.tag-picker-item {
+  display: inline-flex; align-items: center; gap: .3rem;
+  padding: .2rem .55rem; border-radius: 99px;
+  font-size: .72rem; font-weight: 600;
+  background: color-mix(in srgb, var(--tag-c) 10%, transparent);
+  color: var(--tag-c);
+  border: 1px solid color-mix(in srgb, var(--tag-c) 25%, transparent);
+  cursor: pointer; font-family: inherit;
+  transition: background .1s;
+}
+.tag-picker-item:hover { background: color-mix(in srgb, var(--tag-c) 22%, transparent); }
+.tag-picker-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--tag-c); flex-shrink: 0;
+}
+.tag-picker-empty { font-size: .75rem; color: var(--text-muted); padding: .1rem; }
+.tag-picker-create {
+  display: flex; gap: .35rem; padding: .5rem;
+  border-top: 1px solid var(--border); background: var(--bg);
+}
+.tag-new-input {
+  flex: 1; font-size: .78rem; padding: .3rem .55rem;
+  border: 1px solid var(--border); border-radius: 6px;
+  background: var(--surface); color: var(--text); font-family: inherit;
+}
+.tag-new-input:focus { outline: none; border-color: var(--primary); }
+.tag-new-btn {
+  font-size: .75rem; padding: .3rem .65rem;
+  background: var(--primary); color: #fff;
+  border: none; border-radius: 6px; cursor: pointer; font-family: inherit;
+}
+.tag-new-btn:hover { opacity: .88; }
+
+.acd-note-section {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
 }
 .acd-note-section .acd-section-title { margin-bottom: .5rem; }
 .acd-note-textarea {

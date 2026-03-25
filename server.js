@@ -1557,6 +1557,55 @@ async function fetchAndCacheAnalytics(id, { force = false } = {}) {
 // Set up a Cloud Scheduler job to hit this endpoint at 06:00 America/Chicago
 // so data is ready before the workday: POST https://<app>/api/analytics/warm-all
 // Accepts either a valid session cookie OR the X-Warm-Key header matching WARM_ALL_SECRET.
+// ── Tags ──
+app.get('/api/tags', requireAuth, async (req, res) => {
+  try {
+    const snap = await db.collection('tags').orderBy('created_at', 'asc').get();
+    res.json(snap.docs.map(d => ({ id: d.id, name: d.data().name, color: d.data().color })));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/tags', requireAuth, async (req, res) => {
+  const { name, color } = req.body;
+  if (!name?.trim()) return res.status(400).json({ error: 'Tag name required' });
+  try {
+    const ref = await db.collection('tags').add({
+      name:       name.trim(),
+      color:      color || '#6366f1',
+      created_at: FieldValue.serverTimestamp(),
+    });
+    const doc = await ref.get();
+    res.status(201).json({ id: doc.id, name: doc.data().name, color: doc.data().color });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/tags/:id', requireAuth, async (req, res) => {
+  try {
+    await db.collection('tags').doc(req.params.id).delete();
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.patch('/api/launches/:id/tags', requireAuth, async (req, res) => {
+  const { tags } = req.body;
+  if (!Array.isArray(tags)) return res.status(400).json({ error: 'tags must be an array' });
+  try {
+    await db.collection('launches').doc(req.params.id).update({
+      tags,
+      updated_at: FieldValue.serverTimestamp(),
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 async function requireAuthOrWarmKey(req, res, next) {
   const key = req.headers['x-warm-key'];
   if (key && process.env.WARM_ALL_SECRET && key === process.env.WARM_ALL_SECRET) return next();
@@ -1592,10 +1641,11 @@ app.post('/api/analytics/warm-all', requireAuthOrWarmKey, async (req, res) => {
 app.get('/api/analytics/:id', requireAuth, async (req, res) => {
   try {
     const data = await fetchAndCacheAnalytics(req.params.id, { force: req.query.force === 'true' });
-    // Always serve a fresh analytics_note (not frozen in cache)
+    // Always serve a fresh analytics_note and tags (not frozen in cache)
     const noteDoc = await db.collection('launches').doc(req.params.id).get();
     const freshNote = noteDoc.exists ? (noteDoc.data().analytics_note || '') : '';
-    res.json({ ...data, analytics_note: freshNote });
+    const freshTags = noteDoc.exists ? (noteDoc.data().tags || []) : [];
+    res.json({ ...data, analytics_note: freshNote, tags: freshTags });
   } catch (err) {
     console.error('Analytics error:', err.message);
     if (err.code === 'not_connected') return res.status(503).json({ error: 'not_connected' });

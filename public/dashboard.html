@@ -252,6 +252,9 @@
       <select id="ac-industry-select" class="ac-industry-select" onchange="filterAnalyticsIndustry(this.value)">
         <option value="all">All Industries</option>
       </select>
+      <select id="ac-tag-filter" class="ac-industry-select" onchange="filterAnalyticsTags(this.value)">
+        <option value="">All Tags</option>
+      </select>
       <input type="search" id="analytics-search" placeholder="Search accounts…" oninput="filterAnalyticsSearch(this.value)" class="ac-search">
       <div id="seo-toolbar-extras" style="display:none;align-items:center;gap:.6rem;margin-left:auto">
         <span id="seo-tb-stats" class="seo-tb-stats"></span>
@@ -304,7 +307,7 @@
   <div class="modal ac-detail-modal" onclick="event.stopPropagation()">
     <div class="ac-detail-header">
       <div>
-        <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap"><span id="acd-name" style="font-size:1rem;font-weight:700;color:var(--text)"></span><span id="acd-health-badge"></span></div>
+        <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap"><span id="acd-name" style="font-size:1rem;font-weight:700;color:var(--text)"></span><span id="acd-health-badge"></span><span id="acd-header-tags" style="display:contents"></span></div>
         <div style="display:flex;align-items:center;gap:.4rem"><a id="acd-domain" class="ac-domain" target="_blank" rel="noopener" style="font-size:.8rem"></a><span class="ac-uptime-dot ac-uptime-up"></span></div>
       </div>
       <div style="display:flex;align-items:center;gap:.75rem">
@@ -2451,6 +2454,7 @@ function escAttr(str) {
 // Initial load
 fetchLaunches();
 fetchEditRequests(); // populate badge count
+loadTagsRegistry();
 
 // Handle post-OAuth redirects
 (function() {
@@ -2969,6 +2973,9 @@ function toggleAlogMore(emailKey, btn) {
 const analyticsCharts  = {};
 const analyticsData    = {}; // raw data keyed by launch id
 let analyticsLoaded    = false;
+let _tagsRegistry      = []; // all available tags
+let _tagMap            = {}; // id → tag object
+let _tagFilter         = ''; // active tag filter id
 let _analyticsCacheTs  = null; // oldest _cachedAt across loaded sites
 let analyticsTotal     = 0;   // total launched sites expected
 let analyticsLoadedCount = 0; // how many have resolved (ok or error)
@@ -4691,7 +4698,8 @@ function applyAnalyticsFilters() {
   document.querySelectorAll('#analytics-grid .ac-card').forEach(card => {
     const industryMatch = analyticsIndustry === 'all' || card.dataset.industry === analyticsIndustry;
     const searchMatch   = !search || card.dataset.name?.includes(search) || card.dataset.domain?.includes(search);
-    const show = industryMatch && searchMatch;
+    const tagMatch      = !_tagFilter || (card.dataset.tags || '').split(',').filter(Boolean).includes(_tagFilter);
+    const show = industryMatch && searchMatch && tagMatch;
     card.style.display  = show ? '' : 'none';
     if (show) visible++;
   });
@@ -4924,6 +4932,7 @@ async function openAnalyticsModal(id) {
   const data = analyticsData[id];
   if (!data) return;
   document.getElementById('acd-name').textContent = data.account_name;
+  renderModalHeaderTags(id);
   const health = computeGscHealth(data);
   const healthBadgeEl = document.getElementById('acd-health-badge');
   if (healthBadgeEl) {
@@ -5318,6 +5327,33 @@ function renderAnalyticsModalBody(id, data, forms) {
     + '<div class="acd-note-status" id="acd-note-status-' + id + '"></div>'
     + '</div>';
 
+  const siteTags = data.tags || [];
+  const tagPills = siteTags.map(tid => {
+    const t = _tagMap[tid];
+    if (!t) return '';
+    return `<span class="site-tag-pill" style="--tag-c:${t.color}">${esc(t.name)}<button class="site-tag-remove" onclick="removeSiteTag('${esc(id)}','${esc(tid)}')">×</button></span>`;
+  }).join('');
+  const availableTags = _tagsRegistry.filter(t => !siteTags.includes(t.id));
+  const tagsSection = `<div class="acd-tags-section" id="acd-tags-${id}">
+    <div class="acd-section-title" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.4rem">
+      <span>Tags</span>
+      <button class="tag-add-btn" onclick="toggleTagPicker('${esc(id)}')">+ Add tag</button>
+    </div>
+    <div class="site-tag-pills" id="site-tag-pills-${id}">
+      ${tagPills || '<span style="color:var(--text-muted);font-size:.78rem">No tags yet</span>'}
+    </div>
+    <div class="tag-picker" id="tag-picker-${id}" style="display:none">
+      <div class="tag-picker-list" id="tag-picker-list-${id}">
+        ${availableTags.map(t => `<button class="tag-picker-item" onclick="addSiteTag('${esc(id)}','${esc(t.id)}')" style="--tag-c:${t.color}"><span class="tag-picker-dot"></span>${esc(t.name)}</button>`).join('')}
+        ${!availableTags.length && siteTags.length === _tagsRegistry.length ? '<div class="tag-picker-empty">All tags applied</div>' : ''}
+      </div>
+      <div class="tag-picker-create">
+        <input type="text" placeholder="New tag name…" id="tag-new-input-${id}" class="tag-new-input" onkeydown="if(event.key==='Enter')createAndAddTag('${esc(id)}')">
+        <button onclick="createAndAddTag('${esc(id)}')" class="tag-new-btn">Create</button>
+      </div>
+    </div>
+  </div>`;
+
   document.getElementById('acd-body').innerHTML = `
     <div class="acd-sources-row">${gscSection}${ga4Section}${dudaSection}</div>
     ${hasModalChart ? '<div class="acd-chart-wrap"><canvas id="acd-canvas"></canvas></div>' : ''}
@@ -5326,7 +5362,10 @@ function renderAnalyticsModalBody(id, data, forms) {
       ${cwvSection}
       ${channelsSection}
       ${opportunitiesBlock}
-      ${noteSection}
+      <div class="acd-col2-bottom">
+        ${tagsSection}
+        ${noteSection}
+      </div>
     </div>
     ${formsSection ? '<div style="border-top:1px solid var(--border);margin:1.1rem 0 0"></div>' + formsSection : ''}
   `;
@@ -5374,7 +5413,7 @@ function acdMetric(value, label, tip) {
 function analyticsSkeletonHtml(launch) {
   const launched = launch.status_changed_at || launch.created_at;
   const days = Math.floor((Date.now() - toDate(launched).getTime()) / 86_400_000);
-  return `<div class="ac-card" id="ac-card-${launch.id}" data-industry="${esc(launch.industry || '')}" data-name="${esc((launch.account_name || '').toLowerCase())}" data-domain="${esc((launch.domain_name || '').toLowerCase())}" title="Double-click to view full analytics">
+  return `<div class="ac-card" id="ac-card-${launch.id}" data-industry="${esc(launch.industry || '')}" data-name="${esc((launch.account_name || '').toLowerCase())}" data-domain="${esc((launch.domain_name || '').toLowerCase())}" data-tags="${esc((launch.tags || []).join(','))}" title="Double-click to view full analytics">
     <div class="ac-card-header">
       <div>
         <div class="ac-name">${esc(launch.account_name)}</div>
@@ -5397,6 +5436,130 @@ function analyticsSkeletonHtml(launch) {
   </div>`;
 }
 
+
+// ── Tag management ──
+const TAG_COLORS = ['#6366f1','#3b82f6','#22c55e','#f97316','#ec4899','#14b8a6','#f59e0b','#a855f7'];
+
+async function loadTagsRegistry() {
+  try {
+    const r = await fetch('/api/tags');
+    if (!r.ok) return;
+    _tagsRegistry = await r.json();
+    _tagMap = Object.fromEntries(_tagsRegistry.map(t => [t.id, t]));
+    renderTagFilterSelect();
+  } catch {}
+}
+
+function renderTagFilterSelect() {
+  const sel = document.getElementById('ac-tag-filter');
+  if (!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = `<option value="">All Tags</option>`
+    + _tagsRegistry.map(t => `<option value="${esc(t.id)}">${esc(t.name)}</option>`).join('');
+  if (_tagsRegistry.find(t => t.id === cur)) sel.value = cur;
+}
+
+function filterAnalyticsTags(val) {
+  _tagFilter = val;
+  applyAnalyticsFilters();
+}
+
+function toggleTagPicker(id) {
+  const picker = document.getElementById(`tag-picker-${id}`);
+  if (!picker) return;
+  const willOpen = picker.style.display === 'none';
+  picker.style.display = willOpen ? '' : 'none';
+  if (willOpen) {
+    const input = document.getElementById(`tag-new-input-${id}`);
+    if (input) setTimeout(() => input.focus(), 50);
+  }
+}
+
+async function addSiteTag(siteId, tagId) {
+  const data = analyticsData[siteId];
+  if (!data) return;
+  const tags = [...new Set([...(data.tags || []), tagId])];
+  await saveSiteTags(siteId, tags);
+}
+
+async function removeSiteTag(siteId, tagId) {
+  const data = analyticsData[siteId];
+  if (!data) return;
+  const tags = (data.tags || []).filter(t => t !== tagId);
+  await saveSiteTags(siteId, tags);
+}
+
+async function saveSiteTags(siteId, tags) {
+  try {
+    const r = await fetch(`/api/launches/${siteId}/tags`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tags }),
+    });
+    if (!r.ok) throw new Error();
+    analyticsData[siteId].tags = tags;
+    const card = document.getElementById(`ac-card-${siteId}`);
+    if (card) card.dataset.tags = tags.join(',');
+    renderModalTags(siteId);
+    renderModalHeaderTags(siteId);
+  } catch {
+    showToast('Failed to save tags', 'error');
+  }
+}
+
+function renderModalTags(id) {
+  const data = analyticsData[id];
+  if (!data) return;
+  const siteTags = data.tags || [];
+  const pillsEl = document.getElementById(`site-tag-pills-${id}`);
+  if (pillsEl) {
+    pillsEl.innerHTML = siteTags.map(tid => {
+      const t = _tagMap[tid];
+      if (!t) return '';
+      return `<span class="site-tag-pill" style="--tag-c:${t.color}">${esc(t.name)}<button class="site-tag-remove" onclick="removeSiteTag('${esc(id)}','${esc(tid)}')">×</button></span>`;
+    }).join('') || '<span style="color:var(--text-muted);font-size:.78rem">No tags yet</span>';
+  }
+  const listEl = document.getElementById(`tag-picker-list-${id}`);
+  if (listEl) {
+    const available = _tagsRegistry.filter(t => !siteTags.includes(t.id));
+    listEl.innerHTML = available.map(t =>
+      `<button class="tag-picker-item" onclick="addSiteTag('${esc(id)}','${esc(t.id)}')" style="--tag-c:${t.color}"><span class="tag-picker-dot"></span>${esc(t.name)}</button>`
+    ).join('') + (!available.length ? '<div class="tag-picker-empty">All tags applied</div>' : '');
+  }
+}
+
+function renderModalHeaderTags(id) {
+  const data = analyticsData[id];
+  const el = document.getElementById('acd-header-tags');
+  if (!el || !data) return;
+  el.innerHTML = (data.tags || []).map(tid => {
+    const t = _tagMap[tid];
+    return t ? `<span class="site-tag-pill-sm" style="--tag-c:${t.color}">${esc(t.name)}</span>` : '';
+  }).join('');
+}
+
+async function createAndAddTag(siteId) {
+  const input = document.getElementById(`tag-new-input-${siteId}`);
+  const name = input?.value?.trim();
+  if (!name) return;
+  try {
+    const color = TAG_COLORS[_tagsRegistry.length % TAG_COLORS.length];
+    const r = await fetch('/api/tags', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, color }),
+    });
+    if (!r.ok) throw new Error();
+    const tag = await r.json();
+    _tagsRegistry.push(tag);
+    _tagMap[tag.id] = tag;
+    renderTagFilterSelect();
+    if (input) input.value = '';
+    await addSiteTag(siteId, tag.id);
+  } catch {
+    showToast('Failed to create tag', 'error');
+  }
+}
 
 function toggleKwExpand(id) {
   const extra = document.getElementById('kw-extra-' + id);
@@ -5460,6 +5623,7 @@ function renderAnalyticsCard(id, data) {
   const isFirstLoad = !analyticsData[id];
   analyticsData[id] = data; // store for period re-renders
   if (isFirstLoad) analyticsLoadedCount++;
+  card.dataset.tags = (data.tags || []).join(',');
 
   const { gsc, ga4, duda, daysSince, account_name, domain, analyticsStartDate, launchDate } = data;
   const displayDate = analyticsStartDate || launchDate;
