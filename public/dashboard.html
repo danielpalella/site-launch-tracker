@@ -4880,9 +4880,10 @@ async function loadKeywordSnapshots(id, data) {
     if (!prior) return;
     const priorMap = {};
     for (const kw of prior.gsc.topQueries) priorMap[kw.query] = kw.position;
-    // Re-render keyword list with movement
+    // Re-render keyword list with movement, preserving 12-row limit
     const current = data.gsc.topQueries;
-    kwEl.innerHTML = current.map(q => {
+    const kwLimit = 12;
+    const renderKwRow = q => {
       const pos = q.position ? Math.round(q.position) : null;
       const priorPos = priorMap[q.query] ? Math.round(priorMap[q.query]) : null;
       const posColor = !pos ? '#94a3b8' : pos <= 3 ? '#22c55e' : pos <= 10 ? '#f59e0b' : pos <= 20 ? '#f97316' : '#ef4444';
@@ -4899,7 +4900,11 @@ async function loadKeywordSnapshots(id, data) {
         <span class="kw-clicks">${q.clicks} clk</span>
         <span class="kw-pos" style="background:${posColor}18;color:${posColor};border:1px solid ${posColor}35">${pos ? '#' + pos : '—'}</span>
       </div>`;
-    }).join('');
+    };
+    const visibleKws = current.slice(0, kwLimit);
+    const hiddenKws  = current.slice(kwLimit);
+    kwEl.innerHTML = visibleKws.map(renderKwRow).join('')
+      + (hiddenKws.length ? `<div id="kw-extra-${id}" style="display:none">${hiddenKws.map(renderKwRow).join('')}</div>` : '');
   } catch {}
 }
 
@@ -5320,8 +5325,9 @@ function renderAnalyticsModalBody(id, data, forms) {
       ${queriesSection}
       ${cwvSection}
       ${channelsSection}
+      ${opportunitiesBlock}
     </div>
-  ` + opportunitiesBlock + noteSection + `${formsSection}`;
+  ` + noteSection + `${formsSection}`;
 
   if (hasModalChart) {
     const allWks = [...new Set([
