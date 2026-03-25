@@ -250,9 +250,15 @@
       </div>
       <div class="ac-toolbar-divider"></div>
       <div class="ac-filters-group" id="ac-filters-group">
-        <select id="ac-industry-select" class="ac-filter-select" onchange="filterAnalyticsIndustry(this.value)">
-          <option value="all">All Industries</option>
-        </select>
+        <div class="ac-tag-select-wrap" id="ac-industry-select-wrap">
+          <button class="ac-tag-select-btn" id="ac-industry-select-btn" onclick="toggleIndustryDrop(event)">
+            <span id="ac-industry-display">All Industries</span>
+            <svg id="ac-industry-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transition:transform .15s"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="ac-tag-select-drop" id="ac-industry-drop">
+            <button class="ac-tag-select-opt ac-drop-reset ac-tag-opt-active" data-val="all" onclick="filterAnalyticsIndustry('all')">All Industries</button>
+          </div>
+        </div>
         <div class="ac-tag-select-wrap" id="ac-tag-select-wrap">
           <button class="ac-tag-select-btn" id="ac-tag-select-btn" onclick="toggleTagFilterDrop(event)">
             <span id="ac-tag-select-display">All Tags</span>
@@ -278,9 +284,9 @@
             <svg id="ac-timeframe-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transition:transform .15s"><polyline points="6 9 12 15 18 9"/></svg>
           </button>
           <div class="ac-timeframe-dropdown" id="ac-timeframe-dropdown">
-            <label class="ac-timeframe-option"><input type="radio" name="ac-tf" value="wow" onchange="setAnalyticsPeriod('wow')"> Last 7 days</label>
-            <label class="ac-timeframe-option"><input type="radio" name="ac-tf" value="mom" checked onchange="setAnalyticsPeriod('mom')"> Last 30 days</label>
-            <label class="ac-timeframe-option"><input type="radio" name="ac-tf" value="all" onchange="setAnalyticsPeriod('all')"> Since Launch</label>
+            <button class="ac-timeframe-option" data-tf="wow" onclick="setAnalyticsPeriod('wow')">Last 7 days</button>
+            <button class="ac-timeframe-option ac-tf-active" data-tf="mom" onclick="setAnalyticsPeriod('mom')">Last 30 days</button>
+            <button class="ac-timeframe-option" data-tf="all" onclick="setAnalyticsPeriod('all')">Since Launch</button>
           </div>
         </div>
         <div class="ac-toolbar-divider"></div>
@@ -1073,6 +1079,9 @@ document.addEventListener('click', (e) => {
   if (tagWrap && !tagWrap.contains(e.target)) {
     document.getElementById('ac-tag-select-drop')?.classList.remove('open');
   }
+  // Close industry dropdown
+  const indWrap = document.getElementById('ac-industry-select-wrap');
+  if (indWrap && !indWrap.contains(e.target)) closeIndustryDrop();
   // Close timeframe dropdown
   const tfWrap = document.getElementById('ac-timeframe-wrap');
   if (tfWrap && !tfWrap.contains(e.target)) closeTimeframeDropdown();
@@ -3050,7 +3059,7 @@ function switchAnalyticsView(view) {
   document.getElementById('ac-overview').style.display          = view === 'overview' ? '' : 'none';
   document.getElementById('ac-seo').style.display               = view === 'seo' ? '' : 'none';
   document.getElementById('analytics-search').style.display     = (view === 'sites' || view === 'seo') ? '' : 'none';
-  document.getElementById('ac-industry-select').style.display   = view === 'seo' ? 'none' : '';
+  document.getElementById('ac-industry-select-wrap').style.display = view === 'seo' ? 'none' : '';
   document.getElementById('ac-tag-select-wrap').style.display   = view === 'seo' ? 'none' : '';
   document.getElementById('seo-toolbar-extras').style.display   = view === 'seo' ? 'flex' : 'none';
   document.getElementById('ac-toolbar-right').style.display     = view === 'seo' ? 'none' : 'flex';
@@ -4734,10 +4743,32 @@ function applyAnalyticsFilters() {
   }
 }
 
+function toggleIndustryDrop(e) {
+  e.stopPropagation();
+  const drop = document.getElementById('ac-industry-drop');
+  const chevron = document.getElementById('ac-industry-chevron');
+  const open = drop.classList.toggle('open');
+  chevron.style.transform = open ? 'rotate(180deg)' : '';
+  if (open) {
+    document.getElementById('ac-tag-select-drop')?.classList.remove('open');
+    closeTimeframeDropdown();
+  }
+}
+function closeIndustryDrop() {
+  document.getElementById('ac-industry-drop')?.classList.remove('open');
+  const ch = document.getElementById('ac-industry-chevron');
+  if (ch) ch.style.transform = '';
+}
+
 function filterAnalyticsIndustry(val) {
   analyticsIndustry = val;
-  const sel = document.getElementById('ac-industry-select');
-  if (sel && sel.value !== val) sel.value = val;
+  const display = document.getElementById('ac-industry-display');
+  if (display) display.textContent = val === 'all' ? 'All Industries' : val;
+  const btn = document.getElementById('ac-industry-select-btn');
+  if (btn) btn.classList.toggle('ac-tag-select-active', val !== 'all');
+  document.querySelectorAll('#ac-industry-drop .ac-tag-select-opt').forEach(o =>
+    o.classList.toggle('ac-tag-opt-active', o.dataset.val === val));
+  closeIndustryDrop();
   applyAnalyticsFilters();
   renderIndustrySummary(val);
   if (analyticsView === 'overview') renderAnalyticsOverview(null);
@@ -4752,7 +4783,8 @@ function filterAnalyticsSearch(val) {
 }
 
 function buildAnalyticsIndustryBar(launches) {
-  const sel = document.getElementById('ac-industry-select');
+  const drop = document.getElementById('ac-industry-drop');
+  if (!drop) return;
   const counts = {};
   for (const l of launches) if (l.industry) counts[l.industry] = (counts[l.industry] || 0) + 1;
   const industries = Object.keys(counts).sort((a, b) => {
@@ -4760,10 +4792,12 @@ function buildAnalyticsIndustryBar(launches) {
     if (b === 'Other') return -1;
     return counts[b] - counts[a];
   });
-  const current = sel.value;
-  sel.innerHTML = `<option value="all">All Industries</option>` +
-    industries.map(ind => `<option value="${esc(ind)}">${esc(ind)} (${counts[ind]})</option>`).join('');
-  sel.value = industries.includes(current) ? current : 'all';
+  const current = analyticsIndustry || 'all';
+  drop.innerHTML =
+    `<button class="ac-tag-select-opt ac-drop-reset ${current === 'all' ? 'ac-tag-opt-active' : ''}" data-val="all" onclick="filterAnalyticsIndustry('all')">All Industries</button>` +
+    industries.map(ind =>
+      `<button class="ac-tag-select-opt ${current === ind ? 'ac-tag-opt-active' : ''}" data-val="${esc(ind)}" onclick="filterAnalyticsIndustry('${esc(ind)}')">${esc(ind)}<span class="ac-drop-count">${counts[ind]}</span></button>`
+    ).join('');
 }
 
 // Returns the slice of weeks for the current period
@@ -4846,8 +4880,8 @@ const PERIOD_LABELS = { wow: 'Last 7 days', mom: 'Last 30 days', all: 'Since Lau
 function setAnalyticsPeriod(p) {
   analyticsPeriod = p;
   document.getElementById('ac-timeframe-value').textContent = PERIOD_LABELS[p];
-  const radio = document.querySelector(`input[name="ac-tf"][value="${p}"]`);
-  if (radio) radio.checked = true;
+  document.querySelectorAll('#ac-timeframe-dropdown .ac-timeframe-option').forEach(btn =>
+    btn.classList.toggle('ac-tf-active', btn.dataset.tf === p));
   closeTimeframeDropdown();
   for (const [id, data] of Object.entries(analyticsData)) {
     renderAnalyticsCard(id, data);
@@ -4869,9 +4903,6 @@ function closeTimeframeDropdown() {
   document.getElementById('ac-timeframe-chevron').style.transform = '';
 }
 
-document.addEventListener('click', e => {
-  if (!e.target.closest('.ac-timeframe-wrap')) closeTimeframeDropdown();
-});
 
 function fmtNum(n) {
   if (n == null || n === '') return '—';
@@ -5523,7 +5554,7 @@ async function loadTagsRegistry() {
 function renderTagFilterSelect() {
   const drop = document.getElementById('ac-tag-select-drop');
   if (!drop) return;
-  drop.innerHTML = `<button class="ac-tag-select-opt ${!_tagFilter ? 'ac-tag-opt-active' : ''}" data-val="" onclick="setTagFilterVal('')">All Tags</button>`
+  drop.innerHTML = `<button class="ac-tag-select-opt ac-drop-reset ${!_tagFilter ? 'ac-tag-opt-active' : ''}" data-val="" onclick="setTagFilterVal('')">All Tags</button>`
     + _tagsRegistry.map(t =>
       `<button class="ac-tag-select-opt ${_tagFilter === t.id ? 'ac-tag-opt-active' : ''}" data-val="${esc(t.id)}" onclick="setTagFilterVal('${esc(t.id)}')" style="--tag-c:${t.color}"><span class="ac-tag-dot" style="background:${t.color}"></span>${esc(t.name)}</button>`
     ).join('');
