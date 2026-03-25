@@ -362,7 +362,7 @@ function render() {
 
   document.getElementById('rw-content').innerHTML = `
     <div class="rw-site-hero">
-      <img class="rw-site-favicon" src="${d.custom_favicon || `https://www.google.com/s2/favicons?domain=${esc(domain)}&sz=64`}" alt="">
+      <img class="rw-site-favicon" src="${_data.custom_favicon || `https://www.google.com/s2/favicons?domain=${esc(domain)}&sz=64`}" alt="">
       <div>
         <div class="rw-site-name">${esc(account_name)}</div>
         <a class="rw-site-domain" href="https://${esc(domain)}" target="_blank" rel="noopener">${esc(domain)}</a>
