@@ -6220,9 +6220,9 @@ async function disconnectAnalytics() {
 }
 
 async function loadAnalytics({ force = false } = {}) {
-  if (analyticsLoaded && !force) return;
   // Always return to Sites view when (re)opening the analytics tab
   switchAnalyticsView('sites');
+  if (analyticsLoaded && !force) return;
   loadMilestoneThresholds();
   const grid = document.getElementById('analytics-grid');
   grid.innerHTML = '<div style="color:var(--text-muted);font-size:.875rem">Loading…</div>';

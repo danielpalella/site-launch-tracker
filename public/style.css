@@ -1,4 +1,5 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { overflow-x: hidden; }
 
 :root {
   /* Brand palette */
@@ -2135,8 +2136,7 @@ tr.status-separator:first-child td { border-top: none; }
 }
 .ac-scroll-area {
   flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: hidden auto;
   min-height: 0;
   padding-bottom: 1rem;
 }
@@ -4210,6 +4210,7 @@ mark.schema-fill-mark {
   border-radius: 50%;
 }
 .acfp-body {
+  overflow-x: hidden;
   overflow-y: auto;
   flex: 1;
   padding: .4rem 0 .6rem;
