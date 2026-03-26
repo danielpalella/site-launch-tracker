@@ -387,7 +387,7 @@ function render() {
 
   const ga4Section = ga4.available ? `
     <div class="rw-section">
-      <div class="rw-section-title"><img src="/ga4-icon.png" alt="">Google Analytics <span style="font-weight:400;text-transform:none;letter-spacing:0;margin-left:.25rem">${PERIOD_LABELS[p]}</span></div>
+      <div class="rw-section-title"><img src="/ga4-icon.svg" alt="">Google Analytics <span style="font-weight:400;text-transform:none;letter-spacing:0;margin-left:.25rem">${PERIOD_LABELS[p]}</span></div>
       <div class="rw-metrics">
         ${metric(fmt(ga4T.sessions), 'Website Sessions', pctDelta(ga4.weeks,'sessions',p), 'Total visits to your site, including return visits from the same person.')}
         ${metric(fmt(ga4T.users), 'Unique Visitors', pctDelta(ga4.weeks,'users',p), 'Number of individual people who visited your site during this period.')}
