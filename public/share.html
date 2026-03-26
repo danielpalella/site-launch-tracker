@@ -44,10 +44,12 @@
       padding: 1.5rem;
       display: flex;
       align-items: center;
+      justify-content: space-between;
       gap: 1rem;
       margin-bottom: 1.5rem;
       box-shadow: 0 1px 4px rgba(6,16,42,.06);
     }
+    .rw-site-hero-left { display: flex; align-items: center; gap: 1rem; }
     .rw-site-favicon { width: 48px; height: 48px; border-radius: 10px; object-fit: contain; flex-shrink: 0; }
     .rw-site-name { font-size: 1.25rem; font-weight: 700; color: var(--text); line-height: 1.2; }
     .rw-site-domain { font-size: .85rem; color: var(--blue); text-decoration: none; margin-top: .25rem; display: inline-block; }
@@ -290,6 +292,8 @@
       .rw-metrics { grid-template-columns: 1fr 1fr; }
       .rw-metric:nth-child(2n) { border-right: none; }
       .rw-metric:nth-child(4n) { border-right: 1px solid var(--border); }
+      .rw-site-hero { align-items: flex-start; flex-wrap: wrap; }
+      .rw-period-bar { margin-bottom: 0; width: 100%; justify-content: flex-start; }
     }
   </style>
 </head>
@@ -513,20 +517,21 @@ function render() {
 
   document.getElementById('rw-content').innerHTML = `
     <div class="rw-site-hero">
-      <img class="rw-site-favicon" src="${_data.custom_favicon || `https://www.google.com/s2/favicons?domain=${esc(domain)}&sz=64`}" alt="">
-      <div>
-        <div class="rw-site-name">${esc(account_name)}</div>
-        <a class="rw-site-domain" href="https://${esc(domain)}" target="_blank" rel="noopener">${esc(domain)}</a>
-        <div class="rw-site-meta"><span class="rw-live-dot"></span>Live · ${daysSince > 0 ? daysSince + ' days online' : 'Just launched'} · Since ${fmtDate(startDate)}</div>
+      <div class="rw-site-hero-left">
+        <img class="rw-site-favicon" src="${_data.custom_favicon || `https://www.google.com/s2/favicons?domain=${esc(domain)}&sz=64`}" alt="">
+        <div>
+          <div class="rw-site-name">${esc(account_name)}</div>
+          <a class="rw-site-domain" href="https://${esc(domain)}" target="_blank" rel="noopener">${esc(domain)}</a>
+          <div class="rw-site-meta"><span class="rw-live-dot"></span>Live · ${daysSince > 0 ? daysSince + ' days online' : 'Just launched'} · Since ${fmtDate(startDate)}</div>
+        </div>
+      </div>
+      <div class="rw-period-bar" style="margin-bottom:0">
+        <button class="rw-period-btn ${p==='mom'?'rw-period-active':''}" onclick="setPeriod('mom')">Last 30 days</button>
+        ${daysSince >= 60 ? `<button class="rw-period-btn ${p==='60d'?'rw-period-active':''}" onclick="setPeriod('60d')">Last 60 days</button>` : ''}
       </div>
     </div>
 
     ${summaryBlock}
-
-    <div class="rw-period-bar">
-      <button class="rw-period-btn ${p==='mom'?'rw-period-active':''}" onclick="setPeriod('mom')">Last 30 days</button>
-      ${daysSince >= 60 ? `<button class="rw-period-btn ${p==='60d'?'rw-period-active':''}" onclick="setPeriod('60d')">Last 60 days</button>` : ''}
-    </div>
 
     ${gscSection}${ga4Section}${leadsSection}${topKws}
 
