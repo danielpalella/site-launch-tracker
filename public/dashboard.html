@@ -2068,7 +2068,7 @@ function switchTab(tab) {
   const titles = { launches: 'Tracker', 'edit-requests': 'Edits', analytics: 'Insights' };
   document.title = `RealWork Websites — ${titles[tab] || 'Tracker'}`;
   if (tab === 'edit-requests') fetchEditRequests();
-  if (tab === 'analytics') { _initAcFilterPanel(); loadAnalytics(); }
+  if (tab === 'analytics') { _initAcFilterPanel(); switchAnalyticsView('sites'); loadAnalytics(); }
 }
 
 // ── Edit Requests ──
@@ -3123,7 +3123,7 @@ function switchAnalyticsView(view) {
   if (_fp) _fp.style.display = view === 'sites' ? '' : 'none';
   if (view === 'seo' && !_seoCacheLoaded) loadSeoCache();
   if (view === 'seo' && !_perfCacheLoaded) loadPerfCache();
-  if (view === 'overview') { loadAnalytics(); try { renderAnalyticsOverview(null); } catch(e) { console.error('Overview render error:', e); } }
+  if (view === 'overview') { try { renderAnalyticsOverview(null); } catch(e) { console.error('Overview render error:', e); } }
   if (view === 'sites') applyAnalyticsFilters();
   if (view === 'seo') renderSeoView();
 }
@@ -6220,8 +6220,6 @@ async function disconnectAnalytics() {
 }
 
 async function loadAnalytics({ force = false } = {}) {
-  // Always return to Sites view when (re)opening the analytics tab
-  switchAnalyticsView('sites');
   if (analyticsLoaded && !force) return;
   loadMilestoneThresholds();
   const grid = document.getElementById('analytics-grid');
