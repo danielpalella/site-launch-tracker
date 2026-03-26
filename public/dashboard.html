@@ -3096,8 +3096,8 @@ const ANALYTICS_SUBTITLES = {
   seo:      'Sitemap, indexing, broken links, schema markup, and safe browsing status per site.',
 };
 function switchAnalyticsView(view) {
-  // Clear filters when leaving Sites view so other views start clean
-  if (analyticsView === 'sites' && view !== 'sites') {
+  // Clear filters only when entering SEO view
+  if (view === 'seo' && analyticsView !== 'seo') {
     filterAnalyticsIndustry('all');
     filterAnalyticsTags('');
     document.querySelectorAll('#ac-tag-select-drop [data-val]').forEach(o =>
@@ -3120,7 +3120,7 @@ function switchAnalyticsView(view) {
   document.getElementById('seo-toolbar-extras').style.display   = view === 'seo' ? 'flex' : 'none';
   document.getElementById('ac-toolbar-right').style.display     = view === 'seo' ? 'none' : 'flex';
   const _fp = document.getElementById('ac-filter-panel');
-  if (_fp) _fp.style.display = view === 'sites' ? '' : 'none';
+  if (_fp) _fp.style.display = (view === 'sites' || view === 'overview') ? '' : 'none';
   if (view === 'seo' && !_seoCacheLoaded) loadSeoCache();
   if (view === 'seo' && !_perfCacheLoaded) loadPerfCache();
   if (view === 'overview') { try { renderAnalyticsOverview(null); } catch(e) { console.error('Overview render error:', e); } }
