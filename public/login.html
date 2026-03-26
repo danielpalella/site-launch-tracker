@@ -6,7 +6,6 @@
   <title>RealWork Websites — Sign In</title>
   <link rel="icon" href="/favicon.png" type="image/png" />
   <link rel="stylesheet" href="/style.css" />
-  <script>document.documentElement.setAttribute('data-theme', localStorage.getItem('theme') || 'light');</script>
   <style>
     .login-wrap {
       min-height: 100vh;
@@ -51,8 +50,6 @@
       box-shadow: 0 1px 3px rgba(0,0,0,.08);
     }
     .btn-google:hover { background: #f8f9fa; box-shadow: 0 2px 8px rgba(0,0,0,.12); }
-    [data-theme="dark"] .btn-google { background: #1e293b; color: #f1f5f9; border-color: #334155; }
-    [data-theme="dark"] .btn-google:hover { background: #263347; }
   </style>
 </head>
 <body>
@@ -79,19 +76,8 @@
   </div>
 </div>
 
-<button id="dark-toggle" title="Toggle dark mode" onclick="toggleDark()">🌙</button>
-
 <script>
-function toggleDark() {
-  const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-  document.documentElement.setAttribute('data-theme', next);
-  localStorage.setItem('theme', next);
-  document.getElementById('dark-toggle').textContent = next === 'dark' ? '☀️' : '🌙';
-}
 (function() {
-  const saved = localStorage.getItem('theme') || 'light';
-  document.getElementById('dark-toggle').textContent = saved === 'dark' ? '☀️' : '🌙';
-
   const msgs = {
     domain:    'Access is restricted to @realworklabs.com accounts.',
     cancelled: 'Sign-in was cancelled.',
