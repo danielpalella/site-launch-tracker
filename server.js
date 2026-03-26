@@ -1284,16 +1284,28 @@ async function fetchGA4(propertyId, launchDate, token) {
     return r.json();
   }
 
-  const [dailyData, channelData] = await Promise.all([
+  const periodMetrics = [
+    { name: 'sessions' },
+    { name: 'activeUsers' },
+    { name: 'newUsers' },
+    { name: 'engagementRate' },
+  ];
+  function parsePeriodRow(rows) {
+    if (!rows || !rows.length) return { sessions: 0, users: 0, newUsers: 0, engagementRate: null };
+    const [s, u, n, e] = rows[0].metricValues.map(m => parseFloat(m.value) || 0);
+    return {
+      sessions: Math.round(s),
+      users: Math.round(u),
+      newUsers: Math.round(n),
+      engagementRate: s > 0 ? Math.round(e * 1000) / 10 : null,
+    };
+  }
+
+  const [dailyData, channelData, last7Data, last30Data, last60Data] = await Promise.all([
     runReport({
       dateRanges: [{ startDate, endDate: 'today' }],
       dimensions: [{ name: 'date' }],
-      metrics: [
-        { name: 'sessions' },
-        { name: 'activeUsers' },
-        { name: 'newUsers' },
-        { name: 'engagementRate' },
-      ],
+      metrics: periodMetrics,
       orderBys: [{ dimension: { dimensionName: 'date' } }],
       limit: 500,
     }),
@@ -1303,6 +1315,18 @@ async function fetchGA4(propertyId, launchDate, token) {
       metrics: [{ name: 'sessions' }],
       orderBys: [{ metric: { metricName: 'sessions' }, desc: true }],
       limit: 6,
+    }),
+    runReport({
+      dateRanges: [{ startDate: '7daysAgo', endDate: 'today' }],
+      metrics: periodMetrics,
+    }),
+    runReport({
+      dateRanges: [{ startDate: '30daysAgo', endDate: 'today' }],
+      metrics: periodMetrics,
+    }),
+    runReport({
+      dateRanges: [{ startDate: '60daysAgo', endDate: 'today' }],
+      metrics: periodMetrics,
     }),
   ]);
 
@@ -1340,6 +1364,11 @@ async function fetchGA4(propertyId, launchDate, token) {
       users: Math.round(users),
       newUsers: Math.round(newUsers),
       engagementRate: engCount > 0 ? Math.round(engSum / engCount * 1000) / 10 : null,
+    },
+    periods: {
+      last7:  parsePeriodRow(last7Data.rows),
+      last30: parsePeriodRow(last30Data.rows),
+      last60: parsePeriodRow(last60Data.rows),
     },
     comparison: {
       sessionsPct: computePctChange(weeks, 'sessions'),

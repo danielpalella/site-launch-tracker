@@ -296,18 +296,18 @@ function gscTotals(gsc, p) {
 }
 function ga4Totals(ga4, p) {
   if (!ga4.available) return {};
+  const periodData = p === '60d' ? ga4.periods?.last60 : ga4.periods?.last30;
   const n = weeksForPeriod(p);
   const slice = (ga4.weeks||[]).slice(-n);
-  const hasPerWeekData = slice.some(w => 'newUsers' in w);
-  const totalSessions = sumWeeks(slice, 'sessions');
+  const totalSessions = periodData?.sessions ?? sumWeeks(slice, 'sessions');
   const engSlice = slice.filter(w => w.engagementRate != null && w.sessions > 0);
   const engRate = engSlice.length && totalSessions > 0
     ? Math.round(engSlice.reduce((s, w) => s + w.engagementRate * w.sessions, 0) / totalSessions * 10) / 10
-    : (ga4.total?.engagementRate ?? null);
+    : (periodData?.engagementRate ?? ga4.total?.engagementRate ?? null);
   return {
-    sessions: totalSessions,
-    users: sumWeeks(slice, 'users'),
-    newUsers: hasPerWeekData ? sumWeeks(slice, 'newUsers') : (ga4.total?.newUsers ?? null),
+    sessions:      totalSessions,
+    users:         periodData?.users    ?? sumWeeks(slice, 'users'),
+    newUsers:      periodData?.newUsers ?? sumWeeks(slice, 'newUsers'),
     engagementRate: engRate,
   };
 }

@@ -4851,19 +4851,20 @@ function periodGscTotals(gsc, period) {
 // Compute period-specific totals for GA4 from weekly data
 function periodGa4Totals(ga4, period) {
   if (!ga4.available || period === 'all') return ga4.total || {};
+  // Use pre-aggregated period data for accurate user/newUser deduplication
+  const periodData = period === 'wow' ? ga4.periods?.last7 : ga4.periods?.last30;
   const n = period === 'wow' ? 1 : 4;
   const slice = ga4.weeks.slice(-n);
-  const hasPerWeekData = slice.some(w => 'newUsers' in w);
-  const totalSessions = Math.round(sumWeeks(slice, 'sessions'));
-  // Sessions-weighted engagement rate
+  // Sessions-weighted engagement rate from weekly slices
+  const totalSessions = periodData?.sessions ?? Math.round(sumWeeks(slice, 'sessions'));
   const engSlice = slice.filter(w => w.engagementRate != null && w.sessions > 0);
   const engRate = engSlice.length && totalSessions > 0
     ? Math.round(engSlice.reduce((s, w) => s + w.engagementRate * w.sessions, 0) / totalSessions * 10) / 10
-    : (ga4.total?.engagementRate ?? null);
+    : (periodData?.engagementRate ?? ga4.total?.engagementRate ?? null);
   return {
-    sessions: totalSessions,
-    users:    Math.round(sumWeeks(slice, 'users')),
-    newUsers: hasPerWeekData ? Math.round(sumWeeks(slice, 'newUsers')) : (ga4.total?.newUsers ?? null),
+    sessions:      totalSessions,
+    users:         periodData?.users    ?? Math.round(sumWeeks(slice, 'users')),
+    newUsers:      periodData?.newUsers ?? Math.round(sumWeeks(slice, 'newUsers')),
     engagementRate: engRate,
   };
 }
