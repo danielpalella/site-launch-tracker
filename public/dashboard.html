@@ -269,6 +269,24 @@
           </div>
         </div>
         <input type="search" id="analytics-search" placeholder="Search accounts…" oninput="filterAnalyticsSearch(this.value)" class="ac-search">
+        <div class="ac-sort-wrap" id="ac-sort-wrap">
+          <button class="ac-sort-btn" id="ac-sort-btn" onclick="toggleSortDrop(event)">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+            <span id="ac-sort-label">Published · Newest</span>
+            <svg id="ac-sort-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transition:transform .15s"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="ac-sort-dropdown" id="ac-sort-dropdown">
+            <div class="ac-sort-section-label">Sort By</div>
+            <button class="ac-sort-option active" data-sort-key="published" onclick="setAcSortKey('published')">Published</button>
+            <button class="ac-sort-option" data-sort-key="created" onclick="setAcSortKey('created')">Created</button>
+            <button class="ac-sort-option" data-sort-key="name" onclick="setAcSortKey('name')">Site name</button>
+            <button class="ac-sort-option" data-sort-key="performance" onclick="setAcSortKey('performance')">Performance</button>
+            <hr class="ac-sort-divider">
+            <div class="ac-sort-section-label">Order</div>
+            <button class="ac-sort-option active" data-sort-order="newest" onclick="setAcSortOrder('newest')">Newest</button>
+            <button class="ac-sort-option" data-sort-order="oldest" onclick="setAcSortOrder('oldest')">Oldest</button>
+          </div>
+        </div>
       </div>
       <div id="seo-toolbar-extras" style="display:none;align-items:center;gap:.6rem">
         <span id="seo-tb-stats" class="seo-tb-stats"></span>
@@ -1099,6 +1117,9 @@ document.addEventListener('click', (e) => {
   // Close timeframe dropdown
   const tfWrap = document.getElementById('ac-timeframe-wrap');
   if (tfWrap && !tfWrap.contains(e.target)) closeTimeframeDropdown();
+  // Close sort dropdown
+  const sortWrap = document.getElementById('ac-sort-wrap');
+  if (sortWrap && !sortWrap.contains(e.target)) closeSortDrop();
 });
 
 function showToast(msg, type = 'success') {
@@ -3039,6 +3060,8 @@ async function loadMilestoneThresholds() {
 }
 let analyticsIndustry  = 'all';
 let analyticsView      = 'sites'; // 'sites' | 'overview'
+let _acSortKey         = 'published'; // 'published' | 'created' | 'name' | 'performance'
+let _acSortOrder       = 'newest';   // 'newest' | 'oldest'
 let overviewChart      = null;
 let gshChart           = null;
 let _indBenchData      = [];
@@ -4755,6 +4778,97 @@ function applyAnalyticsFilters() {
     const el = document.getElementById('ac-site-count');
     if (el) el.innerHTML = `<strong>${visible} Active Sites</strong>`;
   }
+  sortAnalyticsCards();
+}
+
+function sortAnalyticsCards() {
+  const grid = document.getElementById('analytics-grid');
+  if (!grid) return;
+  const cards = [...grid.querySelectorAll('.ac-card')];
+  const desc = _acSortOrder === 'newest';
+
+  cards.sort((a, b) => {
+    let av, bv;
+    if (_acSortKey === 'name') {
+      av = a.dataset.name || '';
+      bv = b.dataset.name || '';
+      return desc ? bv.localeCompare(av) : av.localeCompare(bv);
+    }
+    if (_acSortKey === 'created') {
+      av = new Date(a.dataset.createdAt || 0).getTime();
+      bv = new Date(b.dataset.createdAt || 0).getTime();
+    } else if (_acSortKey === 'performance') {
+      const aid = a.id.replace('ac-card-', '');
+      const bid = b.id.replace('ac-card-', '');
+      av = analyticsData[aid]?.ga4?.total?.sessions || analyticsData[aid]?.gsc?.total?.impressions || 0;
+      bv = analyticsData[bid]?.ga4?.total?.sessions || analyticsData[bid]?.gsc?.total?.impressions || 0;
+    } else { // published (default)
+      av = new Date(a.dataset.launchDate || 0).getTime();
+      bv = new Date(b.dataset.launchDate || 0).getTime();
+    }
+    return desc ? bv - av : av - bv;
+  });
+
+  cards.forEach(c => grid.appendChild(c));
+
+  // Update index numbers on visible cards only
+  let idx = 1;
+  cards.forEach(c => {
+    const badge = document.getElementById('ac-idx-' + c.id.replace('ac-card-', ''));
+    if (badge) badge.textContent = c.style.display === 'none' ? '—' : idx++;
+  });
+}
+
+const _SORT_ORDER_LABELS = {
+  published:   { newest: 'Newest', oldest: 'Oldest' },
+  created:     { newest: 'Newest', oldest: 'Oldest' },
+  name:        { newest: 'Z → A', oldest: 'A → Z' },
+  performance: { newest: 'Highest', oldest: 'Lowest' },
+};
+const _SORT_KEY_LABELS = { published: 'Published', created: 'Created', name: 'Site Name', performance: 'Performance' };
+
+function _updateSortUI() {
+  const orderLabels = _SORT_ORDER_LABELS[_acSortKey];
+  document.getElementById('ac-sort-label').textContent =
+    `${_SORT_KEY_LABELS[_acSortKey]} · ${orderLabels[_acSortOrder]}`;
+  // Update key options
+  document.querySelectorAll('[data-sort-key]').forEach(btn =>
+    btn.classList.toggle('active', btn.dataset.sortKey === _acSortKey));
+  // Update order option labels and active state
+  document.querySelectorAll('[data-sort-order]').forEach(btn => {
+    const isNewest = btn.dataset.sortOrder === 'newest';
+    btn.textContent = isNewest ? orderLabels.newest : orderLabels.oldest;
+    btn.classList.toggle('active', btn.dataset.sortOrder === _acSortOrder);
+  });
+}
+
+function toggleSortDrop(e) {
+  e.stopPropagation();
+  const drop = document.getElementById('ac-sort-dropdown');
+  const chevron = document.getElementById('ac-sort-chevron');
+  const open = drop.classList.toggle('open');
+  chevron.style.transform = open ? 'rotate(180deg)' : '';
+  if (open) {
+    closeTimeframeDropdown();
+    closeIndustryDrop();
+    document.getElementById('ac-tag-select-drop')?.classList.remove('open');
+  }
+}
+function closeSortDrop() {
+  document.getElementById('ac-sort-dropdown')?.classList.remove('open');
+  const ch = document.getElementById('ac-sort-chevron');
+  if (ch) ch.style.transform = '';
+}
+
+function setAcSortKey(key) {
+  _acSortKey = key;
+  _updateSortUI();
+  sortAnalyticsCards();
+}
+function setAcSortOrder(order) {
+  _acSortOrder = order;
+  _updateSortUI();
+  sortAnalyticsCards();
 }
 
 function toggleIndustryDrop(e) {
@@ -5575,8 +5689,9 @@ function acdMetric(value, label, tip) {
 function analyticsSkeletonHtml(launch) {
   const launched = launch.status_changed_at || launch.created_at;
   const days = Math.floor((Date.now() - toDate(launched).getTime()) / 86_400_000);
-  return `<div class="ac-card" id="ac-card-${launch.id}" data-industry="${esc(launch.industry || '')}" data-name="${esc((launch.account_name || '').toLowerCase())}" data-domain="${esc((launch.domain_name || '').toLowerCase())}" data-tags="${esc((launch.tags || []).join(','))}" title="Double-click to view full analytics">
+  return `<div class="ac-card" id="ac-card-${launch.id}" data-industry="${esc(launch.industry || '')}" data-name="${esc((launch.account_name || '').toLowerCase())}" data-domain="${esc((launch.domain_name || '').toLowerCase())}" data-tags="${esc((launch.tags || []).join(','))}" data-launch-date="${esc(launch.status_changed_at || launch.created_at || '')}" data-created-at="${esc(launch.created_at || '')}" title="Double-click to view full analytics">
     <div class="ac-card-header">
+      <span class="ac-card-index" id="ac-idx-${launch.id}">—</span>
       <img class="ac-favicon" src="https://www.google.com/s2/favicons?domain=${esc(launch.domain_name)}&sz=32" alt="" loading="lazy" style="flex-shrink:0;align-self:flex-start;margin-top:.1rem">
       <div style="flex:1;min-width:0">
         <div class="ac-name" title="${esc(launch.account_name)}">${esc(launch.account_name)}</div>
@@ -6142,6 +6257,7 @@ async function loadAnalytics({ force = false } = {}) {
   }
   analyticsLoaded = true;
   updateCacheAgeLabel();
+  sortAnalyticsCards(); // final sort after all data loaded (needed for performance sort)
 }
 
 function editAnalyticsStartDate(id, currentVal) {
