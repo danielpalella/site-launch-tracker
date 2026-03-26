@@ -2346,7 +2346,7 @@ tr.status-separator:first-child td { border-top: none; }
   font-weight: 500;
 }
 .ac-tag-dot {
-  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; display: inline-block;
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; display: inline-block; margin-right: .4rem;
 }
 
 /* ── Analytics view toggle ── */

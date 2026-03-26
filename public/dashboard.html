@@ -259,6 +259,9 @@
             <svg id="ac-sort-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transition:transform .15s"><polyline points="6 9 12 15 18 9"/></svg>
           </button>
           <div class="ac-sort-dropdown" id="ac-sort-dropdown">
+            <div style="padding:.4rem .6rem .2rem;border-bottom:1px solid var(--border);margin-bottom:.2rem;display:flex;justify-content:flex-end">
+              <button id="ac-sort-reset-btn" onclick="resetSortAndFilters()" style="font-size:.72rem;font-weight:600;color:var(--primary);background:none;border:none;cursor:pointer;font-family:inherit;padding:.1rem .25rem;border-radius:4px;opacity:.5;pointer-events:none">Reset</button>
+            </div>
             <div class="ac-sort-section-label">Sort By</div>
             <button class="ac-sort-option active" data-sort-key="published" onclick="setAcSortKey('published')">Launch Date</button>
             <button class="ac-sort-option" data-sort-key="name" onclick="setAcSortKey('name')">Site name</button>
@@ -4826,18 +4829,42 @@ function _updateSortUI() {
 }
 
 function _updateSortFilterBadge() {
-  const count = (analyticsIndustry && analyticsIndustry !== 'all' ? 1 : 0) + (_tagFilter ? 1 : 0);
+  const filterCount = (analyticsIndustry && analyticsIndustry !== 'all' ? 1 : 0) + (_tagFilter ? 1 : 0);
+  const isDefault = _acSortKey === 'published' && _acSortOrder === 'newest' && filterCount === 0;
   const badge = document.getElementById('ac-sort-filter-badge');
   const btn   = document.getElementById('ac-sort-btn');
-  if (!badge || !btn) return;
-  if (count > 0) {
-    badge.textContent = count;
-    badge.style.display = '';
-    btn.classList.add('active');
-  } else {
-    badge.style.display = 'none';
-    btn.classList.remove('active');
+  const reset = document.getElementById('ac-sort-reset-btn');
+  if (badge && btn) {
+    if (filterCount > 0) {
+      badge.textContent = filterCount;
+      badge.style.display = '';
+      btn.classList.add('active');
+    } else {
+      badge.style.display = 'none';
+      btn.classList.toggle('active', !isDefault);
+    }
   }
+  if (reset) {
+    reset.style.opacity = isDefault ? '.35' : '1';
+    reset.style.pointerEvents = isDefault ? 'none' : '';
+  }
+}
+
+function resetSortAndFilters() {
+  _acSortKey   = 'published';
+  _acSortOrder = 'newest';
+  analyticsIndustry = 'all';
+  filterAnalyticsTags('');
+  document.querySelectorAll('#ac-industry-drop [data-val]').forEach(o =>
+    o.classList.toggle('active', o.dataset.val === 'all'));
+  document.querySelectorAll('#ac-tag-select-drop [data-val]').forEach(o =>
+    o.classList.toggle('active', o.dataset.val === ''));
+  renderIndustrySummary('all');
+  renderActiveFilters();
+  _updateSortUI();
+  applyAnalyticsFilters();
+  if (analyticsView === 'overview') renderAnalyticsOverview(null);
+  if (analyticsView === 'seo') renderSeoView();
 }
 
 function toggleSortDrop(e) {
