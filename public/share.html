@@ -367,12 +367,13 @@ document.addEventListener('mouseout', e => {
 
 function render() {
   const { account_name, domain, launchDate, analyticsStartDate, gsc, ga4, duda } = _data;
+  const startDate = analyticsStartDate || launchDate;
+  const daysSince = Math.floor((Date.now() - new Date((startDate||'').replace(' ','T')+'Z')) / 86_400_000);
+  if (_period === '60d' && daysSince < 60) _period = 'mom';
   const p = _period;
   const gscT = gscTotals(gsc, p);
   const ga4T = ga4Totals(ga4, p);
   const leads = dudaLeads(duda, p);
-  const startDate = analyticsStartDate || launchDate;
-  const daysSince = Math.floor((Date.now() - new Date((startDate||'').replace(' ','T')+'Z')) / 86_400_000);
 
   const gscSection = gsc.available ? `
     <div class="rw-section">
@@ -435,7 +436,7 @@ function render() {
 
     <div class="rw-period-bar">
       <button class="rw-period-btn ${p==='mom'?'rw-period-active':''}" onclick="setPeriod('mom')">Last 30 days</button>
-      <button class="rw-period-btn ${p==='60d'?'rw-period-active':''}" onclick="setPeriod('60d')">Last 60 days</button>
+      ${daysSince >= 60 ? `<button class="rw-period-btn ${p==='60d'?'rw-period-active':''}" onclick="setPeriod('60d')">Last 60 days</button>` : ''}
     </div>
 
     ${gscSection}${ga4Section}${leadsSection}${topKws}
