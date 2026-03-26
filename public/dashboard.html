@@ -250,29 +250,12 @@
       </div>
       <div class="ac-toolbar-divider"></div>
       <div class="ac-filters-group" id="ac-filters-group">
-        <div class="ac-tag-select-wrap" id="ac-industry-select-wrap">
-          <button class="ac-tag-select-btn" id="ac-industry-select-btn" onclick="toggleIndustryDrop(event)">
-            <span id="ac-industry-display">All Industries</span>
-            <svg id="ac-industry-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transition:transform .15s"><polyline points="6 9 12 15 18 9"/></svg>
-          </button>
-          <div class="ac-tag-select-drop" id="ac-industry-drop">
-            <button class="ac-tag-select-opt ac-drop-reset ac-tag-opt-active" data-val="all" onclick="filterAnalyticsIndustry('all')">All Industries</button>
-          </div>
-        </div>
-        <div class="ac-tag-select-wrap" id="ac-tag-select-wrap">
-          <button class="ac-tag-select-btn" id="ac-tag-select-btn" onclick="toggleTagFilterDrop(event)">
-            <span id="ac-tag-select-display">All Tags</span>
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-          </button>
-          <div class="ac-tag-select-drop" id="ac-tag-select-drop">
-            <button class="ac-tag-select-opt ac-tag-opt-active" data-val="" onclick="setTagFilterVal('')">All Tags</button>
-          </div>
-        </div>
         <input type="search" id="analytics-search" placeholder="Search accounts…" oninput="filterAnalyticsSearch(this.value)" class="ac-search">
         <div class="ac-sort-wrap" id="ac-sort-wrap">
           <button class="ac-sort-btn" id="ac-sort-btn" onclick="toggleSortDrop(event)">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
             <span id="ac-sort-label">Published · Newest</span>
+            <span id="ac-sort-filter-badge" style="display:none;background:var(--primary);color:#fff;border-radius:10px;padding:.05rem .35rem;font-size:.65rem;font-weight:700;line-height:1.5"></span>
             <svg id="ac-sort-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transition:transform .15s"><polyline points="6 9 12 15 18 9"/></svg>
           </button>
           <div class="ac-sort-dropdown" id="ac-sort-dropdown">
@@ -285,6 +268,16 @@
             <div class="ac-sort-section-label">Order</div>
             <button class="ac-sort-option active" data-sort-order="newest" onclick="setAcSortOrder('newest')">Newest</button>
             <button class="ac-sort-option" data-sort-order="oldest" onclick="setAcSortOrder('oldest')">Oldest</button>
+            <hr class="ac-sort-divider" id="ac-sort-industry-divider">
+            <div class="ac-sort-section-label">Industry</div>
+            <div class="ac-sort-scroll-section" id="ac-industry-drop">
+              <button class="ac-sort-option active" data-val="all" onclick="filterAnalyticsIndustry('all')">All Industries</button>
+            </div>
+            <hr class="ac-sort-divider" id="ac-sort-tags-divider">
+            <div class="ac-sort-section-label">Tags</div>
+            <div class="ac-sort-scroll-section" id="ac-tag-select-drop">
+              <button class="ac-sort-option active" data-val="" onclick="setTagFilterVal('')">All Tags</button>
+            </div>
           </div>
         </div>
       </div>
@@ -1106,18 +1099,10 @@ document.addEventListener('click', (e) => {
   if (!claimPop.contains(e.target) && !e.target.closest('.claim-btn') && !e.target.closest('.owner-badge')) {
     claimPop.classList.remove('open');
   }
-  // Close tag filter dropdown
-  const tagWrap = document.getElementById('ac-tag-select-wrap');
-  if (tagWrap && !tagWrap.contains(e.target)) {
-    document.getElementById('ac-tag-select-drop')?.classList.remove('open');
-  }
-  // Close industry dropdown
-  const indWrap = document.getElementById('ac-industry-select-wrap');
-  if (indWrap && !indWrap.contains(e.target)) closeIndustryDrop();
   // Close timeframe dropdown
   const tfWrap = document.getElementById('ac-timeframe-wrap');
   if (tfWrap && !tfWrap.contains(e.target)) closeTimeframeDropdown();
-  // Close sort dropdown
+  // Close sort/filter dropdown
   const sortWrap = document.getElementById('ac-sort-wrap');
   if (sortWrap && !sortWrap.contains(e.target)) closeSortDrop();
 });
@@ -3096,8 +3081,7 @@ function switchAnalyticsView(view) {
   document.getElementById('ac-overview').style.display          = view === 'overview' ? '' : 'none';
   document.getElementById('ac-seo').style.display               = view === 'seo' ? '' : 'none';
   document.getElementById('analytics-search').style.display     = (view === 'sites' || view === 'seo') ? '' : 'none';
-  document.getElementById('ac-industry-select-wrap').style.display = view === 'seo' ? 'none' : '';
-  document.getElementById('ac-tag-select-wrap').style.display   = view === 'seo' ? 'none' : '';
+  document.getElementById('ac-sort-wrap').style.display = view === 'seo' ? 'none' : '';
   document.getElementById('seo-toolbar-extras').style.display   = view === 'seo' ? 'flex' : 'none';
   document.getElementById('ac-toolbar-right').style.display     = view === 'seo' ? 'none' : 'flex';
   if (view === 'seo' && !_seoCacheLoaded) loadSeoCache();
@@ -4840,6 +4824,22 @@ function _updateSortUI() {
     btn.textContent = isNewest ? orderLabels.newest : orderLabels.oldest;
     btn.classList.toggle('active', btn.dataset.sortOrder === _acSortOrder);
   });
+  _updateSortFilterBadge();
+}
+
+function _updateSortFilterBadge() {
+  const count = (analyticsIndustry && analyticsIndustry !== 'all' ? 1 : 0) + (_tagFilter ? 1 : 0);
+  const badge = document.getElementById('ac-sort-filter-badge');
+  const btn   = document.getElementById('ac-sort-btn');
+  if (!badge || !btn) return;
+  if (count > 0) {
+    badge.textContent = count;
+    badge.style.display = '';
+    btn.classList.add('active');
+  } else {
+    badge.style.display = 'none';
+    btn.classList.remove('active');
+  }
 }
 
 function toggleSortDrop(e) {
@@ -4848,11 +4848,7 @@ function toggleSortDrop(e) {
   const chevron = document.getElementById('ac-sort-chevron');
   const open = drop.classList.toggle('open');
   chevron.style.transform = open ? 'rotate(180deg)' : '';
-  if (open) {
-    closeTimeframeDropdown();
-    closeIndustryDrop();
-    document.getElementById('ac-tag-select-drop')?.classList.remove('open');
-  }
+  if (open) closeTimeframeDropdown();
 }
 function closeSortDrop() {
   document.getElementById('ac-sort-dropdown')?.classList.remove('open');
@@ -4871,32 +4867,12 @@ function setAcSortOrder(order) {
   sortAnalyticsCards();
 }
 
-function toggleIndustryDrop(e) {
-  e.stopPropagation();
-  const drop = document.getElementById('ac-industry-drop');
-  const chevron = document.getElementById('ac-industry-chevron');
-  const open = drop.classList.toggle('open');
-  chevron.style.transform = open ? 'rotate(180deg)' : '';
-  if (open) {
-    document.getElementById('ac-tag-select-drop')?.classList.remove('open');
-    closeTimeframeDropdown();
-  }
-}
-function closeIndustryDrop() {
-  document.getElementById('ac-industry-drop')?.classList.remove('open');
-  const ch = document.getElementById('ac-industry-chevron');
-  if (ch) ch.style.transform = '';
-}
 
 function filterAnalyticsIndustry(val) {
   analyticsIndustry = val;
-  const display = document.getElementById('ac-industry-display');
-  if (display) display.textContent = val === 'all' ? 'All Industries' : val;
-  const btn = document.getElementById('ac-industry-select-btn');
-  if (btn) btn.classList.toggle('ac-tag-select-active', val !== 'all');
-  document.querySelectorAll('#ac-industry-drop .ac-tag-select-opt').forEach(o =>
-    o.classList.toggle('ac-tag-opt-active', o.dataset.val === val));
-  closeIndustryDrop();
+  document.querySelectorAll('#ac-industry-drop [data-val]').forEach(o =>
+    o.classList.toggle('active', o.dataset.val === val));
+  _updateSortFilterBadge();
   applyAnalyticsFilters();
   renderIndustrySummary(val);
   if (analyticsView === 'overview') renderAnalyticsOverview(null);
@@ -4922,9 +4898,9 @@ function buildAnalyticsIndustryBar(launches) {
   });
   const current = analyticsIndustry || 'all';
   drop.innerHTML =
-    `<button class="ac-tag-select-opt ac-drop-reset ${current === 'all' ? 'ac-tag-opt-active' : ''}" data-val="all" onclick="filterAnalyticsIndustry('all')">All Industries</button>` +
+    `<button class="ac-sort-option ${current === 'all' ? 'active' : ''}" data-val="all" onclick="filterAnalyticsIndustry('all')">All Industries</button>` +
     industries.map(ind =>
-      `<button class="ac-tag-select-opt ${current === ind ? 'ac-tag-opt-active' : ''}" data-val="${esc(ind)}" onclick="filterAnalyticsIndustry('${esc(ind)}')">${esc(ind)}<span class="ac-drop-count">${counts[ind]}</span></button>`
+      `<button class="ac-sort-option ${current === ind ? 'active' : ''}" data-val="${esc(ind)}" onclick="filterAnalyticsIndustry('${esc(ind)}')">${esc(ind)}<span class="ac-drop-count">${counts[ind]}</span></button>`
     ).join('');
 }
 
@@ -5733,32 +5709,17 @@ async function loadTagsRegistry() {
 function renderTagFilterSelect() {
   const drop = document.getElementById('ac-tag-select-drop');
   if (!drop) return;
-  drop.innerHTML = `<button class="ac-tag-select-opt ac-drop-reset ${!_tagFilter ? 'ac-tag-opt-active' : ''}" data-val="" onclick="setTagFilterVal('')">All Tags</button>`
+  drop.innerHTML = `<button class="ac-sort-option ${!_tagFilter ? 'active' : ''}" data-val="" onclick="setTagFilterVal('')">All Tags</button>`
     + _tagsRegistry.map(t =>
-      `<button class="ac-tag-select-opt ${_tagFilter === t.id ? 'ac-tag-opt-active' : ''}" data-val="${esc(t.id)}" onclick="setTagFilterVal('${esc(t.id)}')" style="--tag-c:${t.color}"><span class="ac-tag-dot" style="background:${t.color}"></span>${esc(t.name)}</button>`
+      `<button class="ac-sort-option ${_tagFilter === t.id ? 'active' : ''}" data-val="${esc(t.id)}" onclick="setTagFilterVal('${esc(t.id)}')" style="--tag-c:${t.color}"><span class="ac-tag-dot" style="background:${t.color}"></span>${esc(t.name)}</button>`
     ).join('');
-}
-
-function toggleTagFilterDrop(e) {
-  e.stopPropagation();
-  const drop = document.getElementById('ac-tag-select-drop');
-  drop.classList.toggle('open');
 }
 
 function setTagFilterVal(tagId) {
   filterAnalyticsTags(tagId);
-  const display = document.getElementById('ac-tag-select-display');
-  const btn = document.getElementById('ac-tag-select-btn');
-  if (tagId && _tagMap[tagId]) {
-    const t = _tagMap[tagId];
-    display.innerHTML = `<span class="ac-tag-dot" style="background:${t.color}"></span>${esc(t.name)}`;
-    btn.classList.add('ac-tag-select-active');
-  } else {
-    display.textContent = 'All Tags';
-    btn.classList.remove('ac-tag-select-active');
-  }
-  document.querySelectorAll('.ac-tag-select-opt').forEach(o => o.classList.toggle('ac-tag-opt-active', o.dataset.val === tagId));
-  document.getElementById('ac-tag-select-drop').classList.remove('open');
+  document.querySelectorAll('#ac-tag-select-drop [data-val]').forEach(o =>
+    o.classList.toggle('active', o.dataset.val === tagId));
+  _updateSortFilterBadge();
 }
 
 function renderActiveFilters() {
