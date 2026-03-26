@@ -254,7 +254,7 @@
         <div class="ac-sort-wrap" id="ac-sort-wrap">
           <button class="ac-sort-btn" id="ac-sort-btn" onclick="toggleSortDrop(event)">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
-            <span id="ac-sort-label">Published · Newest</span>
+            <span id="ac-sort-label">Launch Date · Newest</span>
             <span id="ac-sort-filter-badge" style="display:none;background:var(--primary);color:#fff;border-radius:10px;padding:.05rem .35rem;font-size:.65rem;font-weight:700;line-height:1.5"></span>
             <svg id="ac-sort-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transition:transform .15s"><polyline points="6 9 12 15 18 9"/></svg>
           </button>
@@ -270,16 +270,6 @@
             <div class="ac-sort-section-label">Order</div>
             <button class="ac-sort-option active" data-sort-order="newest" onclick="setAcSortOrder('newest')">Newest</button>
             <button class="ac-sort-option" data-sort-order="oldest" onclick="setAcSortOrder('oldest')">Oldest</button>
-            <hr class="ac-sort-divider" id="ac-sort-industry-divider">
-            <div class="ac-sort-section-label">Industry</div>
-            <div class="ac-sort-scroll-section" id="ac-industry-drop">
-              <button class="ac-sort-option active" data-val="all" onclick="filterAnalyticsIndustry('all')">All Industries</button>
-            </div>
-            <hr class="ac-sort-divider" id="ac-sort-tags-divider">
-            <div class="ac-sort-section-label">Tags</div>
-            <div class="ac-sort-scroll-section" id="ac-tag-select-drop">
-              <button class="ac-sort-option active" data-val="" onclick="setTagFilterVal('')">All Tags</button>
-            </div>
           </div>
         </div>
       </div>
@@ -312,25 +302,59 @@
     <div id="ac-active-filters" class="ac-active-filters" style="display:none"></div>
     </div><!-- /ac-sticky-header -->
 
-    <div class="ac-scroll-area">
-      <!-- Industry summary bar (shown when industry filter active in sites view) -->
-      <div id="ac-industry-summary" style="display:none;margin-bottom:.75rem"></div>
+    <div class="ac-content-row">
 
-      <!-- Overview panel -->
-      <div id="ac-overview" style="display:none"></div>
-
-      <!-- SEO panel -->
-      <div id="ac-seo" style="display:none"></div>
-
-      <!-- All-sites card grid -->
-      <div id="ac-sites-panel">
-        <div class="card analytics-card-outer">
-          <div id="analytics-grid" class="analytics-grid">
-            <div style="color:var(--text-muted);font-size:.875rem">Loading…</div>
+      <!-- ── FILTER PANEL (Sites view only) ── -->
+      <div id="ac-filter-panel" class="ac-filter-panel">
+        <div class="acfp-header">
+          <span class="acfp-title">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
+            Filters
+          </span>
+          <div class="acfp-header-right">
+            <button class="acfp-clear-btn" id="acfp-clear-btn" onclick="clearAnalyticsFilters()" style="display:none">Clear</button>
+            <button class="acfp-toggle-btn" id="acfp-toggle-btn" onclick="toggleAcFilterPanel()" title="Collapse panel">
+              <svg id="acfp-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" style="transition:transform .2s"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="acfp-body" id="acfp-body">
+          <div class="acfp-section">
+            <div class="acfp-section-label">Industry</div>
+            <div id="ac-industry-drop">
+              <button class="acfp-item active" data-val="all" onclick="filterAnalyticsIndustry('all')">All Industries</button>
+            </div>
+          </div>
+          <div class="acfp-section">
+            <div class="acfp-section-label">Labels</div>
+            <div id="ac-tag-select-drop">
+              <button class="acfp-item active" data-val="" onclick="setTagFilterVal('')">All Labels</button>
+            </div>
           </div>
         </div>
       </div>
-    </div><!-- /ac-scroll-area -->
+
+      <div class="ac-scroll-area">
+        <!-- Industry summary bar (shown when industry filter active in sites view) -->
+        <div id="ac-industry-summary" style="display:none;margin-bottom:.75rem"></div>
+
+        <!-- Overview panel -->
+        <div id="ac-overview" style="display:none"></div>
+
+        <!-- SEO panel -->
+        <div id="ac-seo" style="display:none"></div>
+
+        <!-- All-sites card grid -->
+        <div id="ac-sites-panel">
+          <div class="card analytics-card-outer">
+            <div id="analytics-grid" class="analytics-grid">
+              <div style="color:var(--text-muted);font-size:.875rem">Loading…</div>
+            </div>
+          </div>
+        </div>
+      </div><!-- /ac-scroll-area -->
+
+    </div><!-- /ac-content-row -->
   </div><!-- /view-analytics -->
 
 </div><!-- /page-wide -->
@@ -2044,7 +2068,7 @@ function switchTab(tab) {
   const titles = { launches: 'Tracker', 'edit-requests': 'Edits', analytics: 'Insights' };
   document.title = `RealWork Websites — ${titles[tab] || 'Tracker'}`;
   if (tab === 'edit-requests') fetchEditRequests();
-  if (tab === 'analytics') loadAnalytics();
+  if (tab === 'analytics') { _initAcFilterPanel(); loadAnalytics(); }
 }
 
 // ── Edit Requests ──
@@ -3086,6 +3110,8 @@ function switchAnalyticsView(view) {
   document.getElementById('ac-sort-wrap').style.display = view === 'seo' ? 'none' : '';
   document.getElementById('seo-toolbar-extras').style.display   = view === 'seo' ? 'flex' : 'none';
   document.getElementById('ac-toolbar-right').style.display     = view === 'seo' ? 'none' : 'flex';
+  const _fp = document.getElementById('ac-filter-panel');
+  if (_fp) _fp.style.display = view === 'sites' ? '' : 'none';
   if (view === 'seo' && !_seoCacheLoaded) loadSeoCache();
   if (view === 'seo' && !_perfCacheLoaded) loadPerfCache();
   if (view === 'overview') { loadAnalytics(); try { renderAnalyticsOverview(null); } catch(e) { console.error('Overview render error:', e); } }
@@ -4829,21 +4855,10 @@ function _updateSortUI() {
 }
 
 function _updateSortFilterBadge() {
-  const filterCount = (analyticsIndustry && analyticsIndustry !== 'all' ? 1 : 0) + (_tagFilter ? 1 : 0);
-  const isDefault = _acSortKey === 'published' && _acSortOrder === 'newest' && filterCount === 0;
-  const badge = document.getElementById('ac-sort-filter-badge');
+  const isDefault = _acSortKey === 'published' && _acSortOrder === 'newest';
   const btn   = document.getElementById('ac-sort-btn');
   const reset = document.getElementById('ac-sort-reset-btn');
-  if (badge && btn) {
-    if (filterCount > 0) {
-      badge.textContent = filterCount;
-      badge.style.display = '';
-      btn.classList.add('active');
-    } else {
-      badge.style.display = 'none';
-      btn.classList.toggle('active', !isDefault);
-    }
-  }
+  if (btn) btn.classList.toggle('active', !isDefault);
   if (reset) {
     reset.style.opacity = isDefault ? '.35' : '1';
     reset.style.pointerEvents = isDefault ? 'none' : '';
@@ -4853,18 +4868,9 @@ function _updateSortFilterBadge() {
 function resetSortAndFilters() {
   _acSortKey   = 'published';
   _acSortOrder = 'newest';
-  analyticsIndustry = 'all';
-  filterAnalyticsTags('');
-  document.querySelectorAll('#ac-industry-drop [data-val]').forEach(o =>
-    o.classList.toggle('active', o.dataset.val === 'all'));
-  document.querySelectorAll('#ac-tag-select-drop [data-val]').forEach(o =>
-    o.classList.toggle('active', o.dataset.val === ''));
-  renderIndustrySummary('all');
-  renderActiveFilters();
   _updateSortUI();
-  applyAnalyticsFilters();
-  if (analyticsView === 'overview') renderAnalyticsOverview(null);
-  if (analyticsView === 'seo') renderSeoView();
+  sortAnalyticsCards();
+  closeSortDrop();
 }
 
 function toggleSortDrop(e) {
@@ -4879,6 +4885,32 @@ function closeSortDrop() {
   document.getElementById('ac-sort-dropdown')?.classList.remove('open');
   const ch = document.getElementById('ac-sort-chevron');
   if (ch) ch.style.transform = '';
+}
+
+function toggleAcFilterPanel() {
+  const panel = document.getElementById('ac-filter-panel');
+  if (!panel) return;
+  const collapsed = panel.classList.toggle('collapsed');
+  localStorage.setItem('acfp-collapsed', collapsed ? '1' : '0');
+  const chevron = document.getElementById('acfp-chevron');
+  if (chevron) chevron.style.transform = collapsed ? 'rotate(180deg)' : '';
+}
+
+function _initAcFilterPanel() {
+  if (localStorage.getItem('acfp-collapsed') === '1') {
+    const panel = document.getElementById('ac-filter-panel');
+    if (panel) panel.classList.add('collapsed');
+    const chevron = document.getElementById('acfp-chevron');
+    if (chevron) chevron.style.transform = 'rotate(180deg)';
+  }
+}
+
+function _updateAcFilterPanelState() {
+  const hasFilters = (analyticsIndustry && analyticsIndustry !== 'all') || !!_tagFilter;
+  const clearBtn = document.getElementById('acfp-clear-btn');
+  if (clearBtn) clearBtn.style.display = hasFilters ? '' : 'none';
+  const toggleBtn = document.getElementById('acfp-toggle-btn');
+  if (toggleBtn) toggleBtn.classList.toggle('has-filters', hasFilters);
 }
 
 function setAcSortKey(key) {
@@ -4897,7 +4929,7 @@ function filterAnalyticsIndustry(val) {
   analyticsIndustry = val;
   document.querySelectorAll('#ac-industry-drop [data-val]').forEach(o =>
     o.classList.toggle('active', o.dataset.val === val));
-  _updateSortFilterBadge();
+  _updateAcFilterPanelState();
   applyAnalyticsFilters();
   renderIndustrySummary(val);
   if (analyticsView === 'overview') renderAnalyticsOverview(null);
@@ -4923,10 +4955,16 @@ function buildAnalyticsIndustryBar(launches) {
   });
   const current = analyticsIndustry || 'all';
   drop.innerHTML =
-    `<button class="ac-sort-option ${current === 'all' ? 'active' : ''}" data-val="all" onclick="filterAnalyticsIndustry('all')">All Industries</button>` +
+    `<button class="acfp-item ${current === 'all' ? 'active' : ''}" data-val="all" onclick="filterAnalyticsIndustry('all')">All Industries</button>` +
     industries.map(ind =>
-      `<button class="ac-sort-option ${current === ind ? 'active' : ''}" data-val="${esc(ind)}" onclick="filterAnalyticsIndustry('${esc(ind)}')">${esc(ind)}<span class="ac-drop-count">${counts[ind]}</span></button>`
+      `<button class="acfp-item ${current === ind ? 'active' : ''}" data-val="${esc(ind)}" onclick="filterAnalyticsIndustry('${esc(ind)}')">${esc(ind)}<span class="acfp-count">${counts[ind]}</span></button>`
     ).join('');
+  // Also update tag counts now that we have the launches data
+  const tagCounts = {};
+  for (const l of launches) {
+    if (Array.isArray(l.tags)) l.tags.forEach(tid => { tagCounts[tid] = (tagCounts[tid] || 0) + 1; });
+  }
+  renderTagFilterSelect(tagCounts);
 }
 
 // Returns the slice of weeks for the current period
@@ -5731,20 +5769,22 @@ async function loadTagsRegistry() {
   } catch {}
 }
 
-function renderTagFilterSelect() {
+function renderTagFilterSelect(tagCounts) {
   const drop = document.getElementById('ac-tag-select-drop');
   if (!drop) return;
-  drop.innerHTML = `<button class="ac-sort-option ${!_tagFilter ? 'active' : ''}" data-val="" onclick="setTagFilterVal('')">All Tags</button>`
-    + _tagsRegistry.map(t =>
-      `<button class="ac-sort-option ${_tagFilter === t.id ? 'active' : ''}" data-val="${esc(t.id)}" onclick="setTagFilterVal('${esc(t.id)}')" style="--tag-c:${t.color}"><span class="ac-tag-dot" style="background:${t.color}"></span>${esc(t.name)}</button>`
-    ).join('');
+  drop.innerHTML = `<button class="acfp-item ${!_tagFilter ? 'active' : ''}" data-val="" onclick="setTagFilterVal('')">All Labels</button>`
+    + _tagsRegistry.map(t => {
+        const cnt = tagCounts ? (tagCounts[t.id] || 0) : null;
+        return `<button class="acfp-item ${_tagFilter === t.id ? 'active' : ''}" data-val="${esc(t.id)}" onclick="setTagFilterVal('${esc(t.id)}')"><span class="ac-tag-dot" style="background:${t.color}"></span>${esc(t.name)}${cnt !== null ? `<span class="acfp-count">${cnt}</span>` : ''}</button>`;
+      }).join('');
 }
 
 function setTagFilterVal(tagId) {
   filterAnalyticsTags(tagId);
   document.querySelectorAll('#ac-tag-select-drop [data-val]').forEach(o =>
     o.classList.toggle('active', o.dataset.val === tagId));
-  _updateSortFilterBadge();
+  _updateAcFilterPanelState();
+  renderActiveFilters();
 }
 
 function renderActiveFilters() {
