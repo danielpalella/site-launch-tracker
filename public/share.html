@@ -242,7 +242,6 @@
       gap: .65rem;
       align-items: flex-start;
     }
-    .rw-summary-icon { font-size: 1rem; flex-shrink: 0; margin-top: .05rem; }
     .rw-summary-text { flex: 1; }
     .rw-summary-highlights {
       display: flex;
@@ -402,14 +401,14 @@ function deltaHtml(pct) {
 function buildSummary(gscT, ga4T, leads, goodKwsCount) {
   const stats = [];
   if (goodKwsCount > 0)
-    stats.push({ icon: '🔍', label: 'Keywords ranking', val: goodKwsCount });
+    stats.push({ label: 'Keywords ranking', val: goodKwsCount });
   if (ga4T?.sessions > 0)
-    stats.push({ icon: '👥', label: 'Sessions this period', val: fmt(ga4T.sessions) });
+    stats.push({ label: 'Sessions this period', val: fmt(ga4T.sessions) });
   const totalLeads = (leads?.formSubmits || 0) + (leads?.callClicks || 0);
   if (totalLeads > 0)
-    stats.push({ icon: '📬', label: 'Lead actions', val: totalLeads });
+    stats.push({ label: 'Lead actions', val: totalLeads });
   if (gscT?.impressions > 0)
-    stats.push({ icon: '📈', label: 'Search impressions', val: fmt(gscT.impressions) });
+    stats.push({ label: 'Search impressions', val: fmt(gscT.impressions) });
   return stats;
 }
 
@@ -504,11 +503,10 @@ function render() {
   const summaryStats = buildSummary(gscT, ga4T, leads, goodKws.length);
   const summaryBlock = summaryStats.length ? `
     <div class="rw-summary">
-      <div class="rw-summary-icon">📊</div>
       <div class="rw-summary-text">
         <strong>${esc(account_name)}</strong> is live and building momentum online.
         <div class="rw-summary-highlights">
-          ${summaryStats.map(s => `<span class="rw-summary-stat">${s.icon} <strong>${s.val}</strong> ${s.label}</span>`).join('')}
+          ${summaryStats.map(s => `<span class="rw-summary-stat"><strong>${s.val}</strong> ${s.label}</span>`).join('')}
         </div>
       </div>
     </div>` : '';
@@ -533,9 +531,9 @@ function render() {
     ${gscSection}${ga4Section}${leadsSection}${topKws}
 
     <div class="rw-footer">
-      <div class="rw-footer-brand">RealWork Labs</div>
-      This report was prepared by your website team.<br>
-      Questions? Contact us at <a href="mailto:hello@realworklabs.com">hello@realworklabs.com</a>
+      <div class="rw-footer-brand">RealWork</div>
+      Metrics sourced from Google Analytics, Google Search Console, and Duda.<br>
+      Questions? <a href="mailto:support@realworklabs.com">support@realworklabs.com</a>
     </div>
   `;
   document.title = account_name + ' — Site Performance Report';
