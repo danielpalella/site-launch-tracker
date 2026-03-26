@@ -4371,7 +4371,7 @@ function renderAnalyticsOverview(industryFilter) {
         <span>pos <b>${h.position ? Math.round(h.position) : '—'}</b></span>
         <span class="ov-att-sep">·</span>
         <span><b>${h.ctr}%</b> CTR</span>
-        ${trendStr ? `<span class="ov-att-sep">·</span><span style="color:${trendColor};font-weight:700">${trendStr}</span>` : ''}
+        ${trendStr ? `<span class="ov-att-sep">·</span><span style="color:${trendColor};font-weight:700">${trendStr} imps</span>` : ''}
       </div>
       ${allIssues.length ? `<div class="ov-att-issues">${allIssues.map(i => {
         const isSec = i === 'Security Risk';
@@ -4427,7 +4427,7 @@ function renderAnalyticsOverview(industryFilter) {
         <span>pos <b>${h.position ? Math.round(h.position) : '—'}</b></span>
         <span class="ov-att-sep">·</span>
         <span><b>${h.ctr}%</b> CTR</span>
-        ${trendStr ? `<span class="ov-att-sep">·</span><span style="color:${trendColor};font-weight:700">${trendStr}</span>` : ''}
+        ${trendStr ? `<span class="ov-att-sep">·</span><span style="color:${trendColor};font-weight:700">${trendStr} imps</span>` : ''}
       </div>
       ${h.issues.length ? `<div class="ov-att-issues">${h.issues.map(i => `<span class="ov-issue-tag" style="background:${h.color}18;color:${h.color};border:1px solid ${h.color}40">${esc(i)}</span>`).join('')}</div>` : ''}
     </div>`;
