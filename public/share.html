@@ -212,10 +212,67 @@
     .rw-kw-pos.top10 { background: #fef9c3; color: #b45309; border-color: #fde68a; }
     .rw-kw-clicks { font-size: .75rem; color: var(--muted); white-space: nowrap; }
 
+    /* Period pill on section titles */
+    .rw-period-pill {
+      display: inline-block;
+      font-size: .65rem;
+      font-weight: 500;
+      padding: .1rem .45rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--muted);
+      text-transform: none;
+      letter-spacing: 0;
+      margin-left: .15rem;
+    }
+
+    /* Summary banner */
+    .rw-summary {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem 1.25rem;
+      margin-bottom: 1.25rem;
+      font-size: .85rem;
+      color: var(--text);
+      line-height: 1.55;
+      box-shadow: 0 1px 4px rgba(6,16,42,.06);
+      display: flex;
+      gap: .65rem;
+      align-items: flex-start;
+    }
+    .rw-summary-icon { font-size: 1rem; flex-shrink: 0; margin-top: .05rem; }
+    .rw-summary-text { flex: 1; }
+    .rw-summary-highlights {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .4rem .75rem;
+      margin-top: .5rem;
+    }
+    .rw-summary-stat {
+      font-size: .78rem;
+      font-weight: 600;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: .25rem;
+    }
+    .rw-summary-stat strong { color: var(--text); }
+
     /* Footer */
-    .rw-footer { text-align: center; margin-top: 3rem; font-size: .75rem; color: var(--muted); }
+    .rw-footer {
+      text-align: center;
+      margin-top: 3rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border);
+      font-size: .75rem;
+      color: var(--muted);
+      line-height: 1.7;
+    }
     .rw-footer a { color: var(--blue); text-decoration: none; }
     .rw-footer a:hover { text-decoration: underline; }
+    .rw-footer-brand { font-weight: 600; color: var(--text); margin-bottom: .2rem; font-size: .8rem; }
 
     /* Loading / error */
     .rw-loading { text-align: center; padding: 4rem 1rem; color: var(--muted); }
@@ -319,6 +376,7 @@ function dudaLeads(duda, p) {
   return {
     formSubmits: slice.reduce((s,d) => s + (d.formSubmits||0), 0),
     callClicks:  slice.reduce((s,d) => s + (d.callClicks||0),  0),
+    pageViews:   slice.reduce((s,d) => s + (d.pageViews||0),   0),
   };
 }
 
@@ -336,7 +394,23 @@ function pctDelta(weeks, key, p) {
 function deltaHtml(pct) {
   if (pct == null) return '';
   const up = pct >= 0;
-  return `<div class="rw-metric-delta ${up ? 'rw-delta-up' : 'rw-delta-down'}">${up ? '▲' : '▼'} ${Math.abs(pct)}% vs prior period</div>`;
+  const abs = Math.abs(pct);
+  const label = abs > 999 ? '999%+' : abs + '%';
+  return `<div class="rw-metric-delta ${up ? 'rw-delta-up' : 'rw-delta-down'}">${up ? '▲' : '▼'} ${label} vs prior period</div>`;
+}
+
+function buildSummary(gscT, ga4T, leads, goodKwsCount) {
+  const stats = [];
+  if (goodKwsCount > 0)
+    stats.push({ icon: '🔍', label: 'Keywords ranking', val: goodKwsCount });
+  if (ga4T?.sessions > 0)
+    stats.push({ icon: '👥', label: 'Sessions this period', val: fmt(ga4T.sessions) });
+  const totalLeads = (leads?.formSubmits || 0) + (leads?.callClicks || 0);
+  if (totalLeads > 0)
+    stats.push({ icon: '📬', label: 'Lead actions', val: totalLeads });
+  if (gscT?.impressions > 0)
+    stats.push({ icon: '📈', label: 'Search impressions', val: fmt(gscT.impressions) });
+  return stats;
 }
 
 function metric(val, label, deltaPct, tip) {
@@ -375,9 +449,11 @@ function render() {
   const ga4T = ga4Totals(ga4, p);
   const leads = dudaLeads(duda, p);
 
+  const periodPill = `<span class="rw-period-pill">${PERIOD_LABELS[p]}</span>`;
+
   const gscSection = gsc.available ? `
     <div class="rw-section">
-      <div class="rw-section-title"><img src="/gsc-icon.png" alt="">Search Console <span style="font-weight:400;text-transform:none;letter-spacing:0;margin-left:.25rem">${PERIOD_LABELS[p]}</span></div>
+      <div class="rw-section-title"><img src="/gsc-icon.png" alt="">Search Console ${periodPill}</div>
       <div class="rw-metrics">
         ${metric(fmt(gscT.clicks), 'Organic Clicks', pctDelta(gsc.weeks,'clicks',p), 'Times someone clicked your site link in Google search results.')}
         ${metric(fmt(gscT.impressions), 'Search Impressions', pctDelta(gsc.weeks,'impressions',p), 'Times your site appeared in Google search results, even when not clicked.')}
@@ -388,7 +464,7 @@ function render() {
 
   const ga4Section = ga4.available ? `
     <div class="rw-section">
-      <div class="rw-section-title"><img src="/ga4-icon.png" alt="">Google Analytics <span style="font-weight:400;text-transform:none;letter-spacing:0;margin-left:.25rem">${PERIOD_LABELS[p]}</span></div>
+      <div class="rw-section-title"><img src="/ga4-icon.png" alt="">Google Analytics ${periodPill}</div>
       <div class="rw-metrics">
         ${metric(fmt(ga4T.sessions), 'Website Sessions', pctDelta(ga4.weeks,'sessions',p), 'Total visits to your site, including return visits from the same person.')}
         ${metric(fmt(ga4T.users), 'Unique Visitors', pctDelta(ga4.weeks,'users',p), 'Number of individual people who visited your site during this period.')}
@@ -399,10 +475,11 @@ function render() {
 
   const leadsSection = leads ? `
     <div class="rw-section">
-      <div class="rw-section-title"><img src="/duda-icon.png" alt="" style="border-radius:3px">Lead Activity <span style="font-weight:400;text-transform:none;letter-spacing:0;margin-left:.25rem">${PERIOD_LABELS[p]}</span></div>
+      <div class="rw-section-title"><img src="/duda-icon.png" alt="" style="border-radius:3px">Lead Activity ${periodPill}</div>
       <div class="rw-metrics">
         ${metric(fmt(leads.formSubmits), 'Form Submissions', pctDelta(duda.weeks,'formSubmits',p), 'Times a visitor filled out and submitted a contact or lead form on your site.')}
         ${metric(fmt(leads.callClicks), 'Call Clicks', pctDelta(duda.weeks,'callClicks',p), 'Times a visitor clicked or tapped your phone number to call your business.')}
+        ${metric(fmt(leads.pageViews), 'Page Views', pctDelta(duda.weeks,'pageViews',p), 'Total number of pages viewed across all visits during this period.')}
       </div>
     </div>` : '';
 
@@ -418,9 +495,21 @@ function render() {
           return `<div class="rw-kw-row">
             <span class="rw-kw-query">${esc(q.query)}</span>
             <span class="rw-kw-pos ${posClass}">Position ${pos ?? '—'}</span>
-            <span class="rw-kw-clicks">${q.clicks} clicks</span>
+            ${q.clicks > 0 ? `<span class="rw-kw-clicks">${q.clicks} click${q.clicks !== 1 ? 's' : ''}</span>` : ''}
           </div>`;
         }).join('')}
+      </div>
+    </div>` : '';
+
+  const summaryStats = buildSummary(gscT, ga4T, leads, goodKws.length);
+  const summaryBlock = summaryStats.length ? `
+    <div class="rw-summary">
+      <div class="rw-summary-icon">📊</div>
+      <div class="rw-summary-text">
+        <strong>${esc(account_name)}</strong> is live and building momentum online.
+        <div class="rw-summary-highlights">
+          ${summaryStats.map(s => `<span class="rw-summary-stat">${s.icon} <strong>${s.val}</strong> ${s.label}</span>`).join('')}
+        </div>
       </div>
     </div>` : '';
 
@@ -434,6 +523,8 @@ function render() {
       </div>
     </div>
 
+    ${summaryBlock}
+
     <div class="rw-period-bar">
       <button class="rw-period-btn ${p==='mom'?'rw-period-active':''}" onclick="setPeriod('mom')">Last 30 days</button>
       ${daysSince >= 60 ? `<button class="rw-period-btn ${p==='60d'?'rw-period-active':''}" onclick="setPeriod('60d')">Last 60 days</button>` : ''}
@@ -442,7 +533,9 @@ function render() {
     ${gscSection}${ga4Section}${leadsSection}${topKws}
 
     <div class="rw-footer">
-      Report generated by <a href="https://realworklabs.com" target="_blank" rel="noopener">RealWork Labs</a>
+      <div class="rw-footer-brand">RealWork Labs</div>
+      This report was prepared by your website team.<br>
+      Questions? Contact us at <a href="mailto:hello@realworklabs.com">hello@realworklabs.com</a>
     </div>
   `;
   document.title = account_name + ' — Site Performance Report';
