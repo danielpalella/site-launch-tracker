@@ -1,5 +1,6 @@
 import express from 'express';
 import multer from 'multer';
+import { randomUUID } from 'crypto';
 import { google } from 'googleapis';
 import { getStorage } from 'firebase-admin/storage';
 import { join, dirname } from 'path';
@@ -2212,22 +2213,44 @@ app.delete('/api/launches/:id/favicon', requireAuth, async (req, res) => {
   }
 });
 
-// ── Public Share Report ──
-app.get('/api/share/:id', async (req, res) => {
+// ── Share Token Generation ──
+app.post('/api/launches/:id/share-token', requireAuth, async (req, res) => {
+  try {
+    const token = randomUUID();
+    await db.collection('launches').doc(req.params.id).update({
+      shareToken: token,
+      shareTokenCreatedAt: new Date().toISOString(),
+    });
+    res.json({ token });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Public Share Report (token-based, 48h expiry) ──
+app.get('/api/share/:id/:token', async (req, res) => {
   try {
     const [cacheDoc, launchDoc] = await Promise.all([
       db.collection('launches').doc(req.params.id).collection('analytics_cache').doc('daily').get(),
       db.collection('launches').doc(req.params.id).get(),
     ]);
     if (!cacheDoc.exists) return res.status(404).json({ error: 'Report not available yet' });
+    if (!launchDoc.exists) return res.status(404).json({ error: 'Not found' });
+    const launch = launchDoc.data();
+    if (!launch.shareToken || launch.shareToken !== req.params.token) {
+      return res.status(403).json({ error: 'Invalid link' });
+    }
+    if (Date.now() - new Date(launch.shareTokenCreatedAt).getTime() > 48 * 60 * 60 * 1000) {
+      return res.status(410).json({ error: 'Link expired' });
+    }
     const { data, cachedAt } = cacheDoc.data();
     const { account_name, domain, launchDate, analyticsStartDate, daysSince, gsc, ga4, duda } = data;
-    const custom_favicon = launchDoc.exists ? (launchDoc.data().custom_favicon || null) : null;
-    res.json({ account_name, domain, launchDate, analyticsStartDate, daysSince, gsc, ga4, duda, cachedAt, custom_favicon });
+    res.json({ account_name, domain, launchDate, analyticsStartDate, daysSince, gsc, ga4, duda, cachedAt, custom_favicon: launch.custom_favicon || null });
   } catch (err) {
     res.status(500).json({ error: 'Failed to load report' });
   }
 });
+app.get('/share/:id/:token', (_req, res) => res.sendFile(join(__dirname, 'public', 'share.html')));
 app.get('/share/:id', (_req, res) => res.sendFile(join(__dirname, 'public', 'share.html')));
 
 // ── Pages ──

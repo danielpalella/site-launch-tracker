@@ -112,7 +112,6 @@
       border-radius: var(--radius);
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-      overflow: hidden;
       box-shadow: 0 1px 4px rgba(6,16,42,.06);
     }
     .rw-metric {
@@ -138,6 +137,9 @@
       letter-spacing: .06em;
       color: var(--muted);
       margin-top: .35rem;
+      display: flex;
+      align-items: center;
+      gap: .25rem;
     }
     .rw-metric-delta {
       font-size: .75rem;
@@ -146,6 +148,37 @@
     }
     .rw-delta-up { color: var(--green); }
     .rw-delta-down { color: #ef4444; }
+
+    /* Tooltip */
+    .rw-tip {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 13px; height: 13px;
+      border-radius: 50%;
+      background: #e8ecf4;
+      color: var(--muted);
+      font-size: .58rem;
+      font-weight: 800;
+      cursor: default;
+      flex-shrink: 0;
+    }
+    #rw-tooltip {
+      position: fixed;
+      background: #06102a;
+      color: #fff;
+      font-size: .72rem;
+      line-height: 1.5;
+      font-weight: 400;
+      text-transform: none;
+      letter-spacing: 0;
+      padding: .4rem .6rem;
+      border-radius: 6px;
+      max-width: 200px;
+      pointer-events: none;
+      z-index: 9999;
+      display: none;
+    }
 
     /* Top keywords */
     .rw-keywords {
@@ -193,6 +226,8 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
     .rw-error { background: #fee2e2; border: 1px solid #fecaca; color: #991b1b; border-radius: var(--radius); padding: 1rem 1.25rem; margin-bottom: 1.5rem; font-size: .85rem; }
+    .rw-expired { background: #fff7ed; border: 1px solid #fed7aa; color: #92400e; border-radius: var(--radius); padding: 1.25rem 1.5rem; font-size: .85rem; line-height: 1.6; }
+    .rw-expired strong { display: block; font-size: .95rem; margin-bottom: .35rem; }
 
     @media (max-width: 480px) {
       .rw-metric-val { font-size: 1.3rem; }
@@ -220,9 +255,13 @@
   </div>
 </div>
 
+<div id="rw-tooltip"></div>
+
 <script>
-const id = location.pathname.split('/').pop();
-let _data = null;
+const parts = location.pathname.split('/').filter(Boolean);
+const id    = parts[1];
+const token = parts[2];
+let _data   = null;
 let _period = 'mom';
 
 const PERIOD_LABELS = { mom: 'Last 30 days', '60d': 'Last 60 days' };
@@ -243,7 +282,7 @@ function fmtDate(s) {
   return new Date(p[0], p[1]-1, p[2]).toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' });
 }
 
-function weeksForPeriod(p) { return p === '60d' ? 9 : 4; } // 9wks≈63d, 4wks≈28d
+function weeksForPeriod(p) { return p === '60d' ? 9 : 4; }
 function sumWeeks(weeks, key) { return weeks.reduce((s,w) => s + (w[key]||0), 0); }
 function avgWeeks(weeks, key) { const v = weeks.filter(w=>w[key]!=null); return v.length ? v.reduce((s,w)=>s+(w[key]||0),0)/v.length : null; }
 
@@ -296,13 +335,31 @@ function deltaHtml(pct) {
   return `<div class="rw-metric-delta ${up ? 'rw-delta-up' : 'rw-delta-down'}">${up ? '▲' : '▼'} ${Math.abs(pct)}% vs prior period</div>`;
 }
 
-function metric(val, label, deltaPct) {
+function metric(val, label, deltaPct, tip) {
   return `<div class="rw-metric">
-    <div class="rw-metric-val">${esc(val)}</div>
-    <div class="rw-metric-label">${esc(label)}</div>
+    <div class="rw-metric-val">${esc(String(val))}</div>
+    <div class="rw-metric-label">${esc(label)}${tip ? `<span class="rw-tip" data-tip="${esc(tip)}">?</span>` : ''}</div>
     ${deltaHtml(deltaPct)}
   </div>`;
 }
+
+// Floating tooltip
+const _tt = document.getElementById('rw-tooltip');
+document.addEventListener('mouseover', e => {
+  const el = e.target.closest('.rw-tip');
+  if (!el) return;
+  _tt.textContent = el.getAttribute('data-tip');
+  _tt.style.display = 'block';
+});
+document.addEventListener('mousemove', e => {
+  if (_tt.style.display === 'none') return;
+  const x = e.clientX + 14, y = e.clientY - 36;
+  _tt.style.left = Math.min(x, window.innerWidth - 220) + 'px';
+  _tt.style.top  = Math.max(y, 4) + 'px';
+});
+document.addEventListener('mouseout', e => {
+  if (!e.target.closest('.rw-tip')) _tt.style.display = 'none';
+});
 
 function render() {
   const { account_name, domain, launchDate, analyticsStartDate, gsc, ga4, duda } = _data;
@@ -317,10 +374,10 @@ function render() {
     <div class="rw-section">
       <div class="rw-section-title"><img src="/gsc-icon.png" alt="">Search Console <span style="font-weight:400;text-transform:none;letter-spacing:0;margin-left:.25rem">${PERIOD_LABELS[p]}</span></div>
       <div class="rw-metrics">
-        ${metric(fmt(gscT.clicks), 'Organic Clicks', pctDelta(gsc.weeks,'clicks',p))}
-        ${metric(fmt(gscT.impressions), 'Search Impressions', pctDelta(gsc.weeks,'impressions',p))}
-        ${metric(gscT.ctr != null ? gscT.ctr+'%' : '—', 'Click-Through Rate', null)}
-        ${metric(gscT.position != null ? '#'+gscT.position : '—', 'Avg Search Position', null)}
+        ${metric(fmt(gscT.clicks), 'Organic Clicks', pctDelta(gsc.weeks,'clicks',p), 'Times someone clicked your site link in Google search results.')}
+        ${metric(fmt(gscT.impressions), 'Search Impressions', pctDelta(gsc.weeks,'impressions',p), 'Times your site appeared in Google search results, even when not clicked.')}
+        ${metric(gscT.ctr != null ? gscT.ctr+'%' : '—', 'Click-Through Rate', null, 'Percentage of search impressions that resulted in a click to your site.')}
+        ${metric(gscT.position != null ? '#'+gscT.position : '—', 'Avg Search Position', null, 'Your average ranking in Google results. #1 is the top result — lower numbers are better.')}
       </div>
     </div>` : '';
 
@@ -328,10 +385,10 @@ function render() {
     <div class="rw-section">
       <div class="rw-section-title"><img src="/ga4-icon.png" alt="">Google Analytics <span style="font-weight:400;text-transform:none;letter-spacing:0;margin-left:.25rem">${PERIOD_LABELS[p]}</span></div>
       <div class="rw-metrics">
-        ${metric(fmt(ga4T.sessions), 'Website Sessions', pctDelta(ga4.weeks,'sessions',p))}
-        ${metric(fmt(ga4T.users), 'Unique Visitors', pctDelta(ga4.weeks,'users',p))}
-        ${metric(ga4T.newUsers != null ? fmt(ga4T.newUsers) : '—', 'New Visitors', null)}
-        ${metric(ga4T.engagementRate != null ? ga4T.engagementRate+'%' : '—', 'Engagement Rate', null)}
+        ${metric(fmt(ga4T.sessions), 'Website Sessions', pctDelta(ga4.weeks,'sessions',p), 'Total visits to your site, including return visits from the same person.')}
+        ${metric(fmt(ga4T.users), 'Unique Visitors', pctDelta(ga4.weeks,'users',p), 'Number of individual people who visited your site during this period.')}
+        ${metric(ga4T.newUsers != null ? fmt(ga4T.newUsers) : '—', 'New Visitors', null, 'First-time visitors who have never been to your site before.')}
+        ${metric(ga4T.engagementRate != null ? ga4T.engagementRate+'%' : '—', 'Engagement Rate', null, 'Percentage of visits where someone scrolled, clicked, or spent 10+ seconds on your site.')}
       </div>
     </div>` : '';
 
@@ -339,18 +396,20 @@ function render() {
     <div class="rw-section">
       <div class="rw-section-title"><img src="/duda-icon.png" alt="" style="border-radius:3px">Lead Activity <span style="font-weight:400;text-transform:none;letter-spacing:0;margin-left:.25rem">${PERIOD_LABELS[p]}</span></div>
       <div class="rw-metrics">
-        ${metric(fmt(leads.formSubmits), 'Form Submissions', pctDelta(duda.weeks,'formSubmits',p))}
-        ${metric(fmt(leads.callClicks), 'Call Clicks', pctDelta(duda.weeks,'callClicks',p))}
+        ${metric(fmt(leads.formSubmits), 'Form Submissions', pctDelta(duda.weeks,'formSubmits',p), 'Times a visitor filled out and submitted a contact or lead form on your site.')}
+        ${metric(fmt(leads.callClicks), 'Call Clicks', pctDelta(duda.weeks,'callClicks',p), 'Times a visitor clicked or tapped your phone number to call your business.')}
       </div>
     </div>` : '';
 
-  const topKws = gsc.available && gsc.topQueries?.length ? `
+  // Only show keywords ranking on page 1 or 2 (positions 1–10)
+  const goodKws = (gsc.topQueries || []).filter(q => q.position <= 10);
+  const topKws = gsc.available && goodKws.length ? `
     <div class="rw-section">
       <div class="rw-section-title"><img src="/gsc-icon.png" alt="">Top Ranking Keywords</div>
       <div class="rw-keywords">
-        ${gsc.topQueries.slice(0,8).map(q => {
+        ${goodKws.slice(0, 8).map(q => {
           const pos = q.position;
-          const posClass = pos <= 3 ? 'top3' : pos <= 10 ? 'top10' : '';
+          const posClass = pos <= 3 ? 'top3' : 'top10';
           return `<div class="rw-kw-row">
             <span class="rw-kw-query">${esc(q.query)}</span>
             <span class="rw-kw-pos ${posClass}">Position ${pos ?? '—'}</span>
@@ -387,8 +446,18 @@ function render() {
 function setPeriod(p) { _period = p; render(); }
 
 (async () => {
+  if (!id || !token) {
+    document.getElementById('rw-content').innerHTML =
+      '<div class="rw-expired"><strong>This link is no longer valid.</strong>Please ask your account manager to generate a new report link.</div>';
+    return;
+  }
   try {
-    const r = await fetch('/api/share/' + id);
+    const r = await fetch(`/api/share/${id}/${token}`);
+    if (r.status === 410) {
+      document.getElementById('rw-content').innerHTML =
+        '<div class="rw-expired"><strong>This report link has expired.</strong>Report links are valid for 48 hours. Please ask your account manager to generate a new one.</div>';
+      return;
+    }
     if (!r.ok) throw new Error('not found');
     _data = await r.json();
     render();

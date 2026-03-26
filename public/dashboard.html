@@ -5495,7 +5495,7 @@ function renderAnalyticsModalBody(id, data, forms) {
       <div class="acd-report-row">
         <div>
           <div style="font-size:.82rem;font-weight:600;color:var(--text);margin-bottom:.2rem">Client Report Link</div>
-          <div style="font-size:.76rem;color:var(--text-muted)">Share a live, client-friendly view of this site's performance.</div>
+          <div style="font-size:.76rem;color:var(--text-muted)">Share a client-friendly performance report. Each link expires after 48 hours.</div>
         </div>
         <button class="acd-report-copy-btn" id="acd-report-btn-${id}" onclick="copyReportLink('${esc(id)}')">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
@@ -6231,17 +6231,22 @@ async function deleteModalFavicon() {
 }
 
 async function copyReportLink(id) {
-  const url = window.location.origin + '/share/' + id;
+  const btn = document.getElementById('acd-report-btn-' + id);
+  const orig = btn ? btn.innerHTML : '';
+  if (btn) btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Generating…';
   try {
+    const r = await fetch(`/api/launches/${id}/share-token`, { method: 'POST' });
+    if (!r.ok) throw new Error('Failed');
+    const { token } = await r.json();
+    const url = window.location.origin + '/share/' + id + '/' + token;
     await navigator.clipboard.writeText(url);
-    const btn = document.getElementById('acd-report-btn-' + id);
     if (btn) {
-      const orig = btn.innerHTML;
       btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Copied!';
       setTimeout(() => { btn.innerHTML = orig; }, 2000);
     }
   } catch {
-    showToast('Failed to copy link', 'error');
+    if (btn) btn.innerHTML = orig;
+    showToast('Failed to generate link', 'error');
   }
 }
 
