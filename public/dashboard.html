@@ -260,8 +260,7 @@
           </button>
           <div class="ac-sort-dropdown" id="ac-sort-dropdown">
             <div class="ac-sort-section-label">Sort By</div>
-            <button class="ac-sort-option active" data-sort-key="published" onclick="setAcSortKey('published')">Published</button>
-            <button class="ac-sort-option" data-sort-key="created" onclick="setAcSortKey('created')">Created</button>
+            <button class="ac-sort-option active" data-sort-key="published" onclick="setAcSortKey('published')">Launch Date</button>
             <button class="ac-sort-option" data-sort-key="name" onclick="setAcSortKey('name')">Site name</button>
             <button class="ac-sort-option" data-sort-key="performance" onclick="setAcSortKey('performance')">Performance</button>
             <hr class="ac-sort-divider">
@@ -4805,11 +4804,10 @@ function sortAnalyticsCards() {
 
 const _SORT_ORDER_LABELS = {
   published:   { newest: 'Newest', oldest: 'Oldest' },
-  created:     { newest: 'Newest', oldest: 'Oldest' },
   name:        { newest: 'Z → A', oldest: 'A → Z' },
   performance: { newest: 'Highest', oldest: 'Lowest' },
 };
-const _SORT_KEY_LABELS = { published: 'Published', created: 'Created', name: 'Site Name', performance: 'Performance' };
+const _SORT_KEY_LABELS = { published: 'Launch Date', name: 'Site Name', performance: 'Performance' };
 
 function _updateSortUI() {
   const orderLabels = _SORT_ORDER_LABELS[_acSortKey];
