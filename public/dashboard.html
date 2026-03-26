@@ -4834,11 +4834,17 @@ function periodGscTotals(gsc, period) {
   const slice = gsc.weeks.slice(-n);
   const clicks = sumWeeks(slice, 'clicks');
   const impressions = sumWeeks(slice, 'impressions');
+  // Impressions-weighted position from per-week data; fall back to all-time total
+  const posSlice = slice.filter(w => w.position != null && w.impressions > 0);
+  const totalWImps = posSlice.reduce((s, w) => s + w.impressions, 0);
+  const position = totalWImps > 0
+    ? Math.round(posSlice.reduce((s, w) => s + w.position * w.impressions, 0) / totalWImps * 10) / 10
+    : (gsc.total?.position ?? null);
   return {
     clicks,
     impressions,
     ctr: impressions > 0 ? Math.round(clicks / impressions * 10000) / 100 : 0,
-    position: gsc.total.position, // avg position not available per-week
+    position,
   };
 }
 
@@ -4848,21 +4854,31 @@ function periodGa4Totals(ga4, period) {
   const n = period === 'wow' ? 1 : 4;
   const slice = ga4.weeks.slice(-n);
   const hasPerWeekData = slice.some(w => 'newUsers' in w);
-  const engVals = slice.filter(w => w.engagementRate != null);
+  const totalSessions = Math.round(sumWeeks(slice, 'sessions'));
+  // Sessions-weighted engagement rate
+  const engSlice = slice.filter(w => w.engagementRate != null && w.sessions > 0);
+  const engRate = engSlice.length && totalSessions > 0
+    ? Math.round(engSlice.reduce((s, w) => s + w.engagementRate * w.sessions, 0) / totalSessions * 10) / 10
+    : (ga4.total?.engagementRate ?? null);
   return {
-    sessions: Math.round(sumWeeks(slice, 'sessions')),
+    sessions: totalSessions,
     users:    Math.round(sumWeeks(slice, 'users')),
     newUsers: hasPerWeekData ? Math.round(sumWeeks(slice, 'newUsers')) : (ga4.total?.newUsers ?? null),
-    engagementRate: engVals.length ? Math.round(engVals.reduce((s,w) => s + w.engagementRate, 0) / engVals.length * 10) / 10 : (ga4.total?.engagementRate ?? null),
+    engagementRate: engRate,
   };
 }
 
 function periodDudaTotals(duda, period) {
   if (!duda?.available) return {};
-  if (period === 'all' || !duda.days?.length) return duda.total;
+  if (period === 'all' || !duda.days?.length) {
+    const t = { ...duda.total };
+    // Forms API is more reliable than analytics FORM_SUBMITS event tracking
+    if ((t.formSubmits || 0) === 0 && (duda.formsApiCount || 0) > 0) t.formSubmits = duda.formsApiCount;
+    return t;
+  }
   const n = period === 'wow' ? 7 : 30;
   const slice = duda.days.slice(-n);
-  return slice.reduce((acc, d) => {
+  const result = slice.reduce((acc, d) => {
     acc.visitors    += d.visitors    || 0;
     acc.visits      += d.visits      || 0;
     acc.pageViews   += d.pageViews   || 0;
@@ -4870,6 +4886,12 @@ function periodDudaTotals(duda, period) {
     acc.callClicks  += d.callClicks  || 0;
     return acc;
   }, { visitors: 0, visits: 0, pageViews: 0, formSubmits: 0, callClicks: 0 });
+  // If analytics tracking shows 0, fall back to forms API filtered by date
+  if (result.formSubmits === 0 && duda.formDates?.length) {
+    const cutoff = Date.now() - n * 86_400_000;
+    result.formSubmits = duda.formDates.filter(d => new Date(d).getTime() >= cutoff).length;
+  }
+  return result;
 }
 
 function computeClientPct(weeks, key, period) {

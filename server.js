@@ -1221,21 +1221,29 @@ async function fetchGSC(domain, launchDate, token) {
     .catch(() => ({ rows: [] }));
 
   const weekMap = {};
-  let clicks = 0, impressions = 0, posSum = 0, posCount = 0;
+  let clicks = 0, impressions = 0, posWSum = 0, posWImps = 0;
   for (const row of rows) {
     const d = new Date(row.keys[0]);
     d.setDate(d.getDate() - d.getDay());
     const wk = isoDate(d);
-    if (!weekMap[wk]) weekMap[wk] = { clicks: 0, impressions: 0 };
+    if (!weekMap[wk]) weekMap[wk] = { clicks: 0, impressions: 0, posWSum: 0, posWImps: 0 };
     weekMap[wk].clicks += row.clicks || 0;
     weekMap[wk].impressions += row.impressions || 0;
     clicks += row.clicks || 0;
     impressions += row.impressions || 0;
-    if (row.position) { posSum += row.position; posCount++; }
+    // Impressions-weighted position (same methodology GSC uses internally)
+    const imp = row.impressions || 0;
+    const pos = row.position || 0;
+    if (pos && imp) { weekMap[wk].posWSum += pos * imp; weekMap[wk].posWImps += imp; posWSum += pos * imp; posWImps += imp; }
   }
   const weeks = Object.entries(weekMap)
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([week, d]) => ({ week, ...d }));
+    .map(([week, d]) => ({
+      week,
+      clicks: d.clicks,
+      impressions: d.impressions,
+      position: d.posWImps > 0 ? Math.round(d.posWSum / d.posWImps * 10) / 10 : null,
+    }));
 
   return {
     available: true,
@@ -1243,7 +1251,7 @@ async function fetchGSC(domain, launchDate, token) {
       clicks,
       impressions,
       ctr: impressions > 0 ? Math.round(clicks / impressions * 10000) / 100 : 0,
-      position: posCount > 0 ? Math.round(posSum / posCount * 10) / 10 : null,
+      position: posWImps > 0 ? Math.round(posWSum / posWImps * 10) / 10 : null,
     },
     comparison: {
       clicksPct: computePctChange(weeks, 'clicks'),
@@ -1310,9 +1318,10 @@ async function fetchGA4(propertyId, launchDate, token) {
     weekMap[wk].sessions += s;
     weekMap[wk].users += u;
     weekMap[wk].newUsers += n;
-    if (e > 0) { weekMap[wk].engSum += e; weekMap[wk].engCount++; }
+    // Sessions-weighted engagement rate: weight each day's rate by its session count
+    if (e > 0 && s > 0) { weekMap[wk].engSum += e * s; weekMap[wk].engCount += s; }
     sessions += s; users += u; newUsers += n;
-    if (e > 0) { engSum += e; engCount++; }
+    if (e > 0 && s > 0) { engSum += e * s; engCount += s; }
   }
   const weeks = Object.entries(weekMap)
     .sort(([a], [b]) => a.localeCompare(b))
@@ -1520,6 +1529,26 @@ async function fetchAndCacheAnalytics(id, { force = false } = {}) {
     ? await fetchGA4(ga4PropertyId, startDate, token).catch(() => ({ available: false }))
     : { available: false, reason: 'GA4 property not found for this domain' };
 
+  // Supplement Duda analytics with actual form submissions from the Forms API.
+  // The analytics FORM_SUBMITS event can be unreliable (blocked trackers, form types
+  // that don't fire the event), so we use the Forms API as the authoritative count.
+  if (duda?.available && launch.duda_site_name) {
+    try {
+      const dudaCreds = await getDudaCredentials();
+      const dudaAuth  = Buffer.from(`${dudaCreds.api_user}:${dudaCreds.api_pass}`).toString('base64');
+      const fRes = await fetch(`https://api.duda.co/api/sites/multiscreen/get-forms/${launch.duda_site_name}`, {
+        headers: { Authorization: `Basic ${dudaAuth}`, 'Content-Type': 'application/json' },
+      });
+      if (fRes.ok) {
+        const fRaw = await fRes.json();
+        const subs  = Array.isArray(fRaw) ? fRaw : (fRaw.results || []);
+        duda.formsApiCount = subs.length;
+        // Store submission timestamps for period-filtered counts on the client
+        duda.formDates = subs.map(s => s.date || s.created_at || null).filter(Boolean);
+      }
+    } catch (e) { console.error('[forms-cache]', e.message); }
+  }
+
   const responseData = {
     id: launch.id, account_name: launch.account_name, domain,
     industry: launch.industry || '', launchDate: rawLaunchDate,
@@ -1539,7 +1568,8 @@ async function fetchAndCacheAnalytics(id, { force = false } = {}) {
 
     try {
       const weekStart = new Date();
-      weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1); // Monday
+      const dow = weekStart.getDay(); // 0=Sun … 6=Sat
+      weekStart.setDate(weekStart.getDate() - (dow === 0 ? 6 : dow - 1)); // back to Monday
       const weekKey = weekStart.toISOString().slice(0, 10);
       const snapRef = db.collection('launches').doc(id).collection('snapshots').doc(weekKey);
       const existing = await snapRef.get();

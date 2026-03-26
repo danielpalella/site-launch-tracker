@@ -299,12 +299,16 @@ function ga4Totals(ga4, p) {
   const n = weeksForPeriod(p);
   const slice = (ga4.weeks||[]).slice(-n);
   const hasPerWeekData = slice.some(w => 'newUsers' in w);
-  const engRate = (() => { const v = avgWeeks(slice,'engagementRate'); return v != null ? Math.round(v*10)/10 : null; })();
+  const totalSessions = sumWeeks(slice, 'sessions');
+  const engSlice = slice.filter(w => w.engagementRate != null && w.sessions > 0);
+  const engRate = engSlice.length && totalSessions > 0
+    ? Math.round(engSlice.reduce((s, w) => s + w.engagementRate * w.sessions, 0) / totalSessions * 10) / 10
+    : (ga4.total?.engagementRate ?? null);
   return {
-    sessions: sumWeeks(slice, 'sessions'),
+    sessions: totalSessions,
     users: sumWeeks(slice, 'users'),
     newUsers: hasPerWeekData ? sumWeeks(slice, 'newUsers') : (ga4.total?.newUsers ?? null),
-    engagementRate: engRate !== null ? engRate : (ga4.total?.engagementRate ?? null),
+    engagementRate: engRate,
   };
 }
 function dudaLeads(duda, p) {
