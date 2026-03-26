@@ -367,7 +367,7 @@ app.post('/api/launches', requireAuth, async (req, res) => {
 
 app.patch('/api/launches/:id', requireAuth, async (req, res) => {
   try {
-    const { status, notes, analytics_note, department, industry, account_name, domain_name, contact_name, email, phone, owner, is_renewal, archived, analytics_start_date, launch_date, duda_site_name } = req.body;
+    const { status, notes, analytics_note, department, industry, account_name, domain_name, contact_name, email, phone, owner, is_renewal, archived, analytics_start_date, launch_date, duda_site_name, hideFormSubmits } = req.body;
     const ref = db.collection('launches').doc(req.params.id);
     const doc = await ref.get();
     if (!doc.exists) return res.status(404).json({ error: 'Not found' });
@@ -396,7 +396,8 @@ app.patch('/api/launches/:id', requireAuth, async (req, res) => {
     if (archived  !== undefined) updates.archived = Boolean(archived);
     if (analytics_start_date !== undefined) updates.analytics_start_date = analytics_start_date || null;
     if (duda_site_name       !== undefined) updates.duda_site_name       = duda_site_name       || null;
-    if (analytics_note !== undefined) updates.analytics_note = String(analytics_note).slice(0, 500);
+    if (analytics_note       !== undefined) updates.analytics_note       = String(analytics_note).slice(0, 500);
+    if (hideFormSubmits !== undefined) updates.hideFormSubmits = Boolean(hideFormSubmits);
     if (statusChanged) {
       updates.status_changed_at = FieldValue.serverTimestamp();
     } else if (launch_date) {
@@ -1713,11 +1714,12 @@ app.get('/api/analytics/:id', requireAuth, async (req, res) => {
     const data = await fetchAndCacheAnalytics(req.params.id, { force: req.query.force === 'true' });
     // Always serve a fresh analytics_note and tags (not frozen in cache)
     const noteDoc = await db.collection('launches').doc(req.params.id).get();
-    const freshNote     = noteDoc.exists ? (noteDoc.data().analytics_note  || '') : '';
-    const freshTags     = noteDoc.exists ? (noteDoc.data().tags            || []) : [];
-    const freshDudaName = noteDoc.exists ? (noteDoc.data().duda_site_name  || '') : '';
-    const freshFavicon  = noteDoc.exists ? (noteDoc.data().custom_favicon  || null) : null;
-    res.json({ ...data, analytics_note: freshNote, tags: freshTags, duda_site_name: freshDudaName, custom_favicon: freshFavicon });
+    const freshNote          = noteDoc.exists ? (noteDoc.data().analytics_note   || '') : '';
+    const freshTags          = noteDoc.exists ? (noteDoc.data().tags             || []) : [];
+    const freshDudaName      = noteDoc.exists ? (noteDoc.data().duda_site_name  || '') : '';
+    const freshFavicon       = noteDoc.exists ? (noteDoc.data().custom_favicon  || null) : null;
+    const freshHideFormSubs  = noteDoc.exists ? (noteDoc.data().hideFormSubmits || false) : false;
+    res.json({ ...data, analytics_note: freshNote, tags: freshTags, duda_site_name: freshDudaName, custom_favicon: freshFavicon, hideFormSubmits: freshHideFormSubs });
   } catch (err) {
     console.error('Analytics error:', err.message);
     if (err.code === 'not_connected') return res.status(503).json({ error: 'not_connected' });
@@ -2304,7 +2306,7 @@ app.get('/api/share/:id/:token', async (req, res) => {
     }
     const { data, cachedAt } = cacheDoc.data();
     const { account_name, domain, launchDate, analyticsStartDate, daysSince, gsc, ga4, duda } = data;
-    res.json({ account_name, domain, launchDate, analyticsStartDate, daysSince, gsc, ga4, duda, cachedAt, custom_favicon: launch.custom_favicon || null });
+    res.json({ account_name, domain, launchDate, analyticsStartDate, daysSince, gsc, ga4, duda, cachedAt, custom_favicon: launch.custom_favicon || null, hideFormSubmits: launch.hideFormSubmits || false });
   } catch (err) {
     res.status(500).json({ error: 'Failed to load report' });
   }

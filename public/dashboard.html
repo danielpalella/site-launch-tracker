@@ -5516,9 +5516,13 @@ function renderAnalyticsModalBody(id, data, forms) {
         </div>
       </div>
       <div class="acd-report-row">
-        <div>
+        <div style="flex:1">
           <div style="font-size:.82rem;font-weight:600;color:var(--text);margin-bottom:.2rem">Client Report Link</div>
-          <div style="font-size:.76rem;color:var(--text-muted)">Share a client-friendly performance report. Each link expires after 48 hours.</div>
+          <div style="font-size:.76rem;color:var(--text-muted);margin-bottom:.6rem">Share a client-friendly performance report. Each link expires after 48 hours.</div>
+          <label style="display:inline-flex;align-items:center;gap:.45rem;font-size:.76rem;color:var(--text-muted);cursor:pointer;user-select:none">
+            <input type="checkbox" id="acd-hide-forms-${id}" ${data.hideFormSubmits ? 'checked' : ''} onchange="toggleHideFormSubmits('${esc(id)}', this.checked)" style="width:14px;height:14px;cursor:pointer;accent-color:var(--primary)">
+            Hide form submissions from client report
+          </label>
         </div>
         <button class="acd-report-copy-btn" id="acd-report-btn-${id}" onclick="copyReportLink('${esc(id)}')">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
@@ -6250,6 +6254,23 @@ async function deleteModalFavicon() {
     showToast('Custom favicon removed');
   } catch {
     showToast('Failed to remove favicon', 'error');
+  }
+}
+
+async function toggleHideFormSubmits(id, hide) {
+  if (analyticsData[id]) analyticsData[id].hideFormSubmits = hide;
+  try {
+    await fetch(`/api/launches/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ hideFormSubmits: hide }),
+    });
+  } catch {
+    showToast('Failed to save setting', 'error');
+    // revert checkbox
+    const cb = document.getElementById('acd-hide-forms-' + id);
+    if (cb) cb.checked = !hide;
+    if (analyticsData[id]) analyticsData[id].hideFormSubmits = !hide;
   }
 }
 

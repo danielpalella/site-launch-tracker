@@ -443,7 +443,7 @@ document.addEventListener('mouseout', e => {
 });
 
 function render() {
-  const { account_name, domain, launchDate, analyticsStartDate, gsc, ga4, duda } = _data;
+  const { account_name, domain, launchDate, analyticsStartDate, gsc, ga4, duda, hideFormSubmits } = _data;
   const startDate = analyticsStartDate || launchDate;
   const daysSince = Math.floor((Date.now() - new Date((startDate||'').replace(' ','T')+'Z')) / 86_400_000);
   if (_period === '60d' && daysSince < 60) _period = 'mom';
@@ -480,7 +480,7 @@ function render() {
     <div class="rw-section">
       <div class="rw-section-title"><img src="/duda-icon.png" alt="" style="border-radius:3px">Lead Activity ${periodPill}</div>
       <div class="rw-metrics">
-        ${metric(fmt(leads.formSubmits), 'Form Submissions', pctDelta(duda.weeks,'formSubmits',p), 'Times a visitor filled out and submitted a contact or lead form on your site.')}
+        ${!hideFormSubmits ? metric(fmt(leads.formSubmits), 'Form Submissions', pctDelta(duda.weeks,'formSubmits',p), 'Times a visitor filled out and submitted a contact or lead form on your site.') : ''}
         ${metric(fmt(leads.callClicks), 'Call Clicks', pctDelta(duda.weeks,'callClicks',p), 'Times a visitor clicked or tapped your phone number to call your business.')}
         ${metric(fmt(leads.pageViews), 'Page Views', pctDelta(duda.weeks,'pageViews',p), 'Total number of pages viewed across all visits during this period.')}
       </div>
@@ -504,7 +504,8 @@ function render() {
       </div>
     </div>` : '';
 
-  const summaryStats = buildSummary(gscT, ga4T, leads, goodKws.length);
+  const leadsForSummary = leads && hideFormSubmits ? { ...leads, formSubmits: 0 } : leads;
+  const summaryStats = buildSummary(gscT, ga4T, leadsForSummary, goodKws.length);
   const summaryBlock = summaryStats.length ? `
     <div class="rw-summary">
       <div class="rw-summary-text">
