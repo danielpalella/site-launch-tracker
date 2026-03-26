@@ -4118,10 +4118,10 @@ mark.schema-fill-mark {
   background: var(--surface);
   border: 1.5px solid var(--border);
   border-radius: var(--radius);
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   box-shadow: var(--shadow);
   transition: width .2s ease;
-  overflow-y: auto;
   min-height: 0;
 }
 .ac-filter-panel.collapsed {
@@ -4248,8 +4248,15 @@ mark.schema-fill-mark {
   text-align: left;
   transition: background .1s;
   gap: 0;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+.acfp-item-text {
+  flex: 1;
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
+  text-overflow: ellipsis;
 }
 .acfp-item:hover { background: var(--bg); }
 .acfp-item.active {

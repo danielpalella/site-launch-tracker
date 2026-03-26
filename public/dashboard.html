@@ -322,13 +322,13 @@
           <div class="acfp-section">
             <div class="acfp-section-label">Industry</div>
             <div id="ac-industry-drop">
-              <button class="acfp-item active" data-val="all" onclick="filterAnalyticsIndustry('all')">All Industries</button>
+              <button class="acfp-item active" data-val="all" onclick="filterAnalyticsIndustry('all')"><span class="acfp-item-text">All Industries</span></button>
             </div>
           </div>
           <div class="acfp-section">
             <div class="acfp-section-label">Labels</div>
             <div id="ac-tag-select-drop">
-              <button class="acfp-item active" data-val="" onclick="setTagFilterVal('')">All Labels</button>
+              <button class="acfp-item active" data-val="" onclick="setTagFilterVal('')"><span class="acfp-item-text">All Labels</span></button>
             </div>
           </div>
         </div>
@@ -3096,6 +3096,15 @@ const ANALYTICS_SUBTITLES = {
   seo:      'Sitemap, indexing, broken links, schema markup, and safe browsing status per site.',
 };
 function switchAnalyticsView(view) {
+  // Clear filters when leaving Sites view so other views start clean
+  if (analyticsView === 'sites' && view !== 'sites') {
+    filterAnalyticsIndustry('all');
+    filterAnalyticsTags('');
+    document.querySelectorAll('#ac-tag-select-drop [data-val]').forEach(o =>
+      o.classList.toggle('active', o.dataset.val === ''));
+    _updateAcFilterPanelState();
+    renderActiveFilters();
+  }
   analyticsView = view;
   const sub = document.getElementById('analytics-subtitle');
   if (sub) sub.innerHTML = ANALYTICS_SUBTITLES[view] || ANALYTICS_SUBTITLES.sites;
@@ -4955,9 +4964,9 @@ function buildAnalyticsIndustryBar(launches) {
   });
   const current = analyticsIndustry || 'all';
   drop.innerHTML =
-    `<button class="acfp-item ${current === 'all' ? 'active' : ''}" data-val="all" onclick="filterAnalyticsIndustry('all')">All Industries</button>` +
+    `<button class="acfp-item ${current === 'all' ? 'active' : ''}" data-val="all" onclick="filterAnalyticsIndustry('all')"><span class="acfp-item-text">All Industries</span></button>` +
     industries.map(ind =>
-      `<button class="acfp-item ${current === ind ? 'active' : ''}" data-val="${esc(ind)}" onclick="filterAnalyticsIndustry('${esc(ind)}')">${esc(ind)}<span class="acfp-count">${counts[ind]}</span></button>`
+      `<button class="acfp-item ${current === ind ? 'active' : ''}" data-val="${esc(ind)}" onclick="filterAnalyticsIndustry('${esc(ind)}')"><span class="acfp-item-text">${esc(ind)}</span><span class="acfp-count">${counts[ind]}</span></button>`
     ).join('');
   // Also update tag counts now that we have the launches data
   const tagCounts = {};
@@ -5772,10 +5781,10 @@ async function loadTagsRegistry() {
 function renderTagFilterSelect(tagCounts) {
   const drop = document.getElementById('ac-tag-select-drop');
   if (!drop) return;
-  drop.innerHTML = `<button class="acfp-item ${!_tagFilter ? 'active' : ''}" data-val="" onclick="setTagFilterVal('')">All Labels</button>`
+  drop.innerHTML = `<button class="acfp-item ${!_tagFilter ? 'active' : ''}" data-val="" onclick="setTagFilterVal('')"><span class="acfp-item-text">All Labels</span></button>`
     + _tagsRegistry.map(t => {
         const cnt = tagCounts ? (tagCounts[t.id] || 0) : null;
-        return `<button class="acfp-item ${_tagFilter === t.id ? 'active' : ''}" data-val="${esc(t.id)}" onclick="setTagFilterVal('${esc(t.id)}')"><span class="ac-tag-dot" style="background:${t.color}"></span>${esc(t.name)}${cnt !== null ? `<span class="acfp-count">${cnt}</span>` : ''}</button>`;
+        return `<button class="acfp-item ${_tagFilter === t.id ? 'active' : ''}" data-val="${esc(t.id)}" onclick="setTagFilterVal('${esc(t.id)}')"><span class="ac-tag-dot" style="background:${t.color};margin-right:.4rem;flex-shrink:0"></span><span class="acfp-item-text">${esc(t.name)}</span>${cnt !== null ? `<span class="acfp-count">${cnt}</span>` : ''}</button>`;
       }).join('');
 }
 
@@ -6212,6 +6221,8 @@ async function disconnectAnalytics() {
 
 async function loadAnalytics({ force = false } = {}) {
   if (analyticsLoaded && !force) return;
+  // Always return to Sites view when (re)opening the analytics tab
+  switchAnalyticsView('sites');
   loadMilestoneThresholds();
   const grid = document.getElementById('analytics-grid');
   grid.innerHTML = '<div style="color:var(--text-muted);font-size:.875rem">Loading…</div>';

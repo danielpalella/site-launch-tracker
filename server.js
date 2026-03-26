@@ -181,6 +181,7 @@ function formatLaunch(doc) {
     duda_site_name:       d.duda_site_name       || null,
     analytics_note:       d.analytics_note       || '',
     custom_favicon:       d.custom_favicon        || null,
+    tags:                 d.tags                  || [],
   };
 }
 
