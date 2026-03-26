@@ -4468,7 +4468,7 @@ function renderAnalyticsOverview(industryFilter) {
         </div>
       </div>
       <div class="acd-source-col card">
-        <div class="acd-section-title"><img src="/ga4-icon.svg" style="width:16px;height:16px;vertical-align:middle;margin-right:.35rem">Google Analytics</div>
+        <div class="acd-section-title"><img src="/ga4-icon.png" style="width:13px;height:13px;vertical-align:middle;margin-right:.35rem">Google Analytics</div>
         <div class="acd-metrics-grid">
           ${ovMetric(fmtNum(agg.ga4Sessions),  'Total Sessions',  'Total site visits across all sites.')}
           ${ovMetric(fmtNum(agg.ga4Users),     'Total Users',     'Total unique visitors across all sites.')}
@@ -5258,7 +5258,7 @@ function renderAnalyticsModalBody(id, data, forms) {
   // GA4 block
   const ga4Section = ga4.available ? `
     <div class="acd-source-col">
-      <div class="acd-section-title"><img src="/ga4-icon.svg" style="width:16px;height:16px;vertical-align:middle;margin-right:.35rem">Google Analytics <span class="acd-period-tag">${periodLabel}</span></div>
+      <div class="acd-section-title"><img src="/ga4-icon.png" style="width:13px;height:13px;vertical-align:middle;margin-right:.35rem">Google Analytics <span class="acd-period-tag">${periodLabel}</span></div>
       <div class="acd-metrics-grid">
         ${acdMetric(fmtNum(ga4T.sessions),                                              'Sessions',   'Total site visits, including repeat visits from the same person.')}
         ${acdMetric(fmtNum(ga4T.users),                                                 'Users',      'Unique visitors, counted once regardless of how many times they visit.')}
@@ -5896,7 +5896,7 @@ function renderAnalyticsCard(id, data) {
     </div>` : `<div class="ac-unavailable">Search Console unavailable</div>`;
 
   const ga4Block = ga4.available ? `
-    <div class="ac-section-label"><img src="/ga4-icon.svg" style="width:16px;height:16px;vertical-align:middle;margin-right:.35rem;margin-bottom:1px">Google Analytics <span style="font-weight:400;color:var(--text-muted);font-size:.65rem;text-transform:none;letter-spacing:0">${periodLabel}</span></div>
+    <div class="ac-section-label"><img src="/ga4-icon.png" style="width:13px;height:13px;vertical-align:middle;margin-right:.35rem;margin-bottom:1px">Google Analytics <span style="font-weight:400;color:var(--text-muted);font-size:.65rem;text-transform:none;letter-spacing:0">${periodLabel}</span></div>
     <div class="ac-metrics">
       ${acMetric(fmtNum(ga4T.sessions),                                              'Sessions',   computeClientPct(ga4.weeks, 'sessions', analyticsPeriod), 'Total site visits, including repeat visits from the same person.')}
       ${acMetric(fmtNum(ga4T.users),                                                 'Users',      computeClientPct(ga4.weeks, 'users', analyticsPeriod),    'Unique visitors, counted once regardless of how many times they visit.')}
