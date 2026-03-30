@@ -324,7 +324,7 @@ const token = parts[2];
 let _data   = null;
 let _period = 'mom';
 
-const PERIOD_LABELS = { mom: 'Last 30 days', '60d': 'Last 60 days' };
+const PERIOD_LABELS = { mom: 'Last 30 days', all: 'Since Launch' };
 
 function esc(s) {
   if (s == null) return '';
@@ -342,23 +342,23 @@ function fmtDate(s) {
   return new Date(p[0], p[1]-1, p[2]).toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' });
 }
 
-function weeksForPeriod(p) { return p === '60d' ? 9 : 4; }
+function weeksForPeriod(p) { return p === 'all' ? Infinity : 4; }
 function sumWeeks(weeks, key) { return weeks.reduce((s,w) => s + (w[key]||0), 0); }
 function avgWeeks(weeks, key) { const v = weeks.filter(w=>w[key]!=null); return v.length ? v.reduce((s,w)=>s+(w[key]||0),0)/v.length : null; }
 
 function gscTotals(gsc, p) {
   if (!gsc.available) return {};
-  const n = weeksForPeriod(p);
-  const slice = (gsc.weeks||[]).slice(-n);
+  if (p === 'all') return gsc.total || {};
+  const slice = (gsc.weeks||[]).slice(-4);
   const clicks = sumWeeks(slice, 'clicks');
   const impressions = sumWeeks(slice, 'impressions');
   return { clicks, impressions, ctr: impressions > 0 ? Math.round(clicks/impressions*10000)/100 : 0, position: gsc.total?.position };
 }
 function ga4Totals(ga4, p) {
   if (!ga4.available) return {};
-  const periodData = p === '60d' ? ga4.periods?.last60 : ga4.periods?.last30;
-  const n = weeksForPeriod(p);
-  const slice = (ga4.weeks||[]).slice(-n);
+  if (p === 'all') return ga4.total || {};
+  const periodData = ga4.periods?.last30;
+  const slice = (ga4.weeks||[]).slice(-4);
   const totalSessions = periodData?.sessions ?? sumWeeks(slice, 'sessions');
   const engSlice = slice.filter(w => w.engagementRate != null && w.sessions > 0);
   const engRate = engSlice.length && totalSessions > 0
@@ -373,9 +373,11 @@ function ga4Totals(ga4, p) {
 }
 function dudaLeads(duda, p) {
   if (!duda?.available) return null;
-  const days = duda.days || [];
-  const n = p === '60d' ? 60 : 30;
-  const slice = days.slice(-n);
+  if (p === 'all') {
+    const t = duda.total || {};
+    return { formSubmits: t.formSubmits || 0, callClicks: t.callClicks || 0, pageViews: t.pageViews || 0 };
+  }
+  const slice = (duda.days || []).slice(-30);
   return {
     formSubmits: slice.reduce((s,d) => s + (d.formSubmits||0), 0),
     callClicks:  slice.reduce((s,d) => s + (d.callClicks||0),  0),
@@ -384,8 +386,8 @@ function dudaLeads(duda, p) {
 }
 
 function pctDelta(weeks, key, p) {
-  if (!weeks?.length) return null;
-  const n = weeksForPeriod(p);
+  if (!weeks?.length || p === 'all') return null;
+  const n = 4;
   const curr = weeks.slice(-n);
   const prev = weeks.slice(-n*2, -n);
   if (!prev.length) return null;
@@ -446,7 +448,7 @@ function render() {
   const { account_name, domain, launchDate, analyticsStartDate, gsc, ga4, duda, hideFormSubmits } = _data;
   const startDate = analyticsStartDate || launchDate;
   const daysSince = Math.floor((Date.now() - new Date((startDate||'').replace(' ','T')+'Z')) / 86_400_000);
-  if (_period === '60d' && daysSince < 60) _period = 'mom';
+  // 'all' is always valid; 'mom' is the default
   const p = _period;
   const gscT = gscTotals(gsc, p);
   const ga4T = ga4Totals(ga4, p);
@@ -528,7 +530,7 @@ function render() {
       </div>
       <div class="rw-period-bar" style="margin-bottom:0">
         <button class="rw-period-btn ${p==='mom'?'rw-period-active':''}" onclick="setPeriod('mom')">Last 30 days</button>
-        ${daysSince >= 60 ? `<button class="rw-period-btn ${p==='60d'?'rw-period-active':''}" onclick="setPeriod('60d')">Last 60 days</button>` : ''}
+        <button class="rw-period-btn ${p==='all'?'rw-period-active':''}" onclick="setPeriod('all')">Since Launch</button>
       </div>
     </div>
 

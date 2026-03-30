@@ -283,12 +283,12 @@
       <div class="ac-toolbar-right" id="ac-toolbar-right">
         <div id="ac-timeframe-wrap" class="ac-timeframe-wrap">
           <button class="ac-timeframe-btn" id="ac-timeframe-btn" onclick="toggleTimeframeDropdown(event)">
-            <span id="ac-timeframe-value">Last 30 days</span>
+            <span id="ac-timeframe-value">Last 4 weeks</span>
             <svg id="ac-timeframe-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transition:transform .15s"><polyline points="6 9 12 15 18 9"/></svg>
           </button>
           <div class="ac-timeframe-dropdown" id="ac-timeframe-dropdown">
-            <button class="ac-timeframe-option" data-tf="wow" onclick="setAnalyticsPeriod('wow')">Last 7 days</button>
-            <button class="ac-timeframe-option ac-tf-active" data-tf="mom" onclick="setAnalyticsPeriod('mom')">Last 30 days</button>
+            <button class="ac-timeframe-option ac-tf-active" data-tf="4w" onclick="setAnalyticsPeriod('4w')">Last 4 weeks</button>
+            <button class="ac-timeframe-option" data-tf="12w" onclick="setAnalyticsPeriod('12w')">Last 12 weeks</button>
             <button class="ac-timeframe-option" data-tf="all" onclick="setAnalyticsPeriod('all')">Since Launch</button>
           </div>
         </div>
@@ -3056,7 +3056,7 @@ let _tagFilter         = ''; // active tag filter id
 let _analyticsCacheTs  = null; // oldest _cachedAt across loaded sites
 let analyticsTotal     = 0;   // total launched sites expected
 let analyticsLoadedCount = 0; // how many have resolved (ok or error)
-let analyticsPeriod    = 'mom'; // 'wow' | 'mom' | 'all'
+let analyticsPeriod    = '4w'; // '4w' | '12w' | 'all'
 let milestoneThresholds = {
   '30day': { gscImpressions: 500,  gscClicks: 20,  ga4Sessions: 100 },
   '60day': { gscImpressions: 1500, gscClicks: 60,  ga4Sessions: 300 },
@@ -4982,8 +4982,8 @@ function buildAnalyticsIndustryBar(launches) {
 // Returns the slice of weeks for the current period
 function periodWeeks(weeks, period) {
   if (!weeks?.length) return weeks || [];
-  if (period === 'wow') return weeks.slice(-2);  // last 2 weeks (current + prev for comparison)
-  if (period === 'mom') return weeks.slice(-8);  // last 8 weeks (current 4 + prev 4 for comparison)
+  if (period === '4w')  return weeks.slice(-8);  // 4 current + 4 prev for comparison
+  if (period === '12w') return weeks.slice(-24); // 12 current + 12 prev for comparison
   return weeks; // all time
 }
 
@@ -4995,7 +4995,7 @@ function sumWeeks(weeks, key) {
 // Compute period-specific totals for GSC from weekly data
 function periodGscTotals(gsc, period) {
   if (!gsc.available || period === 'all') return gsc.total || {};
-  const n = period === 'wow' ? 1 : 4;
+  const n = period === '12w' ? 12 : 4;
   const slice = gsc.weeks.slice(-n);
   const clicks = sumWeeks(slice, 'clicks');
   const impressions = sumWeeks(slice, 'impressions');
@@ -5017,8 +5017,8 @@ function periodGscTotals(gsc, period) {
 function periodGa4Totals(ga4, period) {
   if (!ga4.available || period === 'all') return ga4.total || {};
   // Use pre-aggregated period data for accurate user/newUser deduplication
-  const periodData = period === 'wow' ? ga4.periods?.last7 : ga4.periods?.last30;
-  const n = period === 'wow' ? 1 : 4;
+  const periodData = period === '12w' ? (ga4.periods?.last90 ?? null) : ga4.periods?.last30;
+  const n = period === '12w' ? 12 : 4;
   const slice = ga4.weeks.slice(-n);
   // Sessions-weighted engagement rate from weekly slices
   const totalSessions = periodData?.sessions ?? Math.round(sumWeeks(slice, 'sessions'));
@@ -5042,7 +5042,7 @@ function periodDudaTotals(duda, period) {
     if ((t.formSubmits || 0) === 0 && (duda.formsApiCount || 0) > 0) t.formSubmits = duda.formsApiCount;
     return t;
   }
-  const n = period === 'wow' ? 7 : 30;
+  const n = period === '12w' ? 84 : 30;
   const slice = duda.days.slice(-n);
   const result = slice.reduce((acc, d) => {
     acc.visitors    += d.visitors    || 0;
@@ -5062,15 +5062,17 @@ function periodDudaTotals(duda, period) {
 
 function computeClientPct(weeks, key, period) {
   if (!weeks || weeks.length < 2) return null;
-  if (period === 'wow') {
-    const last = weeks[weeks.length - 1]?.[key] || 0;
-    const prev = weeks[weeks.length - 2]?.[key] || 0;
+  if (period === '4w') {
+    if (weeks.length < 4) return null;
+    const n = Math.min(4, Math.floor(weeks.length / 2));
+    const prev = weeks.slice(-n * 2, -n).reduce((s, w) => s + (w[key] || 0), 0);
+    const last = weeks.slice(-n).reduce((s, w) => s + (w[key] || 0), 0);
     if (prev === 0) return null;
     return Math.round((last - prev) / prev * 1000) / 10;
   }
-  if (period === 'mom') {
-    if (weeks.length < 4) return null;
-    const n = Math.min(4, Math.floor(weeks.length / 2));
+  if (period === '12w') {
+    if (weeks.length < 12) return null;
+    const n = Math.min(12, Math.floor(weeks.length / 2));
     const prev = weeks.slice(-n * 2, -n).reduce((s, w) => s + (w[key] || 0), 0);
     const last = weeks.slice(-n).reduce((s, w) => s + (w[key] || 0), 0);
     if (prev === 0) return null;
@@ -5079,7 +5081,7 @@ function computeClientPct(weeks, key, period) {
   return null; // 'all' — no comparison badge
 }
 
-const PERIOD_LABELS = { wow: 'Last 7 days', mom: 'Last 30 days', all: 'Since Launch' };
+const PERIOD_LABELS = { '4w': 'Last 4 weeks', '12w': 'Last 12 weeks', all: 'Since Launch' };
 
 function setAnalyticsPeriod(p) {
   analyticsPeriod = p;
@@ -6045,7 +6047,7 @@ function renderAnalyticsCard(id, data) {
 
   const gscT = periodGscTotals(gsc, analyticsPeriod);
   const ga4T = periodGa4Totals(ga4, analyticsPeriod);
-  const periodLabel = analyticsPeriod === 'wow' ? 'Last 7 days' : analyticsPeriod === 'mom' ? 'Last 30 days' : 'Since launch';
+  const periodLabel = PERIOD_LABELS[analyticsPeriod] || 'Since launch';
 
   const gscBlock = gsc.available ? `
     <div class="ac-section-label"><img src="/gsc-icon.png" style="width:13px;height:13px;vertical-align:middle;margin-right:.35rem;margin-bottom:1px">Search Console <span style="font-weight:400;color:var(--text-muted);font-size:.65rem;text-transform:none;letter-spacing:0">${periodLabel}</span></div>
@@ -6460,7 +6462,7 @@ async function copyAnalyticsCard(id) {
   const { account_name, domain, gsc, ga4, analyticsStartDate, launchDate } = data;
   const gscT = periodGscTotals(gsc, analyticsPeriod);
   const ga4T = periodGa4Totals(ga4, analyticsPeriod);
-  const periodLabel = analyticsPeriod === 'wow' ? 'Last 7 days' : analyticsPeriod === 'mom' ? 'Last 30 days' : 'Since launch';
+  const periodLabel = PERIOD_LABELS[analyticsPeriod] || 'Since launch';
   const displayDate = fmtAnalyticsDate(analyticsStartDate || launchDate);
 
   function deltaHtml(pct) {
