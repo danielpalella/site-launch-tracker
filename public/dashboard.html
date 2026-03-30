@@ -4737,10 +4737,13 @@ function renderAnalyticsOverview(industryFilter) {
     const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
     const gridC  = isDark ? '#334155' : '#e2e8f0';
     const textC  = isDark ? '#94a3b8' : '#64748b';
+    const nOv = allWeeks.length;
+    const isPartialOv = nOv > 1 && (Date.now() - new Date(allWeeks[nOv - 1]).getTime()) < 7 * 24 * 60 * 60 * 1000;
+    const partialSegOv = isPartialOv ? { borderDash: ctx => ctx.p1DataIndex === nOv - 1 ? [4, 4] : undefined } : undefined;
     const datasets = [];
-    if (agg.gscSites)  datasets.push({ label: 'GSC Clicks',    yAxisID: 'y',  data: allWeeks.map(w => agg.weeklyGsc[w]  || 0), borderColor: '#1259FF', backgroundColor: 'rgba(18,89,255,.07)',  fill: true, tension: 0.35, pointRadius: 2, borderWidth: 2 });
-    if (agg.ga4Sites)  datasets.push({ label: 'GA4 Sessions',  yAxisID: datasets.length ? 'y1' : 'y', data: allWeeks.map(w => agg.weeklyGa4[w]  || 0), borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,.07)',  fill: true, tension: 0.35, pointRadius: 2, borderWidth: 2 });
-    if (agg.dudaSites) datasets.push({ label: 'Duda Visitors', yAxisID: datasets.length ? 'y1' : 'y', data: allWeeks.map(w => agg.weeklyDuda[w] || 0), borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,.07)', fill: true, tension: 0.35, pointRadius: 2, borderWidth: 2 });
+    if (agg.gscSites)  datasets.push({ label: 'GSC Clicks',    yAxisID: 'y',  data: allWeeks.map(w => agg.weeklyGsc[w]  || 0), borderColor: '#1259FF', backgroundColor: 'rgba(18,89,255,.07)',  fill: true, tension: 0.35, pointRadius: 2, borderWidth: 2, segment: partialSegOv });
+    if (agg.ga4Sites)  datasets.push({ label: 'GA4 Sessions',  yAxisID: datasets.length ? 'y1' : 'y', data: allWeeks.map(w => agg.weeklyGa4[w]  || 0), borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,.07)',  fill: true, tension: 0.35, pointRadius: 2, borderWidth: 2, segment: partialSegOv });
+    if (agg.dudaSites) datasets.push({ label: 'Duda Visitors', yAxisID: datasets.length ? 'y1' : 'y', data: allWeeks.map(w => agg.weeklyDuda[w] || 0), borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,.07)', fill: true, tension: 0.35, pointRadius: 2, borderWidth: 2, segment: partialSegOv });
     const scales = {
       x:  { ticks: { color: textC, font: { size: 10 }, maxTicksLimit: 12 }, grid: { display: false }, border: { display: false } },
       y:  { position: 'left',  ticks: { color: textC, font: { size: 10 }, maxTicksLimit: 5 }, grid: { color: gridC }, border: { display: false } },
@@ -4748,12 +4751,12 @@ function renderAnalyticsOverview(industryFilter) {
     if (datasets.length > 1) scales.y1 = { position: 'right', ticks: { color: textC, font: { size: 10 }, maxTicksLimit: 5 }, grid: { display: false }, border: { display: false } };
     overviewChart = new Chart(document.getElementById('ov-chart-canvas'), {
       type: 'line',
-      data: { labels: allWeeks.map(w => new Date(w).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })), datasets },
+      data: { labels: allWeeks.map((w, i) => { const l = new Date(w).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); return isPartialOv && i === nOv - 1 ? l + ' *' : l; }), datasets },
       options: {
         responsive: true, maintainAspectRatio: false, animation: { duration: 300 },
         plugins: {
           legend: { position: 'top', labels: { color: textC, font: { size: 11 }, boxWidth: 10, padding: 12 } },
-          tooltip: { mode: 'index', intersect: false },
+          tooltip: { mode: 'index', intersect: false, callbacks: isPartialOv ? { footer: items => items[0]?.dataIndex === nOv - 1 ? ['* Partial week (in progress)'] : [] } : {} },
         },
         scales,
       },
@@ -5706,10 +5709,13 @@ function renderAnalyticsModalBody(id, data, forms) {
     const isDark  = document.documentElement.getAttribute('data-theme') === 'dark';
     const gridC   = isDark ? '#334155' : '#e2e8f0';
     const textC   = isDark ? '#94a3b8' : '#64748b';
+    const nWks = allWks.length;
+    const isPartialWks = nWks > 1 && (Date.now() - new Date(allWks[nWks - 1]).getTime()) < 7 * 24 * 60 * 60 * 1000;
+    const partialSegWks = isPartialWks ? { borderDash: ctx => ctx.p1DataIndex === nWks - 1 ? [4, 4] : undefined } : undefined;
     const datasets = [];
-    if (gsc.available && gscChartWks.length > 1)  datasets.push({ label: 'GSC Clicks',    yAxisID: 'y',  data: allWks.map(w => gscMap[w]  ?? 0), borderColor: '#1259FF', backgroundColor: 'rgba(18,89,255,.08)',  fill: true, tension: 0.35, pointRadius: 3, borderWidth: 2 });
-    if (ga4.available && ga4ChartWks.length > 1)  datasets.push({ label: 'GA4 Sessions',  yAxisID: datasets.length ? 'y1' : 'y', data: allWks.map(w => ga4Map[w]  ?? 0), borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,.08)',  fill: true, tension: 0.35, pointRadius: 3, borderWidth: 2 });
-    if (hasDudaWks)                               datasets.push({ label: 'Duda Visitors', yAxisID: datasets.length ? 'y1' : 'y', data: allWks.map(w => dudaMap[w] ?? 0), borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,.08)', fill: true, tension: 0.35, pointRadius: 3, borderWidth: 2 });
+    if (gsc.available && gscChartWks.length > 1)  datasets.push({ label: 'GSC Clicks',    yAxisID: 'y',  data: allWks.map(w => gscMap[w]  ?? 0), borderColor: '#1259FF', backgroundColor: 'rgba(18,89,255,.08)',  fill: true, tension: 0.35, pointRadius: 3, borderWidth: 2, segment: partialSegWks });
+    if (ga4.available && ga4ChartWks.length > 1)  datasets.push({ label: 'GA4 Sessions',  yAxisID: datasets.length ? 'y1' : 'y', data: allWks.map(w => ga4Map[w]  ?? 0), borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,.08)',  fill: true, tension: 0.35, pointRadius: 3, borderWidth: 2, segment: partialSegWks });
+    if (hasDudaWks)                               datasets.push({ label: 'Duda Visitors', yAxisID: datasets.length ? 'y1' : 'y', data: allWks.map(w => dudaMap[w] ?? 0), borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,.08)', fill: true, tension: 0.35, pointRadius: 3, borderWidth: 2, segment: partialSegWks });
     const scales = {
       x: { ticks: { color: textC, font: { size: 10 }, maxTicksLimit: 10 }, grid: { display: false }, border: { display: false } },
       y: { position: 'left', ticks: { color: textC, font: { size: 10 }, maxTicksLimit: 5 }, grid: { color: gridC }, border: { display: false } },
@@ -5717,12 +5723,12 @@ function renderAnalyticsModalBody(id, data, forms) {
     if (datasets.length > 1) scales.y1 = { position: 'right', ticks: { color: textC, font: { size: 10 }, maxTicksLimit: 5 }, grid: { display: false }, border: { display: false } };
     window._acdChart = new Chart(document.getElementById('acd-canvas'), {
       type: 'line',
-      data: { labels: allWks.map(w => new Date(w).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })), datasets },
+      data: { labels: allWks.map((w, i) => { const l = new Date(w).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); return isPartialWks && i === nWks - 1 ? l + ' *' : l; }), datasets },
       options: {
         responsive: true, maintainAspectRatio: false, animation: { duration: 200 },
         plugins: {
           legend: { position: 'top', labels: { color: textC, font: { size: 11 }, boxWidth: 10, padding: 10 } },
-          tooltip: { mode: 'index', intersect: false },
+          tooltip: { mode: 'index', intersect: false, callbacks: isPartialWks ? { footer: items => items[0]?.dataIndex === nWks - 1 ? ['* Partial week (in progress)'] : [] } : {} },
         },
         scales,
       },
@@ -6152,24 +6158,27 @@ function renderAnalyticsCard(id, data) {
     const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
     const gridC  = isDark ? '#334155' : '#e2e8f0';
     const textC  = isDark ? '#94a3b8' : '#64748b';
+    const n = allWeeks.length;
+    const isPartial = n > 1 && (Date.now() - new Date(allWeeks[n - 1]).getTime()) < 7 * 24 * 60 * 60 * 1000;
+    const partialSeg = isPartial ? { borderDash: ctx => ctx.p1DataIndex === n - 1 ? [4, 4] : undefined } : undefined;
     const datasets = [];
     if (gsc.available && gscChartWeeks.length > 1) datasets.push({
       label: 'GSC Clicks', yAxisID: 'y',
       data: allWeeks.map(w => gscMap[w] ?? 0),
       borderColor: '#1259FF', backgroundColor: 'rgba(18,89,255,.08)',
-      fill: true, tension: 0.35, pointRadius: 2, borderWidth: 1.5,
+      fill: true, tension: 0.35, pointRadius: 2, borderWidth: 1.5, segment: partialSeg,
     });
     if (ga4.available && ga4ChartWeeks.length > 1) datasets.push({
       label: 'GA4 Sessions', yAxisID: datasets.length ? 'y1' : 'y',
       data: allWeeks.map(w => ga4Map[w] ?? 0),
       borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,.08)',
-      fill: true, tension: 0.35, pointRadius: 2, borderWidth: 1.5,
+      fill: true, tension: 0.35, pointRadius: 2, borderWidth: 1.5, segment: partialSeg,
     });
     if (hasDudaChart) datasets.push({
       label: 'Duda Visitors', yAxisID: datasets.length ? 'y1' : 'y',
       data: allWeeks.map(w => dudaMap[w] ?? 0),
       borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,.08)',
-      fill: true, tension: 0.35, pointRadius: 2, borderWidth: 1.5,
+      fill: true, tension: 0.35, pointRadius: 2, borderWidth: 1.5, segment: partialSeg,
     });
     const scales = {
       x: { ticks: { color: textC, font: { size: 9 }, maxTicksLimit: 6 }, grid: { display: false }, border: { display: false } },
@@ -6178,12 +6187,12 @@ function renderAnalyticsCard(id, data) {
     if (datasets.length > 1) scales.y1 = { position: 'right', ticks: { color: textC, font: { size: 9 }, maxTicksLimit: 4 }, grid: { display: false }, border: { display: false } };
     analyticsCharts[id] = new Chart(document.getElementById(`ac-chart-${id}`), {
       type: 'line',
-      data: { labels: allWeeks.map(w => new Date(w).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })), datasets },
+      data: { labels: allWeeks.map((w, i) => { const l = new Date(w).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); return isPartial && i === n - 1 ? l + ' *' : l; }), datasets },
       options: {
         responsive: true, maintainAspectRatio: false, animation: { duration: 250 },
         plugins: {
           legend: { position: 'top', labels: { color: textC, font: { size: 10 }, boxWidth: 8, padding: 8 } },
-          tooltip: { mode: 'index', intersect: false },
+          tooltip: { mode: 'index', intersect: false, callbacks: isPartial ? { footer: items => items[0]?.dataIndex === n - 1 ? ['* Partial week (in progress)'] : [] } : {} },
         },
         scales,
       },
