@@ -2172,6 +2172,8 @@ tr.status-separator:first-child td { border-top: none; }
   display: flex;
   align-items: center;
   gap: .4rem;
+  flex: 1;
+  min-width: 0;
 }
 /* Right zone */
 .ac-toolbar-right {
@@ -2203,8 +2205,9 @@ tr.status-separator:first-child td { border-top: none; }
 }
 .ac-cache-age::before { content: '·'; margin-right: .3rem; }
 .ac-search {
+  flex: 1;
   min-width: 160px;
-  max-width: 200px;
+  max-width: 400px;
   height: 30px;
   padding: .28rem .75rem;
   font-size: .82rem;
