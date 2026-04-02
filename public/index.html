@@ -461,6 +461,9 @@ function launchRocketAnimation(onComplete) {
   requestAnimationFrame(step);
 }
 
+// Tracks the last domain auto-filled by the screener so re-running updates it
+let _screenerFilledDomain = '';
+
 // ── Site Screener ──────────────────────────────────────────────────────────────
 document.getElementById('screen-url').addEventListener('keydown', e => {
   if (e.key === 'Enter') runScreener();
@@ -502,12 +505,14 @@ function renderScreenerResults(data, screenerUrl) {
   const resEl = document.getElementById('screen-results');
   const card = document.getElementById('screener-card');
 
-  // Auto-fill domain field if empty
+  // Auto-fill domain field if empty or if it still contains the last screener-filled value
   if (screenerUrl) {
     try {
       const domainField = document.getElementById('domain_name');
-      if (!domainField.value.trim()) {
-        domainField.value = new URL(screenerUrl).hostname.replace(/^www\./, '');
+      const current = domainField.value.trim();
+      if (!current || current === _screenerFilledDomain) {
+        _screenerFilledDomain = new URL(screenerUrl).hostname.replace(/^www\./, '');
+        domainField.value = _screenerFilledDomain;
       }
     } catch {}
   }
