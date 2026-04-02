@@ -1003,11 +1003,13 @@ function renderBoard() {
               ondragstart="boardDragStart(event,this)"
               ondragend="boardDragEnd(this)"
               ondblclick="handleRowDblClick(event,'${r.id}')">
-              <div style="display:flex;align-items:center;gap:.4rem;margin-bottom:.1rem">
-                <img src="https://www.google.com/s2/favicons?domain=${esc(r.domain_name)}&sz=32" alt="" loading="lazy" style="width:16px;height:16px;flex-shrink:0;border-radius:2px">
-                <div class="board-card-name">${esc(r.account_name)}</div>
+              <div style="display:flex;align-items:flex-start;gap:.4rem">
+                <img src="https://www.google.com/s2/favicons?domain=${esc(r.domain_name)}&sz=32" alt="" loading="lazy" style="width:16px;height:16px;flex-shrink:0;border-radius:2px;margin-top:.1rem">
+                <div>
+                  <div class="board-card-name">${esc(r.account_name)}</div>
+                  <div class="board-card-domain">${esc(r.domain_name)}</div>
+                </div>
               </div>
-              <div class="board-card-domain">🌐 ${esc(r.domain_name)}</div>
               <div class="board-card-meta">
                 ${r.owner
                   ? `<span class="owner-badge" style="font-size:.67rem;padding:.12rem .42rem">${esc(r.owner)}</span>`
@@ -1333,7 +1335,7 @@ function renderRow(r) {
           <img src="https://www.google.com/s2/favicons?domain=${esc(r.domain_name)}&sz=32" alt="" loading="lazy" style="width:16px;height:16px;flex-shrink:0;border-radius:2px;margin-top:.15rem">
           <div>
             <div class="account-name">${esc(r.account_name)}<span class="gmail-unread-badge" id="gmail-badge-${r.id}" data-email="${esc(r.email)}" style="display:none"></span></div>
-            <div class="domain">🌐 <a href="https://${esc(r.domain_name)}" target="_blank" rel="noopener" style="color:var(--primary);text-decoration:none" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${esc(r.domain_name)}</a></div>
+            <div class="domain"><a href="https://${esc(r.domain_name)}" target="_blank" rel="noopener" style="color:var(--primary);text-decoration:none" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${esc(r.domain_name)}</a></div>
           </div>
         </div>
       </td>
@@ -3286,8 +3288,13 @@ function seoTableRow(id, d) {
   const isSelected = _selectedSeoId === id;
   return `<tr class="seo-tr${hasIssues ? ' seo-tr-issue' : ''}${isSelected ? ' seo-tr-selected' : ''}" data-id="${esc(id)}" onclick="selectSeoRow('${esc(id)}')" ondblclick="event.stopPropagation();openSeoSiteModal('${esc(id)}')" title="Click to expand · Double-click to open account">
     <td class="seo-td seo-td-site">
-      <div class="seo-site-name">${esc(d.account_name)}</div>
-      <div class="seo-site-domain" style="display:flex;align-items:center;gap:.35rem">${esc(d.domain)}<span class="ac-uptime-dot ac-uptime-up"></span></div>
+      <div style="display:flex;align-items:flex-start;gap:.45rem">
+        <img src="https://www.google.com/s2/favicons?domain=${esc(d.domain)}&sz=32" alt="" loading="lazy" style="width:16px;height:16px;flex-shrink:0;border-radius:2px;margin-top:.15rem">
+        <div>
+          <div class="seo-site-name">${esc(d.account_name)}</div>
+          <div class="seo-site-domain" style="display:flex;align-items:center;gap:.35rem">${esc(d.domain)}<span class="ac-uptime-dot ac-uptime-up"></span></div>
+        </div>
+      </div>
     </td>
     <td class="seo-td seo-td-center">${seoStatusBadge(audit,'sitemap',id)}</td>
     <td class="seo-td seo-td-center"><span id="idx-badge-${esc(id)}">${buildIndexBadge(id, audit, '')}</span></td>
@@ -4383,9 +4390,12 @@ function renderAnalyticsOverview(industryFilter) {
   const perfRow = (site, rank) => `
     <div class="ov-att-row" style="border-left:3px solid #22c55e" onclick="openAnalyticsModal('${esc(site.id)}')">
       <div class="ov-att-top">
-        <div class="ov-att-name">
-          <div class="ov-att-title">${esc(site.account_name)}</div>
-          <div class="ov-att-domain">${esc(site.domain)}</div>
+        <div class="ov-att-name" style="display:flex;align-items:flex-start;gap:.45rem;min-width:0">
+          <img src="https://www.google.com/s2/favicons?domain=${esc(site.domain)}&sz=32" alt="" loading="lazy" style="width:16px;height:16px;flex-shrink:0;border-radius:2px;margin-top:.1rem">
+          <div style="min-width:0">
+            <div class="ov-att-title">${esc(site.account_name)}</div>
+            <div class="ov-att-domain">${esc(site.domain)}</div>
+          </div>
         </div>
         <div class="ov-att-score-wrap">
           <span class="ov-att-score" style="color:#22c55e">#${rank}</span>
@@ -4410,9 +4420,12 @@ function renderAnalyticsOverview(industryFilter) {
     return `
     <div class="ov-att-row" style="border-left:3px solid ${borderColor}" onclick="openAnalyticsModal('${esc(site.id)}')">
       <div class="ov-att-top">
-        <div class="ov-att-name">
-          <div class="ov-att-title">${esc(site.account_name)}</div>
-          <div class="ov-att-domain">${esc(site.domain)}</div>
+        <div class="ov-att-name" style="display:flex;align-items:flex-start;gap:.45rem;min-width:0">
+          <img src="https://www.google.com/s2/favicons?domain=${esc(site.domain)}&sz=32" alt="" loading="lazy" style="width:16px;height:16px;flex-shrink:0;border-radius:2px;margin-top:.1rem">
+          <div style="min-width:0">
+            <div class="ov-att-title">${esc(site.account_name)}</div>
+            <div class="ov-att-domain">${esc(site.domain)}</div>
+          </div>
         </div>
         <div class="ov-att-score-wrap">
           <span class="ov-att-score" style="color:${h.color}">${h.score ?? '—'}</span>
