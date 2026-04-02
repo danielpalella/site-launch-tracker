@@ -426,7 +426,18 @@
     <!-- Header -->
     <div class="crm-header">
       <div style="display:flex;align-items:flex-start;gap:.6rem;flex:1;min-width:0">
-        <img id="crm-hdr-favicon" src="" alt="" loading="lazy" style="width:24px;height:24px;border-radius:4px;flex-shrink:0;margin-top:.25rem;display:none">
+        <div id="crm-hdr-favicon-wrap" class="acd-favicon-wrap" style="display:none;flex-shrink:0;margin-top:.25rem">
+          <img id="crm-hdr-favicon" class="ac-favicon ac-favicon-lg" src="" alt="">
+          <div class="acd-favicon-actions" id="crm-hdr-favicon-actions">
+            <label class="acd-fav-btn" title="Upload custom favicon">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
+              <input type="file" accept="image/*" style="display:none" onchange="uploadCrmFavicon(event)">
+            </label>
+            <button class="acd-fav-btn acd-fav-btn-del" title="Remove custom favicon" onclick="deleteCrmFavicon()">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+            </button>
+          </div>
+        </div>
         <div style="flex:1;min-width:0">
           <div style="display:flex;align-items:center;gap:.55rem;flex-wrap:wrap;margin-bottom:.3rem">
             <h2 id="modal-title" class="crm-title">Edit Record</h2>
@@ -1563,12 +1574,15 @@ function openEdit(id) {
   pill.style.background = pillColor + '1a';
   pill.style.borderColor = pillColor + '55';
   // Favicon
-  const faviconEl = document.getElementById('crm-hdr-favicon');
+  const faviconWrap = document.getElementById('crm-hdr-favicon-wrap');
+  const faviconEl   = document.getElementById('crm-hdr-favicon');
+  const launch = allLaunches.find(x => x.id === id);
   if (r.domain_name) {
-    faviconEl.src = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(r.domain_name)}&sz=32`;
-    faviconEl.style.display = '';
+    faviconEl.src = launch?.custom_favicon || `https://www.google.com/s2/favicons?domain=${encodeURIComponent(r.domain_name)}&sz=32`;
+    faviconWrap.style.display = '';
+    wireCrmFaviconLongPress();
   } else {
-    faviconEl.style.display = 'none';
+    faviconWrap.style.display = 'none';
   }
   // Reset to Overview tab and reset Gmail label
   const gmailTabBtn = document.getElementById('crm-tab-gmail-btn');
@@ -6443,6 +6457,80 @@ function stopFaviconShake() {
 
 function stopFaviconShakeOnOutsideClick(e) {
   if (!e.target.closest('#acd-favicon-wrap')) stopFaviconShake();
+}
+
+// ── Pipeline modal favicon long-press ──
+let _crmFaviconLongPressTimer = null;
+
+function wireCrmFaviconLongPress() {
+  const el = document.getElementById('crm-hdr-favicon');
+  if (!el) return;
+  el.onmousedown = el.ontouchstart = (e) => {
+    e.preventDefault();
+    _crmFaviconLongPressTimer = setTimeout(startCrmFaviconShake, 600);
+  };
+  el.onmouseup = el.onmouseleave = el.ontouchend = () => {
+    clearTimeout(_crmFaviconLongPressTimer);
+  };
+}
+
+function startCrmFaviconShake() {
+  const el   = document.getElementById('crm-hdr-favicon');
+  const acts = document.getElementById('crm-hdr-favicon-actions');
+  if (!el) return;
+  el.classList.add('acd-favicon-shaking');
+  if (acts) acts.style.display = 'flex';
+  document.addEventListener('click', stopCrmFaviconShakeOnOutsideClick, true);
+}
+
+function stopCrmFaviconShake() {
+  const el   = document.getElementById('crm-hdr-favicon');
+  const acts = document.getElementById('crm-hdr-favicon-actions');
+  if (el)   el.classList.remove('acd-favicon-shaking');
+  if (acts) acts.style.display = 'none';
+  document.removeEventListener('click', stopCrmFaviconShakeOnOutsideClick, true);
+}
+
+function stopCrmFaviconShakeOnOutsideClick(e) {
+  if (!e.target.closest('#crm-hdr-favicon-wrap')) stopCrmFaviconShake();
+}
+
+async function uploadCrmFavicon(e) {
+  const file = e.target.files[0];
+  if (!file || !editingId) return;
+  const fd = new FormData();
+  fd.append('favicon', file);
+  try {
+    const r = await fetch(`/api/launches/${editingId}/favicon`, { method: 'POST', body: fd });
+    if (!r.ok) throw new Error();
+    const { custom_favicon } = await r.json();
+    document.getElementById('crm-hdr-favicon').src = custom_favicon;
+    const launch = allLaunches.find(x => x.id === editingId);
+    if (launch) launch.custom_favicon = custom_favicon;
+    // Update board card and table row favicons
+    document.querySelectorAll(`[data-id="${editingId}"] img[src*="favicons"]`).forEach(img => img.src = custom_favicon);
+    stopCrmFaviconShake();
+    showToast('Favicon updated');
+  } catch {
+    showToast('Failed to upload favicon', 'error');
+  }
+  e.target.value = '';
+}
+
+async function deleteCrmFavicon() {
+  if (!editingId) return;
+  const launch = allLaunches.find(x => x.id === editingId);
+  try {
+    await fetch(`/api/launches/${editingId}/favicon`, { method: 'DELETE' });
+    if (launch) launch.custom_favicon = null;
+    const fallback = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(launch?.domain_name || '')}&sz=32`;
+    document.getElementById('crm-hdr-favicon').src = fallback;
+    document.querySelectorAll(`[data-id="${editingId}"] img[src*="favicons"]`).forEach(img => img.src = fallback);
+    stopCrmFaviconShake();
+    showToast('Custom favicon removed');
+  } catch {
+    showToast('Failed to remove favicon', 'error');
+  }
 }
 
 async function uploadModalFavicon(e) {
