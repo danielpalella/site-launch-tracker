@@ -1642,6 +1642,7 @@ function openEdit(id) {
   } else {
     freezeBtn.style.display = 'none';
   }
+  _latestGmailThreadDate = null;
   renderOutreachSection(r);
   document.getElementById('modal').classList.add('open');
   loadTimeline(id);
@@ -1661,6 +1662,7 @@ function switchCrmTab(name, btn) {
 
 // ── Outreach / Follow-up ──
 let _outreachFilter = 'all';
+let _latestGmailThreadDate = null; // auto-detected from Gmail, used as implicit last contact
 
 function businessDaysBetween(fromDateStr, toDateStr) {
   const start = new Date(fromDateStr + 'T12:00:00');
@@ -1690,28 +1692,36 @@ function renderOutreachSection(r) {
   const section = document.getElementById('modal-outreach-section');
   const log = r.outreach_log || [];
   const isApproval = r.status === 'awaiting_approval';
-  if (!isApproval && !log.length) { section.style.display = 'none'; return; }
+  if (!isApproval && !log.length && !_latestGmailThreadDate) { section.style.display = 'none'; return; }
   section.style.display = '';
 
   const today = new Date().toISOString().slice(0, 10);
 
+  // Effective last contact: take whichever is more recent — manual log or latest Gmail thread
+  const manualDate = r.last_contact_date || null;
+  const effectiveDate = [manualDate, _latestGmailThreadDate].filter(Boolean).sort().pop() || null;
+  const fromGmail = effectiveDate === _latestGmailThreadDate && effectiveDate !== manualDate;
+
   // Alert banner
   const alertEl = document.getElementById('modal-outreach-alert');
   if (isApproval) {
-    const loggedToday = r.last_contact_date === today;
-    if (loggedToday) {
+    const contactedToday = effectiveDate === today;
+    if (contactedToday) {
       const next = addBusinessDays(today, 5);
-      alertEl.innerHTML = `<div class="outreach-alert outreach-alert-green"><span>✓ Follow-up logged · Next due ${formatDate(next)}</span><button class="btn btn-ghost outreach-alert-btn" onclick="undoLastOutreach()">Undo</button></div>`;
-    } else if (!r.last_contact_date) {
+      const src = fromGmail ? 'Recent email detected' : '✓ Follow-up logged';
+      const undoBtn = !fromGmail ? `<button class="btn btn-ghost outreach-alert-btn" onclick="undoLastOutreach()">Undo</button>` : '';
+      alertEl.innerHTML = `<div class="outreach-alert outreach-alert-green"><span>${src} · Next due ${formatDate(next)}</span>${undoBtn}</div>`;
+    } else if (!effectiveDate) {
       alertEl.innerHTML = `<div class="outreach-alert outreach-alert-amber"><span>No follow-up logged yet</span><button class="btn btn-ghost outreach-alert-btn" onclick="focusOutreachInput()">Log outreach</button></div>`;
     } else {
-      const days = businessDaysBetween(r.last_contact_date, today);
+      const days = businessDaysBetween(effectiveDate, today);
+      const src = fromGmail ? `Last email ${formatDate(effectiveDate)}` : `Last contact ${formatDate(effectiveDate)}`;
       if (days > 5) {
         alertEl.innerHTML = `<div class="outreach-alert outreach-alert-red"><span>Follow-up overdue · ${days} business days since last contact</span><button class="btn btn-ghost outreach-alert-btn" onclick="focusOutreachInput()">Log outreach</button></div>`;
       } else if (days >= 5) {
-        alertEl.innerHTML = `<div class="outreach-alert outreach-alert-amber"><span>Follow-up due today</span><button class="btn btn-ghost outreach-alert-btn" onclick="focusOutreachInput()">Log outreach</button></div>`;
+        alertEl.innerHTML = `<div class="outreach-alert outreach-alert-amber"><span>Follow-up due · ${src}</span><button class="btn btn-ghost outreach-alert-btn" onclick="focusOutreachInput()">Log outreach</button></div>`;
       } else {
-        alertEl.innerHTML = '';
+        alertEl.innerHTML = `<div class="outreach-alert outreach-alert-green"><span>On track · ${src}</span></div>`;
       }
     }
   } else {
@@ -1723,10 +1733,10 @@ function renderOutreachSection(r) {
   if (isApproval) {
     nextDueEl.style.display = '';
     const valEl = document.getElementById('modal-outreach-next-due-val');
-    if (!r.last_contact_date) {
+    if (!effectiveDate) {
       valEl.textContent = 'Today';
     } else {
-      const nextDate = addBusinessDays(r.last_contact_date, 5);
+      const nextDate = addBusinessDays(effectiveDate, 5);
       const busDays  = businessDaysBetween(today, nextDate);
       valEl.textContent = nextDate <= today ? 'Today' : `${formatDate(nextDate)} (${busDays} business day${busDays !== 1 ? 's' : ''})`;
     }
@@ -2692,6 +2702,14 @@ function renderGmailThreadList(threads) {
   const record = allLaunches.find(x => x.id === editingId);
   const outreachLog = record?.outreach_log || [];
   const loggedDates = new Set(outreachLog.map(e => e.date));
+
+  // Auto-detect most recent Gmail thread date as implicit last contact
+  const latestThread = threads.find(t => t.date);
+  const latestDate = latestThread ? new Date(latestThread.date).toISOString().slice(0, 10) : null;
+  if (latestDate && latestDate !== _latestGmailThreadDate) {
+    _latestGmailThreadDate = latestDate;
+    if (record) renderOutreachSection(record); // re-render banner with updated effective date
+  }
   const lastFollowUp = outreachLog[0] || null;
 
   const header = lastFollowUp ? `
