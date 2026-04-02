@@ -2528,6 +2528,11 @@ function escAttr(str) {
   return (str || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;');
 }
 
+// Analytics view state — declared here so the URL-param IIFE below can call
+// switchTab('analytics') without hitting a temporal dead zone on these lets.
+let analyticsView      = 'sites'; // 'sites' | 'overview'
+let analyticsIndustry  = 'all';
+
 // Initial load
 fetchLaunches();
 fetchEditRequests(); // populate badge count
@@ -3069,8 +3074,7 @@ async function loadMilestoneThresholds() {
     if (r.ok) milestoneThresholds = await r.json();
   } catch {}
 }
-let analyticsIndustry  = 'all';
-let analyticsView      = 'sites'; // 'sites' | 'overview'
+// analyticsView and analyticsIndustry are declared earlier (before the URL-param IIFE)
 let _acSortKey         = 'published'; // 'published' | 'created' | 'name' | 'performance'
 let _acSortOrder       = 'newest';   // 'newest' | 'oldest'
 let overviewChart      = null;
