@@ -492,7 +492,7 @@ function renderScreenerResults(data) {
     reasons.push(cms.name !== 'Unknown' ? `${cms.name} — fully supported platform` : 'Platform not identified — no blocking signals found');
     if (sitemap) {
       reasons.push(`${sitemap.totalPages} page${sitemap.totalPages !== 1 ? 's' : ''} detected — within normal range`);
-      if (!sitemap.serviceAreaPages && !sitemap.servicePages) reasons.push('No service area or sub-service pages found');
+      if (!sitemap.locationPages && !sitemap.svcLocPages && !sitemap.servicePages) reasons.push('No location or sub-service pages found');
     } else {
       reasons.push('No sitemap found — site structure appears simple');
     }
@@ -530,7 +530,7 @@ function toggleScreenerNarrative(btn) {
   btn.textContent = isOpen ? '✕ Close' : 'ⓘ Why?';
 }
 
-function buildScreenerNarrative({ cms, sitemap, verdict }) {
+function buildScreenerNarrative({ cms, sitemap, verdict, flags, warnings }) {
   const parts = [];
 
   // CMS context
@@ -544,14 +544,30 @@ function buildScreenerNarrative({ cms, sitemap, verdict }) {
     }
   }
 
+  // HTML signal context
+  const allSignals = [...(flags || []), ...(warnings || [])];
+  if (allSignals.some(s => s.includes('Multi-trade'))) {
+    parts.push('Multiple service trades detected on this site — RealWork sites are built for single-trade businesses.');
+  }
+  if (allSignals.some(s => s.includes('booking') || s.includes('scheduling'))) {
+    parts.push('An online booking or scheduling system is embedded — these integrations don\'t carry over to a new build and would need to be re-evaluated.');
+  }
+  if (allSignals.some(s => s.includes('E-commerce'))) {
+    parts.push('E-commerce functionality detected — product listings, carts, or checkout flows are outside the standard RealWork build scope.');
+  }
+  if (allSignals.some(s => s.includes('Chatbot') || s.includes('live-chat'))) {
+    parts.push('A chatbot or live-chat widget is active — confirm with the client whether they want to keep it, as it would need to be reconnected after launch.');
+  }
+
   // Sitemap breakdown
   if (sitemap) {
     const detail = [];
-    if (sitemap.serviceAreaPages > 0) detail.push(`${sitemap.serviceAreaPages} location/service area page${sitemap.serviceAreaPages !== 1 ? 's' : ''}`);
-    if (sitemap.servicePages > 0) detail.push(`${sitemap.servicePages} specific service sub-page${sitemap.servicePages !== 1 ? 's' : ''}`);
+    if (sitemap.svcLocPages > 0)   detail.push(`${sitemap.svcLocPages} service+location page${sitemap.svcLocPages !== 1 ? 's' : ''} (e.g. "AC Repair Austin")`);
+    if (sitemap.locationPages > 0) detail.push(`${sitemap.locationPages} location/area page${sitemap.locationPages !== 1 ? 's' : ''}`);
+    if (sitemap.servicePages > 0)  detail.push(`${sitemap.servicePages} service sub-page${sitemap.servicePages !== 1 ? 's' : ''}`);
     const detailStr = detail.length ? `, including ${detail.join(' and ')},` : '';
-    const scope = sitemap.totalPages > 25 ? 'well above our threshold for a straightforward rebuild'
-                : sitemap.totalPages > 15 ? 'above our typical threshold'
+    const scope = sitemap.totalPages > 20 ? 'well above our threshold for a straightforward rebuild'
+                : sitemap.totalPages > 12 ? 'above our typical threshold'
                 : '';
     if (scope) {
       parts.push(`Sitemap shows ${sitemap.totalPages} pages${detailStr} — ${scope}.`);

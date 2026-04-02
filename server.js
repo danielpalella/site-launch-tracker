@@ -603,26 +603,70 @@ async function getRdapBaseUrl(tld) {
 
 // ── Site Screener ──────────────────────────────────────────────────────────────
 function screenerDetectCms(html) {
-  if (/wixstatic\.com|wix\.com\/|generator[^>]*wix/i.test(html))           return { name: 'Wix',        flag: 'green'   };
-  if (/static\.squarespace\.com|generator[^>]*squarespace/i.test(html))    return { name: 'Squarespace', flag: 'green'   };
-  if (/godaddy|secureserver\.net|generator[^>]*godaddy/i.test(html))       return { name: 'GoDaddy',    flag: 'green'   };
-  if (/irp\.cdn-website\.com|dudaone\.com|dudaplatform\.com/i.test(html))  return { name: 'Duda',       flag: 'green'   };
-  if (/cdn\.shopify\.com|shopify\.com\/s\//i.test(html))                   return { name: 'Shopify',    flag: 'green'   };
-  if (/webflow\.io|webflow\.com\/css|generator[^>]*webflow/i.test(html))   return { name: 'Webflow',    flag: 'orange'  };
-  if (/wp-content\/|wp-includes\/|generator[^>]*wordpress/i.test(html))   return { name: 'WordPress',  flag: 'orange'  };
+  if (/wixstatic\.com|wix\.com\/|generator[^>]*wix/i.test(html))           return { name: 'Wix',        flag: 'green'  };
+  if (/static\.squarespace\.com|generator[^>]*squarespace/i.test(html))    return { name: 'Squarespace', flag: 'green'  };
+  if (/godaddy|secureserver\.net|generator[^>]*godaddy/i.test(html))       return { name: 'GoDaddy',    flag: 'green'  };
+  if (/irp\.cdn-website\.com|dudaone\.com|dudaplatform\.com/i.test(html))  return { name: 'Duda',       flag: 'green'  };
+  if (/cdn\.shopify\.com|shopify\.com\/s\//i.test(html))                   return { name: 'Shopify',    flag: 'green'  };
+  if (/webflow\.io|webflow\.com\/css|generator[^>]*webflow/i.test(html))   return { name: 'Webflow',    flag: 'orange' };
+  if (/wp-content\/|wp-includes\/|generator[^>]*wordpress/i.test(html))   return { name: 'WordPress',  flag: 'orange' };
   return { name: 'Unknown', flag: 'neutral' };
+}
+
+// Detect multi-trade, booking systems, chatbots, and e-commerce from homepage HTML
+function screenerAnalyzeHtml(html) {
+  const signals = [];
+
+  // Multi-trade: flag if 2+ distinct trade categories are present
+  const tradePatterns = {
+    'HVAC':        /\bhvac\b|air[\s-]?condition|heating\s+(?:and|&amp;|&)\s+cooling|heat\s+pump|furnace|ac\s+repair|air\s+handler/i,
+    'Plumbing':    /\bplumb(?:ing|er)\b|water\s+heater|drain\s+(?:clean|repair)|sewer\s+(?:line|repair)|burst\s+pipe/i,
+    'Electrical':  /\belectric(?:al|ian)\b|wiring|circuit\s+breaker|electrical\s+panel|panel\s+upgrade/i,
+    'Roofing':     /\bro(?:of(?:ing|er|s)|ofer)\b|shingles|flat\s+roof|roof\s+(?:repair|replace|install)/i,
+    'Landscaping': /\blandscap(?:ing|er)\b|lawn\s+(?:care|mowing|service)|irrigation\s+(?:system|install)|sod\s+install/i,
+    'Painting':    /\bpaint(?:ing|er)\b(?!\s+contractor.*hvac)/i,
+    'Flooring':    /\bflooring\b|hardwood\s+floor|tile\s+install|carpet\s+install/i,
+    'Cleaning':    /\bcleaning\s+service\b|janitorial|pressure\s+wash|window\s+clean/i,
+    'Siding':      /\bsiding\b|vinyl\s+siding|fiber[\s-]?cement|exterior\s+cladding/i,
+  };
+  const detected = Object.keys(tradePatterns).filter(t => tradePatterns[t].test(html));
+  if (detected.length >= 2) signals.push({ type: 'multi_trade', trades: detected });
+
+  // Booking / scheduling systems
+  if (/calendly|acuityscheduling|setmore\.com|simplybook|booksy|housecallpro|servicetitan|jobber\.com|scheduling\s+widget/i.test(html)) {
+    signals.push({ type: 'booking' });
+  }
+
+  // Chatbot / live-chat widgets
+  if (/tidio|tawk\.to|crisp\.chat|intercom\.io|freshchat|zendesk.*chat|hubspot.*chat|livechat\.com|drift\.com/i.test(html)) {
+    signals.push({ type: 'chatbot' });
+  }
+
+  // E-commerce (beyond simple Shopify CMS already detected)
+  if (/woocommerce|bigcommerce|add[\s-]to[\s-]cart|checkout.*cart|buy\s+now.*shop/i.test(html)) {
+    signals.push({ type: 'ecommerce' });
+  }
+
+  return signals;
 }
 
 function screenerParseSitemap(xml) {
   const isSitemapIndex = /<sitemapindex/i.test(xml);
   const urls = [...xml.matchAll(/<loc>\s*(.*?)\s*<\/loc>/gi)].map(m => m[1].trim());
   const pageUrls = urls.filter(u => !u.endsWith('.xml'));
-  const serviceAreaRe = /\/(service[-_]?areas?|areas?|cities|city|locations?|coverage|towns?|counti?e?s?)\b/i;
+
+  // Location/area pages: standalone location strategy (city, area, county pages)
+  const locationRe = /\/(service[-_]?areas?|areas?|cities|city|locations?|coverage|towns?|counti?e?s?)\b/i;
+  // Service+location combo pages: slugs like /ac-repair-austin or /austin-electrician
+  const svcLocRe   = /\/[\w]+-(?:repair|install|service|replacement|cleaning|mainten\w+)-[\w]|\/[\w]+-(?:electrician|plumber|roofer|hvac|painter)\b/i;
+  // Deeply nested service sub-pages: /services/category/item
   const servicePageRe = /\/services?\/[\w-]+/i;
+
   return {
-    totalPages:       pageUrls.length,
-    serviceAreaPages: pageUrls.filter(u => serviceAreaRe.test(u)).length,
-    servicePages:     pageUrls.filter(u => servicePageRe.test(u)).length,
+    totalPages:        pageUrls.length,
+    locationPages:     pageUrls.filter(u => locationRe.test(u)).length,
+    svcLocPages:       pageUrls.filter(u => svcLocRe.test(u)).length,
+    servicePages:      pageUrls.filter(u => servicePageRe.test(u)).length,
     isSitemapIndex,
   };
 }
@@ -655,20 +699,43 @@ app.post('/api/screen-site', requireAuth, async (req, res) => {
     const htmlRes = await fetch(url, { signal: ctrl.signal, redirect: 'follow', headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RealWorkScreener/1.0)' } });
     const html = await htmlRes.text();
 
-    const cms     = screenerDetectCms(html);
-    const sitemap = await screenerFetchSitemap(new URL(htmlRes.url).origin);
+    const cms        = screenerDetectCms(html);
+    const htmlSigs   = screenerAnalyzeHtml(html);
+    const sitemap    = await screenerFetchSitemap(new URL(htmlRes.url).origin);
 
     const flags = [], warnings = [];
+
+    // ── HTML signals ──
     if (cms.flag === 'orange') warnings.push(`Built on ${cms.name} — complex platform`);
-    if (sitemap) {
-      if (sitemap.totalPages > 25)       flags.push(`${sitemap.totalPages} pages detected`);
-      else if (sitemap.totalPages > 15)  warnings.push(`${sitemap.totalPages} pages detected`);
-      if (sitemap.serviceAreaPages > 3)  flags.push(`${sitemap.serviceAreaPages} service area pages`);
-      else if (sitemap.serviceAreaPages) warnings.push(`${sitemap.serviceAreaPages} service area page(s)`);
-      if (sitemap.servicePages > 10)     flags.push(`${sitemap.servicePages} service sub-pages`);
-      else if (sitemap.servicePages > 0) warnings.push(`${sitemap.servicePages} service sub-page(s)`);
-      if (sitemap.isSitemapIndex)        warnings.push('Multiple sitemaps found — site may be larger than reported');
+    for (const sig of htmlSigs) {
+      if (sig.type === 'multi_trade')
+        flags.push(`Multi-trade site (${sig.trades.slice(0, 3).join(' + ')})`);
+      else if (sig.type === 'booking')
+        flags.push('Online booking or scheduling system detected');
+      else if (sig.type === 'ecommerce')
+        flags.push('E-commerce functionality detected');
+      else if (sig.type === 'chatbot')
+        warnings.push('Chatbot or live-chat widget detected');
     }
+
+    // ── Sitemap signals ──
+    // Thresholds: 12+ pages = bad fit per RealWork criteria
+    if (sitemap) {
+      if (sitemap.totalPages > 20)      flags.push(`${sitemap.totalPages} pages — large site`);
+      else if (sitemap.totalPages > 12) warnings.push(`${sitemap.totalPages} pages detected`);
+
+      if (sitemap.svcLocPages > 2)      flags.push(`${sitemap.svcLocPages} service+location pages (e.g. "AC Repair Austin")`);
+      else if (sitemap.svcLocPages > 0) warnings.push(`${sitemap.svcLocPages} service+location page(s) detected`);
+
+      if (sitemap.locationPages > 3)    flags.push(`${sitemap.locationPages} location/area pages — multi-location strategy`);
+      else if (sitemap.locationPages)   warnings.push(`${sitemap.locationPages} location/area page(s)`);
+
+      if (sitemap.servicePages > 5)     flags.push(`${sitemap.servicePages} nested service sub-pages`);
+      else if (sitemap.servicePages > 2) warnings.push(`${sitemap.servicePages} service sub-page(s)`);
+
+      if (sitemap.isSitemapIndex)       warnings.push('Multiple sitemaps — site may be larger than reported');
+    }
+
     const verdict = flags.length ? 'warn' : warnings.length ? 'caution' : 'pass';
     res.json({ cms, sitemap, verdict, flags, warnings });
   } catch (err) {
