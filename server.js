@@ -767,7 +767,7 @@ app.post('/api/screen-site', requireAuth, async (req, res) => {
         flags.push(`Multi-trade site (${sig.trades.slice(0, 3).join(' + ')})`);
       else if (sig.type === 'booking')
         flags.push('Online booking or scheduling system detected');
-      else if (sig.type === 'ecommerce' && cms.name !== 'Squarespace')
+      else if (sig.type === 'ecommerce' && !['Squarespace','Wix','GoDaddy','Duda'].includes(cms.name))
         flags.push('E-commerce functionality detected');
       else if (sig.type === 'payment')
         flags.push('Payment processor detected (Square/Stripe/PayPal)');
