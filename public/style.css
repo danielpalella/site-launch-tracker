@@ -766,7 +766,8 @@ tr.frozen-subseparator td {
   border-radius: 6px;
   background: var(--surface);
   color: var(--text);
-  flex-shrink: 0;
+  flex: 0 0 80px;
+  width: 80px;
 }
 .outreach-note-input {
   flex: 1;
