@@ -608,12 +608,12 @@ function screenerDetectCms(html) {
   if (/godaddy|secureserver\.net|generator[^>]*godaddy/i.test(html))       return { name: 'GoDaddy',    flag: 'green'  };
   if (/irp\.cdn-website\.com|dudaone\.com|dudaplatform\.com/i.test(html))  return { name: 'Duda',       flag: 'green'  };
   if (/cdn\.shopify\.com|shopify\.com\/s\//i.test(html))                   return { name: 'Shopify',    flag: 'green'  };
-  if (/webflow\.io|webflow\.com\/css|generator[^>]*webflow/i.test(html))   return { name: 'Webflow',    flag: 'orange' };
-  if (/wp-content\/|wp-includes\/|generator[^>]*wordpress/i.test(html))   return { name: 'WordPress',  flag: 'orange' };
+  if (/webflow\.io|webflow\.com\/css|generator[^>]*webflow/i.test(html))   return { name: 'Webflow',    flag: 'orange'   };
+  if (/wp-content\/|wp-includes\/|generator[^>]*wordpress/i.test(html))   return { name: 'WordPress',  flag: 'neutral'  };
   return { name: 'Unknown', flag: 'neutral' };
 }
 
-// Detect multi-trade, booking systems, chatbots, and e-commerce from homepage HTML
+// Detect multi-trade, booking systems, chatbots, e-commerce, and payment processors from homepage HTML
 function screenerAnalyzeHtml(html) {
   const signals = [];
 
@@ -647,7 +647,20 @@ function screenerAnalyzeHtml(html) {
     signals.push({ type: 'ecommerce' });
   }
 
+  // Payment processors
+  if (/square\.com|squareup\.com|js\.stripe\.com|stripe\.com|paypal\.com|paypalobjects\.com|pay\.google/i.test(html)) {
+    signals.push({ type: 'payment' });
+  }
+
   return signals;
+}
+
+// Count FAQ entries across combined HTML (homepage + optional FAQ page)
+function screenerCountFaqEntries(html) {
+  const byDetails  = (html.match(/<details[\s>]/gi) || []).length;
+  const byClass    = (html.match(/class="[^"]*\b(?:faq[-_]item|faq[-_]question|accordion[-_]item|accordion[-_]question|accordion[-_]trigger|faq[-_]entry)\b[^"]*"/gi) || []).length;
+  const byQColon   = (html.match(/(?:^|[\n>])\s*Q\s*[:.]/gm) || []).length;
+  return Math.max(byDetails, byClass, byQColon);
 }
 
 function screenerParseSitemap(xml) {
@@ -656,17 +669,21 @@ function screenerParseSitemap(xml) {
   const pageUrls = urls.filter(u => !u.endsWith('.xml'));
 
   // Location/area pages: standalone location strategy (city, area, county pages)
-  const locationRe = /\/(service[-_]?areas?|areas?|cities|city|locations?|coverage|towns?|counti?e?s?)\b/i;
+  const locationRe    = /\/(service[-_]?areas?|areas?|cities|city|locations?|coverage|towns?|counti?e?s?)\b/i;
   // Service+location combo pages: slugs like /ac-repair-austin or /austin-electrician
-  const svcLocRe   = /\/[\w]+-(?:repair|install|service|replacement|cleaning|mainten\w+)-[\w]|\/[\w]+-(?:electrician|plumber|roofer|hvac|painter)\b/i;
+  const svcLocRe      = /\/[\w]+-(?:repair|install|service|replacement|cleaning|mainten\w+)-[\w]|\/[\w]+-(?:electrician|plumber|roofer|hvac|painter)\b/i;
   // Deeply nested service sub-pages: /services/category/item
   const servicePageRe = /\/services?\/[\w-]+/i;
+  // Blog / news posts
+  const blogRe        = /\/(blog|news|articles?|posts?)\//i;
 
   return {
-    totalPages:        pageUrls.length,
-    locationPages:     pageUrls.filter(u => locationRe.test(u)).length,
-    svcLocPages:       pageUrls.filter(u => svcLocRe.test(u)).length,
-    servicePages:      pageUrls.filter(u => servicePageRe.test(u)).length,
+    totalPages:    pageUrls.length,
+    locationPages: pageUrls.filter(u => locationRe.test(u)).length,
+    svcLocPages:   pageUrls.filter(u => svcLocRe.test(u)).length,
+    servicePages:  pageUrls.filter(u => servicePageRe.test(u)).length,
+    blogPosts:     pageUrls.filter(u => blogRe.test(u)).length,
+    faqPageUrl:    pageUrls.find(u => /\/faq\b/i.test(u)) || null,
     isSitemapIndex,
   };
 }
@@ -699,9 +716,21 @@ app.post('/api/screen-site', requireAuth, async (req, res) => {
     const htmlRes = await fetch(url, { signal: ctrl.signal, redirect: 'follow', headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RealWorkScreener/1.0)' } });
     const html = await htmlRes.text();
 
-    const cms        = screenerDetectCms(html);
-    const htmlSigs   = screenerAnalyzeHtml(html);
-    const sitemap    = await screenerFetchSitemap(new URL(htmlRes.url).origin);
+    const cms      = screenerDetectCms(html);
+    const htmlSigs = screenerAnalyzeHtml(html);
+    const sitemap  = await screenerFetchSitemap(new URL(htmlRes.url).origin);
+
+    // Fetch FAQ page for more accurate FAQ entry counting
+    let faqHtml = '';
+    if (sitemap?.faqPageUrl) {
+      try {
+        const ctrl2 = new AbortController();
+        setTimeout(() => ctrl2.abort(), 5000);
+        const faqRes = await fetch(sitemap.faqPageUrl, { signal: ctrl2.signal, redirect: 'follow', headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RealWorkScreener/1.0)' } });
+        if (faqRes.ok) faqHtml = await faqRes.text();
+      } catch {}
+    }
+    const faqCount = screenerCountFaqEntries(html + faqHtml);
 
     const flags = [], warnings = [];
 
@@ -714,30 +743,43 @@ app.post('/api/screen-site', requireAuth, async (req, res) => {
         flags.push('Online booking or scheduling system detected');
       else if (sig.type === 'ecommerce')
         flags.push('E-commerce functionality detected');
+      else if (sig.type === 'payment')
+        flags.push('Payment processor detected (Square/Stripe/PayPal)');
       else if (sig.type === 'chatbot')
         warnings.push('Chatbot or live-chat widget detected');
     }
 
     // ── Sitemap signals ──
-    // Thresholds: 12+ pages = bad fit per RealWork criteria
     if (sitemap) {
-      if (sitemap.totalPages > 20)      flags.push(`${sitemap.totalPages} pages — large site`);
-      else if (sitemap.totalPages > 12) warnings.push(`${sitemap.totalPages} pages detected`);
+      if (sitemap.totalPages > 20)       flags.push(`${sitemap.totalPages} pages — large site`);
+      else if (sitemap.totalPages > 12)  warnings.push(`${sitemap.totalPages} pages detected`);
 
-      if (sitemap.svcLocPages > 2)      flags.push(`${sitemap.svcLocPages} service+location pages (e.g. "AC Repair Austin")`);
-      else if (sitemap.svcLocPages > 0) warnings.push(`${sitemap.svcLocPages} service+location page(s) detected`);
+      if (sitemap.svcLocPages > 2)       flags.push(`${sitemap.svcLocPages} service+location pages (e.g. "AC Repair Austin")`);
+      else if (sitemap.svcLocPages > 0)  warnings.push(`${sitemap.svcLocPages} service+location page(s) detected`);
 
-      if (sitemap.locationPages > 3)    flags.push(`${sitemap.locationPages} location/area pages — multi-location strategy`);
-      else if (sitemap.locationPages)   warnings.push(`${sitemap.locationPages} location/area page(s)`);
+      if (sitemap.locationPages > 3)     flags.push(`${sitemap.locationPages} location/area pages — multi-location strategy`);
+      else if (sitemap.locationPages)    warnings.push(`${sitemap.locationPages} location/area page(s)`);
 
-      if (sitemap.servicePages > 5)     flags.push(`${sitemap.servicePages} nested service sub-pages`);
+      if (sitemap.servicePages > 5)      flags.push(`${sitemap.servicePages} nested service sub-pages`);
       else if (sitemap.servicePages > 2) warnings.push(`${sitemap.servicePages} service sub-page(s)`);
 
-      if (sitemap.isSitemapIndex)       warnings.push('Multiple sitemaps — site may be larger than reported');
+      if (sitemap.blogPosts >= 10)       warnings.push(`${sitemap.blogPosts} blog/news posts`);
+
+      if (sitemap.isSitemapIndex)        warnings.push('Multiple sitemaps — site may be larger than reported');
     }
 
-    const verdict = flags.length ? 'warn' : warnings.length ? 'caution' : 'pass';
-    res.json({ cms, sitemap, verdict, flags, warnings });
+    if (faqCount >= 20) warnings.push(`${faqCount}+ FAQ entries detected`);
+
+    // ── Compound signals ──
+    if (cms.name === 'WordPress' && sitemap && sitemap.totalPages > 20) {
+      warnings.push(`Large WordPress site (${sitemap.totalPages} pages) — content migration adds complexity`);
+    }
+
+    // ── Weighted scoring ──
+    const score   = flags.length * 10 + warnings.length * 4;
+    const verdict = score >= 25 ? 'warn' : score >= 10 ? 'review' : score > 0 ? 'caution' : 'pass';
+
+    res.json({ cms, sitemap, verdict, score, flags, warnings });
   } catch (err) {
     if (err.name === 'AbortError') return res.status(504).json({ error: 'Site did not respond in time' });
     res.status(502).json({ error: 'Could not reach site — check the URL and try again' });

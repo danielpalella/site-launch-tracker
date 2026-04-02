@@ -39,7 +39,7 @@
     .intake-rocket { width: 18px; height: 18px; }
 
     /* ── Intake page layout ── */
-    .intake-page { max-width: 660px; margin: 0 auto; padding: 1.75rem 1.5rem 3rem; }
+    .intake-page { max-width: 860px; margin: 0 auto; padding: 1.75rem 1.5rem 3rem; }
     .intake-header { margin-bottom: 1.25rem; }
     .intake-header h1 { font-size: 1.35rem; font-weight: 700; margin: 0 0 .3rem; letter-spacing: -.01em; }
     .intake-header p { font-size: .84rem; color: var(--text-muted); margin: 0; }
@@ -85,7 +85,8 @@
     .screener-card { transition: background .25s, border-color .25s, box-shadow .25s; }
     .screener-card-pass    { background: #f0fdf4 !important; border-color: #86efac !important; }
     .screener-card-caution { background: #fefce8 !important; border-color: #fde68a !important; }
-    .screener-card-warn    { background: #fff7ed !important; border-color: #fed7aa !important; }
+    .screener-card-review  { background: #fff7ed !important; border-color: #fed7aa !important; }
+    .screener-card-warn    { background: #fef2f2 !important; border-color: #fecaca !important; }
     /* Verdict header block */
     .screener-verdict-header {
       display: flex; align-items: flex-start; gap: .8rem;
@@ -93,11 +94,13 @@
     }
     .screener-verdict-header-pass    { background: #dcfce7; color: #15803d; }
     .screener-verdict-header-caution { background: #fef9c3; color: #854d0e; }
-    .screener-verdict-header-warn    { background: #ffedd5; color: #9a3412; }
+    .screener-verdict-header-review  { background: #ffedd5; color: #9a3412; }
+    .screener-verdict-header-warn    { background: #fee2e2; color: #991b1b; }
     .screener-verdict-icon  { font-size: 1.35rem; line-height: 1.1; flex-shrink: 0; padding-top: .05rem; }
     .screener-verdict-body  { flex: 1; }
     .screener-verdict-title { font-size: .975rem; font-weight: 700; margin-bottom: .2rem; }
     .screener-verdict-sub   { font-size: .8rem; opacity: .85; margin-bottom: .15rem; }
+    .score-badge { font-size: .82rem; font-weight: 500; opacity: .75; margin-left: .3rem; }
     .screener-verdict-reasons { margin: .4rem 0 0; padding-left: 1.1rem; font-size: .8rem; line-height: 1.6; opacity: .9; }
     .screener-verdict-reasons li { margin-bottom: .1rem; }
     /* Why? button + narrative */
@@ -189,7 +192,7 @@
       <button class="screener-btn" id="screen-btn" onclick="runScreener()">Screen site</button>
     </div>
     <div id="screen-results" class="screener-results-area">
-      <div class="screener-placeholder">Screen the client's current site to check for rebuild signals.</div>
+      <div class="screener-placeholder">Paste their current site URL to find out if there's a case for building something new.</div>
     </div>
   </div>
 
@@ -495,7 +498,7 @@ async function runScreener() {
 }
 
 function renderScreenerResults(data, screenerUrl) {
-  const { cms, sitemap, verdict, flags, warnings } = data;
+  const { cms, sitemap, verdict, score, flags, warnings } = data;
   const resEl = document.getElementById('screen-results');
   const card = document.getElementById('screener-card');
 
@@ -509,7 +512,7 @@ function renderScreenerResults(data, screenerUrl) {
     } catch {}
   }
   // Color the entire card
-  card.classList.remove('screener-card-pass', 'screener-card-caution', 'screener-card-warn');
+  card.classList.remove('screener-card-pass', 'screener-card-caution', 'screener-card-review', 'screener-card-warn');
   card.classList.add(`screener-card-${verdict}`);
 
   const verdictConfig = {
@@ -517,19 +520,25 @@ function renderScreenerResults(data, screenerUrl) {
       hdrCls: 'screener-verdict-header-pass',
       icon: '✓',
       title: 'Good to go',
-      sub: 'This site looks straightforward — proceed with the intake form.',
+      sub: 'No significant signals detected — proceed with the intake form.',
     },
     caution: {
       hdrCls: 'screener-verdict-header-caution',
       icon: '⚠',
-      title: 'Proceed with awareness',
-      sub: 'Some complexity detected. Review before continuing.',
+      title: 'Caution',
+      sub: 'Minor complexity detected. Review the details before continuing.',
+    },
+    review: {
+      hdrCls: 'screener-verdict-header-review',
+      icon: '⚠',
+      title: 'Review needed',
+      sub: 'Contact Thierry or Daniel before proceeding — this site needs a closer look.',
     },
     warn: {
       hdrCls: 'screener-verdict-header-warn',
-      icon: '⚠',
-      title: 'Contact Thierry or Daniel first',
-      sub: 'This site has significant complexity that needs review before proceeding.',
+      icon: '✕',
+      title: 'Do not proceed',
+      sub: 'Contact Thierry or Daniel — this site likely needs to be declined or carefully scoped.',
     },
   };
   const vc = verdictConfig[verdict];
@@ -545,20 +554,21 @@ function renderScreenerResults(data, screenerUrl) {
       reasons.push('No sitemap found — site structure appears simple');
     }
   } else {
-    flags.forEach(f => reasons.push(f));
-    warnings.forEach(w => reasons.push(w));
+    flags.forEach(f => reasons.push(`🚩 ${f}`));
+    warnings.forEach(w => reasons.push(`⚠ ${w}`));
   }
 
   const reasonsHtml = reasons.map(r => `<li>${r}</li>`).join('');
   const narrative = verdict !== 'pass' ? buildScreenerNarrative(data) : '';
   const whyBtn = narrative ? `<button class="screener-why-btn" onclick="toggleScreenerNarrative(this)">ⓘ Why?</button>` : '';
   const narrativeHtml = narrative ? `<div class="screener-narrative">${narrative}</div>` : '';
+  const scoreBadge = score > 0 ? `<span class="score-badge">(${score} pts)</span>` : '';
 
   resEl.innerHTML = `
     <div class="screener-verdict-header ${vc.hdrCls}">
       <div class="screener-verdict-icon">${vc.icon}</div>
       <div class="screener-verdict-body">
-        <div class="screener-verdict-title">${vc.title}${whyBtn}</div>
+        <div class="screener-verdict-title">${vc.title} ${scoreBadge}${whyBtn}</div>
         <div class="screener-verdict-sub">${vc.sub}</div>
         <ul class="screener-verdict-reasons">${reasonsHtml}</ul>
         ${narrativeHtml}
@@ -575,22 +585,23 @@ function toggleScreenerNarrative(btn) {
 
 function buildScreenerNarrative({ cms, sitemap, verdict, flags, warnings }) {
   const parts = [];
+  const allSignals = [...(flags || []), ...(warnings || [])];
 
   // CMS context
   if (cms.flag === 'orange') {
-    if (cms.name === 'WordPress') {
-      parts.push('Built on WordPress — often has legacy plugins, complex themes, and manually-maintained content that doesn\'t translate cleanly to a new build.');
-    } else if (cms.name === 'Webflow') {
+    if (cms.name === 'Webflow') {
       parts.push('Built on Webflow — custom code, CMS collections, and interactions would need to be rebuilt from scratch.');
     } else {
       parts.push(`Built on ${cms.name} — may require extra planning for content migration.`);
     }
   }
+  if (allSignals.some(s => s.includes('Large WordPress'))) {
+    parts.push('Large WordPress site — legacy plugins, complex themes, and a high page count make content migration significantly more involved.');
+  }
 
   // HTML signal context
-  const allSignals = [...(flags || []), ...(warnings || [])];
   if (allSignals.some(s => s.includes('Multi-trade'))) {
-    parts.push('Multiple service trades detected on this site — RealWork sites are built for single-trade businesses.');
+    parts.push('Multiple service trades detected — RealWork sites are built for single-trade businesses.');
   }
   if (allSignals.some(s => s.includes('booking') || s.includes('scheduling'))) {
     parts.push('An online booking or scheduling system is embedded — these integrations don\'t carry over to a new build and would need to be re-evaluated.');
@@ -598,8 +609,17 @@ function buildScreenerNarrative({ cms, sitemap, verdict, flags, warnings }) {
   if (allSignals.some(s => s.includes('E-commerce'))) {
     parts.push('E-commerce functionality detected — product listings, carts, or checkout flows are outside the standard RealWork build scope.');
   }
+  if (allSignals.some(s => s.includes('Payment'))) {
+    parts.push('A payment processor (Square, Stripe, or PayPal) was detected — this typically indicates a checkout or booking flow that would need re-evaluation after the rebuild.');
+  }
   if (allSignals.some(s => s.includes('Chatbot') || s.includes('live-chat'))) {
     parts.push('A chatbot or live-chat widget is active — confirm with the client whether they want to keep it, as it would need to be reconnected after launch.');
+  }
+  if (allSignals.some(s => s.includes('blog') || s.includes('posts'))) {
+    parts.push('The site has an active blog or news section — this content would need to be migrated or archived, adding to the project scope.');
+  }
+  if (allSignals.some(s => s.includes('FAQ'))) {
+    parts.push('A large FAQ section was detected — these entries would need to be recreated or consolidated in the new build.');
   }
 
   // Sitemap breakdown
@@ -624,7 +644,9 @@ function buildScreenerNarrative({ cms, sitemap, verdict, flags, warnings }) {
 
   // Closing recommendation
   if (verdict === 'warn') {
-    parts.push('Sites with this profile typically require significant restructuring. Contact Thierry or Daniel to assess scope before filling out the intake form.');
+    parts.push('This site likely needs to be declined or carefully scoped — contact Thierry or Daniel before any commitment is made.');
+  } else if (verdict === 'review') {
+    parts.push('This site needs a closer look before proceeding — contact Thierry or Daniel to assess scope.');
   } else {
     parts.push('Review these details with the client to confirm what pages are essential before proceeding.');
   }
