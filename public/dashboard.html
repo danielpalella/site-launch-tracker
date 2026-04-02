@@ -466,32 +466,33 @@
           <div class="crm-field"><label for="modal-email">Email</label><input type="email" id="modal-email" /></div>
           <div class="crm-field"><label for="modal-phone">Phone</label><input type="tel" id="modal-phone" /></div>
           <div class="crm-field">
-            <label>Industry · Dept</label>
-            <div style="display:flex;gap:.4rem">
-              <select id="modal-industry" style="flex:1;min-width:0">
-                <option value="">— Industry —</option>
-                <option value="Roofing">Roofing</option>
-                <option value="Plumbing">Plumbing</option>
-                <option value="Electrical">Electrical</option>
-                <option value="HVAC">HVAC</option>
-                <option value="Landscaping">Landscaping</option>
-                <option value="Contracting">Contracting</option>
-                <option value="Restoration">Restoration</option>
-                <option value="Solar">Solar</option>
-                <option value="Flooring">Flooring</option>
-                <option value="Gutters">Gutters</option>
-                <option value="Windows/Glass">Windows/Glass</option>
-                <option value="Cleaning Services">Cleaning Services</option>
-                <option value="Other">Other</option>
-              </select>
-              <select id="modal-department" style="flex-shrink:0">
-                <option value="Sales">Sales</option>
-                <option value="Retention">Retention</option>
-                <option value="Customer Success">Cust. Success</option>
-                <option value="CS-Renewal">CS-Renewal</option>
-                <option value="Other">Other</option>
-              </select>
-            </div>
+            <label for="modal-industry">Industry</label>
+            <select id="modal-industry">
+              <option value="">— None —</option>
+              <option value="Roofing">Roofing</option>
+              <option value="Plumbing">Plumbing</option>
+              <option value="Electrical">Electrical</option>
+              <option value="HVAC">HVAC</option>
+              <option value="Landscaping">Landscaping</option>
+              <option value="Contracting">Contracting</option>
+              <option value="Restoration">Restoration</option>
+              <option value="Solar">Solar</option>
+              <option value="Flooring">Flooring</option>
+              <option value="Gutters">Gutters</option>
+              <option value="Windows/Glass">Windows/Glass</option>
+              <option value="Cleaning Services">Cleaning Services</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div class="crm-field">
+            <label for="modal-department">Dept</label>
+            <select id="modal-department">
+              <option value="Sales">Sales</option>
+              <option value="Retention">Retention</option>
+              <option value="Customer Success">Cust. Success</option>
+              <option value="CS-Renewal">CS-Renewal</option>
+              <option value="Other">Other</option>
+            </select>
           </div>
         </div>
       </div>
