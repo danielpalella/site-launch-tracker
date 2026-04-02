@@ -105,6 +105,47 @@
       border-color: #86efac;
       box-shadow: 0 0 0 3px rgba(34,197,94,.08), var(--shadow);
     }
+
+    /* ── Two-column no-scroll layout ── */
+    html, body { overflow: hidden; height: 100%; }
+    .intake-page {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 1.25rem;
+      height: calc(100vh - 58px);
+      padding: 1rem 1.5rem;
+      box-sizing: border-box;
+      max-width: 1240px;
+      margin: 0 auto;
+    }
+    .intake-screener-col {
+      overflow-y: auto;
+      height: 100%;
+      margin-bottom: 0 !important;
+    }
+    .intake-form-col {
+      overflow-y: auto;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+    .intake-form-heading {
+      margin-bottom: .875rem;
+      padding-bottom: .75rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .intake-form-heading h2 {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text);
+      margin: 0 0 .2rem;
+      letter-spacing: -.01em;
+    }
+    .intake-form-heading p {
+      font-size: .8rem;
+      color: var(--text-muted);
+      margin: 0;
+    }
   </style>
   <script>document.documentElement.setAttribute('data-theme', localStorage.getItem('theme') || 'light');</script>
 </head>
@@ -140,12 +181,10 @@
   </div>
 </nav>
 
-<div class="page">
-  <h1>Website Intake Form</h1>
-  <p class="subtitle">Fill out the form below to submit a new customer site for launch tracking.</p>
+<div class="intake-page">
 
-  <!-- Site Screener -->
-  <div id="screener-card" class="card screener-card">
+  <!-- Left: Site Screener -->
+  <div id="screener-card" class="card screener-card intake-screener-col">
     <div class="screener-title">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
       Site Screener
@@ -159,106 +198,115 @@
     <div id="screen-error" class="screener-error" style="display:none"></div>
   </div>
 
-  <div class="card" id="form-card">
-    <form id="launch-form" novalidate>
-      <div class="form-grid">
+  <!-- Right: Form + Success -->
+  <div class="intake-form-col">
 
-        <div class="full">
-          <label for="department">Department <span class="req">*</span></label>
-          <select id="department" name="department" required>
-            <option value="">Select your department…</option>
-            <option value="Sales">Sales</option>
-            <option value="Retention">Retention</option>
-            <option value="Customer Success">Customer Success</option>
-            <option value="CS-Renewal">CS-Renewal</option>
-            <option value="Other">Other</option>
-          </select>
-          <div class="field-error" id="err-department"></div>
-        </div>
-
-        <div class="full">
-          <label for="industry">Industry <span class="req">*</span></label>
-          <select id="industry" name="industry" required>
-            <option value="">Select an industry…</option>
-            <option value="Roofing">Roofing</option>
-            <option value="Plumbing">Plumbing</option>
-            <option value="Electrical">Electrical</option>
-            <option value="HVAC">HVAC</option>
-            <option value="Landscaping">Landscaping</option>
-            <option value="Contracting">Contracting</option>
-            <option value="Restoration">Restoration</option>
-            <option value="Solar">Solar</option>
-            <option value="Flooring">Flooring</option>
-            <option value="Gutters">Gutters</option>
-            <option value="Windows/Glass">Windows/Glass</option>
-            <option value="Cleaning Services">Cleaning Services</option>
-            <option value="Other">Other</option>
-          </select>
-          <div class="field-error" id="err-industry"></div>
-        </div>
-
-        <div class="full">
-          <label for="account_name">Account Name <span class="req">*</span></label>
-          <input type="text" id="account_name" name="account_name" placeholder="e.g. Acme Corporation" required />
-          <div class="field-error" id="err-account_name"></div>
-        </div>
-
-        <div class="full">
-          <label for="domain_name">Domain Name <span class="req">*</span></label>
-          <input type="text" id="domain_name" name="domain_name" placeholder="e.g. realworklabs.com" required />
-          <div class="field-error" id="err-domain_name"></div>
-        </div>
-
-        <div class="full">
-          <label for="contact_name">Contact Name <span class="req">*</span></label>
-          <input type="text" id="contact_name" name="contact_name" placeholder="First Last" required />
-          <div class="field-error" id="err-contact_name"></div>
-        </div>
-
-        <div>
-          <label for="email">Email Address <span class="req">*</span></label>
-          <input type="email" id="email" name="email" placeholder="contact@example.com" required />
-          <div class="field-error" id="err-email"></div>
-        </div>
-
-        <div>
-          <label for="phone">Phone Number <span class="req">*</span></label>
-          <input type="tel" id="phone" name="phone" placeholder="(555) 000-0000" required />
-          <div class="field-error" id="err-phone"></div>
-        </div>
-
-        <div class="full">
-          <label for="notes">Notes</label>
-          <textarea id="notes" name="notes" rows="3" placeholder="Any additional information…" style="resize:vertical"></textarea>
-        </div>
-
+    <div class="card" id="form-card">
+      <div class="intake-form-heading">
+        <h2>Website Intake Form</h2>
+        <p>Submit a new customer site for launch tracking.</p>
       </div>
+      <form id="launch-form" novalidate>
+        <div class="form-grid">
 
-      <div class="form-actions" style="justify-content:flex-end;border-top:1px solid var(--border);padding-top:1.25rem;margin-top:.5rem">
-        <button type="submit" class="intake-launch-btn" id="submit-btn">
-          <span class="intake-launch-label">Submit Launch</span>
-          <span class="intake-rocket-wrap">
-            <svg class="intake-rocket" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M32 4C32 4 18 16 18 34c0 6 2.5 11.5 6 15.5L32 60l8-10.5C43.5 45.5 46 40 46 34 46 16 32 4 32 4z" fill="rgba(255,255,255,0.25)" stroke="white" stroke-width="2" stroke-linejoin="round"/>
-              <circle cx="32" cy="30" r="5" fill="white" opacity="0.9"/>
-              <path d="M22 44c-3 2-6 8-6 8s6-1 10-4" fill="rgba(255,255,255,0.35)" stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
-              <path d="M42 44c3 2 6 8 6 8s-6-1-10-4" fill="rgba(255,255,255,0.35)" stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
-            </svg>
-          </span>
-        </button>
-      </div>
-    </form>
-  </div>
+          <div>
+            <label for="department">Department <span class="req">*</span></label>
+            <select id="department" name="department" required>
+              <option value="">Select your department…</option>
+              <option value="Sales">Sales</option>
+              <option value="Retention">Retention</option>
+              <option value="Customer Success">Customer Success</option>
+              <option value="CS-Renewal">CS-Renewal</option>
+              <option value="Other">Other</option>
+            </select>
+            <div class="field-error" id="err-department"></div>
+          </div>
 
-  <!-- Success state (hidden initially) -->
-  <div class="card success-box" id="success-card" style="display:none">
-    <div class="success-icon">🚀</div>
-    <h2>Launch request submitted!</h2>
-    <p>The site has been added to the tracker. You can monitor its progress on the dashboard.</p>
-    <div class="success-links">
-      <a href="/dashboard" class="btn btn-primary">View Dashboard</a>
-      <button class="btn btn-ghost" id="submit-another">Submit Another</button>
+          <div>
+            <label for="industry">Industry <span class="req">*</span></label>
+            <select id="industry" name="industry" required>
+              <option value="">Select an industry…</option>
+              <option value="Roofing">Roofing</option>
+              <option value="Plumbing">Plumbing</option>
+              <option value="Electrical">Electrical</option>
+              <option value="HVAC">HVAC</option>
+              <option value="Landscaping">Landscaping</option>
+              <option value="Contracting">Contracting</option>
+              <option value="Restoration">Restoration</option>
+              <option value="Solar">Solar</option>
+              <option value="Flooring">Flooring</option>
+              <option value="Gutters">Gutters</option>
+              <option value="Windows/Glass">Windows/Glass</option>
+              <option value="Cleaning Services">Cleaning Services</option>
+              <option value="Other">Other</option>
+            </select>
+            <div class="field-error" id="err-industry"></div>
+          </div>
+
+          <div>
+            <label for="account_name">Account Name <span class="req">*</span></label>
+            <input type="text" id="account_name" name="account_name" placeholder="e.g. Acme Corporation" required />
+            <div class="field-error" id="err-account_name"></div>
+          </div>
+
+          <div>
+            <label for="domain_name">Domain Name <span class="req">*</span></label>
+            <input type="text" id="domain_name" name="domain_name" placeholder="e.g. realworklabs.com" required />
+            <div class="field-error" id="err-domain_name"></div>
+          </div>
+
+          <div class="full">
+            <label for="contact_name">Contact Name <span class="req">*</span></label>
+            <input type="text" id="contact_name" name="contact_name" placeholder="First Last" required />
+            <div class="field-error" id="err-contact_name"></div>
+          </div>
+
+          <div>
+            <label for="email">Email Address <span class="req">*</span></label>
+            <input type="email" id="email" name="email" placeholder="contact@example.com" required />
+            <div class="field-error" id="err-email"></div>
+          </div>
+
+          <div>
+            <label for="phone">Phone Number <span class="req">*</span></label>
+            <input type="tel" id="phone" name="phone" placeholder="(555) 000-0000" required />
+            <div class="field-error" id="err-phone"></div>
+          </div>
+
+          <div class="full">
+            <label for="notes">Notes</label>
+            <textarea id="notes" name="notes" rows="2" placeholder="Any additional information…" style="resize:vertical"></textarea>
+          </div>
+
+        </div>
+
+        <div class="form-actions" style="justify-content:flex-end;border-top:1px solid var(--border);padding-top:1.25rem;margin-top:.5rem">
+          <button type="submit" class="intake-launch-btn" id="submit-btn">
+            <span class="intake-launch-label">Submit Launch</span>
+            <span class="intake-rocket-wrap">
+              <svg class="intake-rocket" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M32 4C32 4 18 16 18 34c0 6 2.5 11.5 6 15.5L32 60l8-10.5C43.5 45.5 46 40 46 34 46 16 32 4 32 4z" fill="rgba(255,255,255,0.25)" stroke="white" stroke-width="2" stroke-linejoin="round"/>
+                <circle cx="32" cy="30" r="5" fill="white" opacity="0.9"/>
+                <path d="M22 44c-3 2-6 8-6 8s6-1 10-4" fill="rgba(255,255,255,0.35)" stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
+                <path d="M42 44c3 2 6 8 6 8s-6-1-10-4" fill="rgba(255,255,255,0.35)" stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
+              </svg>
+            </span>
+          </button>
+        </div>
+      </form>
     </div>
+
+    <!-- Success state (hidden initially) -->
+    <div class="card success-box" id="success-card" style="display:none">
+      <div class="success-icon">🚀</div>
+      <h2>Launch request submitted!</h2>
+      <p>The site has been added to the tracker. You can monitor its progress on the dashboard.</p>
+      <div class="success-links">
+        <a href="/dashboard" class="btn btn-primary">View Dashboard</a>
+        <button class="btn btn-ghost" id="submit-another">Submit Another</button>
+      </div>
+    </div>
+
   </div>
 </div>
 
