@@ -2528,10 +2528,49 @@ function escAttr(str) {
   return (str || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;');
 }
 
-// Analytics view state — declared here so the URL-param IIFE below can call
-// switchTab('analytics') without hitting a temporal dead zone on these lets.
-let analyticsView      = 'sites'; // 'sites' | 'overview'
+// ── Analytics state — must live before the URL-param IIFE so that
+// switchTab('analytics') doesn't hit a temporal dead zone on any of these. ──
+const analyticsCharts  = {};
+const analyticsData    = {}; // raw data keyed by launch id
+let analyticsLoaded    = false;
+let analyticsView      = 'sites'; // 'sites' | 'overview' | 'seo'
 let analyticsIndustry  = 'all';
+let analyticsPeriod    = '4w'; // '4w' | '12w' | 'all'
+let analyticsTotal     = 0;
+let analyticsLoadedCount = 0;
+let _analyticsCacheTs  = null;
+let _tagsRegistry      = [];
+let _tagMap            = {};
+let _tagFilter         = '';
+let _acSortKey         = 'published';
+let _acSortOrder       = 'newest';
+let overviewChart      = null;
+let gshChart           = null;
+let _indBenchData      = [];
+let _indBenchSortCol   = 'count';
+let _indBenchSortDir   = -1;
+let _seoData           = {};
+let _pageIndexResults  = {};
+let _seoSortCol        = 'date';
+let _seoSortDir        = -1;
+let _seoSortClicks     = 0;
+let _seoCacheLoaded    = false;
+let _selectedSeoId     = null;
+let _seoFilterIssues   = false;
+let _seoLastRanAt      = null;
+let _perfData          = {};
+let _perfCacheLoaded   = false;
+let milestoneThresholds = {
+  '30day': { gscImpressions: 500,  gscClicks: 20,  ga4Sessions: 100 },
+  '60day': { gscImpressions: 1500, gscClicks: 60,  ga4Sessions: 300 },
+  '90day': { gscImpressions: 3000, gscClicks: 120, ga4Sessions: 600 }
+};
+const ANALYTICS_SUBTITLES = {
+  sites:    'GSC, GA4 &amp; Duda performance insights for all active sites.',
+  overview: 'Aggregated traffic, search health, and performance trends across your portfolio.',
+  seo:      'Sitemap, indexing, broken links, schema markup, and safe browsing status per site.',
+};
+const PERIOD_LABELS = { '4w': 'Last 4 weeks', '12w': 'Last 12 weeks', all: 'Since Launch' };
 
 // Initial load
 fetchLaunches();
@@ -3052,53 +3091,12 @@ function toggleAlogMore(emailKey, btn) {
 }
 
 // ── Analytics Tab ──
-const analyticsCharts  = {};
-const analyticsData    = {}; // raw data keyed by launch id
-let analyticsLoaded    = false;
-let _tagsRegistry      = []; // all available tags
-let _tagMap            = {}; // id → tag object
-let _tagFilter         = ''; // active tag filter id
-let _analyticsCacheTs  = null; // oldest _cachedAt across loaded sites
-let analyticsTotal     = 0;   // total launched sites expected
-let analyticsLoadedCount = 0; // how many have resolved (ok or error)
-let analyticsPeriod    = '4w'; // '4w' | '12w' | 'all'
-let milestoneThresholds = {
-  '30day': { gscImpressions: 500,  gscClicks: 20,  ga4Sessions: 100 },
-  '60day': { gscImpressions: 1500, gscClicks: 60,  ga4Sessions: 300 },
-  '90day': { gscImpressions: 3000, gscClicks: 120, ga4Sessions: 600 }
-};
-
 async function loadMilestoneThresholds() {
   try {
     const r = await fetch('/api/milestones/thresholds');
     if (r.ok) milestoneThresholds = await r.json();
   } catch {}
 }
-// analyticsView and analyticsIndustry are declared earlier (before the URL-param IIFE)
-let _acSortKey         = 'published'; // 'published' | 'created' | 'name' | 'performance'
-let _acSortOrder       = 'newest';   // 'newest' | 'oldest'
-let overviewChart      = null;
-let gshChart           = null;
-let _indBenchData      = [];
-let _indBenchSortCol   = 'count';
-let _indBenchSortDir   = -1; // -1=desc, 1=asc
-let _seoData           = {}; // { [id]: seoAuditResult }
-let _pageIndexResults  = {}; // { [id]: { pages, sitemapSource, checkedAt } }
-let _seoSortCol        = 'date'; // default: newest account first
-let _seoSortDir        = -1;
-let _seoSortClicks     = 0;     // 0=default, 1=first click, 2=second click
-let _seoCacheLoaded    = false;
-let _selectedSeoId     = null;
-let _seoFilterIssues   = false;
-let _seoLastRanAt      = null;
-let _perfData          = {}; // { [id]: { performance, mobile, desktop, is_post_launch, created_at } }
-let _perfCacheLoaded   = false;
-
-const ANALYTICS_SUBTITLES = {
-  sites:    'GSC, GA4 &amp; Duda performance insights for all active sites.',
-  overview: 'Aggregated traffic, search health, and performance trends across your portfolio.',
-  seo:      'Sitemap, indexing, broken links, schema markup, and safe browsing status per site.',
-};
 function switchAnalyticsView(view) {
   // Clear filters only when entering SEO view
   if (view === 'seo' && analyticsView !== 'seo') {
@@ -5084,8 +5082,6 @@ function computeClientPct(weeks, key, period) {
   }
   return null; // 'all' — no comparison badge
 }
-
-const PERIOD_LABELS = { '4w': 'Last 4 weeks', '12w': 'Last 12 weeks', all: 'Since Launch' };
 
 function setAnalyticsPeriod(p) {
   analyticsPeriod = p;
