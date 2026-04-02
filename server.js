@@ -601,6 +601,82 @@ async function getRdapBaseUrl(tld) {
   return null;
 }
 
+// ── Site Screener ──────────────────────────────────────────────────────────────
+function screenerDetectCms(html) {
+  if (/wixstatic\.com|wix\.com\/|generator[^>]*wix/i.test(html))           return { name: 'Wix',        flag: 'green'   };
+  if (/static\.squarespace\.com|generator[^>]*squarespace/i.test(html))    return { name: 'Squarespace', flag: 'green'   };
+  if (/godaddy|secureserver\.net|generator[^>]*godaddy/i.test(html))       return { name: 'GoDaddy',    flag: 'green'   };
+  if (/irp\.cdn-website\.com|dudaone\.com|dudaplatform\.com/i.test(html))  return { name: 'Duda',       flag: 'green'   };
+  if (/cdn\.shopify\.com|shopify\.com\/s\//i.test(html))                   return { name: 'Shopify',    flag: 'green'   };
+  if (/webflow\.io|webflow\.com\/css|generator[^>]*webflow/i.test(html))   return { name: 'Webflow',    flag: 'orange'  };
+  if (/wp-content\/|wp-includes\/|generator[^>]*wordpress/i.test(html))   return { name: 'WordPress',  flag: 'orange'  };
+  return { name: 'Unknown', flag: 'neutral' };
+}
+
+function screenerParseSitemap(xml) {
+  const isSitemapIndex = /<sitemapindex/i.test(xml);
+  const urls = [...xml.matchAll(/<loc>\s*(.*?)\s*<\/loc>/gi)].map(m => m[1].trim());
+  const pageUrls = urls.filter(u => !u.endsWith('.xml'));
+  const serviceAreaRe = /\/(service[-_]?areas?|areas?|cities|city|locations?|coverage|towns?|counti?e?s?)\b/i;
+  const servicePageRe = /\/services?\/[\w-]+/i;
+  return {
+    totalPages:       pageUrls.length,
+    serviceAreaPages: pageUrls.filter(u => serviceAreaRe.test(u)).length,
+    servicePages:     pageUrls.filter(u => servicePageRe.test(u)).length,
+    isSitemapIndex,
+  };
+}
+
+async function screenerFetchSitemap(baseUrl) {
+  for (const path of ['/sitemap.xml', '/sitemap_index.xml', '/sitemap/sitemap.xml']) {
+    try {
+      const ctrl = new AbortController();
+      setTimeout(() => ctrl.abort(), 7000);
+      const r = await fetch(`${baseUrl}${path}`, { signal: ctrl.signal, headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RealWorkScreener/1.0)' } });
+      if (!r.ok) continue;
+      const xml = await r.text();
+      if (!xml.includes('<urlset') && !xml.includes('<sitemapindex')) continue;
+      return screenerParseSitemap(xml);
+    } catch {}
+  }
+  return null;
+}
+
+app.post('/api/screen-site', requireAuth, async (req, res) => {
+  let { url } = req.body;
+  if (!url?.trim()) return res.status(400).json({ error: 'URL required' });
+  if (!/^https?:\/\//i.test(url)) url = 'https://' + url.trim();
+  let baseUrl;
+  try { baseUrl = new URL(url).origin; } catch { return res.status(400).json({ error: 'Invalid URL' }); }
+
+  try {
+    const ctrl = new AbortController();
+    setTimeout(() => ctrl.abort(), 10000);
+    const htmlRes = await fetch(url, { signal: ctrl.signal, redirect: 'follow', headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RealWorkScreener/1.0)' } });
+    const html = await htmlRes.text();
+
+    const cms     = screenerDetectCms(html);
+    const sitemap = await screenerFetchSitemap(new URL(htmlRes.url).origin);
+
+    const flags = [], warnings = [];
+    if (cms.flag === 'orange') warnings.push(`Built on ${cms.name} — complex platform`);
+    if (sitemap) {
+      if (sitemap.totalPages > 25)       flags.push(`${sitemap.totalPages} pages detected`);
+      else if (sitemap.totalPages > 15)  warnings.push(`${sitemap.totalPages} pages detected`);
+      if (sitemap.serviceAreaPages > 3)  flags.push(`${sitemap.serviceAreaPages} service area pages`);
+      else if (sitemap.serviceAreaPages) warnings.push(`${sitemap.serviceAreaPages} service area page(s)`);
+      if (sitemap.servicePages > 10)     flags.push(`${sitemap.servicePages} service sub-pages`);
+      else if (sitemap.servicePages > 0) warnings.push(`${sitemap.servicePages} service sub-page(s)`);
+      if (sitemap.isSitemapIndex)        warnings.push('Multiple sitemaps found — site may be larger than reported');
+    }
+    const verdict = flags.length ? 'warn' : warnings.length ? 'caution' : 'pass';
+    res.json({ cms, sitemap, verdict, flags, warnings });
+  } catch (err) {
+    if (err.name === 'AbortError') return res.status(504).json({ error: 'Site did not respond in time' });
+    res.status(502).json({ error: 'Could not reach site — check the URL and try again' });
+  }
+});
+
 const domainCache = new Map();
 
 app.get('/api/domain-info/:domain', requireAuth, async (req, res) => {

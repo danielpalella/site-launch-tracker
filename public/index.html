@@ -37,6 +37,63 @@
       flex-shrink: 0;
     }
     .intake-rocket { width: 18px; height: 18px; }
+
+    /* ── Site Screener ── */
+    .screener-card { margin-bottom: 1.25rem; }
+    .screener-title {
+      display: flex; align-items: center; gap: .5rem;
+      font-size: .95rem; font-weight: 700; margin-bottom: .25rem;
+    }
+    .screener-subtitle { font-size: .82rem; color: var(--text-muted); margin-bottom: 1rem; }
+    .screener-row {
+      display: flex; gap: .6rem;
+    }
+    .screener-row input {
+      flex: 1; height: 36px; padding: 0 .75rem;
+      font-size: .875rem; border: 1.5px solid var(--border);
+      border-radius: 8px; background: var(--bg); color: var(--text);
+      font-family: inherit; outline: none;
+    }
+    .screener-row input:focus { border-color: var(--primary); }
+    .screener-btn {
+      height: 36px; padding: 0 1.1rem; font-size: .83rem; font-weight: 600;
+      background: var(--primary); color: #fff; border: none; border-radius: 8px;
+      cursor: pointer; font-family: inherit; white-space: nowrap;
+      transition: background .15s;
+    }
+    .screener-btn:hover { background: #0a46d6; }
+    .screener-btn:disabled { opacity: .6; cursor: not-allowed; }
+    .screener-results { margin-top: 1rem; display: none; }
+    .screener-badges { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: .75rem; }
+    .screener-badge {
+      display: inline-flex; align-items: center; gap: .35rem;
+      padding: .28rem .65rem; border-radius: 6px; font-size: .78rem; font-weight: 600;
+    }
+    .screener-badge-green  { background: #dcfce7; color: #15803d; }
+    .screener-badge-orange { background: #fff7ed; color: #c2410c; }
+    .screener-badge-neutral{ background: var(--surface); color: var(--text-muted); border: 1px solid var(--border); }
+    .screener-badge-pages  { background: #f1f5f9; color: #475569; }
+    .screener-flags { margin-top: .5rem; }
+    .screener-flag-item {
+      display: flex; align-items: flex-start; gap: .45rem;
+      font-size: .8rem; padding: .3rem 0;
+      color: var(--text-muted);
+    }
+    .screener-flag-item.is-flag { color: #b45309; }
+    .screener-verdict {
+      margin-top: .85rem; padding: .65rem .9rem;
+      border-radius: 8px; font-size: .85rem; font-weight: 600;
+      display: flex; align-items: center; gap: .55rem;
+    }
+    .screener-verdict-pass    { background: #dcfce7; color: #15803d; }
+    .screener-verdict-caution { background: #fefce8; color: #854d0e; }
+    .screener-verdict-warn    { background: #fff7ed; color: #9a3412; }
+    .screener-error { margin-top: .75rem; font-size: .82rem; color: #dc2626; }
+    /* Form tinting */
+    #form-card.screen-pass {
+      border-color: #86efac;
+      box-shadow: 0 0 0 3px rgba(34,197,94,.08), var(--shadow);
+    }
   </style>
   <script>document.documentElement.setAttribute('data-theme', localStorage.getItem('theme') || 'light');</script>
 </head>
@@ -75,6 +132,21 @@
 <div class="page">
   <h1>Website Intake Form</h1>
   <p class="subtitle">Fill out the form below to submit a new customer site for launch tracking.</p>
+
+  <!-- Site Screener -->
+  <div class="card screener-card">
+    <div class="screener-title">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      Site Screener
+    </div>
+    <p class="screener-subtitle">Enter the client's current website to check if we can build something better.</p>
+    <div class="screener-row">
+      <input type="url" id="screen-url" placeholder="https://clientsite.com" />
+      <button class="screener-btn" id="screen-btn" onclick="runScreener()">Screen Site</button>
+    </div>
+    <div id="screen-results" class="screener-results"></div>
+    <div id="screen-error" class="screener-error" style="display:none"></div>
+  </div>
 
   <div class="card" id="form-card">
     <form id="launch-form" novalidate>
@@ -333,6 +405,98 @@ function launchRocketAnimation(onComplete) {
     else { flyer.remove(); onComplete(); }
   }
   requestAnimationFrame(step);
+}
+
+// ── Site Screener ──────────────────────────────────────────────────────────────
+document.getElementById('screen-url').addEventListener('keydown', e => {
+  if (e.key === 'Enter') runScreener();
+});
+
+async function runScreener() {
+  const url = document.getElementById('screen-url').value.trim();
+  const errEl = document.getElementById('screen-error');
+  const resEl = document.getElementById('screen-results');
+  errEl.style.display = 'none';
+  resEl.style.display = 'none';
+  resEl.innerHTML = '';
+  if (!url) { errEl.textContent = 'Please enter a URL.'; errEl.style.display = ''; return; }
+
+  const btn = document.getElementById('screen-btn');
+  btn.disabled = true;
+  btn.textContent = 'Screening…';
+
+  try {
+    const r = await fetch('/api/screen-site', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url }),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'Screening failed');
+    renderScreenerResults(data);
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.style.display = '';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Screen Site';
+  }
+}
+
+function renderScreenerResults(data) {
+  const { cms, sitemap, verdict, flags, warnings } = data;
+  const resEl = document.getElementById('screen-results');
+  const formCard = document.getElementById('form-card');
+
+  // CMS badge
+  const cmsBadgeClass = cms.flag === 'green' ? 'screener-badge-green' : cms.flag === 'orange' ? 'screener-badge-orange' : 'screener-badge-neutral';
+  const cmsIcon = cms.flag === 'green' ? '✓' : cms.flag === 'orange' ? '⚠' : '?';
+  let badgesHtml = `<span class="screener-badge ${cmsBadgeClass}">${cmsIcon} ${cms.name}</span>`;
+
+  // Sitemap stats badges
+  if (sitemap) {
+    const pgColor = sitemap.totalPages > 25 ? 'screener-badge-orange' : 'screener-badge-pages';
+    badgesHtml += `<span class="screener-badge ${pgColor}">📄 ${sitemap.totalPages} pages</span>`;
+    if (sitemap.serviceAreaPages) {
+      const saColor = sitemap.serviceAreaPages > 3 ? 'screener-badge-orange' : 'screener-badge-pages';
+      badgesHtml += `<span class="screener-badge ${saColor}">📍 ${sitemap.serviceAreaPages} service area page${sitemap.serviceAreaPages !== 1 ? 's' : ''}</span>`;
+    }
+    if (sitemap.servicePages) {
+      const spColor = sitemap.servicePages > 10 ? 'screener-badge-orange' : 'screener-badge-pages';
+      badgesHtml += `<span class="screener-badge ${spColor}">🔧 ${sitemap.servicePages} service sub-page${sitemap.servicePages !== 1 ? 's' : ''}</span>`;
+    }
+  } else {
+    badgesHtml += `<span class="screener-badge screener-badge-neutral">No sitemap found</span>`;
+  }
+
+  // Flags & warnings list
+  let notesHtml = '';
+  if (flags.length || warnings.length) {
+    notesHtml = '<div class="screener-flags">';
+    flags.forEach(f => {
+      notesHtml += `<div class="screener-flag-item is-flag"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>${f}</div>`;
+    });
+    warnings.forEach(w => {
+      notesHtml += `<div class="screener-flag-item"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>${w}</div>`;
+    });
+    notesHtml += '</div>';
+  }
+
+  // Verdict banner
+  const verdictConfig = {
+    pass:    { cls: 'screener-verdict-pass',    icon: '✓', text: 'Site looks good to proceed' },
+    caution: { cls: 'screener-verdict-caution', icon: '⚠', text: 'Some complexity detected — proceed with awareness' },
+    warn:    { cls: 'screener-verdict-warn',    icon: '⚠', text: 'Contact Thierry or Daniel before proceeding' },
+  };
+  const vc = verdictConfig[verdict];
+  const verdictHtml = `<div class="screener-verdict ${vc.cls}">${vc.icon} ${vc.text}</div>`;
+
+  resEl.innerHTML = `<div class="screener-badges">${badgesHtml}</div>${notesHtml}${verdictHtml}`;
+  resEl.style.display = '';
+
+  // Tint the form
+  formCard.classList.remove('screen-pass');
+  if (verdict === 'pass') formCard.classList.add('screen-pass');
 }
 
 (async () => {
