@@ -645,8 +645,9 @@ function screenerAnalyzeHtml(html) {
     signals.push({ type: 'chatbot' });
   }
 
-  // E-commerce (beyond simple Shopify CMS already detected)
-  if (/woocommerce|bigcommerce|add[\s-]to[\s-]cart|checkout.*cart|buy\s+now.*shop/i.test(html)) {
+  // E-commerce — specific platform embeds only; avoid broad patterns like
+  // checkout.*cart which match Squarespace/GoDaddy template boilerplate
+  if (/woocommerce|bigcommerce|ecwid\.com|shopify-buy|cdn\.snipcart|add[\s-]to[\s-]cart/i.test(html)) {
     signals.push({ type: 'ecommerce' });
   }
 
@@ -766,7 +767,7 @@ app.post('/api/screen-site', requireAuth, async (req, res) => {
         flags.push(`Multi-trade site (${sig.trades.slice(0, 3).join(' + ')})`);
       else if (sig.type === 'booking')
         flags.push('Online booking or scheduling system detected');
-      else if (sig.type === 'ecommerce')
+      else if (sig.type === 'ecommerce' && cms.name !== 'Squarespace')
         flags.push('E-commerce functionality detected');
       else if (sig.type === 'payment')
         flags.push('Payment processor detected (Square/Stripe/PayPal)');
