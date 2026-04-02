@@ -718,6 +718,54 @@ tr.frozen-subseparator td {
 }
 .crm-row { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; }
 .crm-actions { padding: 1rem 1.75rem; margin-top: 0; }
+
+/* Status pill in modal header */
+.crm-status-pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: .68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  padding: .2rem .6rem;
+  border-radius: 99px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+/* Tab bar */
+.crm-tab-bar {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  padding: 0 1.75rem;
+  gap: .1rem;
+}
+.crm-tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: .65rem .85rem;
+  font-size: .82rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  margin-bottom: -1px;
+  transition: color .15s, border-color .15s;
+}
+.crm-tab:hover { color: var(--text); }
+.crm-tab.crm-tab-active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
+.crm-tab-content { }
+
+/* 2-col form grid inside modal */
+.crm-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: .55rem .9rem;
+}
+.crm-field-span { grid-column: 1 / -1; }
 .renewal-badge {
   display: inline-flex;
   align-items: center;

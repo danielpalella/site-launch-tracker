@@ -425,150 +425,148 @@
 
     <!-- Header -->
     <div class="crm-header">
-      <div>
-        <div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap">
-          <h2 id="modal-title" class="crm-title">Edit Record</h2>
+      <div style="display:flex;align-items:flex-start;gap:.6rem;flex:1;min-width:0">
+        <img id="crm-hdr-favicon" src="" alt="" loading="lazy" style="width:24px;height:24px;border-radius:4px;flex-shrink:0;margin-top:.25rem;display:none">
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:.55rem;flex-wrap:wrap;margin-bottom:.3rem">
+            <h2 id="modal-title" class="crm-title">Edit Record</h2>
+            <span id="crm-hdr-status-pill" class="crm-status-pill"></span>
+          </div>
+          <div style="display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;font-size:.78rem">
+            <a id="modal-domain-sub" class="crm-domain-sub" target="_blank" rel="noopener" style="text-decoration:none" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'"></a>
+            <span id="crm-hdr-meta" style="color:var(--text-muted)"></span>
+          </div>
         </div>
-        <div id="modal-domain-sub" class="crm-domain-sub"></div>
       </div>
-      <div style="text-align:right">
-        <div id="modal-submitted" class="crm-submitted"></div>
-        <div id="modal-submitted-by" class="crm-submitted"></div>
-      </div>
+      <button class="btn btn-ghost" onclick="document.getElementById('modal').classList.remove('open')" style="padding:.2rem .55rem;font-size:.85rem;line-height:1;flex-shrink:0;margin-top:.1rem">✕</button>
     </div>
 
-    <!-- Pipeline -->
-    <div class="crm-section">
-      <div class="crm-section-label">Launch Pipeline</div>
+    <!-- Pipeline Stepper -->
+    <div style="padding:.85rem 1.75rem;border-bottom:1px solid var(--border)">
       <div id="modal-pipeline" class="pipeline-wrap">
         <p style="color:var(--text-muted);font-size:.8rem">Loading…</p>
       </div>
     </div>
 
-    <!-- Contact + Project -->
-    <div class="crm-two-col">
-      <div class="crm-card">
-        <div class="crm-card-title">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-          Contact
-        </div>
-        <div class="crm-field"><label for="modal-contact_name">Name</label><input type="text" id="modal-contact_name" /></div>
-        <div class="crm-field"><label for="modal-email">Email</label><input type="email" id="modal-email" /></div>
-        <div class="crm-field"><label for="modal-phone">Phone</label><input type="tel" id="modal-phone" /></div>
-      </div>
-      <div class="crm-card">
-        <div class="crm-card-title">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
-          Project
-        </div>
-        <div class="crm-field"><label for="modal-account_name">Account Name</label><input type="text" id="modal-account_name" /></div>
-        <div class="crm-field"><label for="modal-domain_name">Domain</label><input type="text" id="modal-domain_name" /></div>
-        <div class="crm-row">
+    <!-- Tab Bar -->
+    <div class="crm-tab-bar">
+      <button class="crm-tab crm-tab-active" onclick="switchCrmTab('overview',this)">Overview</button>
+      <button class="crm-tab" onclick="switchCrmTab('performance',this)">Performance</button>
+      <button class="crm-tab" id="crm-tab-gmail-btn" onclick="switchCrmTab('gmail',this)">Gmail</button>
+    </div>
+
+    <!-- Overview Tab -->
+    <div id="crm-tab-overview" class="crm-tab-content">
+
+      <!-- CONTACT -->
+      <div class="crm-section">
+        <div class="crm-section-label">Contact</div>
+        <div class="crm-form-grid">
+          <div class="crm-field"><label for="modal-contact_name">Name</label><input type="text" id="modal-contact_name" /></div>
+          <div class="crm-field"><label for="modal-email">Email</label><input type="email" id="modal-email" /></div>
+          <div class="crm-field"><label for="modal-phone">Phone</label><input type="tel" id="modal-phone" /></div>
           <div class="crm-field">
-            <label for="modal-industry">Industry</label>
-            <select id="modal-industry">
-              <option value="">— None —</option>
-              <option value="Roofing">Roofing</option>
-              <option value="Plumbing">Plumbing</option>
-              <option value="Electrical">Electrical</option>
-              <option value="HVAC">HVAC</option>
-              <option value="Landscaping">Landscaping</option>
-              <option value="Contracting">Contracting</option>
-              <option value="Restoration">Restoration</option>
-              <option value="Solar">Solar</option>
-              <option value="Flooring">Flooring</option>
-              <option value="Gutters">Gutters</option>
-              <option value="Windows/Glass">Windows/Glass</option>
-              <option value="Cleaning Services">Cleaning Services</option>
-              <option value="Other">Other</option>
-            </select>
-          </div>
-          <div class="crm-field">
-            <label for="modal-department">Dept</label>
-            <select id="modal-department">
-              <option value="Sales">Sales</option>
-              <option value="Retention">Retention</option>
-              <option value="Customer Success">Cust. Success</option>
-              <option value="CS-Renewal">CS-Renewal</option>
-              <option value="Other">Other</option>
-            </select>
+            <label>Industry · Dept</label>
+            <div style="display:flex;gap:.4rem">
+              <select id="modal-industry" style="flex:1;min-width:0">
+                <option value="">— Industry —</option>
+                <option value="Roofing">Roofing</option>
+                <option value="Plumbing">Plumbing</option>
+                <option value="Electrical">Electrical</option>
+                <option value="HVAC">HVAC</option>
+                <option value="Landscaping">Landscaping</option>
+                <option value="Contracting">Contracting</option>
+                <option value="Restoration">Restoration</option>
+                <option value="Solar">Solar</option>
+                <option value="Flooring">Flooring</option>
+                <option value="Gutters">Gutters</option>
+                <option value="Windows/Glass">Windows/Glass</option>
+                <option value="Cleaning Services">Cleaning Services</option>
+                <option value="Other">Other</option>
+              </select>
+              <select id="modal-department" style="flex-shrink:0">
+                <option value="Sales">Sales</option>
+                <option value="Retention">Retention</option>
+                <option value="Customer Success">Cust. Success</option>
+                <option value="CS-Renewal">CS-Renewal</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- Status + Owner + Notes -->
-    <div class="crm-section">
-      <div class="crm-row">
-        <div class="crm-field">
-          <label for="modal-status">Status</label>
-          <select id="modal-status" onchange="document.getElementById('modal-launch-date-wrap').style.display = this.value === 'launched' ? '' : 'none'">
-            <option value="new">New</option>
-            <option value="in_progress">In Progress</option>
-            <option value="awaiting_approval">Awaiting Client Approval / Edits</option>
-            <option value="awaiting_dns">Awaiting DNS Access</option>
-            <option value="launched">Launched / Live</option>
-            <option value="decommissioned">Decommissioned</option>
-          </select>
-        </div>
-        <div class="crm-field">
-          <label for="modal-owner">Owner</label>
-          <select id="modal-owner">
-            <option value="">— Unassigned —</option>
-            <option value="Daniel">Daniel</option>
-            <option value="Thierry">Thierry</option>
-          </select>
-        </div>
-      </div>
-      <div class="crm-field" id="modal-launch-date-wrap" style="margin-top:.65rem;display:none">
-        <label for="modal-launch-date">Launch Date</label>
-        <input type="date" id="modal-launch-date" />
-        <div style="font-size:.7rem;color:var(--text-muted);margin-top:.2rem">Used for analytics — set this to when the site actually went live.</div>
-      </div>
-      <div class="crm-field" style="margin-top:.65rem">
-        <label for="modal-duda-site-name">
-          <img src="/duda-icon.png" style="width:12px;height:12px;border-radius:2px;vertical-align:middle;margin-right:.3rem;margin-bottom:1px">Duda Site ID
-        </label>
-        <input type="text" id="modal-duda-site-name" placeholder="e.g. a1b2c3d4e5" />
-        <div style="font-size:.7rem;color:var(--text-muted);margin-top:.2rem">In your Duda dashboard, open the site editor — the Site ID is in the URL: <code style="background:var(--bg);padding:.1rem .3rem;border-radius:3px;font-size:.68rem">dashboard.duda.co/home/site/<strong>SITE-ID-HERE</strong></code></div>
-      </div>
-      <div class="crm-field" style="margin-top:.65rem">
-        <label for="modal-notes">Internal Notes</label>
-        <textarea id="modal-notes" rows="3" placeholder="Internal notes…" style="resize:vertical"></textarea>
-      </div>
-    </div>
-
-    <!-- Domain Info -->
-    <div class="crm-section" id="modal-domain-info">
-      <div class="crm-section-header">
-        <div class="crm-section-label">Domain Info</div>
-        <button class="btn btn-ghost" id="domain-lookup-btn" onclick="lookupDomain()" style="padding:.2rem .6rem;font-size:.72rem">↻ Refresh</button>
-      </div>
-      <div id="domain-info-body"></div>
-    </div>
-
-    <!-- Lighthouse -->
-    <div class="crm-section" id="modal-lighthouse">
-      <div class="crm-section-header">
-        <div class="crm-section-label" style="display:flex;align-items:center;gap:.4rem">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
-          Lighthouse
-        </div>
-        <button class="btn btn-ghost" id="lighthouse-run-btn" onclick="runLighthouse()" style="padding:.2rem .6rem;font-size:.72rem">Run Audit</button>
-      </div>
-      <div id="lighthouse-body"></div>
-    </div>
-
-    <!-- Gmail -->
-    <div class="crm-section" id="modal-gmail">
-      <div class="crm-section-header">
-        <div class="crm-section-label" style="display:flex;align-items:center;gap:.4rem">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 7l10 7 10-7"/></svg>
-          Gmail
+      <!-- PROJECT -->
+      <div class="crm-section">
+        <div class="crm-section-label">Project</div>
+        <div class="crm-form-grid">
+          <div class="crm-field"><label for="modal-account_name">Account Name</label><input type="text" id="modal-account_name" /></div>
+          <div class="crm-field"><label for="modal-domain_name">Domain</label><input type="text" id="modal-domain_name" /></div>
+          <div class="crm-field">
+            <label for="modal-status">Status</label>
+            <select id="modal-status" onchange="document.getElementById('modal-launch-date-wrap').style.display = this.value === 'launched' ? '' : 'none'">
+              <option value="new">New</option>
+              <option value="in_progress">In Progress</option>
+              <option value="awaiting_approval">Awaiting Client Approval / Edits</option>
+              <option value="awaiting_dns">Awaiting DNS Access</option>
+              <option value="launched">Launched / Live</option>
+              <option value="decommissioned">Decommissioned</option>
+            </select>
+          </div>
+          <div class="crm-field">
+            <label for="modal-owner">Owner</label>
+            <select id="modal-owner">
+              <option value="">— Unassigned —</option>
+              <option value="Daniel">Daniel</option>
+              <option value="Thierry">Thierry</option>
+            </select>
+          </div>
+          <div class="crm-field">
+            <label for="modal-duda-site-name"><img src="/duda-icon.png" style="width:12px;height:12px;border-radius:2px;vertical-align:middle;margin-right:.3rem;margin-bottom:1px">Duda Site ID</label>
+            <input type="text" id="modal-duda-site-name" placeholder="e.g. a1b2c3d4e5" />
+          </div>
+          <div class="crm-field" id="modal-launch-date-wrap" style="display:none">
+            <label for="modal-launch-date">Launch Date</label>
+            <input type="date" id="modal-launch-date" />
+          </div>
+          <div class="crm-field crm-field-span">
+            <label for="modal-notes">Internal Notes</label>
+            <textarea id="modal-notes" rows="3" placeholder="Internal notes…" style="resize:vertical"></textarea>
+          </div>
         </div>
       </div>
-      <div id="gmail-threads-body" style="font-size:.82rem"></div>
-    </div>
+
+      <!-- Domain Info -->
+      <div class="crm-section" id="modal-domain-info">
+        <div class="crm-section-header">
+          <div class="crm-section-label">Domain Info</div>
+          <button class="btn btn-ghost" id="domain-lookup-btn" onclick="lookupDomain()" style="padding:.2rem .6rem;font-size:.72rem">↻ Refresh</button>
+        </div>
+        <div id="domain-info-body"></div>
+      </div>
+
+    </div><!-- /crm-tab-overview -->
+
+    <!-- Performance Tab -->
+    <div id="crm-tab-performance" class="crm-tab-content" style="display:none">
+      <div class="crm-section" id="modal-lighthouse">
+        <div class="crm-section-header">
+          <div class="crm-section-label" style="display:flex;align-items:center;gap:.4rem">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+            Lighthouse
+          </div>
+          <button class="btn btn-ghost" id="lighthouse-run-btn" onclick="runLighthouse()" style="padding:.2rem .6rem;font-size:.72rem">Run Audit</button>
+        </div>
+        <div id="lighthouse-body"></div>
+      </div>
+    </div><!-- /crm-tab-performance -->
+
+    <!-- Gmail Tab -->
+    <div id="crm-tab-gmail" class="crm-tab-content" style="display:none">
+      <div class="crm-section" id="modal-gmail">
+        <div id="gmail-threads-body" style="font-size:.82rem"></div>
+      </div>
+    </div><!-- /crm-tab-gmail -->
 
     <div class="modal-actions crm-actions">
       <button class="btn btn-danger" id="modal-delete">Delete</button>
@@ -1548,9 +1546,33 @@ function openEdit(id) {
   if (!r) return;
   editingId = id;
   document.getElementById('modal-title').textContent = r.account_name;
-  document.getElementById('modal-domain-sub').textContent = r.domain_name ? `🌐 ${r.domain_name}` : '';
-  document.getElementById('modal-submitted').textContent    = `Submitted ${formatDate(r.created_at)}`;
-  document.getElementById('modal-submitted-by').textContent = r.submitted_by ? `by ${r.submitted_by}` : '';
+  // Domain sub — now a link
+  const domainSubEl = document.getElementById('modal-domain-sub');
+  domainSubEl.textContent = r.domain_name || '';
+  domainSubEl.href = r.domain_name ? `https://${r.domain_name}` : '#';
+  // Meta line: Submitted … · Owner …
+  const metaParts = [`Submitted ${formatDate(r.created_at)}`];
+  if (r.owner) metaParts.push(`Owner: ${r.owner}`);
+  document.getElementById('crm-hdr-meta').textContent = metaParts.join(' · ');
+  // Status pill
+  const pill = document.getElementById('crm-hdr-status-pill');
+  const pillColor = STATUS_COLORS[r.status] || '#888';
+  pill.textContent = STATUS_LABELS[r.status] || r.status;
+  pill.style.color = pillColor;
+  pill.style.background = pillColor + '1a';
+  pill.style.borderColor = pillColor + '55';
+  // Favicon
+  const faviconEl = document.getElementById('crm-hdr-favicon');
+  if (r.domain_name) {
+    faviconEl.src = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(r.domain_name)}&sz=32`;
+    faviconEl.style.display = '';
+  } else {
+    faviconEl.style.display = 'none';
+  }
+  // Reset to Overview tab and reset Gmail label
+  const gmailTabBtn = document.getElementById('crm-tab-gmail-btn');
+  if (gmailTabBtn) gmailTabBtn.textContent = 'Gmail';
+  switchCrmTab('overview', document.querySelector('.crm-tab-bar .crm-tab'));
   document.getElementById('modal-industry').value     = r.industry || '';
   document.getElementById('modal-department').value   = r.department || '';
   document.getElementById('modal-account_name').value = r.account_name || '';
@@ -1583,6 +1605,15 @@ function openEdit(id) {
   lookupDomain(r.domain_name);
   loadLighthouseHistory(id);
   loadGmailThreads(r.email);
+}
+
+function switchCrmTab(name, btn) {
+  ['overview','performance','gmail'].forEach(t => {
+    const el = document.getElementById(`crm-tab-${t}`);
+    if (el) el.style.display = t === name ? '' : 'none';
+  });
+  document.querySelectorAll('.crm-tab-bar .crm-tab').forEach(b => b.classList.remove('crm-tab-active'));
+  if (btn) btn.classList.add('crm-tab-active');
 }
 
 document.getElementById('modal-cancel').addEventListener('click', () => {
@@ -2446,6 +2477,8 @@ async function loadGmailThreads(contactEmail) {
       return;
     }
     renderGmailThreadList(threads);
+    const gmailTabBtn = document.getElementById('crm-tab-gmail-btn');
+    if (gmailTabBtn) gmailTabBtn.textContent = `Gmail (${threads.length})`;
   } catch {
     body.innerHTML = '<p style="color:var(--text-muted)">Failed to load Gmail threads.</p>';
   }
