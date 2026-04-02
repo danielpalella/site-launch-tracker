@@ -621,6 +621,9 @@ function buildScreenerNarrative({ cms, sitemap, verdict, flags, warnings }) {
   if (allSignals.some(s => s.includes('FAQ'))) {
     parts.push('A large FAQ section was detected — these entries would need to be recreated or consolidated in the new build.');
   }
+  if (allSignals.some(s => s.includes('outdated') || s.includes('or earlier'))) {
+    parts.push('The site appears to have old content — this is actually a selling point for a rebuild, but the client may have accumulated significant outdated material that needs to be reviewed before migration.');
+  }
 
   // Sitemap breakdown
   if (sitemap) {

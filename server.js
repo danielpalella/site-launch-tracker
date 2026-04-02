@@ -658,6 +658,23 @@ function screenerAnalyzeHtml(html) {
   return signals;
 }
 
+// Detect the most recent year mentioned near a copyright notice
+function screenerDetectCopyrightYear(html) {
+  // Matches patterns like: © 2018, Copyright 2019, © 2015-2023, &copy; 2020
+  const re = /(?:©|&copy;|\bcopyright\b)[^<\n]{0,80}/gi;
+  const yearRe = /((?:19|20)\d{2})/g;
+  let maxYear = 0;
+  let block;
+  while ((block = re.exec(html)) !== null) {
+    let m;
+    while ((m = yearRe.exec(block[0])) !== null) {
+      const y = parseInt(m[1]);
+      if (y > maxYear) maxYear = y;
+    }
+  }
+  return maxYear || null;
+}
+
 // Count FAQ entries across combined HTML (homepage + optional FAQ page)
 function screenerCountFaqEntries(html) {
   const byDetails  = (html.match(/<details[\s>]/gi) || []).length;
@@ -680,13 +697,18 @@ function screenerParseSitemap(xml) {
   // Blog / news posts
   const blogRe        = /\/(blog|news|articles?|posts?)\//i;
 
+  // Most recent lastmod year across all sitemap entries
+  const lastmodYears = [...xml.matchAll(/<lastmod>\s*((?:19|20)\d{2})/gi)].map(m => parseInt(m[1]));
+  const mostRecentYear = lastmodYears.length ? Math.max(...lastmodYears) : null;
+
   return {
-    totalPages:    pageUrls.length,
-    locationPages: pageUrls.filter(u => locationRe.test(u)).length,
-    svcLocPages:   pageUrls.filter(u => svcLocRe.test(u)).length,
-    servicePages:  pageUrls.filter(u => servicePageRe.test(u)).length,
-    blogPosts:     pageUrls.filter(u => blogRe.test(u)).length,
-    faqPageUrl:    pageUrls.find(u => /\/faq\b/i.test(u)) || null,
+    totalPages:      pageUrls.length,
+    locationPages:   pageUrls.filter(u => locationRe.test(u)).length,
+    svcLocPages:     pageUrls.filter(u => svcLocRe.test(u)).length,
+    servicePages:    pageUrls.filter(u => servicePageRe.test(u)).length,
+    blogPosts:       pageUrls.filter(u => blogRe.test(u)).length,
+    faqPageUrl:      pageUrls.find(u => /\/faq\b/i.test(u)) || null,
+    mostRecentYear,
     isSitemapIndex,
   };
 }
@@ -772,6 +794,17 @@ app.post('/api/screen-site', requireAuth, async (req, res) => {
     }
 
     if (faqCount >= 20) warnings.push(`${faqCount}+ FAQ entries detected`);
+
+    // ── Site age ──
+    const currentYear     = new Date().getFullYear();
+    const ageThreshold    = currentYear - 5;
+    const copyrightYear   = screenerDetectCopyrightYear(html);
+    const sitemapYear     = sitemap?.mostRecentYear || null;
+    // Use whichever indicator is most recent; both must clear the threshold to warn
+    const mostRecentSignal = Math.max(copyrightYear || 0, sitemapYear || 0);
+    if (mostRecentSignal > 0 && mostRecentSignal <= ageThreshold) {
+      warnings.push(`Site content appears to be from ${mostRecentSignal} or earlier — may have outdated info`);
+    }
 
     // ── Compound signals ──
     if (cms.name === 'WordPress' && sitemap && sitemap.totalPages > 20) {
