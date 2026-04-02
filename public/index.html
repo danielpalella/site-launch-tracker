@@ -38,33 +38,49 @@
     }
     .intake-rocket { width: 18px; height: 18px; }
 
+    /* ── Intake page layout ── */
+    .intake-page { max-width: 660px; margin: 0 auto; padding: 1.75rem 1.5rem 3rem; }
+    .intake-header { margin-bottom: 1.25rem; }
+    .intake-header h1 { font-size: 1.35rem; font-weight: 700; margin: 0 0 .3rem; letter-spacing: -.01em; }
+    .intake-header p { font-size: .84rem; color: var(--text-muted); margin: 0; }
+
     /* ── Site Screener ── */
-    .screener-card { margin-bottom: 1.25rem; }
+    .screener-card { margin-bottom: 1rem; }
     .screener-title {
       display: flex; align-items: center; gap: .5rem;
-      font-size: .95rem; font-weight: 700; margin-bottom: .25rem;
+      font-size: .875rem; font-weight: 700; margin-bottom: .75rem;
+      color: var(--text-muted);
     }
-    .screener-subtitle { font-size: .82rem; color: var(--text-muted); margin-bottom: 1rem; }
-    .screener-row {
-      display: flex; gap: .6rem;
-    }
+    .screener-row { display: flex; gap: .6rem; }
     .screener-row input {
-      flex: 1; height: 36px; padding: 0 .75rem;
-      font-size: .875rem; border: 1.5px solid var(--border);
+      flex: 1; height: 40px; padding: 0 .875rem;
+      font-size: .9rem; border: 1.5px solid var(--border);
       border-radius: 8px; background: var(--bg); color: var(--text);
       font-family: inherit; outline: none;
     }
     .screener-row input:focus { border-color: var(--primary); }
     .screener-btn {
-      height: 36px; padding: 0 1.1rem; font-size: .83rem; font-weight: 600;
+      height: 40px; padding: 0 1.1rem; font-size: .84rem; font-weight: 600;
       background: var(--primary); color: #fff; border: none; border-radius: 8px;
       cursor: pointer; font-family: inherit; white-space: nowrap;
       transition: background .15s;
     }
     .screener-btn:hover { background: #0a46d6; }
     .screener-btn:disabled { opacity: .6; cursor: not-allowed; }
-    .screener-results { margin-top: 1rem; display: none; }
-    .screener-error { margin-top: .75rem; font-size: .82rem; color: #dc2626; }
+    /* Results area — always visible, dashed until populated */
+    .screener-results-area {
+      margin-top: .875rem;
+      padding: .75rem 1rem;
+      border: 1.5px dashed var(--border);
+      border-radius: 8px;
+      min-height: 44px;
+    }
+    .screener-placeholder {
+      display: flex; align-items: center; justify-content: center;
+      font-size: .82rem; color: var(--text-muted); min-height: 28px;
+      text-align: center;
+    }
+    .screener-error-text { color: #dc2626 !important; }
     /* Card verdict coloring */
     .screener-card { transition: background .25s, border-color .25s, box-shadow .25s; }
     .screener-card-pass    { background: #f0fdf4 !important; border-color: #86efac !important; }
@@ -106,46 +122,20 @@
       box-shadow: 0 0 0 3px rgba(34,197,94,.08), var(--shadow);
     }
 
-    /* ── Two-column no-scroll layout ── */
-    html, body { overflow: hidden; height: 100%; }
-    .intake-page {
-      display: grid;
-      grid-template-columns: 360px 1fr;
-      gap: 1.25rem;
-      height: calc(100vh - 58px);
-      padding: 1rem 1.5rem;
-      box-sizing: border-box;
-      max-width: 1240px;
-      margin: 0 auto;
+    /* ── Form sections ── */
+    .form-section { margin-bottom: 1.5rem; }
+    .form-section:last-child { margin-bottom: 0; }
+    .form-section-label {
+      font-size: .72rem; text-transform: uppercase; letter-spacing: .07em;
+      font-weight: 700; color: var(--text-muted); margin-bottom: .875rem;
     }
-    .intake-screener-col {
-      overflow-y: auto;
-      height: 100%;
-      margin-bottom: 0 !important;
+    .field-hint { font-size: .78rem; color: var(--text-muted); margin-top: .3rem; }
+    .name-row { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+    /* Submit row outside form card */
+    .intake-submit-row {
+      display: flex; justify-content: flex-end; margin-top: 1rem;
     }
-    .intake-form-col {
-      overflow-y: auto;
-      height: 100%;
-      display: flex;
-      flex-direction: column;
-    }
-    .intake-form-heading {
-      margin-bottom: .875rem;
-      padding-bottom: .75rem;
-      border-bottom: 1px solid var(--border);
-    }
-    .intake-form-heading h2 {
-      font-size: 1rem;
-      font-weight: 700;
-      color: var(--text);
-      margin: 0 0 .2rem;
-      letter-spacing: -.01em;
-    }
-    .intake-form-heading p {
-      font-size: .8rem;
-      color: var(--text-muted);
-      margin: 0;
-    }
+    .intake-launch-btn svg { width: 16px; height: 16px; }
   </style>
   <script>document.documentElement.setAttribute('data-theme', localStorage.getItem('theme') || 'light');</script>
 </head>
@@ -183,36 +173,37 @@
 
 <div class="intake-page">
 
-  <!-- Left: Site Screener -->
-  <div id="screener-card" class="card screener-card intake-screener-col">
-    <div class="screener-title">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      Site Screener
-    </div>
-    <p class="screener-subtitle">Enter the client's current website to check if we can build something better.</p>
-    <div class="screener-row">
-      <input type="url" id="screen-url" placeholder="https://clientsite.com" />
-      <button class="screener-btn" id="screen-btn" onclick="runScreener()">Screen Site</button>
-    </div>
-    <div id="screen-results" class="screener-results"></div>
-    <div id="screen-error" class="screener-error" style="display:none"></div>
+  <div class="intake-header">
+    <h1>New intake</h1>
+    <p>Submit a client site to the launch pipeline.</p>
   </div>
 
-  <!-- Right: Form + Success -->
-  <div class="intake-form-col">
+  <!-- Site Screener -->
+  <div id="screener-card" class="card screener-card">
+    <div class="screener-title">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      Site screener
+    </div>
+    <div class="screener-row">
+      <input type="url" id="screen-url" placeholder="https://clientsite.com" />
+      <button class="screener-btn" id="screen-btn" onclick="runScreener()">Screen site</button>
+    </div>
+    <div id="screen-results" class="screener-results-area">
+      <div class="screener-placeholder">Screen the client's current site to check for rebuild signals.</div>
+    </div>
+  </div>
 
-    <div class="card" id="form-card">
-      <div class="intake-form-heading">
-        <h2>Website Intake Form</h2>
-        <p>Submit a new customer site for launch tracking.</p>
-      </div>
-      <form id="launch-form" novalidate>
+  <!-- Intake Form -->
+  <div class="card" id="form-card">
+    <form id="launch-form" novalidate>
+
+      <div class="form-section">
+        <div class="form-section-label">Account</div>
         <div class="form-grid">
-
           <div>
             <label for="department">Department <span class="req">*</span></label>
             <select id="department" name="department" required>
-              <option value="">Select your department…</option>
+              <option value="">Select…</option>
               <option value="Sales">Sales</option>
               <option value="Retention">Retention</option>
               <option value="Customer Success">Customer Success</option>
@@ -221,11 +212,10 @@
             </select>
             <div class="field-error" id="err-department"></div>
           </div>
-
           <div>
             <label for="industry">Industry <span class="req">*</span></label>
             <select id="industry" name="industry" required>
-              <option value="">Select an industry…</option>
+              <option value="">Select…</option>
               <option value="Roofing">Roofing</option>
               <option value="Plumbing">Plumbing</option>
               <option value="Electrical">Electrical</option>
@@ -242,72 +232,76 @@
             </select>
             <div class="field-error" id="err-industry"></div>
           </div>
-
           <div>
-            <label for="account_name">Account Name <span class="req">*</span></label>
+            <label for="account_name">Account name <span class="req">*</span></label>
             <input type="text" id="account_name" name="account_name" placeholder="e.g. Acme Corporation" required />
             <div class="field-error" id="err-account_name"></div>
           </div>
-
           <div>
-            <label for="domain_name">Domain Name <span class="req">*</span></label>
+            <label for="domain_name">Domain <span class="req">*</span></label>
             <input type="text" id="domain_name" name="domain_name" placeholder="e.g. realworklabs.com" required />
+            <div class="field-hint">No https:// or www</div>
             <div class="field-error" id="err-domain_name"></div>
           </div>
+        </div>
+      </div>
 
+      <div class="form-section">
+        <div class="form-section-label">Contact</div>
+        <div class="form-grid">
           <div class="full">
-            <label for="contact_name">Contact Name <span class="req">*</span></label>
-            <input type="text" id="contact_name" name="contact_name" placeholder="First Last" required />
-            <div class="field-error" id="err-contact_name"></div>
+            <label>Full name <span class="req">*</span></label>
+            <div class="name-row">
+              <div>
+                <input type="text" id="contact_first" name="contact_first" placeholder="First" required />
+                <div class="field-error" id="err-contact_first"></div>
+              </div>
+              <div>
+                <input type="text" id="contact_last" name="contact_last" placeholder="Last" required />
+                <div class="field-error" id="err-contact_last"></div>
+              </div>
+            </div>
           </div>
-
           <div>
-            <label for="email">Email Address <span class="req">*</span></label>
+            <label for="email">Email <span class="req">*</span></label>
             <input type="email" id="email" name="email" placeholder="contact@example.com" required />
             <div class="field-error" id="err-email"></div>
           </div>
-
           <div>
-            <label for="phone">Phone Number <span class="req">*</span></label>
+            <label for="phone">Phone <span class="req">*</span></label>
             <input type="tel" id="phone" name="phone" placeholder="(555) 000-0000" required />
             <div class="field-error" id="err-phone"></div>
           </div>
-
-          <div class="full">
-            <label for="notes">Notes</label>
-            <textarea id="notes" name="notes" rows="2" placeholder="Any additional information…" style="resize:vertical"></textarea>
-          </div>
-
         </div>
-
-        <div class="form-actions" style="justify-content:flex-end;border-top:1px solid var(--border);padding-top:1.25rem;margin-top:.5rem">
-          <button type="submit" class="intake-launch-btn" id="submit-btn">
-            <span class="intake-launch-label">Submit Launch</span>
-            <span class="intake-rocket-wrap">
-              <svg class="intake-rocket" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M32 4C32 4 18 16 18 34c0 6 2.5 11.5 6 15.5L32 60l8-10.5C43.5 45.5 46 40 46 34 46 16 32 4 32 4z" fill="rgba(255,255,255,0.25)" stroke="white" stroke-width="2" stroke-linejoin="round"/>
-                <circle cx="32" cy="30" r="5" fill="white" opacity="0.9"/>
-                <path d="M22 44c-3 2-6 8-6 8s6-1 10-4" fill="rgba(255,255,255,0.35)" stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
-                <path d="M42 44c3 2 6 8 6 8s-6-1-10-4" fill="rgba(255,255,255,0.35)" stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
-              </svg>
-            </span>
-          </button>
-        </div>
-      </form>
-    </div>
-
-    <!-- Success state (hidden initially) -->
-    <div class="card success-box" id="success-card" style="display:none">
-      <div class="success-icon">🚀</div>
-      <h2>Launch request submitted!</h2>
-      <p>The site has been added to the tracker. You can monitor its progress on the dashboard.</p>
-      <div class="success-links">
-        <a href="/dashboard" class="btn btn-primary">View Dashboard</a>
-        <button class="btn btn-ghost" id="submit-another">Submit Another</button>
       </div>
-    </div>
 
+      <div class="form-section">
+        <div class="form-section-label">Notes</div>
+        <textarea id="notes" name="notes" rows="3" placeholder="Redirects needed, existing GSC setup, special requests…" style="resize:vertical;width:100%;box-sizing:border-box"></textarea>
+        <div class="field-hint">Optional — visible to all team members</div>
+      </div>
+
+    </form>
   </div>
+
+  <div class="intake-submit-row">
+    <button type="submit" form="launch-form" class="intake-launch-btn" id="submit-btn">
+      <span class="intake-launch-label">Submit launch</span>
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="10" x2="16" y2="10"/><polyline points="11 5 16 10 11 15"/></svg>
+    </button>
+  </div>
+
+  <!-- Success state (hidden initially) -->
+  <div class="card success-box" id="success-card" style="display:none;margin-top:1rem">
+    <div class="success-icon">🚀</div>
+    <h2>Launch request submitted!</h2>
+    <p>The site has been added to the tracker. You can monitor its progress on the dashboard.</p>
+    <div class="success-links">
+      <a href="/dashboard" class="btn btn-primary">View Dashboard</a>
+      <button class="btn btn-ghost" id="submit-another">Submit Another</button>
+    </div>
+  </div>
+
 </div>
 
 <div id="toast"></div>
@@ -318,7 +312,7 @@ document.getElementById('logout-btn').addEventListener('click', async () => {
   window.location.href = '/login';
 });
 
-const FIELDS = ['department','industry','account_name','domain_name','contact_name','email','phone'];
+const FIELDS = ['department','industry','account_name','domain_name','contact_first','contact_last','email','phone'];
 
 function clearErrors() {
   FIELDS.forEach(f => {
@@ -342,11 +336,8 @@ function validate(data) {
     showError('domain_name', 'Enter a valid domain (e.g. realworklabs.com).');
     ok = false;
   }
-  if (!data.contact_name.trim()) { showError('contact_name', 'Contact name is required.'); ok = false; }
-  else if (data.contact_name.trim().split(/\s+/).length < 2) {
-    showError('contact_name', 'Please enter first and last name.');
-    ok = false;
-  }
+  if (!data.contact_first.trim()) { showError('contact_first', 'First name required.'); ok = false; }
+  if (!data.contact_last.trim()) { showError('contact_last', 'Last name required.'); ok = false; }
   if (!data.email.trim()) { showError('email', 'Email address is required.'); ok = false; }
   else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email.trim())) {
     showError('email', 'Enter a valid email address.');
@@ -369,6 +360,7 @@ document.getElementById('launch-form').addEventListener('submit', async (e) => {
 
   const data = {};
   FIELDS.forEach(f => data[f] = document.getElementById(f).value);
+  data.contact_name = (data.contact_first + ' ' + data.contact_last).trim();
   data.notes = document.getElementById('notes').value;
 
   if (!validate(data)) return;
@@ -473,16 +465,17 @@ document.getElementById('screen-url').addEventListener('keydown', e => {
 
 async function runScreener() {
   const url = document.getElementById('screen-url').value.trim();
-  const errEl = document.getElementById('screen-error');
   const resEl = document.getElementById('screen-results');
-  errEl.style.display = 'none';
-  resEl.style.display = 'none';
-  resEl.innerHTML = '';
-  if (!url) { errEl.textContent = 'Please enter a URL.'; errEl.style.display = ''; return; }
+
+  if (!url) {
+    resEl.innerHTML = '<div class="screener-placeholder screener-error-text">Please enter a URL.</div>';
+    return;
+  }
 
   const btn = document.getElementById('screen-btn');
   btn.disabled = true;
   btn.textContent = 'Screening…';
+  resEl.innerHTML = '<div class="screener-placeholder">Screening…</div>';
 
   try {
     const r = await fetch('/api/screen-site', {
@@ -494,11 +487,10 @@ async function runScreener() {
     if (!r.ok) throw new Error(data.error || 'Screening failed');
     renderScreenerResults(data, url);
   } catch (err) {
-    errEl.textContent = err.message;
-    errEl.style.display = '';
+    resEl.innerHTML = `<div class="screener-placeholder screener-error-text">${err.message}</div>`;
   } finally {
     btn.disabled = false;
-    btn.textContent = 'Screen Site';
+    btn.textContent = 'Screen site';
   }
 }
 
@@ -516,8 +508,6 @@ function renderScreenerResults(data, screenerUrl) {
       }
     } catch {}
   }
-  const formCard = document.getElementById('form-card');
-
   // Color the entire card
   card.classList.remove('screener-card-pass', 'screener-card-caution', 'screener-card-warn');
   card.classList.add(`screener-card-${verdict}`);
@@ -575,11 +565,6 @@ function renderScreenerResults(data, screenerUrl) {
       </div>
     </div>
   `;
-  resEl.style.display = 'block';
-
-  // Tint form card on pass
-  formCard.classList.remove('screen-pass');
-  if (verdict === 'pass') formCard.classList.add('screen-pass');
 }
 
 function toggleScreenerNarrative(btn) {
