@@ -630,13 +630,14 @@ function screenerAnalyzeHtml(html) {
     'Painting':    /\bpaint(?:ing|er)\b(?!\s+contractor.*hvac)/i,
     'Flooring':    /\bflooring\b|hardwood\s+floor|tile\s+(?:install|flooring)|carpet\s+install/i,
     'Cleaning':    /\bcleaning\s+service\b|janitorial\b|maid\s+service/i,
-    'Siding':      /\bsiding\b(?!\s*(?:clean|wash|remov|mold))|fiber[\s-]?cement|exterior\s+cladding/i,
+    'Siding':      /siding\s+(?:install|repair|replac|contrac|compan)|(?:install|repair|replac)\w*\s+siding|new\s+siding|fiber[\s-]?cement|exterior\s+cladding/i,
   };
   const detected = Object.keys(tradePatterns).filter(t => tradePatterns[t].test(html));
   if (detected.length >= 2) signals.push({ type: 'multi_trade', trades: detected });
 
   // Booking / scheduling systems
-  if (/calendly|acuityscheduling|setmore\.com|simplybook|booksy|housecallpro|servicetitan|jobber\.com|scheduling\s+widget/i.test(html)) {
+  // Jobber and HouseCallPro are standard work-request forms — acceptable for any service site
+  if (/calendly|acuityscheduling|setmore\.com|simplybook|booksy|servicetitan|scheduling\s+widget/i.test(html)) {
     signals.push({ type: 'booking' });
   }
 
