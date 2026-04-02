@@ -1003,7 +1003,10 @@ function renderBoard() {
               ondragstart="boardDragStart(event,this)"
               ondragend="boardDragEnd(this)"
               ondblclick="handleRowDblClick(event,'${r.id}')">
-              <div class="board-card-name">${esc(r.account_name)}</div>
+              <div style="display:flex;align-items:center;gap:.4rem;margin-bottom:.1rem">
+                <img src="https://www.google.com/s2/favicons?domain=${esc(r.domain_name)}&sz=32" alt="" loading="lazy" style="width:16px;height:16px;flex-shrink:0;border-radius:2px">
+                <div class="board-card-name">${esc(r.account_name)}</div>
+              </div>
               <div class="board-card-domain">🌐 ${esc(r.domain_name)}</div>
               <div class="board-card-meta">
                 ${r.owner
@@ -1326,8 +1329,13 @@ function renderRow(r) {
   return `
     <tr data-id="${r.id}" ondblclick="handleRowDblClick(event,'${r.id}')" style="cursor:pointer" ${r.status === 'launched' ? 'class="row-launched"' : r.status === 'decommissioned' ? 'class="row-decommissioned"' : r.status.endsWith('_frozen') ? 'class="row-frozen"' : ''}>
       <td class="sticky-col">
-        <div class="account-name">${esc(r.account_name)}<span class="gmail-unread-badge" id="gmail-badge-${r.id}" data-email="${esc(r.email)}" style="display:none"></span></div>
-        <div class="domain">🌐 <a href="https://${esc(r.domain_name)}" target="_blank" rel="noopener" style="color:var(--primary);text-decoration:none" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${esc(r.domain_name)}</a></div>
+        <div style="display:flex;align-items:flex-start;gap:.5rem">
+          <img src="https://www.google.com/s2/favicons?domain=${esc(r.domain_name)}&sz=32" alt="" loading="lazy" style="width:16px;height:16px;flex-shrink:0;border-radius:2px;margin-top:.15rem">
+          <div>
+            <div class="account-name">${esc(r.account_name)}<span class="gmail-unread-badge" id="gmail-badge-${r.id}" data-email="${esc(r.email)}" style="display:none"></span></div>
+            <div class="domain">🌐 <a href="https://${esc(r.domain_name)}" target="_blank" rel="noopener" style="color:var(--primary);text-decoration:none" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${esc(r.domain_name)}</a></div>
+          </div>
+        </div>
       </td>
       <td>${esc(r.industry || '—')}</td>
       <td>
