@@ -2689,11 +2689,29 @@ async function loadGmailThreads(contactEmail) {
 
 function renderGmailThreadList(threads) {
   const body = document.getElementById('gmail-threads-body');
-  body.innerHTML = threads.map(t => `
-    <div class="gmail-thread-row" data-thread-id="${esc(t.id)}" onclick="toggleGmailThread('${esc(t.id)}',this)">
+  const record = allLaunches.find(x => x.id === editingId);
+  const outreachLog = record?.outreach_log || [];
+  const loggedDates = new Set(outreachLog.map(e => e.date));
+  const lastFollowUp = outreachLog[0] || null;
+
+  const header = lastFollowUp ? `
+    <div class="gmail-followup-bar">
+      <span class="gmail-followup-bar-label">Last follow-up logged</span>
+      <span class="gmail-followup-bar-date">${esc(formatDate(lastFollowUp.date))}</span>
+      ${lastFollowUp.note ? `<span class="gmail-followup-bar-note">· ${esc(lastFollowUp.note)}</span>` : ''}
+    </div>` : '';
+
+  body.innerHTML = header + threads.map(t => {
+    const threadDate = t.date ? new Date(t.date).toISOString().slice(0, 10) : '';
+    const isLogged = threadDate && loggedDates.has(threadDate);
+    return `
+    <div class="gmail-thread-row${isLogged ? ' gmail-thread-logged' : ''}" data-thread-id="${esc(t.id)}" onclick="toggleGmailThread('${esc(t.id)}',this)">
       <div class="gmail-thread-meta">
         <span class="gmail-thread-subject">${esc(t.subject)}</span>
-        <span class="gmail-thread-count" title="${t.messageCount} message${t.messageCount !== 1 ? 's' : ''}">${t.messageCount}</span>
+        <div style="display:flex;align-items:center;gap:.4rem">
+          ${isLogged ? `<span class="gmail-logged-badge">✓ Logged</span>` : ''}
+          <span class="gmail-thread-count" title="${t.messageCount} message${t.messageCount !== 1 ? 's' : ''}">${t.messageCount}</span>
+        </div>
       </div>
       <div class="gmail-thread-sub">
         <span class="gmail-thread-from">${esc(formatGmailSender(t.from))}</span>
@@ -2701,8 +2719,8 @@ function renderGmailThreadList(threads) {
       </div>
       <div class="gmail-thread-snippet">${esc(t.snippet)}</div>
       <div class="gmail-messages-wrap" id="gmail-msgs-${esc(t.id)}" style="display:none"></div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 }
 
 async function toggleGmailThread(threadId, row) {
