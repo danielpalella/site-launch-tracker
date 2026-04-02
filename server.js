@@ -625,12 +625,12 @@ function screenerAnalyzeHtml(html) {
     'HVAC':        /\bhvac\b|air[\s-]?condition(?:ing|er)|heating\s+(?:and|&amp;|&)\s+cooling|ac\s+(?:repair|service|install)/i,
     'Plumbing':    /\bplumb(?:ing|er)\b|sewer\s+(?:line|repair|service)|burst\s+pipe|pipe\s+(?:repair|leak|burst)/i,
     'Electrical':  /\belectric(?:al|ian)\b|wiring|circuit\s+breaker|electrical\s+panel|panel\s+upgrade/i,
-    'Roofing':     /\bro(?:of(?:ing|er|s)|ofer)\b|shingles|flat\s+roof|roof\s+(?:repair|replace|install)/i,
+    'Roofing':     /\bro(?:of(?:ing|er)|ofer)\b|shingles|roof\s+(?:repair|replac|install)|new\s+roof/i,
     'Landscaping': /\blandscap(?:ing|er)\b|lawn\s+(?:care|mowing|service)|irrigation\s+(?:system|install)|sod\s+install/i,
     'Painting':    /\bpaint(?:ing|er)\b(?!\s+contractor.*hvac)/i,
     'Flooring':    /\bflooring\b|hardwood\s+floor|tile\s+(?:install|flooring)|carpet\s+install/i,
     'Cleaning':    /\bcleaning\s+service\b|janitorial\b|maid\s+service/i,
-    'Siding':      /\bsiding\b|vinyl\s+siding|fiber[\s-]?cement|exterior\s+cladding/i,
+    'Siding':      /\bsiding\b(?!\s*(?:clean|wash|remov|mold))|fiber[\s-]?cement|exterior\s+cladding/i,
   };
   const detected = Object.keys(tradePatterns).filter(t => tradePatterns[t].test(html));
   if (detected.length >= 2) signals.push({ type: 'multi_trade', trades: detected });
