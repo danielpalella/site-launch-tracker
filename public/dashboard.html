@@ -6236,7 +6236,12 @@ async function loadAnalytics({ force = false } = {}) {
   const grid = document.getElementById('analytics-grid');
   grid.innerHTML = '<div style="color:var(--text-muted);font-size:.875rem">Loading…</div>';
 
-  const connected = await loadAnalyticsConnectionStatus();
+  let connected, res, launched;
+  try {
+    connected = await loadAnalyticsConnectionStatus();
+  } catch {
+    connected = false;
+  }
   if (!connected) {
     grid.innerHTML = `<div class="ac-empty" style="grid-column:1/-1;text-align:center;padding:3rem 1rem">
       <div style="font-size:2rem;margin-bottom:.75rem">📊</div>
@@ -6247,9 +6252,14 @@ async function loadAnalytics({ force = false } = {}) {
     return;
   }
 
-  const res = await fetch('/api/launches?status=launched');
-  if (res.status === 401) { window.location.href = '/login'; return; }
-  const launched = await res.json();
+  try {
+    res = await fetch('/api/launches?status=launched');
+    if (res.status === 401) { window.location.href = '/login'; return; }
+    launched = await res.json();
+  } catch (err) {
+    grid.innerHTML = `<div class="ac-empty" style="grid-column:1/-1;padding:2rem;color:var(--text-muted)">Failed to load analytics data — please refresh the page.<br><small style="opacity:.7">${err?.message || ''}</small></div>`;
+    return;
+  }
 
   if (!launched.length) {
     grid.innerHTML = '<div class="ac-empty">No launched accounts yet.</div>';
