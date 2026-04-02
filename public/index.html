@@ -84,6 +84,22 @@
     .screener-verdict-sub   { font-size: .8rem; opacity: .85; margin-bottom: .15rem; }
     .screener-verdict-reasons { margin: .4rem 0 0; padding-left: 1.1rem; font-size: .8rem; line-height: 1.6; opacity: .9; }
     .screener-verdict-reasons li { margin-bottom: .1rem; }
+    /* Why? button + narrative */
+    .screener-why-btn {
+      display: inline-flex; align-items: center; gap: .25rem;
+      background: rgba(0,0,0,.1); border: none; border-radius: 20px;
+      padding: .15rem .6rem; font-size: .72rem; font-weight: 600;
+      cursor: pointer; color: inherit; font-family: inherit;
+      vertical-align: middle; margin-left: .5rem;
+      transition: background .15s;
+    }
+    .screener-why-btn:hover { background: rgba(0,0,0,.2); }
+    .screener-narrative {
+      display: none; margin-top: .65rem; padding: .6rem .75rem;
+      border-radius: 8px; font-size: .79rem; line-height: 1.6;
+      background: rgba(0,0,0,.07); border-left: 2px solid currentColor;
+    }
+    .screener-narrative.open { display: block; }
     /* Form tinting */
     #form-card.screen-pass {
       border-color: #86efac;
@@ -486,14 +502,18 @@ function renderScreenerResults(data) {
   }
 
   const reasonsHtml = reasons.map(r => `<li>${r}</li>`).join('');
+  const narrative = verdict !== 'pass' ? buildScreenerNarrative(data) : '';
+  const whyBtn = narrative ? `<button class="screener-why-btn" onclick="toggleScreenerNarrative(this)">ⓘ Why?</button>` : '';
+  const narrativeHtml = narrative ? `<div class="screener-narrative">${narrative}</div>` : '';
 
   resEl.innerHTML = `
     <div class="screener-verdict-header ${vc.hdrCls}">
       <div class="screener-verdict-icon">${vc.icon}</div>
       <div class="screener-verdict-body">
-        <div class="screener-verdict-title">${vc.title}</div>
+        <div class="screener-verdict-title">${vc.title}${whyBtn}</div>
         <div class="screener-verdict-sub">${vc.sub}</div>
         <ul class="screener-verdict-reasons">${reasonsHtml}</ul>
+        ${narrativeHtml}
       </div>
     </div>
   `;
@@ -502,6 +522,55 @@ function renderScreenerResults(data) {
   // Tint form card on pass
   formCard.classList.remove('screen-pass');
   if (verdict === 'pass') formCard.classList.add('screen-pass');
+}
+
+function toggleScreenerNarrative(btn) {
+  const narrative = btn.closest('.screener-verdict-body').querySelector('.screener-narrative');
+  const isOpen = narrative.classList.toggle('open');
+  btn.textContent = isOpen ? '✕ Close' : 'ⓘ Why?';
+}
+
+function buildScreenerNarrative({ cms, sitemap, verdict }) {
+  const parts = [];
+
+  // CMS context
+  if (cms.flag === 'orange') {
+    if (cms.name === 'WordPress') {
+      parts.push('Built on WordPress — often has legacy plugins, complex themes, and manually-maintained content that doesn\'t translate cleanly to a new build.');
+    } else if (cms.name === 'Webflow') {
+      parts.push('Built on Webflow — custom code, CMS collections, and interactions would need to be rebuilt from scratch.');
+    } else {
+      parts.push(`Built on ${cms.name} — may require extra planning for content migration.`);
+    }
+  }
+
+  // Sitemap breakdown
+  if (sitemap) {
+    const detail = [];
+    if (sitemap.serviceAreaPages > 0) detail.push(`${sitemap.serviceAreaPages} location/service area page${sitemap.serviceAreaPages !== 1 ? 's' : ''}`);
+    if (sitemap.servicePages > 0) detail.push(`${sitemap.servicePages} specific service sub-page${sitemap.servicePages !== 1 ? 's' : ''}`);
+    const detailStr = detail.length ? `, including ${detail.join(' and ')},` : '';
+    const scope = sitemap.totalPages > 25 ? 'well above our threshold for a straightforward rebuild'
+                : sitemap.totalPages > 15 ? 'above our typical threshold'
+                : '';
+    if (scope) {
+      parts.push(`Sitemap shows ${sitemap.totalPages} pages${detailStr} — ${scope}.`);
+    } else if (detail.length) {
+      parts.push(`Sitemap shows ${sitemap.totalPages} pages${detailStr}.`);
+    }
+    if (sitemap.isSitemapIndex) {
+      parts.push('Multiple sitemaps detected — the site is likely larger than it appears.');
+    }
+  }
+
+  // Closing recommendation
+  if (verdict === 'warn') {
+    parts.push('Sites with this profile typically require significant restructuring. Contact Thierry or Daniel to assess scope before filling out the intake form.');
+  } else {
+    parts.push('Review these details with the client to confirm what pages are essential before proceeding.');
+  }
+
+  return parts.join(' ');
 }
 
 (async () => {
