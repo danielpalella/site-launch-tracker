@@ -444,7 +444,7 @@ async function runScreener() {
     });
     const data = await r.json();
     if (!r.ok) throw new Error(data.error || 'Screening failed');
-    renderScreenerResults(data);
+    renderScreenerResults(data, url);
   } catch (err) {
     errEl.textContent = err.message;
     errEl.style.display = '';
@@ -454,10 +454,20 @@ async function runScreener() {
   }
 }
 
-function renderScreenerResults(data) {
+function renderScreenerResults(data, screenerUrl) {
   const { cms, sitemap, verdict, flags, warnings } = data;
   const resEl = document.getElementById('screen-results');
   const card = document.getElementById('screener-card');
+
+  // Auto-fill domain field if empty
+  if (screenerUrl) {
+    try {
+      const domainField = document.getElementById('domain_name');
+      if (!domainField.value.trim()) {
+        domainField.value = new URL(screenerUrl).hostname.replace(/^www\./, '');
+      }
+    } catch {}
+  }
   const formCard = document.getElementById('form-card');
 
   // Color the entire card
