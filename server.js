@@ -618,15 +618,18 @@ function screenerAnalyzeHtml(html) {
   const signals = [];
 
   // Multi-trade: flag if 2+ distinct trade categories are present
+  // Patterns intentionally require the trade name itself to reduce false positives.
+  // Avoid terms like "water heater", "heat pump", "furnace", "drain" — these appear
+  // in electrical/HVAC wiring contexts and cause false multi-trade detection.
   const tradePatterns = {
-    'HVAC':        /\bhvac\b|air[\s-]?condition|heating\s+(?:and|&amp;|&)\s+cooling|heat\s+pump|furnace|ac\s+repair|air\s+handler/i,
-    'Plumbing':    /\bplumb(?:ing|er)\b|water\s+heater|drain\s+(?:clean|repair)|sewer\s+(?:line|repair)|burst\s+pipe/i,
+    'HVAC':        /\bhvac\b|air[\s-]?condition(?:ing|er)|heating\s+(?:and|&amp;|&)\s+cooling|ac\s+(?:repair|service|install)/i,
+    'Plumbing':    /\bplumb(?:ing|er)\b|sewer\s+(?:line|repair|service)|burst\s+pipe|pipe\s+(?:repair|leak|burst)/i,
     'Electrical':  /\belectric(?:al|ian)\b|wiring|circuit\s+breaker|electrical\s+panel|panel\s+upgrade/i,
     'Roofing':     /\bro(?:of(?:ing|er|s)|ofer)\b|shingles|flat\s+roof|roof\s+(?:repair|replace|install)/i,
     'Landscaping': /\blandscap(?:ing|er)\b|lawn\s+(?:care|mowing|service)|irrigation\s+(?:system|install)|sod\s+install/i,
     'Painting':    /\bpaint(?:ing|er)\b(?!\s+contractor.*hvac)/i,
-    'Flooring':    /\bflooring\b|hardwood\s+floor|tile\s+install|carpet\s+install/i,
-    'Cleaning':    /\bcleaning\s+service\b|janitorial|pressure\s+wash|window\s+clean/i,
+    'Flooring':    /\bflooring\b|hardwood\s+floor|tile\s+(?:install|flooring)|carpet\s+install/i,
+    'Cleaning':    /\bcleaning\s+service\b|janitorial\b|maid\s+service/i,
     'Siding':      /\bsiding\b|vinyl\s+siding|fiber[\s-]?cement|exterior\s+cladding/i,
   };
   const detected = Object.keys(tradePatterns).filter(t => tradePatterns[t].test(html));
