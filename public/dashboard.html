@@ -548,6 +548,33 @@
         </div>
       </div>
 
+      <!-- OUTREACH / FOLLOW-UP -->
+      <div class="crm-section" id="modal-outreach-section" style="display:none">
+        <div class="crm-section-header">
+          <div class="crm-section-label">Follow-up</div>
+          <div class="outreach-filter-tabs" id="modal-outreach-filters" style="display:none">
+            <button class="outreach-filter-tab outreach-filter-active" onclick="setOutreachFilter('all',this)">All</button>
+            <button class="outreach-filter-tab" onclick="setOutreachFilter('email',this)">Email</button>
+            <button class="outreach-filter-tab" onclick="setOutreachFilter('call',this)">Call</button>
+          </div>
+        </div>
+        <div id="modal-outreach-alert"></div>
+        <div id="modal-outreach-next-due" class="outreach-next-due" style="display:none">
+          <span class="outreach-next-due-label">Next follow-up</span>
+          <span id="modal-outreach-next-due-val"></span>
+        </div>
+        <div id="modal-outreach-log-input" class="outreach-log-input" style="display:none">
+          <select id="modal-outreach-type" class="outreach-type-select">
+            <option value="email">Email</option>
+            <option value="call">Call</option>
+            <option value="manual">Note</option>
+          </select>
+          <input type="text" id="modal-outreach-note" class="outreach-note-input" placeholder="Add a note…" onkeydown="if(event.key==='Enter')logOutreach()">
+          <button class="btn btn-primary" style="padding:.3rem .75rem;font-size:.8rem;flex-shrink:0" onclick="logOutreach()">Log</button>
+        </div>
+        <div id="modal-outreach-timeline"></div>
+      </div>
+
       <!-- Domain Info -->
       <div class="crm-section" id="modal-domain-info">
         <div class="crm-section-header">
@@ -1615,6 +1642,7 @@ function openEdit(id) {
   } else {
     freezeBtn.style.display = 'none';
   }
+  renderOutreachSection(r);
   document.getElementById('modal').classList.add('open');
   loadTimeline(id);
   lookupDomain(r.domain_name);
@@ -1629,6 +1657,164 @@ function switchCrmTab(name, btn) {
   });
   document.querySelectorAll('.crm-tab-bar .crm-tab').forEach(b => b.classList.remove('crm-tab-active'));
   if (btn) btn.classList.add('crm-tab-active');
+}
+
+// ── Outreach / Follow-up ──
+let _outreachFilter = 'all';
+
+function businessDaysBetween(fromDateStr, toDateStr) {
+  const start = new Date(fromDateStr + 'T12:00:00');
+  const end   = new Date(toDateStr   + 'T12:00:00');
+  let count = 0;
+  const cur = new Date(start);
+  while (cur < end) {
+    cur.setDate(cur.getDate() + 1);
+    const d = cur.getDay();
+    if (d !== 0 && d !== 6) count++;
+  }
+  return count;
+}
+
+function addBusinessDays(dateStr, n) {
+  const d = new Date(dateStr + 'T12:00:00');
+  let added = 0;
+  while (added < n) {
+    d.setDate(d.getDate() + 1);
+    if (d.getDay() !== 0 && d.getDay() !== 6) added++;
+  }
+  return d.toISOString().slice(0, 10);
+}
+
+function renderOutreachSection(r) {
+  _outreachFilter = 'all';
+  const section = document.getElementById('modal-outreach-section');
+  const log = r.outreach_log || [];
+  const isApproval = r.status === 'awaiting_approval';
+  if (!isApproval && !log.length) { section.style.display = 'none'; return; }
+  section.style.display = '';
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  // Alert banner
+  const alertEl = document.getElementById('modal-outreach-alert');
+  if (isApproval) {
+    const loggedToday = r.last_contact_date === today;
+    if (loggedToday) {
+      const next = addBusinessDays(today, 5);
+      alertEl.innerHTML = `<div class="outreach-alert outreach-alert-green"><span>✓ Follow-up logged · Next due ${formatDate(next)}</span><button class="btn btn-ghost outreach-alert-btn" onclick="undoLastOutreach()">Undo</button></div>`;
+    } else if (!r.last_contact_date) {
+      alertEl.innerHTML = `<div class="outreach-alert outreach-alert-amber"><span>No follow-up logged yet</span><button class="btn btn-ghost outreach-alert-btn" onclick="focusOutreachInput()">Log outreach</button></div>`;
+    } else {
+      const days = businessDaysBetween(r.last_contact_date, today);
+      if (days > 5) {
+        alertEl.innerHTML = `<div class="outreach-alert outreach-alert-red"><span>Follow-up overdue · ${days} business days since last contact</span><button class="btn btn-ghost outreach-alert-btn" onclick="focusOutreachInput()">Log outreach</button></div>`;
+      } else if (days >= 5) {
+        alertEl.innerHTML = `<div class="outreach-alert outreach-alert-amber"><span>Follow-up due today</span><button class="btn btn-ghost outreach-alert-btn" onclick="focusOutreachInput()">Log outreach</button></div>`;
+      } else {
+        alertEl.innerHTML = '';
+      }
+    }
+  } else {
+    alertEl.innerHTML = '';
+  }
+
+  // Next follow-up window
+  const nextDueEl = document.getElementById('modal-outreach-next-due');
+  if (isApproval) {
+    nextDueEl.style.display = '';
+    const valEl = document.getElementById('modal-outreach-next-due-val');
+    if (!r.last_contact_date) {
+      valEl.textContent = 'Today';
+    } else {
+      const nextDate = addBusinessDays(r.last_contact_date, 5);
+      const busDays  = businessDaysBetween(today, nextDate);
+      valEl.textContent = nextDate <= today ? 'Today' : `${formatDate(nextDate)} (${busDays} business day${busDays !== 1 ? 's' : ''})`;
+    }
+  } else {
+    nextDueEl.style.display = 'none';
+  }
+
+  // Log input
+  document.getElementById('modal-outreach-log-input').style.display = isApproval ? 'flex' : 'none';
+
+  // Filter tabs (show only if there are multiple types)
+  const types = new Set(log.map(e => e.type));
+  document.getElementById('modal-outreach-filters').style.display = log.length && types.size > 1 ? '' : 'none';
+
+  // Timeline
+  renderOutreachTimeline(log);
+}
+
+function renderOutreachTimeline(log) {
+  const el = document.getElementById('modal-outreach-timeline');
+  const filtered = _outreachFilter === 'all' ? log : log.filter(e => e.type === _outreachFilter);
+  if (!filtered.length) {
+    el.innerHTML = log.length ? '<p style="color:var(--text-muted);font-size:.8rem;margin-top:.5rem">No entries match this filter.</p>' : '';
+    return;
+  }
+  const TYPE_LABEL = { email: 'Email', call: 'Call', manual: 'Note' };
+  el.innerHTML = filtered.map(e => `
+    <div class="outreach-entry">
+      <div class="outreach-entry-top">
+        <span class="outreach-entry-type outreach-type-${e.type}">${TYPE_LABEL[e.type] || e.type}</span>
+        <span class="outreach-entry-who">${esc(e.logged_by || '—')}</span>
+        <span class="outreach-entry-date">${esc(formatDate(e.date))}</span>
+      </div>
+      ${e.note ? `<div class="outreach-entry-note">${esc(e.note)}</div>` : ''}
+    </div>
+  `).join('');
+}
+
+function setOutreachFilter(filter, btn) {
+  _outreachFilter = filter;
+  document.querySelectorAll('.outreach-filter-tab').forEach(b => b.classList.remove('outreach-filter-active'));
+  if (btn) btn.classList.add('outreach-filter-active');
+  const r = allLaunches.find(x => x.id === editingId);
+  if (r) renderOutreachTimeline(r.outreach_log || []);
+}
+
+function focusOutreachInput() {
+  const el = document.getElementById('modal-outreach-note');
+  if (el) { el.focus(); el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
+}
+
+async function logOutreach() {
+  const note = document.getElementById('modal-outreach-note').value.trim();
+  const type = document.getElementById('modal-outreach-type').value;
+  if (!editingId) return;
+  const btn = document.querySelector('#modal-outreach-log-input .btn-primary');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  try {
+    const res = await fetch(`/api/launches/${editingId}/outreach`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ note, type }),
+    });
+    if (!res.ok) throw new Error();
+    const updated = await res.json();
+    const idx = allLaunches.findIndex(x => x.id === editingId);
+    if (idx !== -1) allLaunches[idx] = updated;
+    document.getElementById('modal-outreach-note').value = '';
+    renderOutreachSection(updated);
+  } catch {
+    showToast('Failed to log outreach', 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Log'; }
+  }
+}
+
+async function undoLastOutreach() {
+  if (!editingId) return;
+  try {
+    const res = await fetch(`/api/launches/${editingId}/outreach/latest`, { method: 'DELETE' });
+    if (!res.ok) throw new Error();
+    const updated = await res.json();
+    const idx = allLaunches.findIndex(x => x.id === editingId);
+    if (idx !== -1) allLaunches[idx] = updated;
+    renderOutreachSection(updated);
+  } catch {
+    showToast('Failed to undo', 'error');
+  }
 }
 
 document.getElementById('modal-cancel').addEventListener('click', () => {
@@ -1830,12 +2016,14 @@ function updatePipelineNewBadge() {
   btn.addEventListener('touchcancel', cancelHold);
 })();
 
-// Show logged-in user email in nav
+// Show logged-in user email in nav + capture for outreach logging
+let currentUserEmail = '';
 (async () => {
   try {
     const r = await fetch('/api/auth/me');
     if (r.ok) {
       const { email } = await r.json();
+      currentUserEmail = email || '';
       const el = document.getElementById('nav-user-email');
       if (el && email) el.textContent = email;
     }

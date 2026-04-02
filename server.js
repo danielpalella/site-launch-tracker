@@ -182,6 +182,8 @@ function formatLaunch(doc) {
     analytics_note:       d.analytics_note       || '',
     custom_favicon:       d.custom_favicon        || null,
     tags:                 d.tags                  || [],
+    last_contact_date:    d.last_contact_date     || null,
+    outreach_log:         d.outreach_log          || [],
   };
 }
 
@@ -368,7 +370,7 @@ app.post('/api/launches', requireAuth, async (req, res) => {
 
 app.patch('/api/launches/:id', requireAuth, async (req, res) => {
   try {
-    const { status, notes, analytics_note, department, industry, account_name, domain_name, contact_name, email, phone, owner, is_renewal, archived, analytics_start_date, launch_date, duda_site_name, hideFormSubmits } = req.body;
+    const { status, notes, analytics_note, department, industry, account_name, domain_name, contact_name, email, phone, owner, is_renewal, archived, analytics_start_date, launch_date, duda_site_name, hideFormSubmits, last_contact_date } = req.body;
     const ref = db.collection('launches').doc(req.params.id);
     const doc = await ref.get();
     if (!doc.exists) return res.status(404).json({ error: 'Not found' });
@@ -398,7 +400,8 @@ app.patch('/api/launches/:id', requireAuth, async (req, res) => {
     if (analytics_start_date !== undefined) updates.analytics_start_date = analytics_start_date || null;
     if (duda_site_name       !== undefined) updates.duda_site_name       = duda_site_name       || null;
     if (analytics_note       !== undefined) updates.analytics_note       = String(analytics_note).slice(0, 500);
-    if (hideFormSubmits !== undefined) updates.hideFormSubmits = Boolean(hideFormSubmits);
+    if (hideFormSubmits    !== undefined) updates.hideFormSubmits    = Boolean(hideFormSubmits);
+    if (last_contact_date  !== undefined) updates.last_contact_date  = last_contact_date || null;
     if (statusChanged) {
       updates.status_changed_at = FieldValue.serverTimestamp();
     } else if (launch_date) {
@@ -443,6 +446,43 @@ app.patch('/api/launches/:id', requireAuth, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to update launch.' });
+  }
+});
+
+// ── Outreach log ──
+app.post('/api/launches/:id/outreach', requireAuth, async (req, res) => {
+  try {
+    const { note, type } = req.body;
+    const ref = db.collection('launches').doc(req.params.id);
+    const doc = await ref.get();
+    if (!doc.exists) return res.status(404).json({ error: 'Not found' });
+    const d = doc.data();
+    const today = new Date().toISOString().slice(0, 10);
+    const entry = { date: today, note: (note || '').trim(), type: type || 'manual', logged_by: req.userEmail || '' };
+    const log = [entry, ...(d.outreach_log || [])];
+    await ref.update({ last_contact_date: today, outreach_log: log, updated_at: FieldValue.serverTimestamp() });
+    res.json(formatLaunch(await ref.get()));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to log outreach.' });
+  }
+});
+
+app.delete('/api/launches/:id/outreach/latest', requireAuth, async (req, res) => {
+  try {
+    const ref = db.collection('launches').doc(req.params.id);
+    const doc = await ref.get();
+    if (!doc.exists) return res.status(404).json({ error: 'Not found' });
+    const d = doc.data();
+    const log = [...(d.outreach_log || [])];
+    if (!log.length) return res.status(400).json({ error: 'Nothing to undo.' });
+    log.shift();
+    const prevDate = log[0]?.date || null;
+    await ref.update({ last_contact_date: prevDate, outreach_log: log, updated_at: FieldValue.serverTimestamp() });
+    res.json(formatLaunch(await ref.get()));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to undo.' });
   }
 });
 

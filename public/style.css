@@ -719,6 +719,110 @@ tr.frozen-subseparator td {
 .crm-row { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; }
 .crm-actions { padding: 1rem 1.75rem; margin-top: 0; }
 
+/* ── Outreach / Follow-up ── */
+.outreach-alert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  padding: .55rem .85rem;
+  border-radius: 8px;
+  border: 1px solid;
+  font-size: .83rem;
+  font-weight: 600;
+  margin-bottom: .7rem;
+}
+.outreach-alert-green { background: #f0fdf4; color: #166534; border-color: #bbf7d0; }
+.outreach-alert-amber { background: #fffbeb; color: #92400e; border-color: #fde68a; }
+.outreach-alert-red   { background: #fef2f2; color: #991b1b; border-color: #fecaca; }
+.outreach-alert-btn   { padding: .2rem .6rem !important; font-size: .75rem !important; flex-shrink: 0; }
+
+.outreach-next-due {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  font-size: .82rem;
+  margin-bottom: .7rem;
+  color: var(--text);
+}
+.outreach-next-due-label {
+  font-size: .67rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--text-muted);
+}
+
+.outreach-log-input {
+  display: flex;
+  gap: .4rem;
+  align-items: center;
+  margin-bottom: .8rem;
+}
+.outreach-type-select {
+  padding: .3rem .4rem;
+  font-size: .78rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  flex-shrink: 0;
+}
+.outreach-note-input {
+  flex: 1;
+  min-width: 0;
+  padding: .32rem .55rem;
+  font-size: .83rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font-family: inherit;
+}
+.outreach-note-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,.1); }
+
+.outreach-filter-tabs { display: flex; gap: .15rem; }
+.outreach-filter-tab {
+  background: none;
+  border: none;
+  font-size: .73rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: .15rem .45rem;
+  border-radius: 4px;
+  transition: background .12s, color .12s;
+}
+.outreach-filter-tab:hover { background: var(--bg); color: var(--text); }
+.outreach-filter-tab.outreach-filter-active { background: var(--primary); color: #fff; }
+
+.outreach-entry {
+  padding: .55rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.outreach-entry:last-child { border-bottom: none; }
+.outreach-entry-top {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  font-size: .78rem;
+  margin-bottom: .2rem;
+}
+.outreach-entry-type {
+  font-size: .65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  padding: .1rem .35rem;
+  border-radius: 4px;
+}
+.outreach-type-email  { background: #dbeafe; color: #1d4ed8; }
+.outreach-type-call   { background: #dcfce7; color: #166534; }
+.outreach-type-manual { background: var(--bg); color: var(--text-muted); }
+.outreach-entry-who   { color: var(--text); font-weight: 600; flex: 1; font-size: .8rem; }
+.outreach-entry-date  { color: var(--text-muted); font-size: .75rem; white-space: nowrap; }
+.outreach-entry-note  { font-size: .81rem; color: var(--text-muted); padding-left: .1rem; }
+
 /* Status pill in modal header */
 .crm-status-pill {
   display: inline-flex;
