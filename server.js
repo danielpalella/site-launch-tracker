@@ -1826,29 +1826,34 @@ app.get('/api/launches/:id/widget-events', requireAuth, async (req, res) => {
       ]}
     };
 
-    const [eventsRes, trendRes] = await Promise.all([
-      fetch(`https://analyticsdata.googleapis.com/v1beta/${property}:runReport`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          dateRanges: [{ startDate: `${days}daysAgo`, endDate: 'today' }],
-          dimensions: [{ name: 'eventName' }],
-          metrics: [{ name: 'eventCount' }],
-          dimensionFilter: widgetFilter,
-          orderBys: [{ metric: { metricName: 'eventCount' }, desc: true }],
-        }),
-      }).then(r => r.json()),
-      fetch(`https://analyticsdata.googleapis.com/v1beta/${property}:runReport`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          dateRanges: [{ startDate: `${days}daysAgo`, endDate: 'today' }],
-          dimensions: [{ name: 'date' }],
-          metrics: [{ name: 'eventCount' }],
-          dimensionFilter: { filter: { fieldName: 'eventName', stringFilter: { matchType: 'EXACT', value: 'widget_open' } } },
-          orderBys: [{ dimension: { dimensionName: 'date' } }],
-        }),
-      }).then(r => r.json()),
+    const ga4Post = body => fetch(`https://analyticsdata.googleapis.com/v1beta/${property}:runReport`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }).then(r => r.json());
+
+    const [eventsRes, trendRes, formDatesRes] = await Promise.all([
+      ga4Post({
+        dateRanges: [{ startDate: `${days}daysAgo`, endDate: 'today' }],
+        dimensions: [{ name: 'eventName' }],
+        metrics: [{ name: 'eventCount' }],
+        dimensionFilter: widgetFilter,
+        orderBys: [{ metric: { metricName: 'eventCount' }, desc: true }],
+      }),
+      ga4Post({
+        dateRanges: [{ startDate: `${days}daysAgo`, endDate: 'today' }],
+        dimensions: [{ name: 'date' }],
+        metrics: [{ name: 'eventCount' }],
+        dimensionFilter: { filter: { fieldName: 'eventName', stringFilter: { matchType: 'EXACT', value: 'widget_open' } } },
+        orderBys: [{ dimension: { dimensionName: 'date' } }],
+      }),
+      ga4Post({
+        dateRanges: [{ startDate: `${days}daysAgo`, endDate: 'today' }],
+        dimensions: [{ name: 'date' }],
+        metrics: [{ name: 'eventCount' }],
+        dimensionFilter: { filter: { fieldName: 'eventName', stringFilter: { matchType: 'EXACT', value: 'widget_form_submit' } } },
+        orderBys: [{ dimension: { dimensionName: 'date' }, desc: true }],
+      }),
     ]);
 
     res.json({
@@ -1859,6 +1864,10 @@ app.get('/api/launches/:id/widget-events', requireAuth, async (req, res) => {
         count: parseInt(r.metricValues[0].value),
       })),
       dailyOpens: (trendRes.rows || []).map(r => ({
+        date: r.dimensionValues[0].value,
+        count: parseInt(r.metricValues[0].value),
+      })),
+      formSubmitDates: (formDatesRes.rows || []).map(r => ({
         date: r.dimensionValues[0].value,
         count: parseInt(r.metricValues[0].value),
       })),

@@ -5974,7 +5974,7 @@ function renderAnalyticsModalBody(id, data, forms) {
       <button class="acd-tab-btn" onclick="switchAcdTab('perf','${esc(id)}')">Performance</button>
       <button class="acd-tab-btn" onclick="switchAcdTab('leads','${esc(id)}')" id="acd-leads-tab-btn-${id}">Leads${leadCount > 0 ? `<span class="acd-tab-count">${leadCount}</span>` : ''}</button>
       <button class="acd-tab-btn" onclick="switchAcdTab('account','${esc(id)}')">Account</button>
-      <button class="acd-tab-btn" onclick="switchAcdTab('widget','${esc(id)}')">Widget</button>
+      <button class="acd-tab-btn" onclick="switchAcdTab('widget','${esc(id)}')">AI Widget <span style="font-size:.65rem;opacity:.7;font-weight:500">beta</span></button>
     </div>
     <div id="acd-tp-overview-${id}" class="acd-tab-pane">
       <div class="acd-sources-row">${gscSection}${ga4Section}${dudaSection}</div>
@@ -6321,6 +6321,24 @@ async function loadWidgetEvents(id) {
         <div style="margin-bottom:1.1rem">
           <div style="font-size:.78rem;font-weight:600;color:var(--text);margin-bottom:.5rem">Widget Opens — Last ${data.days} Days</div>
           <div style="height:90px"><canvas id="acd-widget-chart-${esc(id)}"></canvas></div>
+        </div>` : ''}
+      ${data.formSubmitDates?.length ? `
+        <div style="margin-bottom:1.1rem">
+          <div style="font-size:.78rem;font-weight:600;color:var(--text);margin-bottom:.4rem">Form Submissions by Date</div>
+          <table style="width:100%;border-collapse:collapse;border-top:1px solid var(--border)">
+            <thead><tr>
+              <th style="font-size:.72rem;color:var(--text-muted);font-weight:600;text-align:left;padding:.3rem .5rem">Date</th>
+              <th style="font-size:.72rem;color:var(--text-muted);font-weight:600;text-align:right;padding:.3rem .5rem">Submissions</th>
+            </tr></thead>
+            <tbody>${data.formSubmitDates.map(d => {
+              const s = d.date;
+              const label = new Date(`${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}T12:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+              return `<tr style="border-bottom:1px solid var(--border)">
+                <td style="font-size:.83rem;color:var(--text);padding:.4rem .5rem">${label}</td>
+                <td style="font-size:.83rem;color:var(--text);padding:.4rem .5rem;text-align:right;font-variant-numeric:tabular-nums">${d.count}</td>
+              </tr>`;
+            }).join('')}</tbody>
+          </table>
         </div>` : ''}
       <div style="font-size:.78rem;font-weight:600;color:var(--text);margin-bottom:.4rem">
         Event Breakdown <span style="font-weight:400;color:var(--text-muted)">· last ${data.days} days</span>
