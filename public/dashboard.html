@@ -5974,7 +5974,7 @@ function renderAnalyticsModalBody(id, data, forms) {
       <button class="acd-tab-btn" onclick="switchAcdTab('perf','${esc(id)}')">Performance</button>
       <button class="acd-tab-btn" onclick="switchAcdTab('leads','${esc(id)}')" id="acd-leads-tab-btn-${id}">Leads${leadCount > 0 ? `<span class="acd-tab-count">${leadCount}</span>` : ''}</button>
       <button class="acd-tab-btn" onclick="switchAcdTab('account','${esc(id)}')">Account</button>
-      <button class="acd-tab-btn" onclick="switchAcdTab('widget','${esc(id)}')">AI Chatbot <span style="font-size:.65rem;opacity:.7;font-weight:500">beta</span></button>
+      ${(data.tags || []).some(tid => _tagMap[tid]?.name?.toLowerCase() === 'ai chatbot beta') ? `<button class="acd-tab-btn" onclick="switchAcdTab('widget','${esc(id)}')">AI Chatbot <span style="font-size:.65rem;opacity:.7;font-weight:500">beta</span></button>` : ''}
     </div>
     <div id="acd-tp-overview-${id}" class="acd-tab-pane">
       <div class="acd-sources-row">${gscSection}${ga4Section}${dudaSection}</div>
@@ -6014,9 +6014,10 @@ function renderAnalyticsModalBody(id, data, forms) {
         </button>
       </div>
     </div>
+    ${(data.tags || []).some(tid => _tagMap[tid]?.name?.toLowerCase() === 'ai chatbot beta') ? `
     <div id="acd-tp-widget-${id}" class="acd-tab-pane" style="display:none">
       <div id="acd-widget-body-${id}" style="color:var(--text-muted);font-size:.85rem;padding:.75rem 0">Loading widget events…</div>
-    </div>
+    </div>` : ''}
   `;
 
   if (hasModalChart) {
