@@ -2121,6 +2121,21 @@ app.post('/api/tags', requireAuth, async (req, res) => {
   }
 });
 
+app.patch('/api/tags/:id', requireAuth, async (req, res) => {
+  const { name, color } = req.body;
+  if (!name?.trim()) return res.status(400).json({ error: 'Tag name required' });
+  try {
+    const ref = db.collection('tags').doc(req.params.id);
+    const updates = { name: name.trim() };
+    if (color) updates.color = color;
+    await ref.update(updates);
+    const doc = await ref.get();
+    res.json({ id: doc.id, name: doc.data().name, color: doc.data().color });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.delete('/api/tags/:id', requireAuth, async (req, res) => {
   try {
     await db.collection('tags').doc(req.params.id).delete();

@@ -3929,6 +3929,10 @@ mark.schema-fill-mark {
   border: 1px solid color-mix(in srgb, var(--tag-c) 25%, transparent);
   white-space: nowrap;
 }
+.site-tag-name {
+  cursor: pointer;
+}
+.site-tag-name:hover { text-decoration: underline; text-underline-offset: 2px; }
 .site-tag-remove {
   background: none; border: none; cursor: pointer;
   padding: 0 0 0 .1rem; font-size: .9rem; line-height: 1;

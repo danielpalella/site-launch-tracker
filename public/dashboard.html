@@ -6214,7 +6214,7 @@ function renderModalTags(id) {
     pillsEl.innerHTML = siteTags.map(tid => {
       const t = _tagMap[tid];
       if (!t) return '';
-      return `<span class="site-tag-pill" style="--tag-c:${t.color}">${esc(t.name)}<button class="site-tag-remove" onclick="removeSiteTag('${esc(id)}','${esc(tid)}')">×</button></span>`;
+      return `<span class="site-tag-pill" style="--tag-c:${t.color}"><span class="site-tag-name" onclick="renameTag('${esc(tid)}','${esc(t.name)}')" title="Click to rename">${esc(t.name)}</span><button class="site-tag-remove" onclick="removeSiteTag('${esc(id)}','${esc(tid)}')">×</button></span>`;
     }).join('') || '<span style="color:var(--text-muted);font-size:.78rem">No tags yet</span>';
   }
   const listEl = document.getElementById(`tag-picker-list-${id}`);
@@ -6256,6 +6256,31 @@ async function createAndAddTag(siteId) {
     await addSiteTag(siteId, tag.id);
   } catch {
     showToast('Failed to create tag', 'error');
+  }
+}
+
+async function renameTag(tagId, currentName) {
+  const newName = prompt('Rename tag:', currentName);
+  if (!newName?.trim() || newName.trim() === currentName) return;
+  try {
+    const r = await fetch(`/api/tags/${tagId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: newName.trim() }),
+    });
+    if (!r.ok) throw new Error();
+    const tag = await r.json();
+    _tagMap[tag.id].name = tag.name;
+    _tagsRegistry.find(t => t.id === tag.id).name = tag.name;
+    renderTagFilterSelect();
+    // Re-render all open modals
+    document.querySelectorAll('[id^="site-tag-pills-"]').forEach(el => {
+      const id = el.id.replace('site-tag-pills-', '');
+      renderModalTags(id);
+    });
+    renderModalHeaderTags(Object.keys(analyticsData).find(id => analyticsData[id]?.tags?.includes(tagId)) || '');
+  } catch {
+    showToast('Failed to rename tag', 'error');
   }
 }
 
