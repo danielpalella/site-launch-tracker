@@ -1928,24 +1928,31 @@ app.get('/api/launches/:id/hcp-leads', requireAuth, async (req, res) => {
   try {
     const doc = await db.collection('launches').doc(req.params.id).get();
     if (!doc.exists) return res.status(404).json({ error: 'Not found' });
-    const { hcp_api_key } = doc.data();
+    const { hcp_api_key, analytics_start_date, launch_date } = doc.data();
     if (!hcp_api_key) return res.json({ available: false, reason: 'No HCP API key configured' });
+    // Filter leads to only those on/after the widget launch date
+    const sinceDate = analytics_start_date || launch_date || null;
     const r = await fetch('https://api.housecallpro.com/leads?page_size=100', {
       headers: { Authorization: `Token ${hcp_api_key}`, 'Content-Type': 'application/json' },
     });
     if (!r.ok) return res.status(r.status).json({ error: `HCP API error: ${r.status}` });
     const data = await r.json();
-    const leads = (data.leads || []).map(l => ({
-      id: l.id,
-      number: l.number,
-      name: `${l.customer?.first_name || ''} ${l.customer?.last_name || ''}`.trim(),
-      phone: l.customer?.mobile_number || l.customer?.home_number || null,
-      email: l.customer?.email || null,
-      lead_source: l.lead_source,
-      status: l.pipeline_status || l.status,
-      submitted_at: l.customer?.created_at || null,
-    }));
-    res.json({ available: true, total: data.total_items, leads });
+    const leads = (data.leads || [])
+      .filter(l => {
+        if (!sinceDate || !l.customer?.created_at) return true;
+        return l.customer.created_at >= sinceDate;
+      })
+      .map(l => ({
+        id: l.id,
+        number: l.number,
+        name: `${l.customer?.first_name || ''} ${l.customer?.last_name || ''}`.trim(),
+        phone: l.customer?.mobile_number || l.customer?.home_number || null,
+        email: l.customer?.email || null,
+        lead_source: l.lead_source,
+        status: l.pipeline_status || l.status,
+        submitted_at: l.customer?.created_at || null,
+      }));
+    res.json({ available: true, total: leads.length, since: sinceDate, leads });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -6388,7 +6388,16 @@ async function loadWidgetEvents(id) {
       ['Attributed', attributedCount !== null ? `${attributedCount}/${leadCount}` : '—'],
     ];
 
-    const tableRows = data.events.map(e => `
+    // Merge widget_form_submit + bcs_contact_form_shown — same action, tracked twice
+    const MERGE_INTO = { 'bcs_contact_form_shown': 'widget_form_submit' };
+    const mergedEvents = [];
+    const mergedMap = {};
+    for (const e of data.events) {
+      const key = MERGE_INTO[e.name] || e.name;
+      if (mergedMap[key] !== undefined) { mergedEvents[mergedMap[key]].count += e.count; }
+      else { mergedMap[key] = mergedEvents.length; mergedEvents.push({ name: key, count: e.count }); }
+    }
+    const tableRows = mergedEvents.map(e => `
       <tr style="border-bottom:1px solid var(--border)">
         <td style="font-size:.83rem;color:var(--text);padding:.4rem .5rem">${esc(EVENT_LABELS[e.name] || e.name)}</td>
         <td style="font-size:.83rem;color:var(--text);padding:.4rem .5rem;text-align:right;font-variant-numeric:tabular-nums">${e.count.toLocaleString()}</td>
