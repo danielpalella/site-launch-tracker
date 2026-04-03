@@ -5974,6 +5974,7 @@ function renderAnalyticsModalBody(id, data, forms) {
       <button class="acd-tab-btn" onclick="switchAcdTab('perf','${esc(id)}')">Performance</button>
       <button class="acd-tab-btn" onclick="switchAcdTab('leads','${esc(id)}')" id="acd-leads-tab-btn-${id}">Leads${leadCount > 0 ? `<span class="acd-tab-count">${leadCount}</span>` : ''}</button>
       <button class="acd-tab-btn" onclick="switchAcdTab('account','${esc(id)}')">Account</button>
+      <button class="acd-tab-btn" onclick="switchAcdTab('widget','${esc(id)}')">Widget</button>
     </div>
     <div id="acd-tp-overview-${id}" class="acd-tab-pane">
       <div class="acd-sources-row">${gscSection}${ga4Section}${dudaSection}</div>
@@ -6012,6 +6013,9 @@ function renderAnalyticsModalBody(id, data, forms) {
           Copy Link
         </button>
       </div>
+    </div>
+    <div id="acd-tp-widget-${id}" class="acd-tab-pane" style="display:none">
+      <div id="acd-widget-body-${id}" style="color:var(--text-muted);font-size:.85rem;padding:.75rem 0">Loading widget events…</div>
     </div>
   `;
 
@@ -6256,7 +6260,7 @@ async function createAndAddTag(siteId) {
 }
 
 function switchAcdTab(tab, id) {
-  const tabs = ['overview', 'seo', 'perf', 'leads', 'account'];
+  const tabs = ['overview', 'seo', 'perf', 'leads', 'account', 'widget'];
   tabs.forEach(t => {
     const el = document.getElementById(`acd-tp-${t}-${id}`);
     if (el) el.style.display = t === tab ? '' : 'none';
@@ -6265,6 +6269,92 @@ function switchAcdTab(tab, id) {
   if (nav) nav.querySelectorAll('.acd-tab-btn').forEach((btn, i) => {
     btn.classList.toggle('acd-tab-active', tabs[i] === tab);
   });
+  if (tab === 'widget') loadWidgetEvents(id);
+}
+
+const _widgetEventsLoaded = {};
+async function loadWidgetEvents(id) {
+  if (_widgetEventsLoaded[id]) return;
+  _widgetEventsLoaded[id] = true;
+  const body = document.getElementById(`acd-widget-body-${id}`);
+  if (!body) return;
+  try {
+    const r = await fetch(`/api/launches/${id}/widget-events?days=30`);
+    const data = await r.json();
+    if (!data.available) {
+      body.innerHTML = `<div style="color:var(--text-muted);font-size:.85rem;padding:.75rem 0">${esc(data.reason || 'No widget events found.')}</div>`;
+      return;
+    }
+    if (!data.events.length) {
+      body.innerHTML = `<div style="color:var(--text-muted);font-size:.85rem;padding:.75rem 0">No widget events recorded in the last ${data.days} days.</div>`;
+      return;
+    }
+    const EVENT_LABELS = {
+      widget_open: 'Widget Opened', widget_close: 'Widget Closed',
+      widget_button_click: 'Button Click', widget_message_sent: 'Message Sent',
+      widget_form_submit: 'Form Submitted', bcs_chip_click: 'Chip Click',
+      bcs_sub_chip_click: 'Sub-chip Click', bcs_quick_reply_click: 'Quick Reply Click',
+      bcs_message_sent: 'Message Sent', bcs_project_card_click: 'Project Card Click',
+      bcs_contact_form_shown: 'Contact Form Shown',
+    };
+    const opens    = data.events.find(e => e.name === 'widget_open')?.count || 0;
+    const messages = (data.events.find(e => e.name === 'bcs_message_sent')?.count || 0)
+                   + (data.events.find(e => e.name === 'widget_message_sent')?.count || 0);
+    const submits  = data.events.find(e => e.name === 'widget_form_submit')?.count || 0;
+    const total    = data.events.reduce((s, e) => s + e.count, 0);
+    const kpis = [['Opens', opens], ['Messages', messages], ['Form Submits', submits], ['Total Events', total]];
+    const tableRows = data.events.map(e => `
+      <tr style="border-bottom:1px solid var(--border)">
+        <td style="font-size:.83rem;color:var(--text);padding:.4rem .5rem">${esc(EVENT_LABELS[e.name] || e.name)}</td>
+        <td style="font-size:.83rem;color:var(--text);padding:.4rem .5rem;text-align:right;font-variant-numeric:tabular-nums">${e.count.toLocaleString()}</td>
+      </tr>`).join('');
+    const hasChart = data.dailyOpens?.length > 1;
+    body.innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.6rem;margin-bottom:1.1rem">
+        ${kpis.map(([label, val]) => `
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:.5rem;padding:.55rem .75rem">
+            <div style="font-size:.7rem;color:var(--text-muted);margin-bottom:.15rem">${label}</div>
+            <div style="font-size:1.25rem;font-weight:700;color:var(--text)">${val.toLocaleString()}</div>
+          </div>`).join('')}
+      </div>
+      ${hasChart ? `
+        <div style="margin-bottom:1.1rem">
+          <div style="font-size:.78rem;font-weight:600;color:var(--text);margin-bottom:.5rem">Widget Opens — Last ${data.days} Days</div>
+          <div style="height:90px"><canvas id="acd-widget-chart-${esc(id)}"></canvas></div>
+        </div>` : ''}
+      <div style="font-size:.78rem;font-weight:600;color:var(--text);margin-bottom:.4rem">
+        Event Breakdown <span style="font-weight:400;color:var(--text-muted)">· last ${data.days} days</span>
+      </div>
+      <table style="width:100%;border-collapse:collapse;border-top:1px solid var(--border)">
+        <thead><tr>
+          <th style="font-size:.72rem;color:var(--text-muted);font-weight:600;text-align:left;padding:.3rem .5rem">Event</th>
+          <th style="font-size:.72rem;color:var(--text-muted);font-weight:600;text-align:right;padding:.3rem .5rem">Count</th>
+        </tr></thead>
+        <tbody>${tableRows}</tbody>
+      </table>`;
+    if (hasChart) {
+      const canvas = document.getElementById(`acd-widget-chart-${id}`);
+      if (canvas && window.Chart) {
+        new Chart(canvas, {
+          type: 'bar',
+          data: {
+            labels: data.dailyOpens.map(d => `${d.date.slice(4,6)}/${d.date.slice(6,8)}`),
+            datasets: [{ data: data.dailyOpens.map(d => d.count), backgroundColor: 'rgba(99,102,241,.55)', borderRadius: 3 }],
+          },
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+              x: { grid: { display: false }, ticks: { font: { size: 9 }, maxTicksLimit: 12 } },
+              y: { grid: { color: 'rgba(0,0,0,.06)' }, ticks: { font: { size: 9 }, precision: 0 }, beginAtZero: true },
+            },
+          },
+        });
+      }
+    }
+  } catch {
+    if (body) body.innerHTML = `<div style="color:var(--text-muted);font-size:.85rem;padding:.75rem 0">Failed to load widget events.</div>`;
+  }
 }
 
 function toggleKwExpand(id) {

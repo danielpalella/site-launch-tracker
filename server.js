@@ -1808,6 +1808,67 @@ async function fetchDuda(siteName, launchDate) {
   return data;
 }
 
+app.get('/api/launches/:id/widget-events', requireAuth, async (req, res) => {
+  const days = Math.min(parseInt(req.query.days) || 30, 90);
+  try {
+    const token = await getAnalyticsAccessToken();
+    const doc = await db.collection('launches').doc(req.params.id).get();
+    if (!doc.exists) return res.status(404).json({ error: 'Not found' });
+    const domain = doc.data().domain_name;
+    const propertyId = await getGa4PropertyId(domain, token);
+    if (!propertyId) return res.json({ available: false, reason: 'No GA4 property found for this domain' });
+
+    const property = `properties/${propertyId}`;
+    const widgetFilter = {
+      orGroup: { expressions: [
+        { filter: { fieldName: 'eventName', stringFilter: { matchType: 'BEGINS_WITH', value: 'widget_' } } },
+        { filter: { fieldName: 'eventName', stringFilter: { matchType: 'BEGINS_WITH', value: 'bcs_' } } },
+      ]}
+    };
+
+    const [eventsRes, trendRes] = await Promise.all([
+      fetch(`https://analyticsdata.googleapis.com/v1beta/${property}:runReport`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          dateRanges: [{ startDate: `${days}daysAgo`, endDate: 'today' }],
+          dimensions: [{ name: 'eventName' }],
+          metrics: [{ name: 'eventCount' }],
+          dimensionFilter: widgetFilter,
+          orderBys: [{ metric: { metricName: 'eventCount' }, desc: true }],
+        }),
+      }).then(r => r.json()),
+      fetch(`https://analyticsdata.googleapis.com/v1beta/${property}:runReport`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          dateRanges: [{ startDate: `${days}daysAgo`, endDate: 'today' }],
+          dimensions: [{ name: 'date' }],
+          metrics: [{ name: 'eventCount' }],
+          dimensionFilter: { filter: { fieldName: 'eventName', stringFilter: { matchType: 'EXACT', value: 'widget_open' } } },
+          orderBys: [{ dimension: { dimensionName: 'date' } }],
+        }),
+      }).then(r => r.json()),
+    ]);
+
+    res.json({
+      available: true,
+      days,
+      events: (eventsRes.rows || []).map(r => ({
+        name: r.dimensionValues[0].value,
+        count: parseInt(r.metricValues[0].value),
+      })),
+      dailyOpens: (trendRes.rows || []).map(r => ({
+        date: r.dimensionValues[0].value,
+        count: parseInt(r.metricValues[0].value),
+      })),
+    });
+  } catch (err) {
+    if (err.code === 'not_connected') return res.json({ available: false, reason: 'Analytics not connected' });
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/launches/:id/forms', requireAuth, async (req, res) => {
   try {
     const doc = await db.collection('launches').doc(req.params.id).get();
