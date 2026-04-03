@@ -1832,7 +1832,9 @@ app.get('/api/launches/:id/widget-events', requireAuth, async (req, res) => {
       body: JSON.stringify(body),
     }).then(r => r.json());
 
-    const [eventsRes, trendRes, formDatesRes] = await Promise.all([
+    const formSubmitFilter = { filter: { fieldName: 'eventName', stringFilter: { matchType: 'EXACT', value: 'widget_form_submit' } } };
+
+    const [eventsRes, trendRes, formDatesRes, formHourlyRes, propRes] = await Promise.all([
       ga4Post({
         dateRanges: [{ startDate: `${days}daysAgo`, endDate: 'today' }],
         dimensions: [{ name: 'eventName' }],
@@ -1851,14 +1853,27 @@ app.get('/api/launches/:id/widget-events', requireAuth, async (req, res) => {
         dateRanges: [{ startDate: `${days}daysAgo`, endDate: 'today' }],
         dimensions: [{ name: 'date' }],
         metrics: [{ name: 'eventCount' }],
-        dimensionFilter: { filter: { fieldName: 'eventName', stringFilter: { matchType: 'EXACT', value: 'widget_form_submit' } } },
+        dimensionFilter: formSubmitFilter,
         orderBys: [{ dimension: { dimensionName: 'date' }, desc: true }],
       }),
+      // Hourly breakdown for closed-loop correlation — always fetch 90 days
+      ga4Post({
+        dateRanges: [{ startDate: '90daysAgo', endDate: 'today' }],
+        dimensions: [{ name: 'date' }, { name: 'hour' }],
+        metrics: [{ name: 'eventCount' }],
+        dimensionFilter: formSubmitFilter,
+        orderBys: [{ dimension: { dimensionName: 'date' }, desc: true }],
+      }),
+      // GA4 property metadata for timezone
+      fetch(`https://analyticsadmin.googleapis.com/v1beta/${property}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      }).then(r => r.json()).catch(() => ({})),
     ]);
 
     res.json({
       available: true,
       days,
+      timezone: propRes.timeZone || null,
       events: (eventsRes.rows || []).map(r => ({
         name: r.dimensionValues[0].value,
         count: parseInt(r.metricValues[0].value),
@@ -1869,6 +1884,12 @@ app.get('/api/launches/:id/widget-events', requireAuth, async (req, res) => {
       })),
       formSubmitDates: (formDatesRes.rows || []).map(r => ({
         date: r.dimensionValues[0].value,
+        count: parseInt(r.metricValues[0].value),
+      })),
+      // Each entry = one "contact form shown" event slot, with its local date+hour
+      formSubmitHourly: (formHourlyRes.rows || []).map(r => ({
+        date: r.dimensionValues[0].value,   // "20260331"
+        hour: r.dimensionValues[1].value,   // "22"  (in GA4 property timezone)
         count: parseInt(r.metricValues[0].value),
       })),
     });

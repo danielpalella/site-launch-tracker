@@ -5974,7 +5974,7 @@ function renderAnalyticsModalBody(id, data, forms) {
       <button class="acd-tab-btn" onclick="switchAcdTab('perf','${esc(id)}')">Performance</button>
       <button class="acd-tab-btn" onclick="switchAcdTab('leads','${esc(id)}')" id="acd-leads-tab-btn-${id}">Leads${leadCount > 0 ? `<span class="acd-tab-count">${leadCount}</span>` : ''}</button>
       <button class="acd-tab-btn" onclick="switchAcdTab('account','${esc(id)}')">Account</button>
-      <button class="acd-tab-btn" onclick="switchAcdTab('widget','${esc(id)}')">AI Widget <span style="font-size:.65rem;opacity:.7;font-weight:500">beta</span></button>
+      <button class="acd-tab-btn" onclick="switchAcdTab('widget','${esc(id)}')">AI Chatbot <span style="font-size:.65rem;opacity:.7;font-weight:500">beta</span></button>
     </div>
     <div id="acd-tp-overview-${id}" class="acd-tab-pane">
       <div class="acd-sources-row">${gscSection}${ga4Section}${dudaSection}</div>
@@ -6273,6 +6273,67 @@ function switchAcdTab(tab, id) {
 }
 
 const _widgetEventsLoaded = {};
+
+// Convert a GA4 date ("20260331") + hour ("22") in a given IANA timezone
+// to a UTC Date object representing the start of that local hour.
+function ga4HourToUtc(dateStr, hourStr, tz) {
+  const y = dateStr.slice(0,4), mo = dateStr.slice(4,6), d = dateStr.slice(6,8);
+  const h = parseInt(hourStr);
+  // Start with an approximate UTC date (treating local time as UTC)
+  const approx = new Date(`${y}-${mo}-${d}T${String(h).padStart(2,'0')}:00:00Z`);
+  try {
+    // Ask Intl what local hour corresponds to this UTC moment
+    const localH = parseInt(new Intl.DateTimeFormat('en-US', {
+      timeZone: tz, hour: 'numeric', hour12: false,
+    }).format(approx));
+    const correction = h - (localH === 24 ? 0 : localH); // handle midnight=24
+    return new Date(approx.getTime() + correction * 3_600_000);
+  } catch {
+    return approx; // fallback: treat as UTC
+  }
+}
+
+// For an HCP lead UTC timestamp, get its local date (YYYYMMDD) and hour (0-23)
+// in the GA4 property timezone.
+function utcToLocalDateHour(utcDate, tz) {
+  try {
+    const dateStr = new Intl.DateTimeFormat('en-CA', {
+      timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
+    }).format(utcDate).replace(/-/g, '');
+    let hour = parseInt(new Intl.DateTimeFormat('en-US', {
+      timeZone: tz, hour: 'numeric', hour12: false,
+    }).format(utcDate));
+    if (hour === 24) hour = 0;
+    return { dateStr, hour };
+  } catch {
+    return {
+      dateStr: utcDate.toISOString().replace(/-/g,'').slice(0,8),
+      hour: utcDate.getUTCHours(),
+    };
+  }
+}
+
+// Match HCP leads against GA4 hourly form-shown events.
+// Returns array of { lead, confidence: 'high'|'medium'|'low'|null, gaEvent }
+function computeCorrelations(hcpLeads, formSubmitHourly, tz) {
+  return (hcpLeads || []).map(lead => {
+    if (!lead.submitted_at) return { lead, confidence: null, gaEvent: null };
+    const leadUtc = new Date(lead.submitted_at);
+    const { dateStr, hour } = utcToLocalDateHour(leadUtc, tz || 'UTC');
+
+    const exact = formSubmitHourly.find(e => e.date === dateStr && parseInt(e.hour) === hour);
+    if (exact) return { lead, confidence: 'high', gaEvent: exact };
+
+    const adjacent = formSubmitHourly.find(e => e.date === dateStr && Math.abs(parseInt(e.hour) - hour) === 1);
+    if (adjacent) return { lead, confidence: 'medium', gaEvent: adjacent };
+
+    const sameDay = formSubmitHourly.find(e => e.date === dateStr);
+    if (sameDay) return { lead, confidence: 'low', gaEvent: sameDay };
+
+    return { lead, confidence: null, gaEvent: null };
+  });
+}
+
 async function loadWidgetEvents(id) {
   if (_widgetEventsLoaded[id]) return;
   _widgetEventsLoaded[id] = true;
@@ -6311,11 +6372,20 @@ async function loadWidgetEvents(id) {
     const hcpLeads = hcp.available ? hcp.leads : null;
     const leadCount = hcpLeads ? hcpLeads.length : null;
 
+    // --- Correlation ---
+    const tz = data.timezone || 'UTC';
+    const correlations = (hcpLeads && data.formSubmitHourly?.length)
+      ? computeCorrelations(hcpLeads, data.formSubmitHourly, tz)
+      : null;
+    const attributedCount = correlations ? correlations.filter(c => c.confidence).length : null;
+    const attributedPct   = (attributedCount !== null && leadCount)
+      ? Math.round(attributedCount / leadCount * 100) : null;
+
     const kpis = [
       ['Widget Opens', opens],
       ['Messages Sent', messages],
       ['HCP Leads', leadCount !== null ? leadCount : '—'],
-      ['Total Events', total],
+      ['Attributed', attributedCount !== null ? `${attributedCount}/${leadCount}` : '—'],
     ];
 
     const tableRows = data.events.map(e => `
@@ -6326,33 +6396,68 @@ async function loadWidgetEvents(id) {
 
     const hasChart = data.dailyOpens?.length > 1;
 
-    const hcpSection = hcpLeads && hcpLeads.length ? `
-      <div style="margin-bottom:1.1rem">
-        <div style="font-size:.78rem;font-weight:600;color:var(--text);margin-bottom:.4rem">HCP Lead Form Submissions <span style="font-weight:400;color:var(--text-muted)">· all time</span></div>
-        <table style="width:100%;border-collapse:collapse;border-top:1px solid var(--border)">
-          <thead><tr>
-            <th style="font-size:.72rem;color:var(--text-muted);font-weight:600;text-align:left;padding:.3rem .5rem">Name</th>
-            <th style="font-size:.72rem;color:var(--text-muted);font-weight:600;text-align:left;padding:.3rem .5rem">Phone</th>
-            <th style="font-size:.72rem;color:var(--text-muted);font-weight:600;text-align:left;padding:.3rem .5rem">Status</th>
-            <th style="font-size:.72rem;color:var(--text-muted);font-weight:600;text-align:right;padding:.3rem .5rem">Submitted</th>
-          </tr></thead>
-          <tbody>${hcpLeads.map(l => {
-            const dt = l.submitted_at ? new Date(l.submitted_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
-            const statusColor = l.status === 'New Lead' ? '#f59e0b' : l.status === 'Assigned' ? '#22c55e' : 'var(--text-muted)';
-            return `<tr style="border-bottom:1px solid var(--border)">
-              <td style="font-size:.83rem;color:var(--text);padding:.4rem .5rem">${esc(l.name || '—')}</td>
-              <td style="font-size:.83rem;color:var(--text-muted);padding:.4rem .5rem">${esc(l.phone || '—')}</td>
-              <td style="font-size:.83rem;padding:.4rem .5rem"><span style="color:${statusColor};font-weight:500">${esc(l.status || '—')}</span></td>
-              <td style="font-size:.83rem;color:var(--text-muted);padding:.4rem .5rem;text-align:right">${dt}</td>
-            </tr>`;
-          }).join('')}</tbody>
-        </table>
-      </div>` : (hcp.available ? `<div style="color:var(--text-muted);font-size:.83rem;margin-bottom:1rem">No HCP lead form submissions yet.</div>` : '');
+    // --- Closed-loop attribution section ---
+    let closedLoopSection = '';
+    if (correlations) {
+      const CONF = {
+        high:   { icon: '✓', color: '#22c55e', label: 'Same hour as contact form shown' },
+        medium: { icon: '~', color: '#f59e0b', label: '1 hour apart from contact form shown' },
+        low:    { icon: '~', color: '#f59e0b', label: 'Same day as contact form shown' },
+        null:   { icon: '·', color: 'var(--text-muted)', label: 'No widget form event on this date' },
+      };
+      const rows = correlations.map(({ lead, confidence, gaEvent }) => {
+        const c = CONF[confidence] ?? CONF[null];
+        const submitted = lead.submitted_at
+          ? new Date(lead.submitted_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: tz })
+          : '—';
+        const statusColor = lead.status === 'New Lead' ? '#f59e0b' : lead.status === 'Assigned' ? '#22c55e' : 'var(--text-muted)';
+        return `
+          <tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:.5rem .5rem;width:1.4rem">
+              <span style="font-size:.9rem;font-weight:700;color:${c.color}">${c.icon}</span>
+            </td>
+            <td style="padding:.5rem .25rem .5rem 0">
+              <div style="font-size:.83rem;font-weight:600;color:var(--text)">${esc(lead.name || '—')}</div>
+              <div style="font-size:.75rem;color:var(--text-muted);margin-top:.1rem">${c.label}</div>
+            </td>
+            <td style="padding:.5rem .5rem;font-size:.78rem;color:var(--text-muted);white-space:nowrap">${esc(lead.phone || '—')}</td>
+            <td style="padding:.5rem .5rem;font-size:.78rem;white-space:nowrap">
+              <span style="color:${statusColor};font-weight:500">${esc(lead.status || '—')}</span>
+            </td>
+            <td style="padding:.5rem .5rem;font-size:.78rem;color:var(--text-muted);text-align:right;white-space:nowrap">${submitted}</td>
+          </tr>`;
+      }).join('');
+
+      const summaryColor = attributedPct >= 75 ? '#22c55e' : attributedPct >= 40 ? '#f59e0b' : 'var(--text-muted)';
+      closedLoopSection = `
+        <div style="margin-bottom:1.2rem;padding:.85rem;background:var(--surface);border:1px solid var(--border);border-radius:.6rem">
+          <div style="display:flex;align-items:baseline;gap:.75rem;margin-bottom:.65rem;flex-wrap:wrap">
+            <div style="font-size:.78rem;font-weight:700;color:var(--text)">Closed Loop Attribution</div>
+            ${attributedPct !== null ? `
+              <div style="font-size:.78rem;font-weight:700;color:${summaryColor}">${attributedPct}% attributed to widget</div>
+              <div style="font-size:.72rem;color:var(--text-muted)">${attributedCount} of ${leadCount} HCP leads matched a widget session</div>` : ''}
+          </div>
+          <table style="width:100%;border-collapse:collapse;border-top:1px solid var(--border)">
+            <thead><tr>
+              <th style="font-size:.7rem;color:var(--text-muted);font-weight:600;text-align:left;padding:.3rem .5rem" colspan="2">Lead</th>
+              <th style="font-size:.7rem;color:var(--text-muted);font-weight:600;text-align:left;padding:.3rem .5rem">Phone</th>
+              <th style="font-size:.7rem;color:var(--text-muted);font-weight:600;text-align:left;padding:.3rem .5rem">Status</th>
+              <th style="font-size:.7rem;color:var(--text-muted);font-weight:600;text-align:right;padding:.3rem .5rem">Submitted</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+          <div style="margin-top:.6rem;font-size:.7rem;color:var(--text-muted)">
+            ✓ = widget contact form shown within the same hour &nbsp;·&nbsp; ~ = within the same day &nbsp;·&nbsp; Times in ${tz}
+          </div>
+        </div>`;
+    } else if (hcp.available && !data.formSubmitHourly?.length) {
+      closedLoopSection = `<div style="color:var(--text-muted);font-size:.82rem;margin-bottom:1rem">No widget contact form events recorded yet — correlation will appear once users reach the form step.</div>`;
+    }
 
     const hcpSetup = !hcp.available ? `
       <div style="margin-top:1.2rem;padding:.75rem;background:var(--surface);border:1px solid var(--border);border-radius:.5rem">
         <div style="font-size:.78rem;font-weight:600;color:var(--text);margin-bottom:.4rem">Connect HouseCallPro</div>
-        <div style="font-size:.78rem;color:var(--text-muted);margin-bottom:.6rem">Add an HCP API key to see actual lead form submissions.</div>
+        <div style="font-size:.78rem;color:var(--text-muted);margin-bottom:.6rem">Add an HCP API key to enable closed-loop attribution.</div>
         <div style="display:flex;gap:.5rem;align-items:center">
           <input id="hcp-key-input-${esc(id)}" type="password" placeholder="HCP API key" style="flex:1;font-size:.82rem;padding:.35rem .55rem;border:1px solid var(--border);border-radius:.4rem;background:var(--bg);color:var(--text)">
           <button onclick="saveHcpApiKey('${esc(id)}')" style="font-size:.78rem;padding:.35rem .75rem;background:var(--primary);color:#fff;border:none;border-radius:.4rem;cursor:pointer">Save</button>
@@ -6365,7 +6470,7 @@ async function loadWidgetEvents(id) {
         ${kpis.map(([label, val]) => `
           <div style="background:var(--surface);border:1px solid var(--border);border-radius:.5rem;padding:.55rem .75rem">
             <div style="font-size:.7rem;color:var(--text-muted);margin-bottom:.15rem">${label}</div>
-            <div style="font-size:1.25rem;font-weight:700;color:var(--text)">${typeof val === 'number' ? val.toLocaleString() : val}</div>
+            <div style="font-size:1.25rem;font-weight:700;color:var(--text)">${val}</div>
           </div>`).join('')}
       </div>
       ${hasChart ? `
@@ -6373,7 +6478,7 @@ async function loadWidgetEvents(id) {
           <div style="font-size:.78rem;font-weight:600;color:var(--text);margin-bottom:.5rem">Widget Opens — Last ${data.days} Days</div>
           <div style="height:90px"><canvas id="acd-widget-chart-${esc(id)}"></canvas></div>
         </div>` : ''}
-      ${hcpSection}
+      ${closedLoopSection}
       <div style="font-size:.78rem;font-weight:600;color:var(--text);margin-bottom:.4rem">
         Event Breakdown <span style="font-weight:400;color:var(--text-muted)">· last ${data.days} days</span>
       </div>
@@ -6406,7 +6511,7 @@ async function loadWidgetEvents(id) {
         });
       }
     }
-  } catch {
+  } catch(err) {
     if (body) body.innerHTML = `<div style="color:var(--text-muted);font-size:.85rem;padding:.75rem 0">Failed to load widget events.</div>`;
   }
 }
