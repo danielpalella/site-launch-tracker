@@ -500,7 +500,7 @@ async function runScreener() {
 }
 
 function renderScreenerResults(data, screenerUrl) {
-  const { cms, sitemap, verdict, score, flags, warnings } = data;
+  const { cms, sitemap, verdict, score, flags, warnings, isRealWorkSite } = data;
   const resEl = document.getElementById('screen-results');
   const card = document.getElementById('screener-card');
 
@@ -515,6 +515,27 @@ function renderScreenerResults(data, screenerUrl) {
       }
     } catch {}
   }
+
+  // ── Already a RealWork site ──
+  if (isRealWorkSite) {
+    card.classList.remove('screener-card-pass', 'screener-card-caution', 'screener-card-review', 'screener-card-warn');
+    card.classList.add('screener-card-pass');
+    resEl.innerHTML = `
+      <div class="screener-verdict-header screener-verdict-header-pass">
+        <div class="screener-verdict-icon">✓</div>
+        <div class="screener-verdict-body">
+          <div class="screener-verdict-title">Already on RealWork</div>
+          <div class="screener-verdict-sub">This site is already live on the RealWork platform — no intake needed.</div>
+          <ul class="screener-verdict-reasons">
+            <li>${cms.name} — RealWork platform detected</li>
+            <li>Standard RealWork site structure confirmed</li>
+          </ul>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
   // Color the entire card
   card.classList.remove('screener-card-pass', 'screener-card-caution', 'screener-card-review', 'screener-card-warn');
   card.classList.add(`screener-card-${verdict}`);
@@ -627,6 +648,9 @@ function buildScreenerNarrative({ cms, sitemap, verdict, flags, warnings }) {
   }
   if (allSignals.some(s => s.includes('outdated') || s.includes('or earlier'))) {
     parts.push('The site appears to have old content — this is actually a selling point for a rebuild, but the client may have accumulated significant outdated material that needs to be reviewed before migration.');
+  }
+  if (allSignals.some(s => s.includes('service area page'))) {
+    parts.push(`This site has ${sitemap?.locationPages || 'multiple'} dedicated location/service-area pages. RealWork websites include one service area page powered by the SEO widget — the client would be giving up their individual city/area pages, which is a conversation worth having before proceeding.`);
   }
 
   // Sitemap breakdown

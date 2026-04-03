@@ -646,7 +646,7 @@ function screenerDetectCms(html) {
   if (/wixstatic\.com|wix\.com\/|generator[^>]*wix/i.test(html))           return { name: 'Wix',        flag: 'green'  };
   if (/static\.squarespace\.com|generator[^>]*squarespace/i.test(html))    return { name: 'Squarespace', flag: 'green'  };
   if (/godaddy|secureserver\.net|generator[^>]*godaddy/i.test(html))       return { name: 'GoDaddy',    flag: 'green'  };
-  if (/irp\.cdn-website\.com|dudaone\.com|dudaplatform\.com/i.test(html))  return { name: 'Duda',       flag: 'green'  };
+  if (/irp\.cdn-website\.com|lirp\.cdn-website\.com|static\.cdn-website\.com|dudaone\.com|dudaplatform\.com/i.test(html)) return { name: 'Duda', flag: 'green' };
   if (/cdn\.shopify\.com|shopify\.com\/s\//i.test(html))                   return { name: 'Shopify',    flag: 'green'  };
   if (/webflow\.io|webflow\.com\/css|generator[^>]*webflow/i.test(html))   return { name: 'Webflow',    flag: 'orange'   };
   if (/wp-content\/|wp-includes\/|generator[^>]*wordpress/i.test(html))   return { name: 'WordPress',  flag: 'neutral'  };
@@ -672,7 +672,12 @@ function screenerAnalyzeHtml(html) {
     'Cleaning':    /\bcleaning\s+service\b|janitorial\b|maid\s+service/i,
     'Siding':      /siding\s+(?:install|repair|replac|contrac|compan)|(?:install|repair|replac)\w*\s+siding|new\s+siding|fiber[\s-]?cement|exterior\s+cladding/i,
   };
-  const detected = Object.keys(tradePatterns).filter(t => tradePatterns[t].test(html));
+  // Require ≥3 matches per trade to avoid false positives from incidental mentions
+  // (e.g. a roofer mentioning "plumbing vent boots" should not count as a plumbing company)
+  const detected = Object.keys(tradePatterns).filter(t => {
+    const re = new RegExp(tradePatterns[t].source, 'gi');
+    return (html.match(re) || []).length >= 3;
+  });
   if (detected.length >= 2) signals.push({ type: 'multi_trade', trades: detected });
 
   // Booking / scheduling systems
@@ -764,7 +769,47 @@ async function screenerFetchSitemap(baseUrl) {
       if (!r.ok) continue;
       const xml = await r.text();
       if (!xml.includes('<urlset') && !xml.includes('<sitemapindex')) continue;
-      return screenerParseSitemap(xml);
+
+      const parsed = screenerParseSitemap(xml);
+
+      // If this is a sitemap index, follow child sitemaps to get real page counts
+      // rather than blindly warning about "multiple sitemaps"
+      if (parsed.isSitemapIndex) {
+        const childUrls = [...xml.matchAll(/<loc>\s*(.*?)\s*<\/loc>/gi)]
+          .map(m => m[1].trim())
+          .filter(u => u.endsWith('.xml'))
+          .slice(0, 5); // cap at 5 child sitemaps
+
+        const childResults = await Promise.all(childUrls.map(async (childUrl) => {
+          try {
+            const ctrl2 = new AbortController();
+            setTimeout(() => ctrl2.abort(), 5000);
+            const r2 = await fetch(childUrl, { signal: ctrl2.signal, headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RealWorkScreener/1.0)' } });
+            if (!r2.ok) return null;
+            const xml2 = await r2.text();
+            if (!xml2.includes('<urlset')) return null;
+            return screenerParseSitemap(xml2);
+          } catch { return null; }
+        }));
+
+        const valid = childResults.filter(Boolean);
+        if (valid.length > 0) {
+          // Aggregate all child sitemap data — we now have real page counts
+          return {
+            totalPages:     valid.reduce((s, c) => s + c.totalPages, 0),
+            locationPages:  valid.reduce((s, c) => s + c.locationPages, 0),
+            svcLocPages:    valid.reduce((s, c) => s + c.svcLocPages, 0),
+            servicePages:   valid.reduce((s, c) => s + c.servicePages, 0),
+            blogPosts:      valid.reduce((s, c) => s + c.blogPosts, 0),
+            faqPageUrl:     valid.find(c => c.faqPageUrl)?.faqPageUrl || null,
+            mostRecentYear: Math.max(...valid.map(c => c.mostRecentYear || 0)) || null,
+            isSitemapIndex: false, // resolved — treat like a normal sitemap now
+          };
+        }
+        // Couldn't follow any child sitemaps — keep isSitemapIndex:true as a soft signal
+      }
+
+      return parsed;
     } catch {}
   }
   return null;
@@ -784,6 +829,14 @@ app.post('/api/screen-site', requireAuth, async (req, res) => {
     const html = await htmlRes.text();
 
     const cms      = screenerDetectCms(html);
+
+    // ── RealWork platform fingerprint ──
+    // The /contact-us4726b987 slug is baked into every RealWork Duda template.
+    // If it appears, this site is already live on the RealWork platform.
+    if (/contact-us4726b987/i.test(html)) {
+      return res.json({ cms, sitemap: null, verdict: 'pass', score: 0, flags: [], warnings: [], isRealWorkSite: true });
+    }
+
     const htmlSigs = screenerAnalyzeHtml(html);
     const sitemap  = await screenerFetchSitemap(new URL(htmlRes.url).origin);
 
@@ -824,13 +877,13 @@ app.post('/api/screen-site', requireAuth, async (req, res) => {
       if (sitemap.svcLocPages > 2)       flags.push(`${sitemap.svcLocPages} service+location pages (e.g. "AC Repair Austin")`);
       else if (sitemap.svcLocPages > 0)  warnings.push(`${sitemap.svcLocPages} service+location page(s) detected`);
 
-      if (sitemap.locationPages > 3)     flags.push(`${sitemap.locationPages} location/area pages — multi-location strategy`);
-      else if (sitemap.locationPages)    warnings.push(`${sitemap.locationPages} location/area page(s)`);
+      if (sitemap.locationPages > 3)      flags.push(`${sitemap.locationPages} location/area pages — RealWork sites have 1 service area page`);
+      else if (sitemap.locationPages > 1) warnings.push(`${sitemap.locationPages} location/area pages detected`);
 
       if (sitemap.servicePages > 5)      flags.push(`${sitemap.servicePages} nested service sub-pages`);
       else if (sitemap.servicePages > 2) warnings.push(`${sitemap.servicePages} service sub-page(s)`);
 
-      if (sitemap.blogPosts >= 10)       warnings.push(`${sitemap.blogPosts} blog/news posts`);
+      if (sitemap.blogPosts >= 5)        warnings.push(`${sitemap.blogPosts} blog/news posts`);
 
       if (sitemap.isSitemapIndex)        warnings.push('Multiple sitemaps — site may be larger than reported');
     }

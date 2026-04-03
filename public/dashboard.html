@@ -2716,6 +2716,23 @@ function renderGmailThreadList(threads) {
     _latestGmailThreadDate = latestDate;
     if (record) renderOutreachSection(record); // re-render banner with updated effective date
   }
+  // Auto-save latest Gmail thread date to server so board/list highlighting stays accurate
+  if (latestDate && record && record.status === 'awaiting_approval') {
+    if (!record.last_contact_date || latestDate > record.last_contact_date) {
+      fetch(`/api/launches/${editingId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ last_contact_date: latestDate }),
+      }).then(r => r.ok ? r.json() : null).then(updated => {
+        if (updated) {
+          const idx = allLaunches.findIndex(x => x.id === editingId);
+          if (idx !== -1) allLaunches[idx] = updated;
+          renderTable(allLaunches);
+          if (viewMode === 'board') renderBoard();
+        }
+      }).catch(() => {});
+    }
+  }
   const lastFollowUp = outreachLog[0] || null;
 
   const header = lastFollowUp ? `
