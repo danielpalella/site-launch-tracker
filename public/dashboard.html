@@ -427,7 +427,7 @@
     <div class="crm-header">
       <div style="display:flex;align-items:flex-start;gap:.6rem;flex:1;min-width:0">
         <div id="crm-hdr-favicon-wrap" class="acd-favicon-wrap" style="display:none;flex-shrink:0;margin-top:.25rem">
-          <img id="crm-hdr-favicon" class="ac-favicon" src="" alt="" onerror="this.closest('#crm-hdr-favicon-wrap').style.display='none'">
+          <img id="crm-hdr-favicon" class="ac-favicon" src="" alt="">
           <div class="acd-favicon-actions" id="crm-hdr-favicon-actions">
             <label class="acd-fav-btn" title="Upload custom favicon">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
@@ -439,9 +439,9 @@
           </div>
         </div>
         <div style="flex:1;min-width:0">
-          <div style="display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;margin-bottom:.2rem">
-            <h2 id="modal-title" class="crm-title">Edit Record</h2>
-            <span id="crm-hdr-status-pill" class="crm-status-pill"></span>
+          <div style="display:flex;align-items:center;gap:.4rem;margin-bottom:.2rem;flex-wrap:nowrap;min-width:0">
+            <div id="modal-title" class="crm-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Edit Record</div>
+            <span id="crm-hdr-status-pill" class="crm-status-pill" style="flex-shrink:0"></span>
           </div>
           <div style="display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;font-size:.78rem">
             <a id="modal-domain-sub" class="crm-domain-sub" target="_blank" rel="noopener" style="text-decoration:none" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'"></a>
@@ -1035,8 +1035,8 @@ function renderBoard() {
         ${cards.length === 0
           ? `<div class="board-col-empty">Drop items here</div>`
           : cards.map(r => `
-            <div class="board-card" draggable="true" data-id="${r.id}"
-              style="border-left-color:${color}"
+            <div class="board-card${isFollowUpOverdue(r) ? ' board-card-overdue' : ''}" draggable="true" data-id="${r.id}"
+              style="border-left-color:${isFollowUpOverdue(r) ? '#ef4444' : color}"
               ondragstart="boardDragStart(event,this)"
               ondragend="boardDragEnd(this)"
               ondblclick="handleRowDblClick(event,'${r.id}')">
@@ -1366,7 +1366,7 @@ function updateSortHeaders() {
 
 function renderRow(r) {
   return `
-    <tr data-id="${r.id}" ondblclick="handleRowDblClick(event,'${r.id}')" style="cursor:pointer" ${r.status === 'launched' ? 'class="row-launched"' : r.status === 'decommissioned' ? 'class="row-decommissioned"' : r.status.endsWith('_frozen') ? 'class="row-frozen"' : ''}>
+    <tr data-id="${r.id}" ondblclick="handleRowDblClick(event,'${r.id}')" style="cursor:pointer" ${isFollowUpOverdue(r) ? 'class="row-followup-overdue"' : r.status === 'launched' ? 'class="row-launched"' : r.status === 'decommissioned' ? 'class="row-decommissioned"' : r.status.endsWith('_frozen') ? 'class="row-frozen"' : ''}>
       <td class="sticky-col">
         <div style="display:flex;align-items:flex-start;gap:.5rem">
           <img src="https://www.google.com/s2/favicons?domain=${esc(r.domain_name)}&sz=32" alt="" loading="lazy" style="width:16px;height:16px;flex-shrink:0;border-radius:2px;margin-top:.15rem">
@@ -1604,12 +1604,11 @@ function openEdit(id) {
   const faviconWrap = document.getElementById('crm-hdr-favicon-wrap');
   const faviconEl   = document.getElementById('crm-hdr-favicon');
   const launch = allLaunches.find(x => x.id === id);
+  faviconWrap.style.display = 'none';
   if (r.domain_name) {
+    faviconEl.onload  = () => { faviconWrap.style.display = ''; wireCrmFaviconLongPress(); };
+    faviconEl.onerror = () => { faviconWrap.style.display = 'none'; };
     faviconEl.src = launch?.custom_favicon || `https://www.google.com/s2/favicons?domain=${encodeURIComponent(r.domain_name)}&sz=32`;
-    faviconWrap.style.display = '';
-    wireCrmFaviconLongPress();
-  } else {
-    faviconWrap.style.display = 'none';
   }
   // Reset to Overview tab and reset Gmail label
   const gmailTabBtn = document.getElementById('crm-tab-gmail-btn');
@@ -1658,6 +1657,13 @@ function switchCrmTab(name, btn) {
   });
   document.querySelectorAll('.crm-tab-bar .crm-tab').forEach(b => b.classList.remove('crm-tab-active'));
   if (btn) btn.classList.add('crm-tab-active');
+}
+
+function isFollowUpOverdue(r) {
+  if (r.status !== 'awaiting_approval') return false;
+  if (!r.last_contact_date) return true;
+  const today = new Date().toISOString().slice(0, 10);
+  return businessDaysBetween(r.last_contact_date, today) >= 5;
 }
 
 // ── Outreach / Follow-up ──

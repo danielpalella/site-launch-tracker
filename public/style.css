@@ -423,6 +423,9 @@ tr:last-child td { border-bottom: none; }
 tr:hover td { background: #f8fafc; }
 tr.row-launched td, tr.row-launched .sticky-col { background: #f0fdf4; }
 tr.row-launched:hover td, tr.row-launched:hover .sticky-col { background: #dcfce7; }
+tr.row-followup-overdue td, tr.row-followup-overdue .sticky-col { background: #fef2f2; }
+tr.row-followup-overdue:hover td, tr.row-followup-overdue:hover .sticky-col { background: #fee2e2; }
+tr.row-followup-overdue .sticky-col { border-left: 3px solid #ef4444; }
 tr.row-decommissioned td, tr.row-decommissioned .sticky-col { background: #fff1f2; }
 tr.row-decommissioned:hover td, tr.row-decommissioned:hover .sticky-col { background: #ffe4e6; }
 
@@ -1483,6 +1486,8 @@ tr.status-separator:first-child td { border-top: none; }
   transform: translateY(-1px);
 }
 .board-card.dragging { opacity: .3; cursor: grabbing; transform: none; }
+.board-card-overdue { background: #fef2f2 !important; }
+.board-card-overdue:hover { background: #fee2e2 !important; }
 
 .board-card-name {
   font-size: .8rem;
