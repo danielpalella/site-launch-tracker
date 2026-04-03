@@ -1458,17 +1458,23 @@ async function refreshGa4Cache(token) {
   for (let i = 0; i < allProps.length; i += 10) {
     await Promise.all(allProps.slice(i, i + 10).map(async propResource => {
       try {
-        const r = await fetch(
-          `https://analyticsadmin.googleapis.com/v1alpha/${propResource}/dataStreams?pageSize=50`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        const data = await r.json();
+        const [streamsData, propData] = await Promise.all([
+          fetch(
+            `https://analyticsadmin.googleapis.com/v1alpha/${propResource}/dataStreams?pageSize=50`,
+            { headers: { Authorization: `Bearer ${token}` } }
+          ).then(r => r.json()),
+          fetch(
+            `https://analyticsadmin.googleapis.com/v1beta/${propResource}`,
+            { headers: { Authorization: `Bearer ${token}` } }
+          ).then(r => r.json()).catch(() => ({})),
+        ]);
         const propId = propResource.replace('properties/', '');
-        for (const s of data.dataStreams || []) {
+        const tz = propData.timeZone || null;
+        for (const s of streamsData.dataStreams || []) {
           if (s.type === 'WEB_DATA_STREAM' && s.webStreamData?.defaultUri) {
             const d = s.webStreamData.defaultUri
               .replace(/^https?:\/\//, '').replace(/\/$/, '').replace(/^www\./, '');
-            map[d] = propId;
+            map[d] = { id: propId, tz };
           }
         }
       } catch { /* skip inaccessible */ }
@@ -1482,7 +1488,15 @@ async function getGa4PropertyId(domain, token) {
     ga4Cache = { map: await refreshGa4Cache(token), at: Date.now() };
   }
   const clean = domain.replace(/^https?:\/\//, '').replace(/\/$/, '').replace(/^www\./, '');
-  return ga4Cache.map[clean] || null;
+  return ga4Cache.map[clean]?.id || null;
+}
+
+async function getGa4PropertyInfo(domain, token) {
+  if (!ga4Cache || Date.now() - ga4Cache.at > 600_000) {
+    ga4Cache = { map: await refreshGa4Cache(token), at: Date.now() };
+  }
+  const clean = domain.replace(/^https?:\/\//, '').replace(/\/$/, '').replace(/^www\./, '');
+  return ga4Cache.map[clean] || null; // { id, tz }
 }
 
 function isoDate(d) { return d.toISOString().slice(0, 10); }
@@ -1815,8 +1829,9 @@ app.get('/api/launches/:id/widget-events', requireAuth, async (req, res) => {
     const doc = await db.collection('launches').doc(req.params.id).get();
     if (!doc.exists) return res.status(404).json({ error: 'Not found' });
     const domain = doc.data().domain_name;
-    const propertyId = await getGa4PropertyId(domain, token);
-    if (!propertyId) return res.json({ available: false, reason: 'No GA4 property found for this domain' });
+    const info = await getGa4PropertyInfo(domain, token);
+    if (!info) return res.json({ available: false, reason: 'No GA4 property found for this domain' });
+    const { id: propertyId, tz: timezone } = info;
 
     const property = `properties/${propertyId}`;
     const widgetFilter = {
@@ -1834,7 +1849,7 @@ app.get('/api/launches/:id/widget-events', requireAuth, async (req, res) => {
 
     const formSubmitFilter = { filter: { fieldName: 'eventName', stringFilter: { matchType: 'EXACT', value: 'widget_form_submit' } } };
 
-    const [eventsRes, trendRes, formDatesRes, formHourlyRes, propRes] = await Promise.all([
+    const [eventsRes, trendRes, formDatesRes, formHourlyRes] = await Promise.all([
       ga4Post({
         dateRanges: [{ startDate: `${days}daysAgo`, endDate: 'today' }],
         dimensions: [{ name: 'eventName' }],
@@ -1864,16 +1879,12 @@ app.get('/api/launches/:id/widget-events', requireAuth, async (req, res) => {
         dimensionFilter: formSubmitFilter,
         orderBys: [{ dimension: { dimensionName: 'date' }, desc: true }],
       }),
-      // GA4 property metadata for timezone
-      fetch(`https://analyticsadmin.googleapis.com/v1beta/${property}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      }).then(r => r.json()).catch(() => ({})),
     ]);
 
     res.json({
       available: true,
       days,
-      timezone: propRes.timeZone || null,
+      timezone: timezone || null,
       events: (eventsRes.rows || []).map(r => ({
         name: r.dimensionValues[0].value,
         count: parseInt(r.metricValues[0].value),
