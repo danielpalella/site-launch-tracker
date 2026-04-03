@@ -1041,7 +1041,7 @@ function renderBoard() {
               ondragend="boardDragEnd(this)"
               ondblclick="handleRowDblClick(event,'${r.id}')">
               <div style="display:flex;align-items:flex-start;gap:.4rem;min-width:0">
-                <img src="https://www.google.com/s2/favicons?domain=${esc(r.domain_name)}&sz=32" alt="" loading="lazy" style="width:16px;height:16px;flex-shrink:0;border-radius:2px;margin-top:.1rem">
+                <img class="list-favicon" src="${r.custom_favicon || `https://www.google.com/s2/favicons?domain=${esc(r.domain_name)}&sz=32`}" alt="" loading="lazy" style="width:16px;height:16px;flex-shrink:0;border-radius:2px;margin-top:.1rem">
                 <div style="min-width:0;flex:1">
                   <div class="board-card-name">${esc(r.account_name)}</div>
                   <div class="board-card-domain">${esc(r.domain_name)}</div>
@@ -1369,7 +1369,7 @@ function renderRow(r) {
     <tr data-id="${r.id}" ondblclick="handleRowDblClick(event,'${r.id}')" style="cursor:pointer" ${isFollowUpOverdue(r) ? 'class="row-followup-overdue"' : r.status === 'launched' ? 'class="row-launched"' : r.status === 'decommissioned' ? 'class="row-decommissioned"' : r.status.endsWith('_frozen') ? 'class="row-frozen"' : ''}>
       <td class="sticky-col">
         <div style="display:flex;align-items:flex-start;gap:.5rem">
-          <img src="https://www.google.com/s2/favicons?domain=${esc(r.domain_name)}&sz=32" alt="" loading="lazy" style="width:16px;height:16px;flex-shrink:0;border-radius:2px;margin-top:.15rem">
+          <img class="list-favicon" src="${r.custom_favicon || `https://www.google.com/s2/favicons?domain=${esc(r.domain_name)}&sz=32`}" alt="" loading="lazy" style="width:16px;height:16px;flex-shrink:0;border-radius:2px;margin-top:.15rem">
           <div>
             <div class="account-name">${esc(r.account_name)}<span class="gmail-unread-badge" id="gmail-badge-${r.id}" data-email="${esc(r.email)}" style="display:none"></span></div>
             <div class="domain"><a href="https://${esc(r.domain_name)}" target="_blank" rel="noopener" style="color:var(--primary);text-decoration:none" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${esc(r.domain_name)}</a></div>
@@ -6757,8 +6757,8 @@ async function uploadCrmFavicon(e) {
     if (faviconWrap) faviconWrap.style.display = ''; // ensure wrap is visible
     const launch = allLaunches.find(x => x.id === editingId);
     if (launch) launch.custom_favicon = custom_favicon;
-    // Update board card and table row favicons
-    document.querySelectorAll(`[data-id="${editingId}"] img[src*="favicons"]`).forEach(img => img.src = custom_favicon);
+    // Update board card and table row favicons in the current DOM
+    document.querySelectorAll(`[data-id="${editingId}"] img.list-favicon`).forEach(img => img.src = custom_favicon);
     stopCrmFaviconShake();
     showToast('Favicon updated');
   } catch {
@@ -6775,7 +6775,7 @@ async function deleteCrmFavicon() {
     if (launch) launch.custom_favicon = null;
     const fallback = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(launch?.domain_name || '')}&sz=32`;
     document.getElementById('crm-hdr-favicon').src = fallback;
-    document.querySelectorAll(`[data-id="${editingId}"] img[src*="favicons"]`).forEach(img => img.src = fallback);
+    document.querySelectorAll(`[data-id="${editingId}"] img.list-favicon`).forEach(img => img.src = fallback);
     stopCrmFaviconShake();
     showToast('Custom favicon removed');
   } catch {
