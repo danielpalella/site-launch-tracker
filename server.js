@@ -1878,6 +1878,47 @@ app.get('/api/launches/:id/widget-events', requireAuth, async (req, res) => {
   }
 });
 
+app.post('/api/launches/:id/hcp-api-key', requireAuth, async (req, res) => {
+  try {
+    const { api_key } = req.body;
+    if (!api_key || typeof api_key !== 'string') return res.status(400).json({ error: 'api_key required' });
+    const ref = db.collection('launches').doc(req.params.id);
+    const doc = await ref.get();
+    if (!doc.exists) return res.status(404).json({ error: 'Not found' });
+    await ref.update({ hcp_api_key: api_key.trim() });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/launches/:id/hcp-leads', requireAuth, async (req, res) => {
+  try {
+    const doc = await db.collection('launches').doc(req.params.id).get();
+    if (!doc.exists) return res.status(404).json({ error: 'Not found' });
+    const { hcp_api_key } = doc.data();
+    if (!hcp_api_key) return res.json({ available: false, reason: 'No HCP API key configured' });
+    const r = await fetch('https://api.housecallpro.com/leads?page_size=100', {
+      headers: { Authorization: `Token ${hcp_api_key}`, 'Content-Type': 'application/json' },
+    });
+    if (!r.ok) return res.status(r.status).json({ error: `HCP API error: ${r.status}` });
+    const data = await r.json();
+    const leads = (data.leads || []).map(l => ({
+      id: l.id,
+      number: l.number,
+      name: `${l.customer?.first_name || ''} ${l.customer?.last_name || ''}`.trim(),
+      phone: l.customer?.mobile_number || l.customer?.home_number || null,
+      email: l.customer?.email || null,
+      lead_source: l.lead_source,
+      status: l.pipeline_status || l.status,
+      submitted_at: l.customer?.created_at || null,
+    }));
+    res.json({ available: true, total: data.total_items, leads });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/launches/:id/forms', requireAuth, async (req, res) => {
   try {
     const doc = await db.collection('launches').doc(req.params.id).get();

@@ -6279,8 +6279,13 @@ async function loadWidgetEvents(id) {
   const body = document.getElementById(`acd-widget-body-${id}`);
   if (!body) return;
   try {
-    const r = await fetch(`/api/launches/${id}/widget-events?days=30`);
+    const [r, rHcp] = await Promise.all([
+      fetch(`/api/launches/${id}/widget-events?days=30`),
+      fetch(`/api/launches/${id}/hcp-leads`),
+    ]);
     const data = await r.json();
+    const hcp  = await rHcp.json();
+
     if (!data.available) {
       body.innerHTML = `<div style="color:var(--text-muted);font-size:.85rem;padding:.75rem 0">${esc(data.reason || 'No widget events found.')}</div>`;
       return;
@@ -6289,32 +6294,78 @@ async function loadWidgetEvents(id) {
       body.innerHTML = `<div style="color:var(--text-muted);font-size:.85rem;padding:.75rem 0">No widget events recorded in the last ${data.days} days.</div>`;
       return;
     }
+
     const EVENT_LABELS = {
       widget_open: 'Widget Opened', widget_close: 'Widget Closed',
       widget_button_click: 'Button Click', widget_message_sent: 'Message Sent',
-      widget_form_submit: 'Form Submitted', bcs_chip_click: 'Chip Click',
+      widget_form_submit: 'Contact Form Shown', bcs_chip_click: 'Chip Click',
       bcs_sub_chip_click: 'Sub-chip Click', bcs_quick_reply_click: 'Quick Reply Click',
       bcs_message_sent: 'Message Sent', bcs_project_card_click: 'Project Card Click',
       bcs_contact_form_shown: 'Contact Form Shown',
     };
+
     const opens    = data.events.find(e => e.name === 'widget_open')?.count || 0;
     const messages = (data.events.find(e => e.name === 'bcs_message_sent')?.count || 0)
                    + (data.events.find(e => e.name === 'widget_message_sent')?.count || 0);
-    const submits  = data.events.find(e => e.name === 'widget_form_submit')?.count || 0;
     const total    = data.events.reduce((s, e) => s + e.count, 0);
-    const kpis = [['Opens', opens], ['Messages', messages], ['Form Submits', submits], ['Total Events', total]];
+    const hcpLeads = hcp.available ? hcp.leads : null;
+    const leadCount = hcpLeads ? hcpLeads.length : null;
+
+    const kpis = [
+      ['Widget Opens', opens],
+      ['Messages Sent', messages],
+      ['HCP Leads', leadCount !== null ? leadCount : '—'],
+      ['Total Events', total],
+    ];
+
     const tableRows = data.events.map(e => `
       <tr style="border-bottom:1px solid var(--border)">
         <td style="font-size:.83rem;color:var(--text);padding:.4rem .5rem">${esc(EVENT_LABELS[e.name] || e.name)}</td>
         <td style="font-size:.83rem;color:var(--text);padding:.4rem .5rem;text-align:right;font-variant-numeric:tabular-nums">${e.count.toLocaleString()}</td>
       </tr>`).join('');
+
     const hasChart = data.dailyOpens?.length > 1;
+
+    const hcpSection = hcpLeads && hcpLeads.length ? `
+      <div style="margin-bottom:1.1rem">
+        <div style="font-size:.78rem;font-weight:600;color:var(--text);margin-bottom:.4rem">HCP Lead Form Submissions <span style="font-weight:400;color:var(--text-muted)">· all time</span></div>
+        <table style="width:100%;border-collapse:collapse;border-top:1px solid var(--border)">
+          <thead><tr>
+            <th style="font-size:.72rem;color:var(--text-muted);font-weight:600;text-align:left;padding:.3rem .5rem">Name</th>
+            <th style="font-size:.72rem;color:var(--text-muted);font-weight:600;text-align:left;padding:.3rem .5rem">Phone</th>
+            <th style="font-size:.72rem;color:var(--text-muted);font-weight:600;text-align:left;padding:.3rem .5rem">Status</th>
+            <th style="font-size:.72rem;color:var(--text-muted);font-weight:600;text-align:right;padding:.3rem .5rem">Submitted</th>
+          </tr></thead>
+          <tbody>${hcpLeads.map(l => {
+            const dt = l.submitted_at ? new Date(l.submitted_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+            const statusColor = l.status === 'New Lead' ? '#f59e0b' : l.status === 'Assigned' ? '#22c55e' : 'var(--text-muted)';
+            return `<tr style="border-bottom:1px solid var(--border)">
+              <td style="font-size:.83rem;color:var(--text);padding:.4rem .5rem">${esc(l.name || '—')}</td>
+              <td style="font-size:.83rem;color:var(--text-muted);padding:.4rem .5rem">${esc(l.phone || '—')}</td>
+              <td style="font-size:.83rem;padding:.4rem .5rem"><span style="color:${statusColor};font-weight:500">${esc(l.status || '—')}</span></td>
+              <td style="font-size:.83rem;color:var(--text-muted);padding:.4rem .5rem;text-align:right">${dt}</td>
+            </tr>`;
+          }).join('')}</tbody>
+        </table>
+      </div>` : (hcp.available ? `<div style="color:var(--text-muted);font-size:.83rem;margin-bottom:1rem">No HCP lead form submissions yet.</div>` : '');
+
+    const hcpSetup = !hcp.available ? `
+      <div style="margin-top:1.2rem;padding:.75rem;background:var(--surface);border:1px solid var(--border);border-radius:.5rem">
+        <div style="font-size:.78rem;font-weight:600;color:var(--text);margin-bottom:.4rem">Connect HouseCallPro</div>
+        <div style="font-size:.78rem;color:var(--text-muted);margin-bottom:.6rem">Add an HCP API key to see actual lead form submissions.</div>
+        <div style="display:flex;gap:.5rem;align-items:center">
+          <input id="hcp-key-input-${esc(id)}" type="password" placeholder="HCP API key" style="flex:1;font-size:.82rem;padding:.35rem .55rem;border:1px solid var(--border);border-radius:.4rem;background:var(--bg);color:var(--text)">
+          <button onclick="saveHcpApiKey('${esc(id)}')" style="font-size:.78rem;padding:.35rem .75rem;background:var(--primary);color:#fff;border:none;border-radius:.4rem;cursor:pointer">Save</button>
+        </div>
+        <div id="hcp-key-status-${esc(id)}" style="font-size:.75rem;color:var(--text-muted);margin-top:.35rem"></div>
+      </div>` : '';
+
     body.innerHTML = `
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.6rem;margin-bottom:1.1rem">
         ${kpis.map(([label, val]) => `
           <div style="background:var(--surface);border:1px solid var(--border);border-radius:.5rem;padding:.55rem .75rem">
             <div style="font-size:.7rem;color:var(--text-muted);margin-bottom:.15rem">${label}</div>
-            <div style="font-size:1.25rem;font-weight:700;color:var(--text)">${val.toLocaleString()}</div>
+            <div style="font-size:1.25rem;font-weight:700;color:var(--text)">${typeof val === 'number' ? val.toLocaleString() : val}</div>
           </div>`).join('')}
       </div>
       ${hasChart ? `
@@ -6322,24 +6373,7 @@ async function loadWidgetEvents(id) {
           <div style="font-size:.78rem;font-weight:600;color:var(--text);margin-bottom:.5rem">Widget Opens — Last ${data.days} Days</div>
           <div style="height:90px"><canvas id="acd-widget-chart-${esc(id)}"></canvas></div>
         </div>` : ''}
-      ${data.formSubmitDates?.length ? `
-        <div style="margin-bottom:1.1rem">
-          <div style="font-size:.78rem;font-weight:600;color:var(--text);margin-bottom:.4rem">Form Submissions by Date</div>
-          <table style="width:100%;border-collapse:collapse;border-top:1px solid var(--border)">
-            <thead><tr>
-              <th style="font-size:.72rem;color:var(--text-muted);font-weight:600;text-align:left;padding:.3rem .5rem">Date</th>
-              <th style="font-size:.72rem;color:var(--text-muted);font-weight:600;text-align:right;padding:.3rem .5rem">Submissions</th>
-            </tr></thead>
-            <tbody>${data.formSubmitDates.map(d => {
-              const s = d.date;
-              const label = new Date(`${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}T12:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-              return `<tr style="border-bottom:1px solid var(--border)">
-                <td style="font-size:.83rem;color:var(--text);padding:.4rem .5rem">${label}</td>
-                <td style="font-size:.83rem;color:var(--text);padding:.4rem .5rem;text-align:right;font-variant-numeric:tabular-nums">${d.count}</td>
-              </tr>`;
-            }).join('')}</tbody>
-          </table>
-        </div>` : ''}
+      ${hcpSection}
       <div style="font-size:.78rem;font-weight:600;color:var(--text);margin-bottom:.4rem">
         Event Breakdown <span style="font-weight:400;color:var(--text-muted)">· last ${data.days} days</span>
       </div>
@@ -6349,7 +6383,9 @@ async function loadWidgetEvents(id) {
           <th style="font-size:.72rem;color:var(--text-muted);font-weight:600;text-align:right;padding:.3rem .5rem">Count</th>
         </tr></thead>
         <tbody>${tableRows}</tbody>
-      </table>`;
+      </table>
+      ${hcpSetup}`;
+
     if (hasChart) {
       const canvas = document.getElementById(`acd-widget-chart-${id}`);
       if (canvas && window.Chart) {
@@ -6372,6 +6408,28 @@ async function loadWidgetEvents(id) {
     }
   } catch {
     if (body) body.innerHTML = `<div style="color:var(--text-muted);font-size:.85rem;padding:.75rem 0">Failed to load widget events.</div>`;
+  }
+}
+
+async function saveHcpApiKey(id) {
+  const input  = document.getElementById(`hcp-key-input-${id}`);
+  const status = document.getElementById(`hcp-key-status-${id}`);
+  if (!input?.value.trim()) return;
+  status.textContent = 'Saving…';
+  try {
+    const r = await fetch(`/api/launches/${id}/hcp-api-key`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ api_key: input.value.trim() }),
+    });
+    if (!r.ok) throw new Error((await r.json()).error);
+    status.style.color = 'var(--success, #22c55e)';
+    status.textContent = 'Saved! Reloading…';
+    delete _widgetEventsLoaded[id];
+    setTimeout(() => loadWidgetEvents(id), 800);
+  } catch (e) {
+    status.style.color = '#ef4444';
+    status.textContent = `Error: ${e.message}`;
   }
 }
 
