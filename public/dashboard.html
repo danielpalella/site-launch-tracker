@@ -1661,7 +1661,7 @@ function switchCrmTab(name, btn) {
 
 function isFollowUpOverdue(r) {
   if (r.status !== 'awaiting_approval') return false;
-  if (!r.last_contact_date) return true;
+  if (!r.last_contact_date) return false; // no logged date = unknown, not red
   const today = new Date().toISOString().slice(0, 10);
   return businessDaysBetween(r.last_contact_date, today) >= 5;
 }
@@ -6734,7 +6734,10 @@ async function uploadCrmFavicon(e) {
     const r = await fetch(`/api/launches/${editingId}/favicon`, { method: 'POST', body: fd });
     if (!r.ok) throw new Error();
     const { custom_favicon } = await r.json();
-    document.getElementById('crm-hdr-favicon').src = custom_favicon;
+    const faviconEl   = document.getElementById('crm-hdr-favicon');
+    const faviconWrap = document.getElementById('crm-hdr-favicon-wrap');
+    faviconEl.src = custom_favicon;
+    if (faviconWrap) faviconWrap.style.display = ''; // ensure wrap is visible
     const launch = allLaunches.find(x => x.id === editingId);
     if (launch) launch.custom_favicon = custom_favicon;
     // Update board card and table row favicons
