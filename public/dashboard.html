@@ -6428,7 +6428,7 @@ async function loadWidgetEvents(id) {
     const kpis = [
       ['Widget Opens', opens],
       ['Messages Sent', messages],
-      ['HCP Leads', leadCount !== null ? leadCount : '—'],
+      ['<img src="/hcp-icon.ico" style="width:11px;height:11px;vertical-align:middle;margin-right:.25rem;margin-bottom:1px">HCP Leads', leadCount !== null ? leadCount : '—'],
       ['Attributed', attributedCount !== null ? `${attributedCount}/${leadCount}` : '—'],
     ];
 
@@ -6519,7 +6519,7 @@ async function loadWidgetEvents(id) {
             <div style="font-size:.78rem;font-weight:700;color:var(--text)">Closed Loop Attribution</div>
             ${attributedPct !== null ? `
               <div style="font-size:.78rem;font-weight:700;color:${summaryColor}">${attributedPct}% attributed to widget</div>
-              <div style="font-size:.72rem;color:var(--text-muted)">${attributedCount} of ${leadCount} HCP leads matched a widget session</div>` : ''}
+              <div style="font-size:.72rem;color:var(--text-muted)">${attributedCount} of ${leadCount} <img src="/hcp-icon.ico" style="width:11px;height:11px;vertical-align:middle;margin-right:.1rem;margin-bottom:1px">HCP leads matched a widget session</div>` : ''}
           </div>
           <table style="width:100%;border-collapse:collapse;border-top:1px solid var(--border)">
             <thead><tr>
@@ -6540,7 +6540,7 @@ async function loadWidgetEvents(id) {
 
     const hcpSetup = !hcp.available ? `
       <div style="margin-top:1.2rem;padding:.75rem;background:var(--surface);border:1px solid var(--border);border-radius:.5rem">
-        <div style="font-size:.78rem;font-weight:600;color:var(--text);margin-bottom:.4rem">Connect HouseCallPro</div>
+        <div style="font-size:.78rem;font-weight:600;color:var(--text);margin-bottom:.4rem"><img src="/hcp-icon.ico" style="width:12px;height:12px;vertical-align:middle;margin-right:.3rem;margin-bottom:1px">Connect HouseCallPro</div>
         <div style="font-size:.78rem;color:var(--text-muted);margin-bottom:.6rem">Add an HCP API key to enable closed-loop attribution.</div>
         <div style="display:flex;gap:.5rem;align-items:center">
           <input id="hcp-key-input-${esc(id)}" type="password" placeholder="HCP API key" style="flex:1;font-size:.82rem;padding:.35rem .55rem;border:1px solid var(--border);border-radius:.4rem;background:var(--bg);color:var(--text)">
@@ -6551,7 +6551,7 @@ async function loadWidgetEvents(id) {
 
     body.innerHTML = `
       <div style="font-size:.8rem;color:var(--text-muted);margin-bottom:1rem;line-height:1.5">
-        Tracks user interactions with the AI chatbot widget. <strong style="color:var(--text)">Opens</strong> = sessions where someone clicked the chat bubble. <strong style="color:var(--text)">Messages Sent</strong> = messages users typed and sent to the AI. <strong style="color:var(--text)">HCP Leads</strong> = actual bookings submitted through the widget since launch. <strong style="color:var(--text)">Attributed</strong> = leads where a widget session and HCP submission occurred within the same hour.
+        Tracks user interactions with the AI chatbot widget. <strong style="color:var(--text)">Opens</strong> = sessions where someone clicked the chat bubble. <strong style="color:var(--text)">Messages Sent</strong> = messages users typed and sent to the AI. <strong style="color:var(--text)"><img src="/hcp-icon.ico" style="width:11px;height:11px;vertical-align:middle;margin-right:.2rem;margin-bottom:1px">HCP Leads</strong> = actual bookings submitted through the widget since launch. <strong style="color:var(--text)">Attributed</strong> = leads where a widget session and HCP submission occurred within the same hour.
       </div>
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.6rem;margin-bottom:1.1rem">
         ${kpis.map(([label, val]) => `
