@@ -5858,7 +5858,17 @@ function renderAnalyticsModalBody(id, data, forms) {
           || /your\s+website.{0,50}(?:brilliant|amazing|compels|visuals\s+really|enhance)/i.test(text)
           || /(?:digital\s+marketing|web\s+design\s+service|boost\s+(?:your\s+)?rank|increase\s+(?:your\s+)?traffic|search\s+engine\s+optim)/i.test(text)
           || /forward(?:ed)?\s+it\s+to\s+(?:a\s+few\s+of\s+)?(?:my\s+)?contacts/i.test(text)
-          || /write\s+it\s+up\s+or\s+share/i.test(text);
+          || /write\s+it\s+up\s+or\s+share/i.test(text)
+          || /I run \w[\w-]*\.(?:com|co|io|net|org)/i.test(text)
+          || /loom video/i.test(text)
+          || /remote assistant/i.test(text)
+          || /\d+-figure\s+(?:range|income|revenue|business)/i.test(text)
+          || /(?:monthly service|30-day guarantee|\d+-day\s+(?:free\s+)?(?:trial|guarantee))/i.test(text)
+          || /(?:quantity\s+takeoff|estimating\s+(?:and|&amp;|&)\s+quantity|takeoff\s+service)/i.test(text)
+          || /we provide\s+professional.{0,60}(?:service|contractor|construction)/i.test(text)
+          || /(?:competitive\s+bids|submit.*bids|bidding\s+service)/i.test(text)
+          || /shoot\s+me\s+an?\s+(?:e-?mail|text|message)/i.test(text)
+          || /send\s+you\s+a\s+personalized/i.test(text);
     };
     const spamSubs = subs.filter(s => isSpam(s));
     const nonSpam  = subs.filter(s => !isSpam(s));
@@ -5994,7 +6004,17 @@ function renderAnalyticsModalBody(id, data, forms) {
           || /your\s+website.{0,50}(?:brilliant|amazing|compels|visuals\s+really|enhance)/i.test(text)
           || /(?:digital\s+marketing|web\s+design\s+service|boost\s+(?:your\s+)?rank|increase\s+(?:your\s+)?traffic|search\s+engine\s+optim)/i.test(text)
           || /forward(?:ed)?\s+it\s+to\s+(?:a\s+few\s+of\s+)?(?:my\s+)?contacts/i.test(text)
-          || /write\s+it\s+up\s+or\s+share/i.test(text);
+          || /write\s+it\s+up\s+or\s+share/i.test(text)
+          || /I run \w[\w-]*\.(?:com|co|io|net|org)/i.test(text)
+          || /loom video/i.test(text)
+          || /remote assistant/i.test(text)
+          || /\d+-figure\s+(?:range|income|revenue|business)/i.test(text)
+          || /(?:monthly service|30-day guarantee|\d+-day\s+(?:free\s+)?(?:trial|guarantee))/i.test(text)
+          || /(?:quantity\s+takeoff|estimating\s+(?:and|&amp;|&)\s+quantity|takeoff\s+service)/i.test(text)
+          || /we provide\s+professional.{0,60}(?:service|contractor|construction)/i.test(text)
+          || /(?:competitive\s+bids|submit.*bids|bidding\s+service)/i.test(text)
+          || /shoot\s+me\s+an?\s+(?:e-?mail|text|message)/i.test(text)
+          || /send\s+you\s+a\s+personalized/i.test(text);
     };
     leadCount = forms.submissions.filter(s => !_isZip(s) && !_isSpam(s)).length;
   }
