@@ -6016,6 +6016,12 @@ function renderAnalyticsModalBody(id, data, forms) {
     </div>
     ${(data.tags || []).some(tid => _tagMap[tid]?.name?.toLowerCase() === 'ai chatbot beta') ? `
     <div id="acd-tp-widget-${id}" class="acd-tab-pane" style="display:none">
+      <div style="display:flex;justify-content:flex-end;margin-bottom:.5rem">
+        <button onclick="refreshWidgetEvents('${esc(id)}')" id="acd-widget-refresh-${id}" style="font-size:.75rem;color:var(--text-muted);background:none;border:1px solid var(--border);border-radius:.4rem;padding:.25rem .6rem;cursor:pointer;display:flex;align-items:center;gap:.3rem">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          Refresh
+        </button>
+      </div>
       <div id="acd-widget-body-${id}" style="color:var(--text-muted);font-size:.85rem;padding:.75rem 0">Loading widget events…</div>
     </div>` : ''}
   `;
@@ -6549,6 +6555,16 @@ async function loadWidgetEvents(id) {
   } catch(err) {
     if (body) body.innerHTML = `<div style="color:var(--text-muted);font-size:.85rem;padding:.75rem 0">Failed to load widget events.</div>`;
   }
+}
+
+async function refreshWidgetEvents(id) {
+  const btn  = document.getElementById(`acd-widget-refresh-${id}`);
+  const body = document.getElementById(`acd-widget-body-${id}`);
+  if (btn) btn.disabled = true;
+  if (body) body.innerHTML = '<div style="color:var(--text-muted);font-size:.85rem;padding:.75rem 0">Loading widget events…</div>';
+  delete _widgetEventsLoaded[id];
+  await loadWidgetEvents(id);
+  if (btn) btn.disabled = false;
 }
 
 async function saveHcpApiKey(id) {
