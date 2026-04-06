@@ -6391,16 +6391,28 @@ async function loadWidgetEvents(id) {
     const EVENT_LABELS = {
       widget_open: 'Widget Opened', widget_close: 'Widget Closed',
       widget_button_click: 'Button Click', widget_message_sent: 'Message Sent',
-      widget_form_submit: 'Contact Form Shown', bcs_chip_click: 'Chip Click',
-      bcs_sub_chip_click: 'Sub-chip Click', bcs_quick_reply_click: 'Quick Reply Click',
+      widget_form_submit: 'Contact Form Shown', bcs_chip_click: 'Topic Selected',
+      bcs_sub_chip_click: 'Sub-topic Selected', bcs_quick_reply_click: 'Quick Reply',
       bcs_message_sent: 'Message Sent', bcs_project_card_click: 'Project Card Click',
       bcs_contact_form_shown: 'Contact Form Shown',
     };
 
+    // Merge duplicate events that fire for the same user action
+    const MERGE_INTO = {
+      'bcs_contact_form_shown': 'widget_form_submit',
+      'widget_message_sent':    'bcs_message_sent',
+    };
+    const mergedEvents = [];
+    const mergedMap = {};
+    for (const e of data.events) {
+      const key = MERGE_INTO[e.name] || e.name;
+      if (mergedMap[key] !== undefined) { mergedEvents[mergedMap[key]].count += e.count; }
+      else { mergedMap[key] = mergedEvents.length; mergedEvents.push({ name: key, count: e.count }); }
+    }
+
     const opens    = data.events.find(e => e.name === 'widget_open')?.count || 0;
-    const messages = (data.events.find(e => e.name === 'bcs_message_sent')?.count || 0)
-                   + (data.events.find(e => e.name === 'widget_message_sent')?.count || 0);
-    const total    = data.events.reduce((s, e) => s + e.count, 0);
+    const messages = mergedEvents.find(e => e.name === 'bcs_message_sent')?.count || 0;
+    const total    = mergedEvents.reduce((s, e) => s + e.count, 0);
     const hcpLeads = hcp.available ? hcp.leads : null;
     const leadCount = hcpLeads ? hcpLeads.length : null;
 
@@ -6420,20 +6432,43 @@ async function loadWidgetEvents(id) {
       ['Attributed', attributedCount !== null ? `${attributedCount}/${leadCount}` : '—'],
     ];
 
-    // Merge widget_form_submit + bcs_contact_form_shown — same action, tracked twice
-    const MERGE_INTO = { 'bcs_contact_form_shown': 'widget_form_submit' };
-    const mergedEvents = [];
-    const mergedMap = {};
-    for (const e of data.events) {
-      const key = MERGE_INTO[e.name] || e.name;
-      if (mergedMap[key] !== undefined) { mergedEvents[mergedMap[key]].count += e.count; }
-      else { mergedMap[key] = mergedEvents.length; mergedEvents.push({ name: key, count: e.count }); }
-    }
-    const tableRows = mergedEvents.map(e => `
-      <tr style="border-bottom:1px solid var(--border)">
-        <td style="font-size:.83rem;color:var(--text);padding:.4rem .5rem">${esc(EVENT_LABELS[e.name] || e.name)}</td>
-        <td style="font-size:.83rem;color:var(--text);padding:.4rem .5rem;text-align:right;font-variant-numeric:tabular-nums">${e.count.toLocaleString()}</td>
-      </tr>`).join('');
+    // --- Interaction detail (chip/button breakdown by label) ---
+    const INTERACTION_LABELS = {
+      bcs_chip_click:       'Topic Selected',
+      bcs_sub_chip_click:   'Sub-topic Selected',
+      bcs_quick_reply_click:'Quick Reply',
+      widget_button_click:  'Button Click',
+    };
+    const interactionDetail = data.interactionDetail || [];
+    const interactionSection = interactionDetail.length ? (() => {
+      // Group by event type
+      const groups = {};
+      for (const row of interactionDetail) {
+        const group = INTERACTION_LABELS[row.event] || row.event;
+        if (!groups[group]) groups[group] = [];
+        groups[group].push(row);
+      }
+      return Object.entries(groups).map(([groupName, rows]) => `
+        <div style="margin-bottom:1rem">
+          <div style="font-size:.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:.35rem">${esc(groupName)}</div>
+          <table style="width:100%;border-collapse:collapse;border-top:1px solid var(--border)">
+            <tbody>${rows.map(r => `
+              <tr style="border-bottom:1px solid var(--border)">
+                <td style="font-size:.83rem;color:var(--text);padding:.35rem .5rem">${esc(r.label)}</td>
+                <td style="font-size:.83rem;color:var(--text-muted);padding:.35rem .5rem;text-align:right;font-variant-numeric:tabular-nums">${r.count.toLocaleString()}</td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>`).join('');
+    })() : '';
+
+    const tableRows = mergedEvents
+      .filter(e => !['bcs_chip_click','bcs_sub_chip_click','bcs_quick_reply_click','widget_button_click'].includes(e.name))
+      .map(e => `
+        <tr style="border-bottom:1px solid var(--border)">
+          <td style="font-size:.83rem;color:var(--text);padding:.4rem .5rem">${esc(EVENT_LABELS[e.name] || e.name)}</td>
+          <td style="font-size:.83rem;color:var(--text);padding:.4rem .5rem;text-align:right;font-variant-numeric:tabular-nums">${e.count.toLocaleString()}</td>
+        </tr>`).join('');
 
     const hasChart = data.dailyOpens?.length > 1;
 
@@ -6507,6 +6542,9 @@ async function loadWidgetEvents(id) {
       </div>` : '';
 
     body.innerHTML = `
+      <div style="font-size:.8rem;color:var(--text-muted);margin-bottom:1rem;line-height:1.5">
+        Tracks user interactions with the AI chatbot widget. <strong style="color:var(--text)">Opens</strong> = sessions where someone clicked the chat bubble. <strong style="color:var(--text)">Messages Sent</strong> = messages users typed and sent to the AI. <strong style="color:var(--text)">HCP Leads</strong> = actual bookings submitted through the widget since launch. <strong style="color:var(--text)">Attributed</strong> = leads where a widget session and HCP submission occurred within the same hour.
+      </div>
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.6rem;margin-bottom:1.1rem">
         ${kpis.map(([label, val]) => `
           <div style="background:var(--surface);border:1px solid var(--border);border-radius:.5rem;padding:.55rem .75rem">
@@ -6520,8 +6558,15 @@ async function loadWidgetEvents(id) {
           <div style="height:90px"><canvas id="acd-widget-chart-${esc(id)}"></canvas></div>
         </div>` : ''}
       ${closedLoopSection}
+      ${interactionSection ? `
+        <div style="margin-bottom:1.1rem">
+          <div style="font-size:.78rem;font-weight:600;color:var(--text);margin-bottom:.6rem">
+            What People Are Clicking <span style="font-weight:400;color:var(--text-muted)">· last ${data.days} days</span>
+          </div>
+          ${interactionSection}
+        </div>` : ''}
       <div style="font-size:.78rem;font-weight:600;color:var(--text);margin-bottom:.4rem">
-        Event Breakdown <span style="font-weight:400;color:var(--text-muted)">· last ${data.days} days</span>
+        All Events <span style="font-weight:400;color:var(--text-muted)">· last ${data.days} days</span>
       </div>
       <table style="width:100%;border-collapse:collapse;border-top:1px solid var(--border)">
         <thead><tr>

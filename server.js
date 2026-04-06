@@ -1849,7 +1849,7 @@ app.get('/api/launches/:id/widget-events', requireAuth, async (req, res) => {
 
     const formSubmitFilter = { filter: { fieldName: 'eventName', stringFilter: { matchType: 'EXACT', value: 'widget_form_submit' } } };
 
-    const [eventsRes, trendRes, formDatesRes, formHourlyRes] = await Promise.all([
+    const [eventsRes, trendRes, formDatesRes, formHourlyRes, interactionRes] = await Promise.all([
       ga4Post({
         dateRanges: [{ startDate: `${days}daysAgo`, endDate: 'today' }],
         dimensions: [{ name: 'eventName' }],
@@ -1879,6 +1879,19 @@ app.get('/api/launches/:id/widget-events', requireAuth, async (req, res) => {
         dimensionFilter: formSubmitFilter,
         orderBys: [{ dimension: { dimensionName: 'date' }, desc: true }],
       }),
+      // Chip / button click breakdown by label
+      ga4Post({
+        dateRanges: [{ startDate: `${days}daysAgo`, endDate: 'today' }],
+        dimensions: [{ name: 'eventName' }, { name: 'customEvent:button_label' }],
+        metrics: [{ name: 'eventCount' }],
+        dimensionFilter: { orGroup: { expressions: [
+          { filter: { fieldName: 'eventName', stringFilter: { matchType: 'EXACT', value: 'bcs_chip_click' } } },
+          { filter: { fieldName: 'eventName', stringFilter: { matchType: 'EXACT', value: 'bcs_sub_chip_click' } } },
+          { filter: { fieldName: 'eventName', stringFilter: { matchType: 'EXACT', value: 'bcs_quick_reply_click' } } },
+          { filter: { fieldName: 'eventName', stringFilter: { matchType: 'EXACT', value: 'widget_button_click' } } },
+        ]}},
+        orderBys: [{ metric: { metricName: 'eventCount' }, desc: true }],
+      }),
     ]);
 
     res.json({
@@ -1899,10 +1912,18 @@ app.get('/api/launches/:id/widget-events', requireAuth, async (req, res) => {
       })),
       // Each entry = one "contact form shown" event slot, with its local date+hour
       formSubmitHourly: (formHourlyRes.rows || []).map(r => ({
-        date: r.dimensionValues[0].value,   // "20260331"
-        hour: r.dimensionValues[1].value,   // "22"  (in GA4 property timezone)
+        date: r.dimensionValues[0].value,
+        hour: r.dimensionValues[1].value,
         count: parseInt(r.metricValues[0].value),
       })),
+      // Chip/button clicks broken down by which label was clicked
+      interactionDetail: (interactionRes.rows || [])
+        .filter(r => r.dimensionValues[1].value !== '(not set)')
+        .map(r => ({
+          event: r.dimensionValues[0].value,
+          label: r.dimensionValues[1].value,
+          count: parseInt(r.metricValues[0].value),
+        })),
     });
   } catch (err) {
     if (err.code === 'not_connected') return res.json({ available: false, reason: 'Analytics not connected' });
