@@ -6424,12 +6424,14 @@ async function loadWidgetEvents(id) {
     const attributedCount = correlations ? correlations.filter(c => c.confidence).length : null;
     const attributedPct   = (attributedCount !== null && leadCount)
       ? Math.round(attributedCount / leadCount * 100) : null;
+    const summaryColor = attributedPct >= 75 ? '#22c55e' : attributedPct >= 40 ? '#f59e0b' : 'var(--text-muted)';
 
     const kpis = [
-      ['Widget Opens', opens],
-      ['Messages Sent', messages],
-      ['<img src="/hcp-icon.ico" style="width:11px;height:11px;vertical-align:middle;margin-right:.25rem;margin-bottom:1px">HCP Leads', leadCount !== null ? leadCount : '—'],
-      ['Attributed', attributedCount !== null ? `${attributedCount}/${leadCount}` : '—'],
+      { label: 'Widget Opens',    val: opens,    tip: 'Sessions where a visitor clicked the chat bubble and opened the widget.' },
+      { label: 'Messages Sent',   val: messages, tip: 'Messages typed and sent by users to the AI chatbot.' },
+      { label: '<img src="/hcp-icon.ico" style="width:11px;height:11px;vertical-align:middle;margin-right:.25rem;margin-bottom:1px">HCP Leads', val: leadCount !== null ? leadCount : '—', tip: 'Bookings submitted through HouseCallPro since the widget launched.' },
+      { label: 'Attribution Rate', val: attributedPct !== null ? `${attributedPct}%` : '—', tip: 'Share of HCP leads that had a widget session within the same hour of submitting.', color: attributedPct !== null ? summaryColor : null },
+      { label: 'Attributed',      val: attributedCount !== null ? `${attributedCount}/${leadCount}` : '—', tip: 'Number of HCP leads where a widget session and form submission occurred within the same hour.' },
     ];
 
     // --- Interaction detail (chip/button breakdown by label) ---
@@ -6438,6 +6440,13 @@ async function loadWidgetEvents(id) {
       bcs_sub_chip_click:   'Sub-topic Selected',
       bcs_quick_reply_click:'Quick Reply',
       widget_button_click:  'Button Click',
+    };
+    // Human-readable display names for raw GA4 button_label event parameter values
+    const BUTTON_LABEL_DISPLAY = {
+      'quote_freetext':    'Quote (free text)',
+      'get_a_quote':       'Get a quote',
+      'talk_to_a_person':  'Talk to a person',
+      'troubleshoot_issue':'Troubleshoot issue',
     };
     const interactionDetail = data.interactionDetail || [];
     const interactionSection = interactionDetail.length ? (() => {
@@ -6454,7 +6463,7 @@ async function loadWidgetEvents(id) {
           <table style="width:100%;border-collapse:collapse;border-top:1px solid var(--border)">
             <tbody>${rows.map(r => `
               <tr style="border-bottom:1px solid var(--border)">
-                <td style="font-size:.83rem;color:var(--text);padding:.35rem .5rem">${esc(r.label)}</td>
+                <td style="font-size:.83rem;color:var(--text);padding:.35rem .5rem">${esc(BUTTON_LABEL_DISPLAY[r.label] || r.label)}</td>
                 <td style="font-size:.83rem;color:var(--text-muted);padding:.35rem .5rem;text-align:right;font-variant-numeric:tabular-nums">${r.count.toLocaleString()}</td>
               </tr>`).join('')}
             </tbody>
@@ -6495,7 +6504,7 @@ async function loadWidgetEvents(id) {
         if (lead.description) detailParts.push(`<span style="color:var(--text-muted)">Message:</span> ${esc(lead.description)}`);
         const hasDetail = detailParts.length > 0;
         return `
-          <tr style="border-bottom:${hasDetail ? 'none' : '1px solid var(--border)'};cursor:${hasDetail ? 'pointer' : 'default'}" ${hasDetail ? `onclick="const d=document.getElementById('${detailId}');d.style.display=d.style.display==='none'?'':'none'"` : ''}>
+          <tr style="border-bottom:${hasDetail ? 'none' : '1px solid var(--border)'};cursor:${hasDetail ? 'pointer' : 'default'};transition:background .1s" ${hasDetail ? `onclick="const d=document.getElementById('${detailId}');d.style.display=d.style.display==='none'?'':'none'" onmouseenter="this.style.background='var(--bg)'" onmouseleave="this.style.background=''"` : ''}>
             <td style="padding:.5rem .5rem;width:1.4rem">
               <span style="font-size:.9rem;font-weight:700;color:${c.color}">${c.icon}</span>
             </td>
@@ -6512,14 +6521,15 @@ async function loadWidgetEvents(id) {
           ${hasDetail ? `<tr id="${detailId}" style="display:none;border-bottom:1px solid var(--border)"><td colspan="5" style="padding:.4rem .5rem .65rem 2.5rem;font-size:.77rem;line-height:1.6;color:var(--text)">${detailParts.join('<br>')}</td></tr>` : ''}`;
       }).join('');
 
-      const summaryColor = attributedPct >= 75 ? '#22c55e' : attributedPct >= 40 ? '#f59e0b' : 'var(--text-muted)';
+      const sinceLine = hcp.since ? `Since ${fmtAnalyticsDate(hcp.since)}` : '';
       closedLoopSection = `
         <div style="margin-bottom:1.2rem;padding:.85rem;background:var(--surface);border:1px solid var(--border);border-radius:.6rem">
-          <div style="display:flex;align-items:baseline;gap:.75rem;margin-bottom:.65rem;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.65rem;flex-wrap:wrap;gap:.4rem">
             <div style="font-size:.78rem;font-weight:700;color:var(--text)">Closed Loop Attribution</div>
-            ${attributedPct !== null ? `
-              <div style="font-size:.78rem;font-weight:700;color:${summaryColor}">${attributedPct}% attributed to widget</div>
-              <div style="font-size:.72rem;color:var(--text-muted)">${attributedCount} of ${leadCount} <img src="/hcp-icon.ico" style="width:11px;height:11px;vertical-align:middle;margin-right:.1rem;margin-bottom:1px">HCP leads matched a widget session</div>` : ''}
+            <div style="display:flex;align-items:center;gap:.75rem">
+              ${attributedPct !== null ? `<div style="font-size:.72rem;color:var(--text-muted)">${attributedCount} of ${leadCount} <img src="/hcp-icon.ico" style="width:11px;height:11px;vertical-align:middle;margin-right:.1rem;margin-bottom:1px">HCP leads matched a widget session</div>` : ''}
+              ${sinceLine ? `<div style="font-size:.72rem;color:var(--text-muted);border-left:1px solid var(--border);padding-left:.75rem">${sinceLine}</div>` : ''}
+            </div>
           </div>
           <table style="width:100%;border-collapse:collapse;border-top:1px solid var(--border)">
             <thead><tr>
@@ -6550,14 +6560,11 @@ async function loadWidgetEvents(id) {
       </div>` : '';
 
     body.innerHTML = `
-      <div style="font-size:.8rem;color:var(--text-muted);margin-bottom:1rem;line-height:1.5">
-        Tracks user interactions with the AI chatbot widget. <strong style="color:var(--text)">Opens</strong> = sessions where someone clicked the chat bubble. <strong style="color:var(--text)">Messages Sent</strong> = messages users typed and sent to the AI. <strong style="color:var(--text)"><img src="/hcp-icon.ico" style="width:11px;height:11px;vertical-align:middle;margin-right:.2rem;margin-bottom:1px">HCP Leads</strong> = actual bookings submitted through the widget since launch. <strong style="color:var(--text)">Attributed</strong> = leads where a widget session and HCP submission occurred within the same hour.
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.6rem;margin-bottom:1.1rem">
-        ${kpis.map(([label, val]) => `
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:.6rem;margin-bottom:1.1rem">
+        ${kpis.map(({ label, val, tip, color }) => `
           <div style="background:var(--surface);border:1px solid var(--border);border-radius:.5rem;padding:.55rem .75rem">
-            <div style="font-size:.7rem;color:var(--text-muted);margin-bottom:.15rem">${label}</div>
-            <div style="font-size:1.25rem;font-weight:700;color:var(--text)">${val}</div>
+            <div style="font-size:.7rem;color:var(--text-muted);margin-bottom:.15rem;display:flex;align-items:center;gap:.2rem">${label}${tip ? `<span class="ac-tip" data-tip="${tip.replace(/"/g, '&quot;')}" style="margin-left:.15rem;flex-shrink:0">?</span>` : ''}</div>
+            <div style="font-size:1.25rem;font-weight:700;color:${color || 'var(--text)'}"">${val}</div>
           </div>`).join('')}
       </div>
       ${hasChart ? `
