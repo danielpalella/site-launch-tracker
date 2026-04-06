@@ -760,12 +760,29 @@ function screenerParseSitemap(xml) {
   };
 }
 
+async function screenerDiscoverSitemapUrls(baseUrl) {
+  // Parse robots.txt first — it's the authoritative source for sitemap location
+  try {
+    const ctrl = new AbortController();
+    setTimeout(() => ctrl.abort(), 5000);
+    const r = await fetch(`${baseUrl}/robots.txt`, { signal: ctrl.signal, headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RealWorkScreener/1.0)' } });
+    if (r.ok) {
+      const text = await r.text();
+      const declared = [...text.matchAll(/^Sitemap:\s*(.+)$/gim)].map(m => m[1].trim()).filter(Boolean);
+      if (declared.length > 0) return declared; // return all declared sitemaps
+    }
+  } catch {}
+  // Fall back to common paths
+  return [`${baseUrl}/sitemap.xml`, `${baseUrl}/sitemap_index.xml`, `${baseUrl}/sitemap-index.xml`, `${baseUrl}/sitemap/sitemap.xml`];
+}
+
 async function screenerFetchSitemap(baseUrl) {
-  for (const path of ['/sitemap.xml', '/sitemap_index.xml', '/sitemap-index.xml', '/sitemap/sitemap.xml']) {
+  const sitemapUrls = await screenerDiscoverSitemapUrls(baseUrl);
+  for (const sitemapUrl of sitemapUrls) {
     try {
       const ctrl = new AbortController();
       setTimeout(() => ctrl.abort(), 7000);
-      const r = await fetch(`${baseUrl}${path}`, { signal: ctrl.signal, headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RealWorkScreener/1.0)' } });
+      const r = await fetch(sitemapUrl, { signal: ctrl.signal, headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RealWorkScreener/1.0)' } });
       if (!r.ok) continue;
       const xml = await r.text();
       if (!xml.includes('<urlset') && !xml.includes('<sitemapindex')) continue;
