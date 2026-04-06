@@ -5845,8 +5845,25 @@ function renderAnalyticsModalBody(id, data, forms) {
       if (!ents.length) return false;
       return ents.every(([k]) => /zip|postal/i.test(k));
     };
-    const leads  = subs.filter(s => !isZipOnly(s));
-    const zipSubs = subs.filter(s => isZipOnly(s));
+    // Detect spam: empty bot submissions or SEO/marketing pitch messages
+    const isSpam = s => {
+      const ents = (s.message && typeof s.message === 'object' && !Array.isArray(s.message))
+        ? Object.entries(s.message).filter(([, v]) => v !== '' && v != null)
+        : [];
+      if (!ents.length) return true;
+      if (ents.every(([, v]) => !String(v).trim())) return true;
+      const text = ents.map(([, v]) => String(v)).join(' ');
+      return /\bseo\b.{0,60}(?:issue|fix|problem|help|aware)/i.test(text)
+          || /(?:noticed|found)\s+(?:a\s+)?(?:slight\s+)?(?:issue|problem)\s+(?:re|with|on)\s*:/i.test(text)
+          || /your\s+website.{0,50}(?:brilliant|amazing|compels|visuals\s+really|enhance)/i.test(text)
+          || /(?:digital\s+marketing|web\s+design\s+service|boost\s+(?:your\s+)?rank|increase\s+(?:your\s+)?traffic|search\s+engine\s+optim)/i.test(text)
+          || /forward(?:ed)?\s+it\s+to\s+(?:a\s+few\s+of\s+)?(?:my\s+)?contacts/i.test(text)
+          || /write\s+it\s+up\s+or\s+share/i.test(text);
+    };
+    const spamSubs = subs.filter(s => isSpam(s));
+    const nonSpam  = subs.filter(s => !isSpam(s));
+    const leads    = nonSpam.filter(s => !isZipOnly(s));
+    const zipSubs  = nonSpam.filter(s => isZipOnly(s));
     const renderSub = s => {
       const entries = (s.message && typeof s.message === 'object' && !Array.isArray(s.message))
         ? Object.entries(s.message).filter(([, v]) => v !== '' && v != null)
@@ -5894,11 +5911,13 @@ function renderAnalyticsModalBody(id, data, forms) {
       + '<div class="leads-tab-toggle" id="acd-ftabs-' + safeId + '">'
       + '<button class="leads-toggle-btn leads-toggle-active" onclick="acdFormTab(\'' + safeId + '\',\'leads\')">Leads <span class="leads-count">' + leads.length + '</span></button>'
       + '<button class="leads-toggle-btn" onclick="acdFormTab(\'' + safeId + '\',\'zip\')">Zip checks <span class="leads-count">' + zipSubs.length + '</span></button>'
+      + (spamSubs.length ? '<button class="leads-toggle-btn" onclick="acdFormTab(\'' + safeId + '\',\'spam\')">Spam <span class="leads-count">' + spamSubs.length + '</span></button>' : '')
       + '</div>'
       + '<span class="leads-total">' + subs.length + ' total</span>'
       + '</div>'
       + '<div id="acd-flist-leads-' + safeId + '" class="leads-list">' + renderList(leads, 'acd-fext-leads-' + safeId) + '</div>'
       + '<div id="acd-flist-zip-' + safeId + '" class="leads-list" style="display:none">' + renderList(zipSubs, 'acd-fext-zip-' + safeId) + '</div>'
+      + '<div id="acd-flist-spam-' + safeId + '" class="leads-list" style="display:none">' + renderList(spamSubs, 'acd-fext-spam-' + safeId) + '</div>'
       + '</div>';
   } else if (forms.available && !forms.submissions?.length) {
     formsSection = `<div class="leads-tab-wrap"><div style="font-size:.85rem;color:var(--text-muted);padding:1rem 0">No form submissions yet.</div></div>`;
@@ -5956,7 +5975,7 @@ function renderAnalyticsModalBody(id, data, forms) {
     </div>
   </div>`;
 
-  // Lead count for tab badge
+  // Lead count for tab badge (excludes zip-only and spam)
   let leadCount = 0;
   if (forms?.available && forms.submissions?.length) {
     const _isZip = s => {
@@ -5964,7 +5983,20 @@ function renderAnalyticsModalBody(id, data, forms) {
         ? Object.entries(s.message).filter(([, v]) => v !== '' && v != null) : [];
       return ents.length > 0 && ents.every(([k]) => /zip|postal/i.test(k));
     };
-    leadCount = forms.submissions.filter(s => !_isZip(s)).length;
+    const _isSpam = s => {
+      const ents = (s.message && typeof s.message === 'object' && !Array.isArray(s.message))
+        ? Object.entries(s.message).filter(([, v]) => v !== '' && v != null) : [];
+      if (!ents.length) return true;
+      if (ents.every(([, v]) => !String(v).trim())) return true;
+      const text = ents.map(([, v]) => String(v)).join(' ');
+      return /\bseo\b.{0,60}(?:issue|fix|problem|help|aware)/i.test(text)
+          || /(?:noticed|found)\s+(?:a\s+)?(?:slight\s+)?(?:issue|problem)\s+(?:re|with|on)\s*:/i.test(text)
+          || /your\s+website.{0,50}(?:brilliant|amazing|compels|visuals\s+really|enhance)/i.test(text)
+          || /(?:digital\s+marketing|web\s+design\s+service|boost\s+(?:your\s+)?rank|increase\s+(?:your\s+)?traffic|search\s+engine\s+optim)/i.test(text)
+          || /forward(?:ed)?\s+it\s+to\s+(?:a\s+few\s+of\s+)?(?:my\s+)?contacts/i.test(text)
+          || /write\s+it\s+up\s+or\s+share/i.test(text);
+    };
+    leadCount = forms.submissions.filter(s => !_isZip(s) && !_isSpam(s)).length;
   }
 
   document.getElementById('acd-body').innerHTML = `
@@ -6715,10 +6747,13 @@ function wireNoteAutoSave(id, data) {
 function acdFormTab(safeId, tab) {
   const leadsEl = document.getElementById('acd-flist-leads-' + safeId);
   const zipEl   = document.getElementById('acd-flist-zip-'   + safeId);
+  const spamEl  = document.getElementById('acd-flist-spam-'  + safeId);
   const tabs    = document.querySelectorAll('#acd-ftabs-' + safeId + ' .leads-toggle-btn');
   if (leadsEl) leadsEl.style.display = tab === 'leads' ? '' : 'none';
   if (zipEl)   zipEl.style.display   = tab === 'zip'   ? '' : 'none';
-  tabs.forEach((btn, i) => btn.classList.toggle('leads-toggle-active', (i === 0) === (tab === 'leads')));
+  if (spamEl)  spamEl.style.display  = tab === 'spam'  ? '' : 'none';
+  const tabNames = ['leads', 'zip', 'spam'];
+  tabs.forEach((btn, i) => btn.classList.toggle('leads-toggle-active', tabNames[i] === tab));
 }
 
 function fmtAnalyticsDate(dateStr) {
