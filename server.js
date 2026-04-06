@@ -670,7 +670,7 @@ function screenerAnalyzeHtml(html) {
     'Painting':    /\bpaint(?:ing|er)\b(?!\s+contractor.*hvac)/i,
     'Flooring':    /\bflooring\b|hardwood\s+floor|tile\s+(?:install|flooring)|carpet\s+install/i,
     'Cleaning':    /\bcleaning\s+service\b|janitorial\b|maid\s+service/i,
-    'Siding':      /siding\s+(?:install|repair|replac|contrac|compan)|(?:install|repair|replac)\w*\s+siding|new\s+siding|fiber[\s-]?cement|exterior\s+cladding/i,
+    'Siding':      /\bsiding\b|fiber[\s-]?cement|hardie[\s-]?board|exterior\s+cladding/i,
   };
   // Require ≥3 matches per trade to avoid false positives from incidental mentions
   // (e.g. a roofer mentioning "plumbing vent boots" should not count as a plumbing company)
@@ -761,7 +761,7 @@ function screenerParseSitemap(xml) {
 }
 
 async function screenerFetchSitemap(baseUrl) {
-  for (const path of ['/sitemap.xml', '/sitemap_index.xml', '/sitemap/sitemap.xml']) {
+  for (const path of ['/sitemap.xml', '/sitemap_index.xml', '/sitemap-index.xml', '/sitemap/sitemap.xml']) {
     try {
       const ctrl = new AbortController();
       setTimeout(() => ctrl.abort(), 7000);
