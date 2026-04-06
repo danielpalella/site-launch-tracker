@@ -1972,6 +1972,8 @@ app.get('/api/launches/:id/hcp-leads', requireAuth, async (req, res) => {
         lead_source: l.lead_source,
         status: l.pipeline_status || l.status,
         submitted_at: l.customer?.created_at || null,
+        description: l.description || l.notes || null,
+        address: [l.customer?.street, l.customer?.city, l.customer?.state].filter(Boolean).join(', ') || null,
       }));
     res.json({ available: true, total: leads.length, since: sinceDate, leads });
   } catch (err) {

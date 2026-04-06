@@ -5536,7 +5536,7 @@ async function openAnalyticsModal(id) {
   const domainEl = document.getElementById('acd-domain');
   domainEl.textContent = data.domain;
   domainEl.href = 'https://' + data.domain;
-  document.getElementById('acd-since').textContent = 'Since ' + fmtAnalyticsDate(data.analyticsStartDate || data.launchDate);
+  document.getElementById('acd-since').textContent = 'Launched ' + fmtAnalyticsDate(data.analyticsStartDate || data.launchDate);
   document.getElementById('ac-detail-backdrop').classList.add('open');
   document.body.style.overflow = 'hidden';
   renderAnalyticsModalBody(id, data, null);
@@ -6481,19 +6481,26 @@ async function loadWidgetEvents(id) {
         low:    { icon: '~', color: '#f59e0b', label: 'Same day as contact form shown' },
         null:   { icon: '·', color: 'var(--text-muted)', label: 'No widget form event on this date' },
       };
-      const rows = correlations.map(({ lead, confidence, gaEvent }) => {
+      const rows = correlations.map(({ lead, confidence, gaEvent }, idx) => {
         const c = CONF[confidence] ?? CONF[null];
         const submitted = lead.submitted_at
           ? new Date(lead.submitted_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: tz })
           : '—';
         const statusColor = lead.status === 'New Lead' ? '#f59e0b' : lead.status === 'Assigned' ? '#22c55e' : 'var(--text-muted)';
+        const detailId = `hcp-lead-detail-${idx}`;
+        const detailParts = [];
+        if (lead.email) detailParts.push(`<span style="color:var(--text-muted)">Email:</span> ${esc(lead.email)}`);
+        if (lead.address) detailParts.push(`<span style="color:var(--text-muted)">Address:</span> ${esc(lead.address)}`);
+        if (lead.lead_source) detailParts.push(`<span style="color:var(--text-muted)">Source:</span> ${esc(lead.lead_source)}`);
+        if (lead.description) detailParts.push(`<span style="color:var(--text-muted)">Message:</span> ${esc(lead.description)}`);
+        const hasDetail = detailParts.length > 0;
         return `
-          <tr style="border-bottom:1px solid var(--border)">
+          <tr style="border-bottom:${hasDetail ? 'none' : '1px solid var(--border)'};cursor:${hasDetail ? 'pointer' : 'default'}" ${hasDetail ? `onclick="const d=document.getElementById('${detailId}');d.style.display=d.style.display==='none'?'':'none'"` : ''}>
             <td style="padding:.5rem .5rem;width:1.4rem">
               <span style="font-size:.9rem;font-weight:700;color:${c.color}">${c.icon}</span>
             </td>
             <td style="padding:.5rem .25rem .5rem 0">
-              <div style="font-size:.83rem;font-weight:600;color:var(--text)">${esc(lead.name || '—')}</div>
+              <div style="font-size:.83rem;font-weight:600;color:var(--text)">${esc(lead.name || '—')}${hasDetail ? ' <span style="font-size:.65rem;color:var(--text-muted)">▾</span>' : ''}</div>
               <div style="font-size:.75rem;color:var(--text-muted);margin-top:.1rem">${c.label}</div>
             </td>
             <td style="padding:.5rem .5rem;font-size:.78rem;color:var(--text-muted);white-space:nowrap">${esc(lead.phone || '—')}</td>
@@ -6501,7 +6508,8 @@ async function loadWidgetEvents(id) {
               <span style="color:${statusColor};font-weight:500">${esc(lead.status || '—')}</span>
             </td>
             <td style="padding:.5rem .5rem;font-size:.78rem;color:var(--text-muted);text-align:right;white-space:nowrap">${submitted}</td>
-          </tr>`;
+          </tr>
+          ${hasDetail ? `<tr id="${detailId}" style="display:none;border-bottom:1px solid var(--border)"><td colspan="5" style="padding:.4rem .5rem .65rem 2.5rem;font-size:.77rem;line-height:1.6;color:var(--text)">${detailParts.join('<br>')}</td></tr>` : ''}`;
       }).join('');
 
       const summaryColor = attributedPct >= 75 ? '#22c55e' : attributedPct >= 40 ? '#f59e0b' : 'var(--text-muted)';
