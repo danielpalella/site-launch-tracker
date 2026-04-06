@@ -5830,6 +5830,49 @@ function renderAnalyticsModalBody(id, data, forms) {
       </div>
     </div>` : '';
 
+  // Website Conversions block
+  let conversionSection = '';
+  if (duda?.available && (dudaT.visitors || 0) > 0) {
+    const visitors       = dudaT.visitors    || 0;
+    const formSubmits    = dudaT.formSubmits  || 0;
+    const callClicks     = dudaT.callClicks   || 0;
+    const totalConv      = formSubmits + callClicks;
+    const rate           = (totalConv / visitors * 100).toFixed(1);
+    const formRate       = (formSubmits / visitors * 100).toFixed(1);
+    const callRate       = (callClicks  / visitors * 100).toFixed(1);
+    const rateNum        = parseFloat(rate);
+    const rateColor      = rateNum >= 5 ? '#22c55e' : rateNum >= 2 ? '#f59e0b' : 'var(--text-muted)';
+    // Cap bar at 20% for visual — most home service sites are 2–10%
+    const barPct         = Math.min(rateNum / 20 * 100, 100).toFixed(1);
+    conversionSection = `
+      <div style="margin-bottom:1.25rem;padding:.9rem;background:var(--surface);border:1px solid var(--border);border-radius:.6rem">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.7rem">
+          <div style="font-size:.78rem;font-weight:700;color:var(--text)">Website Conversions</div>
+          <div style="font-size:.72rem;color:var(--text-muted)">${periodLabel}</div>
+        </div>
+        <div style="display:flex;align-items:baseline;gap:.4rem;margin-bottom:.25rem">
+          <div style="font-size:2rem;font-weight:700;color:${rateColor};line-height:1">${rate}%</div>
+          <div style="font-size:.8rem;color:var(--text-muted)">conversion rate</div>
+        </div>
+        <div style="font-size:.75rem;color:var(--text-muted);margin-bottom:.7rem">${totalConv} action${totalConv !== 1 ? 's' : ''} from ${fmtNum(visitors)} visitors</div>
+        <div style="height:5px;background:var(--border);border-radius:3px;margin-bottom:.9rem;overflow:hidden">
+          <div style="height:100%;width:${barPct}%;background:${rateColor};border-radius:3px"></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem">
+          <div style="background:var(--bg);border:1px solid var(--border);border-radius:.5rem;padding:.55rem .75rem">
+            <div style="font-size:.7rem;color:var(--text-muted);margin-bottom:.15rem">Form Leads</div>
+            <div style="font-size:1.15rem;font-weight:700;color:var(--text)">${fmtNum(formSubmits)}</div>
+            <div style="font-size:.72rem;color:var(--text-muted)">${formRate}% of visitors</div>
+          </div>
+          <div style="background:var(--bg);border:1px solid var(--border);border-radius:.5rem;padding:.55rem .75rem">
+            <div style="font-size:.7rem;color:var(--text-muted);margin-bottom:.15rem">Call Clicks</div>
+            <div style="font-size:1.15rem;font-weight:700;color:var(--text)">${fmtNum(callClicks)}</div>
+            <div style="font-size:.72rem;color:var(--text-muted)">${callRate}% of visitors</div>
+          </div>
+        </div>
+      </div>`;
+  }
+
   // Form Submissions
   let formsSection = '';
   if (forms === null) {
@@ -6041,6 +6084,7 @@ function renderAnalyticsModalBody(id, data, forms) {
       ${cwvSection}
     </div>
     <div id="acd-tp-leads-${id}" class="acd-tab-pane" style="display:none">
+      ${conversionSection}
       ${formsSection}
     </div>
     <div id="acd-tp-account-${id}" class="acd-tab-pane" style="display:none">
