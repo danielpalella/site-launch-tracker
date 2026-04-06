@@ -5833,33 +5833,45 @@ function renderAnalyticsModalBody(id, data, forms) {
   // Website Conversions block
   let conversionSection = '';
   if (duda?.available && (dudaT.visitors || 0) > 0) {
-    const visitors       = dudaT.visitors    || 0;
-    const formSubmits    = dudaT.formSubmits  || 0;
-    const callClicks     = dudaT.callClicks   || 0;
-    const totalConv      = formSubmits + callClicks;
-    const rate           = (totalConv / visitors * 100).toFixed(1);
-    const formRate       = (formSubmits / visitors * 100).toFixed(1);
-    const callRate       = (callClicks  / visitors * 100).toFixed(1);
-    const rateNum        = parseFloat(rate);
-    const rateColor      = rateNum >= 5 ? '#22c55e' : rateNum >= 2 ? '#f59e0b' : 'var(--text-muted)';
-    // Cap bar at 20% for visual — most home service sites are 2–10%
-    const barPct         = Math.min(rateNum / 20 * 100, 100).toFixed(1);
+    const visitors    = dudaT.visitors   || 0;
+    const formSubmits = dudaT.formSubmits || 0;
+    const callClicks  = dudaT.callClicks  || 0;
+    const excluded    = localStorage.getItem('conv_exclude_forms_' + id) === '1';
+    const calcConv    = (exForms) => {
+      const total    = exForms ? callClicks : (formSubmits + callClicks);
+      const rate     = (total / visitors * 100).toFixed(1);
+      const rateNum  = parseFloat(rate);
+      const color    = rateNum >= 5 ? '#22c55e' : rateNum >= 2 ? '#f59e0b' : 'var(--text-muted)';
+      const barPct   = Math.min(rateNum / 20 * 100, 100).toFixed(1);
+      return { total, rate, color, barPct };
+    };
+    const { total: totalConv, rate, color: rateColor, barPct } = calcConv(excluded);
+    const formRate  = (formSubmits / visitors * 100).toFixed(1);
+    const callRate  = (callClicks  / visitors * 100).toFixed(1);
+    const toggleStyle = (ex) => ex
+      ? 'font-size:.7rem;padding:.2rem .55rem;border-radius:.35rem;border:1px solid var(--border);background:var(--border);color:var(--text-muted);cursor:pointer;font-family:inherit'
+      : 'font-size:.7rem;padding:.2rem .55rem;border-radius:.35rem;border:1px solid color-mix(in srgb,var(--primary) 35%,transparent);background:color-mix(in srgb,var(--primary) 10%,transparent);color:var(--primary);cursor:pointer;font-family:inherit';
     conversionSection = `
-      <div style="margin-bottom:1.25rem;padding:.9rem;background:var(--surface);border:1px solid var(--border);border-radius:.6rem">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.7rem">
+      <div id="conv-section-${id}" data-visitors="${visitors}" data-forms="${formSubmits}" data-calls="${callClicks}"
+           style="margin-bottom:1.25rem;padding:.9rem;background:var(--surface);border:1px solid var(--border);border-radius:.6rem">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.7rem;gap:.5rem;flex-wrap:wrap">
           <div style="font-size:.78rem;font-weight:700;color:var(--text)">Website Conversions</div>
-          <div style="font-size:.72rem;color:var(--text-muted)">${periodLabel}</div>
+          <div style="display:flex;align-items:center;gap:.5rem">
+            <button id="conv-form-toggle-${id}" onclick="toggleConvFormLeads('${esc(id)}')"
+              style="${toggleStyle(excluded)}">${excluded ? 'Form leads: excluded' : 'Form leads: tracked'}</button>
+            <div style="font-size:.72rem;color:var(--text-muted)">${periodLabel}</div>
+          </div>
         </div>
         <div style="display:flex;align-items:baseline;gap:.4rem;margin-bottom:.25rem">
-          <div style="font-size:2rem;font-weight:700;color:${rateColor};line-height:1">${rate}%</div>
+          <div id="conv-rate-${id}" style="font-size:2rem;font-weight:700;color:${rateColor};line-height:1">${rate}%</div>
           <div style="font-size:.8rem;color:var(--text-muted)">conversion rate</div>
         </div>
-        <div style="font-size:.75rem;color:var(--text-muted);margin-bottom:.7rem">${totalConv} action${totalConv !== 1 ? 's' : ''} from ${fmtNum(visitors)} visitors</div>
+        <div id="conv-subtitle-${id}" style="font-size:.75rem;color:var(--text-muted);margin-bottom:.7rem">${totalConv} action${totalConv !== 1 ? 's' : ''} from ${fmtNum(visitors)} visitors</div>
         <div style="height:5px;background:var(--border);border-radius:3px;margin-bottom:.9rem;overflow:hidden">
-          <div style="height:100%;width:${barPct}%;background:${rateColor};border-radius:3px"></div>
+          <div id="conv-bar-${id}" style="height:100%;width:${barPct}%;background:${rateColor};border-radius:3px"></div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem">
-          <div style="background:var(--bg);border:1px solid var(--border);border-radius:.5rem;padding:.55rem .75rem">
+          <div id="conv-form-card-${id}" style="background:var(--bg);border:1px solid var(--border);border-radius:.5rem;padding:.55rem .75rem;transition:opacity .2s;opacity:${excluded ? '.4' : '1'}">
             <div style="font-size:.7rem;color:var(--text-muted);margin-bottom:.15rem">Form Leads</div>
             <div style="font-size:1.15rem;font-weight:700;color:var(--text)">${fmtNum(formSubmits)}</div>
             <div style="font-size:.72rem;color:var(--text-muted)">${formRate}% of visitors</div>
@@ -6806,6 +6818,47 @@ function wireNoteAutoSave(id, data) {
       if (statusEl) { statusEl.textContent = 'Failed to save'; statusEl.style.color = '#ef4444'; }
     }
   };
+}
+
+function toggleConvFormLeads(id) {
+  const key      = 'conv_exclude_forms_' + id;
+  const excluded = localStorage.getItem(key) !== '1';
+  localStorage.setItem(key, excluded ? '1' : '0');
+
+  const section  = document.getElementById('conv-section-' + id);
+  if (!section) return;
+  const visitors    = parseInt(section.dataset.visitors) || 0;
+  const formSubmits = parseInt(section.dataset.forms)    || 0;
+  const callClicks  = parseInt(section.dataset.calls)    || 0;
+
+  const total    = excluded ? callClicks : (formSubmits + callClicks);
+  const rate     = visitors > 0 ? (total / visitors * 100).toFixed(1) : '0.0';
+  const rateNum  = parseFloat(rate);
+  const color    = rateNum >= 5 ? '#22c55e' : rateNum >= 2 ? '#f59e0b' : 'var(--text-muted)';
+  const barPct   = Math.min(rateNum / 20 * 100, 100).toFixed(1);
+
+  const rateEl    = document.getElementById('conv-rate-'     + id);
+  const subtitleEl= document.getElementById('conv-subtitle-' + id);
+  const barEl     = document.getElementById('conv-bar-'      + id);
+  const formCard  = document.getElementById('conv-form-card-'+ id);
+  const btn       = document.getElementById('conv-form-toggle-' + id);
+
+  if (rateEl)     { rateEl.textContent = rate + '%'; rateEl.style.color = color; }
+  if (subtitleEl) subtitleEl.textContent = total + ' action' + (total !== 1 ? 's' : '') + ' from ' + visitors.toLocaleString() + ' visitors';
+  if (barEl)      { barEl.style.width = barPct + '%'; barEl.style.background = color; }
+  if (formCard)   formCard.style.opacity = excluded ? '.4' : '1';
+  if (btn) {
+    btn.textContent = excluded ? 'Form leads: excluded' : 'Form leads: tracked';
+    if (excluded) {
+      btn.style.background = 'var(--border)';
+      btn.style.color      = 'var(--text-muted)';
+      btn.style.borderColor= 'var(--border)';
+    } else {
+      btn.style.background = 'color-mix(in srgb,var(--primary) 10%,transparent)';
+      btn.style.color      = 'var(--primary)';
+      btn.style.borderColor= 'color-mix(in srgb,var(--primary) 35%,transparent)';
+    }
+  }
 }
 
 function acdFormTab(safeId, tab) {
