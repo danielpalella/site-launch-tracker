@@ -5830,12 +5830,52 @@ function renderAnalyticsModalBody(id, data, forms) {
       </div>
     </div>` : '';
 
+  // Shared spam/zip helpers — used by both conversion section and forms tab
+  const isZipOnly = s => {
+    const ents = (s.message && typeof s.message === 'object' && !Array.isArray(s.message))
+      ? Object.entries(s.message).filter(([, v]) => v !== '' && v != null) : [];
+    if (!ents.length) return false;
+    return ents.every(([k]) => /zip|postal/i.test(k));
+  };
+  const isSpam = s => {
+    const ents = (s.message && typeof s.message === 'object' && !Array.isArray(s.message))
+      ? Object.entries(s.message).filter(([, v]) => v !== '' && v != null) : [];
+    if (!ents.length) return true;
+    if (ents.every(([, v]) => !String(v).trim())) return true;
+    const text = ents.map(([, v]) => String(v)).join(' ');
+    return /\bseo\b.{0,60}(?:issue|fix|problem|help|aware)/i.test(text)
+        || /(?:noticed|found)\s+(?:a\s+)?(?:slight\s+)?(?:issue|problem)\s+(?:re|with|on)\s*:/i.test(text)
+        || /your\s+website.{0,50}(?:brilliant|amazing|compels|visuals\s+really|enhance)/i.test(text)
+        || /(?:digital\s+marketing|web\s+design\s+service|boost\s+(?:your\s+)?rank|increase\s+(?:your\s+)?traffic|search\s+engine\s+optim)/i.test(text)
+        || /forward(?:ed)?\s+it\s+to\s+(?:a\s+few\s+of\s+)?(?:my\s+)?contacts/i.test(text)
+        || /write\s+it\s+up\s+or\s+share/i.test(text)
+        || /I run \w[\w-]*\.(?:com|co|io|net|org)/i.test(text)
+        || /loom video/i.test(text)
+        || /remote assistant/i.test(text)
+        || /\d+-figure\s+(?:range|income|revenue|business)/i.test(text)
+        || /(?:monthly service|30-day guarantee|\d+-day\s+(?:free\s+)?(?:trial|guarantee))/i.test(text)
+        || /(?:quantity\s+takeoff|estimating\s+(?:and|&amp;|&)\s+quantity|takeoff\s+service)/i.test(text)
+        || /we provide\s+professional.{0,60}(?:service|contractor|construction)/i.test(text)
+        || /(?:competitive\s+bids|submit.*bids|bidding\s+service)/i.test(text)
+        || /shoot\s+me\s+an?\s+(?:e-?mail|text|message)/i.test(text)
+        || /send\s+you\s+a\s+personalized/i.test(text);
+  };
+  // Quality form count for the active period — excludes zip checks and spam
+  const _periodDays  = period === '12w' ? 84 : period === '4w' ? 30 : null;
+  const _cutoff      = _periodDays ? Date.now() - _periodDays * 86400000 : 0;
+  const qualityFormCount = (forms?.available && forms.submissions?.length)
+    ? forms.submissions.filter(s => {
+        if (_cutoff && s.date && new Date(s.date).getTime() < _cutoff) return false;
+        return !isZipOnly(s) && !isSpam(s);
+      }).length
+    : null; // null = forms data unavailable, fall back to raw Duda count
+
   // Website Conversions block
   let conversionSection = '';
   if (duda?.available && (dudaT.visitors || 0) > 0) {
-    const visitors    = dudaT.visitors   || 0;
-    const formSubmits = dudaT.formSubmits || 0;
-    const callClicks  = dudaT.callClicks  || 0;
+    const visitors    = dudaT.visitors  || 0;
+    const formSubmits = qualityFormCount !== null ? qualityFormCount : (dudaT.formSubmits || 0);
+    const callClicks  = dudaT.callClicks || 0;
     const excluded    = localStorage.getItem('conv_exclude_forms_' + id) === '1';
     const calcConv    = (exForms) => {
       const total    = exForms ? callClicks : (formSubmits + callClicks);
@@ -5892,39 +5932,7 @@ function renderAnalyticsModalBody(id, data, forms) {
   } else if (forms.available && forms.submissions?.length) {
     // Sort newest first
     const subs = [...forms.submissions].sort((a, b) => new Date(b.date) - new Date(a.date));
-    // Detect zip-code-only submissions (no name/email/phone, only zip field)
-    const isZipOnly = s => {
-      const ents = (s.message && typeof s.message === 'object' && !Array.isArray(s.message))
-        ? Object.entries(s.message).filter(([, v]) => v !== '' && v != null)
-        : [];
-      if (!ents.length) return false;
-      return ents.every(([k]) => /zip|postal/i.test(k));
-    };
-    // Detect spam: empty bot submissions or SEO/marketing pitch messages
-    const isSpam = s => {
-      const ents = (s.message && typeof s.message === 'object' && !Array.isArray(s.message))
-        ? Object.entries(s.message).filter(([, v]) => v !== '' && v != null)
-        : [];
-      if (!ents.length) return true;
-      if (ents.every(([, v]) => !String(v).trim())) return true;
-      const text = ents.map(([, v]) => String(v)).join(' ');
-      return /\bseo\b.{0,60}(?:issue|fix|problem|help|aware)/i.test(text)
-          || /(?:noticed|found)\s+(?:a\s+)?(?:slight\s+)?(?:issue|problem)\s+(?:re|with|on)\s*:/i.test(text)
-          || /your\s+website.{0,50}(?:brilliant|amazing|compels|visuals\s+really|enhance)/i.test(text)
-          || /(?:digital\s+marketing|web\s+design\s+service|boost\s+(?:your\s+)?rank|increase\s+(?:your\s+)?traffic|search\s+engine\s+optim)/i.test(text)
-          || /forward(?:ed)?\s+it\s+to\s+(?:a\s+few\s+of\s+)?(?:my\s+)?contacts/i.test(text)
-          || /write\s+it\s+up\s+or\s+share/i.test(text)
-          || /I run \w[\w-]*\.(?:com|co|io|net|org)/i.test(text)
-          || /loom video/i.test(text)
-          || /remote assistant/i.test(text)
-          || /\d+-figure\s+(?:range|income|revenue|business)/i.test(text)
-          || /(?:monthly service|30-day guarantee|\d+-day\s+(?:free\s+)?(?:trial|guarantee))/i.test(text)
-          || /(?:quantity\s+takeoff|estimating\s+(?:and|&amp;|&)\s+quantity|takeoff\s+service)/i.test(text)
-          || /we provide\s+professional.{0,60}(?:service|contractor|construction)/i.test(text)
-          || /(?:competitive\s+bids|submit.*bids|bidding\s+service)/i.test(text)
-          || /shoot\s+me\s+an?\s+(?:e-?mail|text|message)/i.test(text)
-          || /send\s+you\s+a\s+personalized/i.test(text);
-    };
+    // isZipOnly and isSpam are defined above (shared with conversion section)
     const spamSubs = subs.filter(s => isSpam(s));
     const nonSpam  = subs.filter(s => !isSpam(s));
     const leads    = nonSpam.filter(s => !isZipOnly(s));
@@ -6040,39 +6048,8 @@ function renderAnalyticsModalBody(id, data, forms) {
     </div>
   </div>`;
 
-  // Lead count for tab badge (excludes zip-only and spam)
-  let leadCount = 0;
-  if (forms?.available && forms.submissions?.length) {
-    const _isZip = s => {
-      const ents = (s.message && typeof s.message === 'object' && !Array.isArray(s.message))
-        ? Object.entries(s.message).filter(([, v]) => v !== '' && v != null) : [];
-      return ents.length > 0 && ents.every(([k]) => /zip|postal/i.test(k));
-    };
-    const _isSpam = s => {
-      const ents = (s.message && typeof s.message === 'object' && !Array.isArray(s.message))
-        ? Object.entries(s.message).filter(([, v]) => v !== '' && v != null) : [];
-      if (!ents.length) return true;
-      if (ents.every(([, v]) => !String(v).trim())) return true;
-      const text = ents.map(([, v]) => String(v)).join(' ');
-      return /\bseo\b.{0,60}(?:issue|fix|problem|help|aware)/i.test(text)
-          || /(?:noticed|found)\s+(?:a\s+)?(?:slight\s+)?(?:issue|problem)\s+(?:re|with|on)\s*:/i.test(text)
-          || /your\s+website.{0,50}(?:brilliant|amazing|compels|visuals\s+really|enhance)/i.test(text)
-          || /(?:digital\s+marketing|web\s+design\s+service|boost\s+(?:your\s+)?rank|increase\s+(?:your\s+)?traffic|search\s+engine\s+optim)/i.test(text)
-          || /forward(?:ed)?\s+it\s+to\s+(?:a\s+few\s+of\s+)?(?:my\s+)?contacts/i.test(text)
-          || /write\s+it\s+up\s+or\s+share/i.test(text)
-          || /I run \w[\w-]*\.(?:com|co|io|net|org)/i.test(text)
-          || /loom video/i.test(text)
-          || /remote assistant/i.test(text)
-          || /\d+-figure\s+(?:range|income|revenue|business)/i.test(text)
-          || /(?:monthly service|30-day guarantee|\d+-day\s+(?:free\s+)?(?:trial|guarantee))/i.test(text)
-          || /(?:quantity\s+takeoff|estimating\s+(?:and|&amp;|&)\s+quantity|takeoff\s+service)/i.test(text)
-          || /we provide\s+professional.{0,60}(?:service|contractor|construction)/i.test(text)
-          || /(?:competitive\s+bids|submit.*bids|bidding\s+service)/i.test(text)
-          || /shoot\s+me\s+an?\s+(?:e-?mail|text|message)/i.test(text)
-          || /send\s+you\s+a\s+personalized/i.test(text);
-    };
-    leadCount = forms.submissions.filter(s => !_isZip(s) && !_isSpam(s)).length;
-  }
+  // Lead count for tab badge — reuse hoisted helpers, qualityFormCount already computed
+  const leadCount = qualityFormCount !== null ? qualityFormCount : 0;
 
   document.getElementById('acd-body').innerHTML = `
     <div class="acd-tabs-nav" id="acd-tnav-${id}">
