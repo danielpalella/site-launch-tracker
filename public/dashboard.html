@@ -6215,16 +6215,19 @@ function renderAnalyticsModalBody(id, data, forms) {
       </div>
     </div>
     <div id="acd-tp-blog-${id}" class="acd-tab-pane" style="display:none">
-      <div style="display:flex;gap:.75rem;align-items:flex-end;flex-wrap:wrap;margin-bottom:1.25rem">
-        <div style="display:flex;flex-direction:column;gap:.35rem">
-          <label style="font-size:.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em">Industry</label>
-          <input type="text" id="blog-industry-${id}" class="ac-search" value="${esc(data.industry || '')}" placeholder="e.g. Plumbing" style="min-width:170px">
+      <div class="blog-top-row">
+        <div class="blog-field">
+          <label class="blog-field-label">Industry</label>
+          <input type="text" id="blog-industry-${id}" class="blog-field-input" value="${esc(data.industry || '')}" placeholder="e.g. Plumbing">
         </div>
-        <div style="display:flex;flex-direction:column;gap:.35rem">
-          <label style="font-size:.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em">City <span style="font-weight:400;opacity:.6">(optional)</span></label>
-          <input type="text" id="blog-city-${id}" class="ac-search" placeholder="e.g. Austin, TX" style="min-width:170px">
+        <div class="blog-field">
+          <label class="blog-field-label">City <span class="blog-optional-badge">Optional</span></label>
+          <input type="text" id="blog-city-${id}" class="blog-field-input" placeholder="e.g. Austin, TX">
         </div>
-        <button class="blog-reddit-btn" id="blog-get-q-btn-${id}" onclick="generateBlogQuestions('${esc(id)}')"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="-25.65 -42.75 222.3 256.5" style="flex-shrink:0"><g transform="translate(-85.4 -85.4)"><circle r="85.5" cy="170.9" cx="170.9" fill="#ff4500"/><path d="M227.9 170.9c0-6.9-5.6-12.5-12.5-12.5-3.4 0-6.4 1.3-8.6 3.5-8.5-6.1-20.3-10.1-33.3-10.6l5.7-26.7 18.5 3.9c.2 4.7 4.1 8.5 8.9 8.5 4.9 0 8.9-4 8.9-8.9s-4-8.9-8.9-8.9c-3.5 0-6.5 2-7.9 5l-20.7-4.4c-.6-.1-1.2 0-1.7.3s-.8.8-1 1.4l-6.3 29.8c-13.3.4-25.2 4.3-33.8 10.6-2.2-2.1-5.3-3.5-8.6-3.5-6.9 0-12.5 5.6-12.5 12.5 0 5.1 3 9.4 7.4 11.4-.2 1.2-.3 2.5-.3 3.8 0 19.2 22.3 34.7 49.9 34.7 27.6 0 49.9-15.5 49.9-34.7 0-1.3-.1-2.5-.3-3.7 4.1-2 7.2-6.4 7.2-11.5zm-85.5 8.9c0-4.9 4-8.9 8.9-8.9s8.9 4 8.9 8.9-4 8.9-8.9 8.9-8.9-4-8.9-8.9zm49.7 23.5c-6.1 6.1-17.7 6.5-21.1 6.5-3.4 0-15.1-.5-21.1-6.5-.9-.9-.9-2.4 0-3.3.9-.9 2.4-.9 3.3 0 3.8 3.8 12 5.2 17.9 5.2 5.9 0 14-1.4 17.9-5.2.9-.9 2.4-.9 3.3 0 .7 1 .7 2.4-.2 3.3zm-1.6-14.6c-4.9 0-8.9-4-8.9-8.9s4-8.9 8.9-8.9 8.9 4 8.9 8.9-4 8.9-8.9 8.9z" fill="#fff"/></g></svg>Get Questions</button>
+        <button class="blog-get-q-btn" id="blog-get-q-btn-${id}" onclick="generateBlogQuestions('${esc(id)}')">
+          <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="-25.65 -42.75 222.3 256.5" style="flex-shrink:0"><g transform="translate(-85.4 -85.4)"><circle r="85.5" cy="170.9" cx="170.9" fill="#ff4500"/><path d="M227.9 170.9c0-6.9-5.6-12.5-12.5-12.5-3.4 0-6.4 1.3-8.6 3.5-8.5-6.1-20.3-10.1-33.3-10.6l5.7-26.7 18.5 3.9c.2 4.7 4.1 8.5 8.9 8.5 4.9 0 8.9-4 8.9-8.9s-4-8.9-8.9-8.9c-3.5 0-6.5 2-7.9 5l-20.7-4.4c-.6-.1-1.2 0-1.7.3s-.8.8-1 1.4l-6.3 29.8c-13.3.4-25.2 4.3-33.8 10.6-2.2-2.1-5.3-3.5-8.6-3.5-6.9 0-12.5 5.6-12.5 12.5 0 5.1 3 9.4 7.4 11.4-.2 1.2-.3 2.5-.3 3.8 0 19.2 22.3 34.7 49.9 34.7 27.6 0 49.9-15.5 49.9-34.7 0-1.3-.1-2.5-.3-3.7 4.1-2 7.2-6.4 7.2-11.5zm-85.5 8.9c0-4.9 4-8.9 8.9-8.9s8.9 4 8.9 8.9-4 8.9-8.9 8.9-8.9-4-8.9-8.9zm49.7 23.5c-6.1 6.1-17.7 6.5-21.1 6.5-3.4 0-15.1-.5-21.1-6.5-.9-.9-.9-2.4 0-3.3.9-.9 2.4-.9 3.3 0 3.8 3.8 12 5.2 17.9 5.2 5.9 0 14-1.4 17.9-5.2.9-.9 2.4-.9 3.3 0 .7 1 .7 2.4-.2 3.3zm-1.6-14.6c-4.9 0-8.9-4-8.9-8.9s4-8.9 8.9-8.9 8.9 4 8.9 8.9-4 8.9-8.9 8.9z" fill="#fff"/></g></svg>
+          Get Questions
+        </button>
       </div>
       <div id="blog-q-area-${id}" style="display:none">
         <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.6rem">
@@ -6243,9 +6246,17 @@ function renderAnalyticsModalBody(id, data, forms) {
         <div id="blog-post-content-${id}" class="blog-post-output"></div>
       </div>
       <!-- History -->
-      <div style="margin-top:1.75rem;padding-top:1.25rem;border-top:1px solid var(--border)">
-        <div style="font-size:.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.6rem">Sent to Duda</div>
-        <div id="blog-history-list-${id}"><div style="color:var(--text-muted);font-size:.825rem;padding:.4rem 0">Loading…</div></div>
+      <hr class="blog-section-divider" style="margin-top:1.75rem">
+      <div class="blog-history-header">
+        <span class="blog-history-title-label">Sent to Duda</span>
+        <span class="blog-history-count-badge" id="blog-history-count-${id}">0 posts</span>
+      </div>
+      <div id="blog-history-list-${id}">
+        <div class="blog-history-empty-wrap">
+          <svg class="blog-history-empty-icon" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+          <div class="blog-history-empty-title">No posts sent yet</div>
+          <div class="blog-history-empty-sub">Generate questions above and send them to Duda to get started.</div>
+        </div>
       </div>
     </div>
     ${(data.tags || []).some(tid => _tagMap[tid]?.name?.toLowerCase() === 'ai chatbot beta') ? `
@@ -7670,7 +7681,7 @@ async function generateBlogQuestions(id) {
   const city = document.getElementById('blog-city-' + id).value.trim();
   if (!industry) { showToast('Enter an industry first', 'error'); return; }
   btn.disabled = true;
-  btn.textContent = 'Generating…';
+  btn.innerHTML = 'Generating…';
   const qa = document.getElementById('blog-q-area-' + id);
   const grid = document.getElementById('blog-q-grid-' + id);
   const pa = document.getElementById('blog-post-area-' + id);
@@ -7732,7 +7743,7 @@ async function generateBlogQuestions(id) {
     qa.style.display = '';
   } finally {
     btn.disabled = false;
-    btn.textContent = 'Get Questions';
+    btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="-25.65 -42.75 222.3 256.5" style="flex-shrink:0"><g transform="translate(-85.4 -85.4)"><circle r="85.5" cy="170.9" cx="170.9" fill="#ff4500"/><path d="M227.9 170.9c0-6.9-5.6-12.5-12.5-12.5-3.4 0-6.4 1.3-8.6 3.5-8.5-6.1-20.3-10.1-33.3-10.6l5.7-26.7 18.5 3.9c.2 4.7 4.1 8.5 8.9 8.5 4.9 0 8.9-4 8.9-8.9s-4-8.9-8.9-8.9c-3.5 0-6.5 2-7.9 5l-20.7-4.4c-.6-.1-1.2 0-1.7.3s-.8.8-1 1.4l-6.3 29.8c-13.3.4-25.2 4.3-33.8 10.6-2.2-2.1-5.3-3.5-8.6-3.5-6.9 0-12.5 5.6-12.5 12.5 0 5.1 3 9.4 7.4 11.4-.2 1.2-.3 2.5-.3 3.8 0 19.2 22.3 34.7 49.9 34.7 27.6 0 49.9-15.5 49.9-34.7 0-1.3-.1-2.5-.3-3.7 4.1-2 7.2-6.4 7.2-11.5zm-85.5 8.9c0-4.9 4-8.9 8.9-8.9s8.9 4 8.9 8.9-4 8.9-8.9 8.9-8.9-4-8.9-8.9zm49.7 23.5c-6.1 6.1-17.7 6.5-21.1 6.5-3.4 0-15.1-.5-21.1-6.5-.9-.9-.9-2.4 0-3.3.9-.9 2.4-.9 3.3 0 3.8 3.8 12 5.2 17.9 5.2 5.9 0 14-1.4 17.9-5.2.9-.9 2.4-.9 3.3 0 .7 1 .7 2.4-.2 3.3zm-1.6-14.6c-4.9 0-8.9-4-8.9-8.9s4-8.9 8.9-8.9 8.9 4 8.9 8.9-4 8.9-8.9 8.9z" fill="#fff"/></g></svg> Get Questions';
   }
 }
 
@@ -7822,14 +7833,19 @@ function copyBlogPost(id) {
 
 async function loadBlogHistory(id) {
   const listEl = document.getElementById('blog-history-list-' + id);
+  const countEl = document.getElementById('blog-history-count-' + id);
   if (!listEl) return;
-  listEl.innerHTML = '<div style="color:var(--text-muted);font-size:.825rem;padding:.4rem 0">Loading…</div>';
   try {
     const res = await fetch(`/api/analytics/${id}/blog-history`);
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Failed');
+    if (countEl) countEl.textContent = data.posts.length === 1 ? '1 post' : `${data.posts.length} posts`;
     if (!data.posts.length) {
-      listEl.innerHTML = '<div style="color:var(--text-muted);font-size:.825rem;padding:.4rem 0">No posts sent yet.</div>';
+      listEl.innerHTML = `<div class="blog-history-empty-wrap">
+        <svg class="blog-history-empty-icon" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+        <div class="blog-history-empty-title">No posts sent yet</div>
+        <div class="blog-history-empty-sub">Generate questions above and send them to Duda to get started.</div>
+      </div>`;
       return;
     }
     listEl.innerHTML = data.posts.map(p => {
