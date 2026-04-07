@@ -4668,6 +4668,23 @@ function computeRecentlyLaunched(entries) {
     .sort((a, b) => b.days - a.days); // most days first (furthest into launch window)
 }
 
+function computeTopConversions(entries, period) {
+  return entries
+    .filter(([, d]) => d.duda?.available)
+    .map(([id, d]) => {
+      const dudaT   = periodDudaTotals(d.duda, period);
+      const visitors = dudaT.visitors   || 0;
+      const forms    = dudaT.formSubmits || 0;
+      const calls    = dudaT.callClicks  || 0;
+      const total    = forms + calls;
+      const rate     = visitors > 0 ? Math.round(total / visitors * 1000) / 10 : 0;
+      return { id, account_name: d.account_name, domain: d.domain, total, forms, calls, visitors, rate };
+    })
+    .filter(s => s.total > 0)
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 10);
+}
+
 function renderAnalyticsOverview(industryFilter) {
   if (overviewChart) { overviewChart.destroy(); overviewChart = null; }
   if (gshChart) { gshChart.destroy(); gshChart = null; }
@@ -4687,6 +4704,7 @@ function renderAnalyticsOverview(industryFilter) {
   const trafficDrops = computeTrafficDrops(entries);
   const industryBenchmarks = computeIndustryBenchmarks(entries);
   const recentlyLaunched = computeRecentlyLaunched(entries);
+  const topConversions = computeTopConversions(entries, period);
 
   const ovMetric = (val, lbl, tip) =>
     `<div class="acd-metric"><div class="acd-metric-val">${val}</div><div class="acd-metric-label">${lbl}${tip ? `<span class="ac-tip" data-tip="${esc(tip)}">?</span>` : ''}</div></div>`;
@@ -4884,15 +4902,16 @@ function renderAnalyticsOverview(industryFilter) {
       <div class="card ov-section">
         <div class="ov-section-hdr">
           <div class="ov-section-hdr-left">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1259FF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            <span class="ov-section-title">Recently Launched</span>
-            <span class="ac-tip" data-tip="Sites launched within the last 30 days. Shows early impressions, clicks, and sessions as they ramp up. Sorted by days since launch.">?</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            <span class="ov-section-title">Top Conversions</span>
+            <span class="ac-tip" data-tip="Sites with the most website conversions (form submissions + call clicks) in the selected period. Sorted by total conversions.">?</span>
           </div>
-          <span class="ov-section-badge" style="background:#1259FF18;color:#1259FF;border-color:#1259FF40">${recentlyLaunched.length} site${recentlyLaunched.length !== 1 ? 's' : ''}</span>
+          <span class="ov-section-badge" style="background:#05966918;color:#059669;border-color:#05966940">forms + calls</span>
         </div>
-        <div id="rl-sec-body" class="ov-sec-body">
-          ${recentlyLaunched.length ? recentlyLaunched.map(s => {
-            const barColor = '#1259FF';
+        <div id="tc-sec-body" class="ov-sec-body">
+          ${topConversions.length ? topConversions.map(s => {
+            const barColor = '#059669';
+            const barWidth = Math.round(s.total / topConversions[0].total * 100);
             return `<div class="ov-att-row" style="border-left:3px solid ${barColor}" onclick="openAnalyticsModal('${esc(s.id)}')">
               <div class="ov-att-top">
                 <div class="ov-att-name">
@@ -4900,24 +4919,23 @@ function renderAnalyticsOverview(industryFilter) {
                   <div class="ov-att-domain">${esc(s.domain)}</div>
                 </div>
                 <div class="ov-att-score-wrap">
-                  <span class="ov-att-score" style="color:${barColor}">${s.days}d</span>
-                  <span class="ov-att-label" style="color:${barColor}">of 30</span>
+                  <span class="ov-att-score" style="color:${barColor}">${s.total}</span>
+                  <span class="ov-att-label" style="color:${barColor}">conv</span>
                 </div>
               </div>
               <div class="rl-progress-bar-bg">
-                <div class="rl-progress-bar-fill" style="width:${s.progress}%;background:${barColor}"></div>
+                <div class="rl-progress-bar-fill" style="width:${barWidth}%;background:${barColor}"></div>
               </div>
               <div class="ov-att-metrics">
-                <span><b>${fmtNum(s.impressions)}</b><span class="ov-att-unit"> impr</span></span>
+                <span><b>${s.forms}</b><span class="ov-att-unit"> forms</span></span>
                 <span class="ov-att-sep">·</span>
-                <span><b>${fmtNum(s.clicks)}</b><span class="ov-att-unit"> clk</span></span>
-                <span class="ov-att-sep">·</span>
-                <span><b>${fmtNum(s.sessions)}</b><span class="ov-att-unit"> sess</span></span>
+                <span><b>${s.calls}</b><span class="ov-att-unit"> calls</span></span>
+                ${s.rate > 0 ? `<span class="ov-att-sep">·</span><span><b>${s.rate}%</b><span class="ov-att-unit"> rate</span></span>` : ''}
               </div>
             </div>`;
-          }).join('') : '<div class="ov-empty-state"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>No sites launched in the last 30 days.</div>'}
+          }).join('') : '<div class="ov-empty-state"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>No conversion data available for this period.</div>'}
         </div>
-        ${recentlyLaunched.length > 3 ? `<button class="ov-sec-show-more" onclick="toggleOvSection('rl-sec-body',this)" data-total="${recentlyLaunched.length}" data-preview="3"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg> Show ${recentlyLaunched.length - 3} more</button>` : ''}
+        ${topConversions.length > 3 ? `<button class="ov-sec-show-more" onclick="toggleOvSection('tc-sec-body',this)" data-total="${topConversions.length}" data-preview="3"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg> Show ${topConversions.length - 3} more</button>` : ''}
       </div>
 
       ${trafficDrops.length ? `
