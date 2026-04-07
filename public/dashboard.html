@@ -4859,7 +4859,7 @@ function renderAnalyticsOverview(industryFilter) {
       const isReview = l === 'review';
       const startCollapsed = !isReview;
       const sites = gshGrouped[l];
-      const rowFn  = isReview ? compactHealthRow : healthRow;
+      const rowFn  = compactHealthRow;
       const hasMore = isReview && sites.length > 3;
       const visible = hasMore ? sites.slice(0, 3) : sites;
       const extra   = hasMore ? sites.slice(3) : [];
