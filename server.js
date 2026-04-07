@@ -2360,7 +2360,7 @@ Requirements:
 Return only the HTML content, no markdown fencing, no explanation.`;
 
     const gRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -2371,8 +2371,9 @@ Return only the HTML content, no markdown fencing, no explanation.`;
       }
     );
     const gData = await gRes.json();
+    console.log('Gemini response status:', gRes.status, JSON.stringify(gData).slice(0, 300));
     let content = gData.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    if (!content) return res.status(500).json({ error: 'Gemini returned no content' });
+    if (!content) return res.status(500).json({ error: gData.error?.message || gData.promptFeedback?.blockReason || 'Gemini returned no content' });
     // Strip accidental markdown code fences
     content = content.replace(/^```html?\s*/i, '').replace(/```\s*$/, '').trim();
 
