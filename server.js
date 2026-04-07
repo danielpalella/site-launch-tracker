@@ -2505,6 +2505,7 @@ app.post('/api/blog/questions', requireAuth, async (req, res) => {
       // Try each subreddit until we have enough question posts
       for (const sub of subreddits) {
         if (questions.length >= 5) break;
+        if (questions.length > 0) await new Promise(r => setTimeout(r, 600)); // avoid rate limiting
         const redditUrl = `https://www.reddit.com/r/${sub}/top.json?t=month&limit=50`;
         const rRes = await fetch(redditUrl, {
           headers: { 'User-Agent': 'SiteLaunchTracker/1.0 (internal marketing tool)' },
