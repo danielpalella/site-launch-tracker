@@ -7689,18 +7689,21 @@ async function generateBlogQuestions(id) {
     const srcEl = document.getElementById('blog-q-source-' + id);
     const lblEl = document.getElementById('blog-q-label-' + id);
     if (srcEl) {
+      const subs = (data.subreddits || []).map(s => 'r/' + s).join(', ');
       if (data.source === 'reddit') {
-        const subs = (data.subreddits || []).map(s => 'r/' + s).join(', ');
         srcEl.textContent = 'Live from Reddit · ' + subs;
         srcEl.style.cssText = 'font-size:.7rem;font-weight:600;border-radius:20px;padding:.15rem .55rem;background:#ff450022;color:#ff4500';
-        srcEl.style.display = '';
+        if (lblEl) lblEl.textContent = 'Top posts';
+      } else if (data.source === 'rss') {
+        srcEl.textContent = 'Reddit RSS · ' + subs;
+        srcEl.style.cssText = 'font-size:.7rem;font-weight:600;border-radius:20px;padding:.15rem .55rem;background:#ff450015;color:#cc3800';
         if (lblEl) lblEl.textContent = 'Top posts';
       } else {
         srcEl.textContent = 'AI-generated';
         srcEl.style.cssText = 'font-size:.7rem;font-weight:600;border-radius:20px;padding:.15rem .55rem;background:color-mix(in srgb,var(--primary) 15%,transparent);color:var(--primary)';
-        srcEl.style.display = '';
         if (lblEl) lblEl.textContent = 'Questions';
       }
+      srcEl.style.display = '';
     }
     qa.style.display = '';
     grid.innerHTML = '';
@@ -7715,7 +7718,7 @@ async function generateBlogQuestions(id) {
         ? '<div class="blog-q-detail">' + esc(q.detail) + '</div>'
         : '';
       card.innerHTML =
-        '<div class="blog-q-votes">▲ ' + (q.upvotes > 999 ? (q.upvotes / 1000).toFixed(1) + 'k' : q.upvotes) + '</div>' +
+        '<div class="blog-q-votes">' + (q.upvotes != null ? '▲ ' + (q.upvotes > 999 ? (q.upvotes / 1000).toFixed(1) + 'k' : q.upvotes) : '—') + '</div>' +
         '<div class="blog-q-body">' +
           '<div class="blog-q-title">' + esc(q.title) + '</div>' +
           detailHtml +

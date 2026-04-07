@@ -2501,23 +2501,20 @@ app.post('/api/blog/questions', requireAuth, async (req, res) => {
     const subreddits = INDUSTRY_SUBREDDITS[key] || ['HomeImprovement', 'DIY'];
 
     let questions = [];
+
+    // Layer 1: Reddit JSON API
     try {
-      // Try each subreddit until we have enough question posts
       for (const sub of subreddits) {
         if (questions.length >= 5) break;
-        if (questions.length > 0) await new Promise(r => setTimeout(r, 600)); // avoid rate limiting
-        const redditUrl = `https://www.reddit.com/r/${sub}/top.json?t=month&limit=50`;
-        const rRes = await fetch(redditUrl, {
+        if (questions.length > 0) await new Promise(r => setTimeout(r, 600));
+        const rRes = await fetch(`https://www.reddit.com/r/${sub}/top.json?t=month&limit=50`, {
           headers: { 'User-Agent': 'SiteLaunchTracker/1.0 (internal marketing tool)' },
         });
         if (!rRes.ok) continue;
         const rData = await rRes.json();
         const posts = (rData.data?.children || [])
           .filter(p =>
-            !p.data.stickied &&
-            p.data.score > 5 &&
-            p.data.title &&
-            // Keep posts that look like questions (have ? or have body text)
+            !p.data.stickied && p.data.score > 5 && p.data.title &&
             (p.data.title.includes('?') || (p.data.selftext && p.data.selftext.length > 20))
           )
           .map((p, i) => ({
@@ -2531,8 +2528,38 @@ app.post('/api/blog/questions', requireAuth, async (req, res) => {
         questions.push(...posts);
       }
       questions = questions.slice(0, 10);
-    } catch (redditErr) {
-      console.warn('Reddit fetch failed, falling back to Gemini:', redditErr.message);
+    } catch (e) {
+      console.warn('Reddit JSON failed:', e.message);
+    }
+
+    // Layer 2: Reddit RSS fallback
+    if (questions.length < 5) {
+      try {
+        for (const sub of subreddits) {
+          if (questions.length >= 5) break;
+          const rRes = await fetch(`https://www.reddit.com/r/${sub}/top.rss?t=month&limit=25`, {
+            headers: { 'User-Agent': 'SiteLaunchTracker/1.0 (internal marketing tool)' },
+          });
+          if (!rRes.ok) continue;
+          const xml = await rRes.text();
+          // Reddit serves Atom feeds; entry titles are plain text (not CDATA)
+          const titles = [...xml.matchAll(/<entry>[\s\S]*?<title[^>]*>([^<]+)<\/title>/g)]
+            .map(m => m[1].trim().replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>'))
+            .filter(t => t.includes('?'));
+          const newPosts = titles.map((title, i) => ({
+            id: 'q' + (questions.length + i + 1),
+            title,
+            detail: null,
+            upvotes: null,
+            subreddit: sub,
+            url: null,
+          }));
+          questions.push(...newPosts);
+        }
+        questions = questions.slice(0, 10);
+      } catch (e) {
+        console.warn('Reddit RSS failed:', e.message);
+      }
     }
 
     // Fall back to Gemini if Reddit returned too few results
@@ -2557,7 +2584,8 @@ ids must be q1 through q10. upvotes should be realistic numbers between 12 and 8
       }
     }
 
-    res.json({ questions, subreddits, source: questions[0]?.subreddit ? 'reddit' : 'ai' });
+    const source = !questions[0]?.subreddit ? 'ai' : questions[0]?.upvotes != null ? 'reddit' : 'rss';
+    res.json({ questions, subreddits, source });
   } catch (err) {
     console.error('blog/questions error:', err);
     res.status(500).json({ error: err.message });
