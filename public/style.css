@@ -4113,6 +4113,28 @@ mark.schema-fill-mark {
 .kw-pos-amber { background: #fef9c3 !important; color: #b45309 !important; border-color: #fde68a !important; }
 
 /* ── Blog Generator ─────────────────────────────────────── */
+.blog-reddit-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: .45rem;
+  height: 36px;
+  padding: 0 1.1rem;
+  background: #ff4500;
+  color: #fff;
+  border: none;
+  border-radius: 20px;
+  font-size: .825rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  letter-spacing: .01em;
+  transition: background .15s, box-shadow .15s;
+  white-space: nowrap;
+}
+.blog-reddit-btn:hover:not(:disabled) { background: #e03c00; box-shadow: 0 2px 8px #ff450040; }
+.blog-reddit-btn:active:not(:disabled) { transform: scale(.97); }
+.blog-reddit-btn:disabled { opacity: .55; cursor: default; }
+
 .blog-q-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));

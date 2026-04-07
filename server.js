@@ -2496,31 +2496,40 @@ app.post('/api/blog/questions', requireAuth, async (req, res) => {
     const { industry, city } = req.body;
     if (!industry) return res.status(400).json({ error: 'industry is required' });
 
-    // Try Reddit first
+    // Try Reddit first — browse top posts from primary subreddit, filter for questions
     const key = industry.toLowerCase();
     const subreddits = INDUSTRY_SUBREDDITS[key] || ['HomeImprovement', 'DIY'];
-    const query = city ? `${industry} ${city}` : industry;
-    const redditUrl = `https://www.reddit.com/r/${subreddits.join('+')}/search.json?q=${encodeURIComponent(query)}&sort=top&t=year&limit=25&restrict_sr=1&type=link`;
 
     let questions = [];
     try {
-      const rRes = await fetch(redditUrl, {
-        headers: { 'User-Agent': 'SiteLaunchTracker/1.0 (internal marketing tool)' },
-      });
-      if (rRes.ok) {
+      // Try each subreddit until we have enough question posts
+      for (const sub of subreddits) {
+        if (questions.length >= 5) break;
+        const redditUrl = `https://www.reddit.com/r/${sub}/top.json?t=month&limit=50`;
+        const rRes = await fetch(redditUrl, {
+          headers: { 'User-Agent': 'SiteLaunchTracker/1.0 (internal marketing tool)' },
+        });
+        if (!rRes.ok) continue;
         const rData = await rRes.json();
-        questions = (rData.data?.children || [])
-          .filter(p => p.data.title && p.data.score > 0 && !p.data.stickied)
-          .slice(0, 10)
+        const posts = (rData.data?.children || [])
+          .filter(p =>
+            !p.data.stickied &&
+            p.data.score > 5 &&
+            p.data.title &&
+            // Keep posts that look like questions (have ? or have body text)
+            (p.data.title.includes('?') || (p.data.selftext && p.data.selftext.length > 20))
+          )
           .map((p, i) => ({
-            id: 'q' + (i + 1),
+            id: 'q' + (questions.length + i + 1),
             title: p.data.title,
             detail: (p.data.selftext || '').slice(0, 200).replace(/\n+/g, ' ').trim() || null,
             upvotes: p.data.score,
             subreddit: p.data.subreddit,
             url: 'https://reddit.com' + p.data.permalink,
           }));
+        questions.push(...posts);
       }
+      questions = questions.slice(0, 10);
     } catch (redditErr) {
       console.warn('Reddit fetch failed, falling back to Gemini:', redditErr.message);
     }
