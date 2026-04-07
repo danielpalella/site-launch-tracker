@@ -2802,6 +2802,8 @@ tr.status-separator:first-child td { border-top: none; }
   margin-top: .85rem;
 }
 @media (max-width: 860px) { .ov-sections-grid { grid-template-columns: 1fr; } }
+/* Uniform row height across both section columns */
+.ov-sections-grid .ov-att-row { min-height: 90px; }
 /* Show-more collapse */
 .ov-sec-body .ov-att-row:nth-child(n+4) { display: none; }
 .ov-sec-body.ov-sec-expanded .ov-att-row { display: block; }

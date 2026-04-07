@@ -3447,11 +3447,28 @@ function switchAnalyticsView(view) {
 function toggleOvSection(bodyId, btnEl) {
   const body = document.getElementById(bodyId);
   const expanded = body.classList.toggle('ov-sec-expanded');
-  const total = parseInt(btnEl.dataset.total, 10);
+  const total   = parseInt(btnEl.dataset.total, 10);
   const preview = parseInt(btnEl.dataset.preview, 10);
+  const collapsedSvg = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>`;
+  const expandedSvg  = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>`;
   btnEl.innerHTML = expanded
-    ? `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg> Show less`
-    : `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg> Show ${total - preview} more`;
+    ? `${expandedSvg} Show less`
+    : `${collapsedSvg} Show ${total - preview} more`;
+
+  // Sync the paired sibling section
+  const pairedBodyId = btnEl.dataset.pair;
+  if (pairedBodyId) {
+    const pairedBody = document.getElementById(pairedBodyId);
+    const pairedBtn  = document.getElementById(pairedBodyId + '-btn');
+    if (pairedBody && pairedBtn && pairedBody.classList.contains('ov-sec-expanded') !== expanded) {
+      pairedBody.classList.toggle('ov-sec-expanded');
+      const pt = parseInt(pairedBtn.dataset.total, 10);
+      const pp = parseInt(pairedBtn.dataset.preview, 10);
+      pairedBtn.innerHTML = expanded
+        ? `${expandedSvg} Show less`
+        : `${collapsedSvg} Show ${pt - pp} more`;
+    }
+  }
 }
 
 // ── SEO View ──────────────────────────────────────────────────────────────────
@@ -4935,7 +4952,7 @@ function renderAnalyticsOverview(industryFilter) {
             </div>`;
           }).join('') : '<div class="ov-empty-state"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>No conversion data available for this period.</div>'}
         </div>
-        ${topConversions.length > 3 ? `<button class="ov-sec-show-more" onclick="toggleOvSection('tc-sec-body',this)" data-total="${topConversions.length}" data-preview="3"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg> Show ${topConversions.length - 3} more</button>` : ''}
+        ${topConversions.length > 3 ? `<button id="tc-sec-body-btn" class="ov-sec-show-more" onclick="toggleOvSection('tc-sec-body',this)" data-total="${topConversions.length}" data-preview="3" data-pair="td-sec-body"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg> Show ${topConversions.length - 3} more</button>` : ''}
       </div>
 
       ${trafficDrops.length ? `
@@ -4968,7 +4985,7 @@ function renderAnalyticsOverview(industryFilter) {
             </div>
           </div>`).join('')}
         </div>
-        ${trafficDrops.length > 3 ? `<button class="ov-sec-show-more" onclick="toggleOvSection('td-sec-body',this)" data-total="${trafficDrops.length}" data-preview="3"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg> Show ${trafficDrops.length - 3} more</button>` : ''}
+        ${trafficDrops.length > 3 ? `<button id="td-sec-body-btn" class="ov-sec-show-more" onclick="toggleOvSection('td-sec-body',this)" data-total="${trafficDrops.length}" data-preview="3" data-pair="tc-sec-body"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg> Show ${trafficDrops.length - 3} more</button>` : ''}
       </div>` : ''}
 
       ${industryBenchmarks.length > 1 ? `
