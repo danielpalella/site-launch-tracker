@@ -4138,6 +4138,10 @@ mark.schema-fill-mark {
 .blog-post-output h1 { font-size: 1.1rem; font-weight: 700; margin: 0 0 .7rem; color: var(--text); }
 .blog-post-output h2 { font-size: .92rem; font-weight: 700; margin: 1.1rem 0 .4rem; color: var(--text); }
 .blog-post-output p { margin: 0 0 .65rem; }
+.blog-history-row { display: flex; flex-direction: column; gap: .15rem; padding: .55rem 0; border-bottom: 1px solid var(--border); }
+.blog-history-row:last-child { border-bottom: none; }
+.blog-history-title { font-size: .825rem; font-weight: 600; color: var(--text); line-height: 1.35; }
+.blog-history-meta { font-size: .74rem; color: var(--text-muted); }
 
 /* ── Analytics Modal Tabs ── */
 .acd-tabs-nav {

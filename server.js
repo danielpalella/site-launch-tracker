@@ -2442,9 +2442,37 @@ app.post('/api/analytics/:id/push-blog', requireAuth, async (req, res) => {
       return res.status(502).json({ error: `Duda API error (${dRes.status}): ${txt || 'empty response'}` });
     }
     const post = await dRes.json();
-    res.json({ success: true, title, postId: post.id || null });
+    const postId = post.id || null;
+    // Save to history subcollection
+    await db.collection('launches').doc(req.params.id)
+      .collection('blog_drafts').add({
+        title,
+        postId,
+        pushedAt: new Date(),
+        industry: req.body.industry || null,
+        city: req.body.city || null,
+      });
+    res.json({ success: true, title, postId });
   } catch (err) {
     console.error('push-blog error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/analytics/:id/blog-history', requireAuth, async (req, res) => {
+  try {
+    const snap = await db.collection('launches').doc(req.params.id)
+      .collection('blog_drafts')
+      .orderBy('pushedAt', 'desc')
+      .limit(50)
+      .get();
+    const posts = snap.docs.map(d => ({
+      id: d.id,
+      ...d.data(),
+      pushedAt: d.data().pushedAt?.toDate?.()?.toISOString() || null,
+    }));
+    res.json({ posts });
+  } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
