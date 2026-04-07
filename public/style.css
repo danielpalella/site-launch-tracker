@@ -2718,6 +2718,15 @@ tr.status-separator:first-child td { border-top: none; }
 .gsh-legend-bar-wrap { width: 55px; height: 5px; background: var(--border); border-radius: 99px; overflow: hidden; flex-shrink: 0; }
 .gsh-legend-bar { height: 100%; border-radius: 99px; transition: width .3s; }
 .gsh-legend-pct { font-size: .75rem; color: var(--text-muted); width: 2.5rem; text-align: right; flex-shrink: 0; }
+/* Compact Needs Review rows */
+.gsh-compact-row { display: flex; align-items: center; gap: .5rem; padding: .3rem .4rem; cursor: pointer; border-radius: 6px; border-bottom: 1px solid var(--border); min-width: 0; }
+.gsh-compact-row:last-of-type { border-bottom: none; }
+.gsh-compact-row:hover { background: var(--bg); }
+.gsh-compact-name { flex: 1; min-width: 0; }
+.gsh-compact-title { font-size: .8rem; font-weight: 600; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gsh-compact-domain { font-size: .67rem; color: var(--text-muted); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gsh-compact-tags { display: flex; gap: .2rem; flex-shrink: 0; }
+.gsh-compact-score { font-size: .82rem; font-weight: 700; flex-shrink: 0; min-width: 20px; text-align: right; }
 
 /* ── Industry Benchmarks table ── */
 /* Industry Benchmarks table */

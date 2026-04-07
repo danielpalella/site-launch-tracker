@@ -4811,6 +4811,18 @@ function renderAnalyticsOverview(industryFilter) {
   const gshGrouped = {};
   for (const s of healthEntries) { const l = s.health.level; (gshGrouped[l] = gshGrouped[l] || []).push(s); }
 
+  const compactHealthRow = (s) => {
+    const h = s.health;
+    return `<div class="gsh-compact-row" onclick="openAnalyticsModal('${esc(s.id)}')">
+      <div class="gsh-compact-name">
+        <span class="gsh-compact-title">${esc(s.account_name)}</span>
+        <span class="gsh-compact-domain">${esc(s.domain)}</span>
+      </div>
+      ${h.issues.length ? `<div class="gsh-compact-tags">${h.issues.map(i => `<span class="ov-issue-tag" style="background:${h.color}18;color:${h.color};border:1px solid ${h.color}40;font-size:.65rem">${esc(i)}</span>`).join('')}</div>` : ''}
+      <span class="gsh-compact-score" style="color:${h.color}">${h.score ?? '—'}</span>
+    </div>`;
+  };
+
   const healthRow = (s) => {
     const h = s.health;
     const trendStr   = h.trendPct !== null ? (h.trendPct >= 0 ? `▲ ${h.trendPct}%` : `▼ ${Math.abs(h.trendPct)}%`) : null;
@@ -4847,6 +4859,7 @@ function renderAnalyticsOverview(industryFilter) {
       const isReview = l === 'review';
       const startCollapsed = !isReview;
       const sites = gshGrouped[l];
+      const rowFn  = isReview ? compactHealthRow : healthRow;
       const hasMore = isReview && sites.length > 3;
       const visible = hasMore ? sites.slice(0, 3) : sites;
       const extra   = hasMore ? sites.slice(3) : [];
@@ -4860,8 +4873,8 @@ function renderAnalyticsOverview(industryFilter) {
           <svg class="gsh-group-chevron${startCollapsed ? ' rot' : ''}" viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="4 6 8 10 12 6"/></svg>
         </div>
         <div id="${bodyId}" class="gsh-group-body${startCollapsed ? ' collapsed' : ''}">
-          ${visible.map(healthRow).join('')}
-          ${hasMore ? `<div id="gsh-nr-extra" style="display:none">${extra.map(healthRow).join('')}</div>
+          ${visible.map(rowFn).join('')}
+          ${hasMore ? `<div id="gsh-nr-extra" style="display:none">${extra.map(rowFn).join('')}</div>
           <button class="ov-sec-show-more" id="gsh-nr-more-btn" onclick="toggleGshNrMore(this)" data-total="${sites.length}" data-preview="3">${collSvg} Show ${sites.length - 3} more</button>` : ''}
         </div>`;
     }).join('');
