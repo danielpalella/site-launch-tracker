@@ -2385,17 +2385,23 @@ Return only the HTML content, no markdown fencing, no explanation.`;
     const creds  = await getDudaCredentials();
     const token  = Buffer.from(`${creds.api_user}:${creds.api_pass}`).toString('base64');
     const dRes   = await fetch(
-      `https://api.duda.co/api/sites/multiscreen/${siteName}/blog/posts`,
+      `https://api.duda.co/api/sites/multiscreen/${siteName}/blog/posts/import`,
       {
         method: 'POST',
         headers: { Authorization: `Basic ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, body: content, status: 'INACTIVE' }),
+        body: JSON.stringify({
+          title,
+          description: `Blog post targeting: ${keyword}`,
+          content: Buffer.from(content).toString('base64'),
+          author: bizName,
+        }),
       }
     );
 
     if (!dRes.ok) {
       const txt = await dRes.text();
-      return res.status(502).json({ error: `Duda API error: ${txt}` });
+      console.error('Duda blog API error:', dRes.status, txt);
+      return res.status(502).json({ error: `Duda API error (${dRes.status}): ${txt || 'empty response'}` });
     }
 
     const post = await dRes.json();
