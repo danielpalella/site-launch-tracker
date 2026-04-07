@@ -270,6 +270,14 @@
             <div class="ac-sort-section-label">Order</div>
             <button class="ac-sort-option active" data-sort-order="newest" onclick="setAcSortOrder('newest')">Newest</button>
             <button class="ac-sort-option" data-sort-order="oldest" onclick="setAcSortOrder('oldest')">Oldest</button>
+            <hr class="ac-sort-divider">
+            <div class="ac-sort-section-label">Post-Launch Age</div>
+            <button class="ac-sort-option active" data-age-filter="" onclick="setAcAgeFilter('')">All ages</button>
+            <button class="ac-sort-option" data-age-filter="0-4" onclick="setAcAgeFilter('0-4')">0 – 4 weeks</button>
+            <button class="ac-sort-option" data-age-filter="4-8" onclick="setAcAgeFilter('4-8')">4 – 8 weeks</button>
+            <button class="ac-sort-option" data-age-filter="8-16" onclick="setAcAgeFilter('8-16')">8 – 16 weeks</button>
+            <button class="ac-sort-option" data-age-filter="16-26" onclick="setAcAgeFilter('16-26')">4 – 6 months</button>
+            <button class="ac-sort-option" data-age-filter="26+" onclick="setAcAgeFilter('26+')">6+ months</button>
           </div>
         </div>
       </div>
@@ -2849,6 +2857,7 @@ let _tagMap            = {};
 let _tagFilter         = '';
 let _acSortKey         = 'published';
 let _acSortOrder       = 'newest';
+let _acAgeFilter       = '';
 let overviewChart      = null;
 let gshChart           = null;
 let _indBenchData      = [];
@@ -5105,14 +5114,28 @@ function renderIndustrySummary(industry) {
   `;
 }
 
+const _AC_AGE_RANGES = {
+  '0-4':  { min: 0,   max: 28  },
+  '4-8':  { min: 28,  max: 56  },
+  '8-16': { min: 56,  max: 112 },
+  '16-26':{ min: 112, max: 182 },
+  '26+':  { min: 182, max: Infinity },
+};
+
 function applyAnalyticsFilters() {
-  const search = (document.getElementById('analytics-search')?.value || '').toLowerCase().trim();
+  const search    = (document.getElementById('analytics-search')?.value || '').toLowerCase().trim();
+  const ageRange  = _acAgeFilter ? _AC_AGE_RANGES[_acAgeFilter] : null;
   let visible = 0;
   document.querySelectorAll('#analytics-grid .ac-card').forEach(card => {
     const industryMatch = analyticsIndustry === 'all' || card.dataset.industry === analyticsIndustry;
     const searchMatch   = !search || card.dataset.name?.includes(search) || card.dataset.domain?.includes(search);
     const tagMatch      = !_tagFilter || (card.dataset.tags || '').split(',').filter(Boolean).includes(_tagFilter);
-    const show = industryMatch && searchMatch && tagMatch;
+    let ageMatch = true;
+    if (ageRange && card.dataset.launchDate) {
+      const daysSince = Math.floor((Date.now() - new Date(card.dataset.launchDate).getTime()) / 86400000);
+      ageMatch = daysSince >= ageRange.min && daysSince < ageRange.max;
+    }
+    const show = industryMatch && searchMatch && tagMatch && ageMatch;
     card.style.display  = show ? '' : 'none';
     if (show) visible++;
   });
@@ -5184,23 +5207,33 @@ function _updateSortUI() {
   _updateSortFilterBadge();
 }
 
+const _AC_AGE_LABELS = { '0-4': '0–4 wks', '4-8': '4–8 wks', '8-16': '8–16 wks', '16-26': '4–6 mo', '26+': '6+ mo' };
+
 function _updateSortFilterBadge() {
-  const isDefault = _acSortKey === 'published' && _acSortOrder === 'newest';
+  const isDefault = _acSortKey === 'published' && _acSortOrder === 'newest' && !_acAgeFilter;
   const btn   = document.getElementById('ac-sort-btn');
   const reset = document.getElementById('ac-sort-reset-btn');
-  if (btn) btn.classList.toggle('active', !isDefault);
-  if (reset) {
-    reset.style.opacity = isDefault ? '.35' : '1';
-    reset.style.pointerEvents = isDefault ? 'none' : '';
-  }
+  const badge = document.getElementById('ac-sort-filter-badge');
+  if (btn)   btn.classList.toggle('active', !isDefault);
+  if (reset) { reset.style.opacity = isDefault ? '.35' : '1'; reset.style.pointerEvents = isDefault ? 'none' : ''; }
+  if (badge) { badge.textContent = _acAgeFilter ? _AC_AGE_LABELS[_acAgeFilter] : ''; badge.style.display = _acAgeFilter ? '' : 'none'; }
+  document.querySelectorAll('[data-age-filter]').forEach(btn =>
+    btn.classList.toggle('active', btn.dataset.ageFilter === _acAgeFilter));
 }
 
 function resetSortAndFilters() {
   _acSortKey   = 'published';
   _acSortOrder = 'newest';
+  _acAgeFilter = '';
   _updateSortUI();
-  sortAnalyticsCards();
+  applyAnalyticsFilters();
   closeSortDrop();
+}
+
+function setAcAgeFilter(val) {
+  _acAgeFilter = val;
+  _updateSortFilterBadge();
+  applyAnalyticsFilters();
 }
 
 function toggleSortDrop(e) {
