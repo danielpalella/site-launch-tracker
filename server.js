@@ -2385,7 +2385,7 @@ Return only the HTML content, no markdown fencing, no explanation.`;
     const creds  = await getDudaCredentials();
     const token  = Buffer.from(`${creds.api_user}:${creds.api_pass}`).toString('base64');
     const dRes   = await fetch(
-      `https://api.duda.co/api/sites/multiscreen/blog/${siteName}/posts`,
+      `https://api.duda.co/api/sites/multiscreen/${siteName}/blog/posts`,
       {
         method: 'POST',
         headers: { Authorization: `Basic ${token}`, 'Content-Type': 'application/json' },
