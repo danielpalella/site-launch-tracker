@@ -2412,6 +2412,43 @@ Return only the HTML content, no markdown fencing, no explanation.`;
   }
 });
 
+// Push a pre-generated HTML blog post to a specific site's Duda blog
+app.post('/api/analytics/:id/push-blog', requireAuth, async (req, res) => {
+  const { title, html } = req.body;
+  if (!title || !html) return res.status(400).json({ error: 'title and html are required' });
+  try {
+    const doc = await db.collection('launches').doc(req.params.id).get();
+    if (!doc.exists) return res.status(404).json({ error: 'Site not found' });
+    const launch = formatLaunch(doc);
+    const siteName = doc.data().duda_site_name;
+    if (!siteName) return res.status(400).json({ error: 'No Duda site name configured for this site' });
+    const creds = await getDudaCredentials();
+    const token = Buffer.from(`${creds.api_user}:${creds.api_pass}`).toString('base64');
+    const dRes = await fetch(
+      `https://api.duda.co/api/sites/multiscreen/${siteName}/blog/posts/import`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Basic ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title,
+          description: '',
+          content: Buffer.from(html).toString('base64'),
+          author: launch.account_name || 'Team',
+        }),
+      }
+    );
+    if (!dRes.ok) {
+      const txt = await dRes.text();
+      return res.status(502).json({ error: `Duda API error (${dRes.status}): ${txt || 'empty response'}` });
+    }
+    const post = await dRes.json();
+    res.json({ success: true, title, postId: post.id || null });
+  } catch (err) {
+    console.error('push-blog error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── Blog Generator ──
 app.post('/api/blog/questions', requireAuth, async (req, res) => {
   try {
