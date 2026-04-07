@@ -4102,6 +4102,14 @@ mark.schema-fill-mark {
 .acd-opp-stat { font-size: .7rem; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
 .acd-opp-clicks { color: var(--text-muted); font-size: .7rem; white-space: nowrap; flex-shrink: 0; }
 .acd-opp-hint { font-size: .69rem; color: #92400e; padding: .15rem 0 0; opacity: .85; }
+.opp-blog-btn {
+  font-size: .68rem; font-weight: 600; padding: .15rem .45rem;
+  border: 1px solid var(--border); border-radius: 5px;
+  background: none; color: var(--text-muted); cursor: pointer;
+  white-space: nowrap; flex-shrink: 0; transition: color .15s, border-color .15s;
+}
+.opp-blog-btn:hover:not(:disabled) { color: var(--primary); border-color: var(--primary); }
+.opp-blog-btn:disabled { opacity: .5; cursor: default; }
 .kw-pos-amber { background: #fef9c3 !important; color: #b45309 !important; border-color: #fde68a !important; }
 
 /* ── Analytics Modal Tabs ── */

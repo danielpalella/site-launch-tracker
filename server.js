@@ -2311,6 +2311,88 @@ app.get('/api/analytics/:id/snapshots', requireAuth, async (req, res) => {
   }
 });
 
+// ── Blog Draft Generator (Gemini + Duda Blog API) ──
+app.post('/api/analytics/:id/generate-blog', requireAuth, async (req, res) => {
+  const { keyword } = req.body;
+  if (!keyword) return res.status(400).json({ error: 'keyword is required' });
+
+  const geminiKey = process.env.GEMINI_API_KEY;
+  if (!geminiKey) return res.status(500).json({ error: 'GEMINI_API_KEY not configured' });
+
+  try {
+    const doc = await db.collection('launches').doc(req.params.id).get();
+    if (!doc.exists) return res.status(404).json({ error: 'Site not found' });
+    const launch = formatLaunch(doc);
+    const siteName = doc.data().duda_site_name;
+    if (!siteName) return res.status(400).json({ error: 'No Duda site name configured for this site' });
+
+    const domain   = launch.domain_name.replace(/^https?:\/\//, '').replace(/\/$/, '');
+    const industry = launch.industry || 'home services';
+    const bizName  = launch.account_name;
+
+    // Generate post with Gemini
+    const prompt = `You are a local SEO content writer. Write a blog post for a ${industry} company called "${bizName}" (${domain}).
+
+Target keyword: "${keyword}"
+
+Requirements:
+- Title: Naturally include the keyword, make it useful and click-worthy
+- Length: 600–800 words
+- Format: Return valid HTML. Use <h1> for the title, <h2> for 2–3 section headings, <p> for paragraphs
+- Tone: Helpful, friendly, professional — written for local homeowners or property owners
+- Include practical tips relevant to the service
+- Mention the local area naturally where it fits
+- End with a short call-to-action paragraph encouraging readers to contact ${bizName}
+- Do NOT include <html>, <head>, or <body> tags — start directly with the <h1>
+
+Return only the HTML content, no markdown fencing, no explanation.`;
+
+    const gRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.7, maxOutputTokens: 2048 },
+        }),
+      }
+    );
+    const gData = await gRes.json();
+    let content = gData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    if (!content) return res.status(500).json({ error: 'Gemini returned no content' });
+    // Strip accidental markdown code fences
+    content = content.replace(/^```html?\s*/i, '').replace(/```\s*$/, '').trim();
+
+    // Extract title from <h1>
+    const titleMatch = content.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+    const title = titleMatch ? titleMatch[1].replace(/<[^>]+>/g, '').trim() : `${keyword} — ${bizName}`;
+
+    // Post to Duda as draft (INACTIVE = unpublished)
+    const creds  = await getDudaCredentials();
+    const token  = Buffer.from(`${creds.api_user}:${creds.api_pass}`).toString('base64');
+    const dRes   = await fetch(
+      `https://api.duda.co/api/sites/multiscreen/blog/${siteName}/posts`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Basic ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, body: content, status: 'INACTIVE' }),
+      }
+    );
+
+    if (!dRes.ok) {
+      const txt = await dRes.text();
+      return res.status(502).json({ error: `Duda API error: ${txt}` });
+    }
+
+    const post = await dRes.json();
+    res.json({ success: true, title, postId: post.id || null });
+  } catch (err) {
+    console.error('generate-blog error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── Milestone Thresholds Config ──
 const DEFAULT_MILESTONES = {
   '30day': { gscImpressions: 500,  gscClicks: 20,  ga4Sessions: 100 },

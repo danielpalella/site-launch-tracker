@@ -5904,6 +5904,7 @@ function renderAnalyticsModalBody(id, data, forms) {
         if (imp >= 100 && ctr < 3) hint = 'Low CTR — try a more compelling meta title & description';
         else if (imp >= 50 && ctr >= 3) hint = 'Good CTR — build internal links to this page to push position up';
         else if (imp > 0 && imp < 50) hint = 'Low impressions — work this keyword into the page content';
+        var kwId = 'opp-' + pos + '-' + esc(q.query).replace(/\s+/g,'').slice(0,12);
         return '<div class="acd-opp-wrap">'
           + '<div class="acd-opp-row">'
           + '<span class="acd-opp-query">' + esc(q.query) + '</span>'
@@ -5911,6 +5912,7 @@ function renderAnalyticsModalBody(id, data, forms) {
           + '<span class="acd-opp-stat">' + ctr.toFixed(1) + '% CTR</span>'
           + '<span class="acd-opp-clicks">' + (q.clicks || 0) + ' clk</span>'
           + '<span class="kw-pos kw-pos-amber">#' + pos + '</span>'
+          + '<button class="opp-blog-btn" id="' + kwId + '" onclick="generateBlogDraft(\'' + esc(id) + '\',\'' + esc(q.query) + '\',this)" title="Generate a draft blog post targeting this keyword">✍ Draft</button>'
           + '</div>'
           + (hint ? '<div class="acd-opp-hint">💡 ' + hint + '</div>' : '')
           + '</div>';
@@ -7599,6 +7601,28 @@ function toggleGshGroup(bodyId, header) {
   const isCollapsed = body.classList.toggle('collapsed');
   const chevron = header.querySelector('.gsh-group-chevron');
   if (chevron) chevron.classList.toggle('rot', isCollapsed);
+}
+
+async function generateBlogDraft(id, keyword, btnEl) {
+  btnEl.disabled = true;
+  btnEl.textContent = '…';
+  try {
+    const res = await fetch(`/api/analytics/${id}/generate-blog`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ keyword }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed');
+    btnEl.textContent = '✓ Saved';
+    btnEl.style.color = '#22c55e';
+    btnEl.style.borderColor = '#22c55e';
+    showToast(`Draft saved to Duda: "${data.title}"`, 'success');
+  } catch (err) {
+    btnEl.disabled = false;
+    btnEl.textContent = '✍ Draft';
+    showToast(err.message, 'error');
+  }
 }
 
 function toggleGshNrMore(btnEl) {
