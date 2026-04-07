@@ -1733,6 +1733,18 @@ async function fetchGA4(propertyId, launchDate, token) {
   };
 }
 
+// ── Gemini API key ──
+let geminiKeyCache = null;
+async function getGeminiKey() {
+  if (geminiKeyCache) return geminiKeyCache;
+  // Try env var first (local dev), fall back to Firestore
+  if (process.env.GEMINI_API_KEY) { geminiKeyCache = process.env.GEMINI_API_KEY; return geminiKeyCache; }
+  const snap = await db.collection('config').doc('gemini_credentials').get();
+  if (!snap.exists || !snap.data().api_key) throw new Error('Gemini API key not configured');
+  geminiKeyCache = snap.data().api_key;
+  return geminiKeyCache;
+}
+
 // ── Duda Analytics ──
 let dudaCredsCache = null;
 async function getDudaCredentials() {
@@ -2316,8 +2328,8 @@ app.post('/api/analytics/:id/generate-blog', requireAuth, async (req, res) => {
   const { keyword } = req.body;
   if (!keyword) return res.status(400).json({ error: 'keyword is required' });
 
-  const geminiKey = process.env.GEMINI_API_KEY;
-  if (!geminiKey) return res.status(500).json({ error: 'GEMINI_API_KEY not configured' });
+  const geminiKey = await getGeminiKey().catch(() => null);
+  if (!geminiKey) return res.status(500).json({ error: 'Gemini API key not configured — add it in Firestore config/gemini_credentials.api_key' });
 
   try {
     const doc = await db.collection('launches').doc(req.params.id).get();
