@@ -2827,6 +2827,7 @@ tr.status-separator:first-child td { border-top: none; }
 .kw-row:last-child { border-bottom: none; }
 .kw-query { flex: 1; min-width: 0; font-size: .78rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .kw-clicks { font-size: .7rem; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
+.kw-stat { font-size: .7rem; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
 .kw-pos { font-size: .72rem; font-weight: 700; padding: .1rem .4rem; border-radius: 5px; white-space: nowrap; flex-shrink: 0; }
 
 /* ── SEO View ── */
@@ -4079,13 +4080,17 @@ mark.schema-fill-mark {
   border: 1px solid #fde68a; border-radius: 5px;
   padding: .15rem .45rem; display: inline-block; margin-top: .2rem;
 }
-.acd-opp-list { display: flex; flex-direction: column; gap: .3rem; }
+.acd-opp-list { display: flex; flex-direction: column; }
+.acd-opp-wrap { border-bottom: 1px solid var(--border); padding: .3rem 0; }
+.acd-opp-wrap:last-child { border-bottom: none; }
 .acd-opp-row {
   display: flex; align-items: center; gap: .5rem;
-  font-size: .8rem; padding: .25rem .1rem;
+  font-size: .8rem;
 }
-.acd-opp-query { flex: 1; color: var(--text); }
-.acd-opp-clicks { color: var(--text-muted); font-size: .75rem; white-space: nowrap; }
+.acd-opp-query { flex: 1; color: var(--text); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acd-opp-stat { font-size: .7rem; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
+.acd-opp-clicks { color: var(--text-muted); font-size: .7rem; white-space: nowrap; flex-shrink: 0; }
+.acd-opp-hint { font-size: .69rem; color: #92400e; padding: .15rem 0 0; opacity: .85; }
 .kw-pos-amber { background: #fef9c3 !important; color: #b45309 !important; border-color: #fde68a !important; }
 
 /* ── Analytics Modal Tabs ── */

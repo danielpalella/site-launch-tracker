@@ -1610,6 +1610,8 @@ async function fetchGSC(domain, launchDate, token) {
     topQueries: (topData.rows || []).map(r => ({
       query: r.keys[0],
       clicks: r.clicks || 0,
+      impressions: r.impressions || 0,
+      ctr: r.ctr != null ? Math.round(r.ctr * 10000) / 100 : 0,
       position: r.position ? Math.round(r.position * 10) / 10 : null,
     })),
   };

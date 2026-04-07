@@ -5809,8 +5809,13 @@ function renderAnalyticsModalBody(id, data, forms) {
     const renderRow = q => {
       const pos = q.position ? Math.round(q.position) : null;
       const posColor = !pos ? '#94a3b8' : pos <= 3 ? '#22c55e' : pos <= 10 ? '#f59e0b' : pos <= 20 ? '#f97316' : '#ef4444';
+      const imp = q.impressions || 0;
+      const ctr = q.ctr != null ? q.ctr : 0;
+      const impFmt = imp >= 1000 ? (imp / 1000).toFixed(1) + 'k' : imp;
       return `<div class="kw-row">
         <span class="kw-query">${esc(q.query)}</span>
+        <span class="kw-stat">${impFmt} imp</span>
+        <span class="kw-stat">${ctr.toFixed(1)}% CTR</span>
         <span class="kw-clicks">${q.clicks} clk</span>
         <span class="kw-pos" style="background:${posColor}18;color:${posColor};border:1px solid ${posColor}35">${pos ? '#' + pos : '—'}</span>
       </div>`;
@@ -5836,10 +5841,22 @@ function renderAnalyticsModalBody(id, data, forms) {
     + '<div class="acd-opp-list">'
     + opportunities.map(function(q) {
         var pos = Math.round(q.position);
-        return '<div class="acd-opp-row">'
+        var imp = q.impressions || 0;
+        var ctr = q.ctr != null ? q.ctr : 0;
+        var impFmt = imp >= 1000 ? (imp / 1000).toFixed(1) + 'k' : imp;
+        var hint = '';
+        if (imp >= 100 && ctr < 3) hint = 'Low CTR — try a more compelling meta title & description';
+        else if (imp >= 50 && ctr >= 3) hint = 'Good CTR — build internal links to this page to push position up';
+        else if (imp > 0 && imp < 50) hint = 'Low impressions — work this keyword into the page content';
+        return '<div class="acd-opp-wrap">'
+          + '<div class="acd-opp-row">'
           + '<span class="acd-opp-query">' + esc(q.query) + '</span>'
+          + '<span class="acd-opp-stat">' + impFmt + ' imp</span>'
+          + '<span class="acd-opp-stat">' + ctr.toFixed(1) + '% CTR</span>'
           + '<span class="acd-opp-clicks">' + (q.clicks || 0) + ' clk</span>'
           + '<span class="kw-pos kw-pos-amber">#' + pos + '</span>'
+          + '</div>'
+          + (hint ? '<div class="acd-opp-hint">💡 ' + hint + '</div>' : '')
           + '</div>';
       }).join('')
     + '</div>'
