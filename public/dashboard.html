@@ -6240,7 +6240,8 @@ function renderAnalyticsModalBody(id, data, forms) {
         <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.65rem;flex-wrap:wrap">
           <span id="blog-post-label-${id}" style="font-size:.85rem;font-weight:600;color:var(--text);flex:1;min-width:0"></span>
           <span id="blog-writing-badge-${id}" style="display:none;font-size:.72rem;font-weight:700;background:#f59e0b22;color:#d97706;border-radius:20px;padding:.2rem .65rem">✍ Writing…</span>
-          <button id="blog-push-btn-${id}" onclick="pushBlogToDuda('${esc(id)}')" style="display:none;font-size:.78rem;padding:.3rem .8rem;border:1px solid var(--primary);border-radius:6px;background:var(--primary);color:#fff;cursor:pointer;font-family:inherit;font-weight:600">Push to Duda</button>
+          <button id="blog-draft-btn-${id}" onclick="pushBlogToDuda('${esc(id)}', false)" style="display:none;font-size:.78rem;padding:.3rem .8rem;border:1px solid var(--border);border-radius:6px;background:none;color:var(--text);cursor:pointer;font-family:inherit;font-weight:600">Save Draft</button>
+          <button id="blog-publish-btn-${id}" onclick="pushBlogToDuda('${esc(id)}', true)" style="display:none;font-size:.78rem;padding:.3rem .8rem;border:1px solid var(--primary);border-radius:6px;background:var(--primary);color:#fff;cursor:pointer;font-family:inherit;font-weight:600">Publish</button>
           <button id="blog-copy-btn-${id}" onclick="copyBlogPost('${esc(id)}')" style="display:none;font-size:.78rem;padding:.3rem .75rem;border:1px solid var(--border);border-radius:6px;background:none;cursor:pointer;color:var(--text);font-family:inherit">Copy post</button>
         </div>
         <div id="blog-post-content-${id}" class="blog-post-output"></div>
@@ -7752,16 +7753,18 @@ async function generateBlogPost(id, industry, city, question) {
   const card = document.getElementById('bq-' + id + '-' + question.id);
   if (card) card.classList.add('blog-q-selected');
 
-  const pa      = document.getElementById('blog-post-area-' + id);
-  const badge   = document.getElementById('blog-writing-badge-' + id);
-  const pushBtn = document.getElementById('blog-push-btn-' + id);
-  const copyBtn = document.getElementById('blog-copy-btn-' + id);
-  const label   = document.getElementById('blog-post-label-' + id);
-  const content = document.getElementById('blog-post-content-' + id);
+  const pa         = document.getElementById('blog-post-area-' + id);
+  const badge      = document.getElementById('blog-writing-badge-' + id);
+  const draftBtn   = document.getElementById('blog-draft-btn-' + id);
+  const publishBtn = document.getElementById('blog-publish-btn-' + id);
+  const copyBtn    = document.getElementById('blog-copy-btn-' + id);
+  const label      = document.getElementById('blog-post-label-' + id);
+  const content    = document.getElementById('blog-post-content-' + id);
 
   label.textContent = question.title;
   badge.style.display = '';
-  pushBtn.style.display = 'none';
+  if (draftBtn)   draftBtn.style.display = 'none';
+  if (publishBtn) publishBtn.style.display = 'none';
   copyBtn.style.display = 'none';
   content.innerHTML = '<div style="color:var(--text-muted);font-size:.875rem;padding:1rem 0">Writing blog post…</div>';
   pa.style.display = '';
@@ -7780,9 +7783,12 @@ async function generateBlogPost(id, industry, city, question) {
     const title = titleMatch ? titleMatch[1].replace(/<[^>]+>/g, '').trim() : question.title;
     _blogPosts[id] = { title, html: data.post, industry, city };
     content.innerHTML = data.post;
-    // Show Push button only if this site has a Duda site name
+    // Show Duda buttons only if this site has a Duda site name
     const site = analyticsData[id];
-    if (site && site.duda_site_name) pushBtn.style.display = '';
+    if (site && site.duda_site_name) {
+      if (draftBtn)   draftBtn.style.display = '';
+      if (publishBtn) publishBtn.style.display = '';
+    }
     copyBtn.style.display = '';
   } catch (err) {
     content.innerHTML = '<div style="color:var(--danger,#ef4444);font-size:.875rem;padding:.5rem 0">' + esc(err.message) + '</div>';
@@ -7791,28 +7797,33 @@ async function generateBlogPost(id, industry, city, question) {
   }
 }
 
-async function pushBlogToDuda(id) {
+async function pushBlogToDuda(id, publish) {
   const post = _blogPosts[id];
   if (!post) return;
-  const btn = document.getElementById('blog-push-btn-' + id);
+  const draftBtn   = document.getElementById('blog-draft-btn-' + id);
+  const publishBtn = document.getElementById('blog-publish-btn-' + id);
+  const btn = publish ? publishBtn : draftBtn;
+  const otherBtn = publish ? draftBtn : publishBtn;
   btn.disabled = true;
-  btn.textContent = 'Pushing…';
+  otherBtn.disabled = true;
+  btn.textContent = publish ? 'Publishing…' : 'Saving…';
   try {
     const res = await fetch(`/api/analytics/${id}/push-blog`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: post.title, html: post.html, industry: post.industry || null, city: post.city || null }),
+      body: JSON.stringify({ title: post.title, html: post.html, industry: post.industry || null, city: post.city || null, publish }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Failed');
-    btn.textContent = '✓ Saved to Duda';
+    btn.textContent = publish ? '✓ Published' : '✓ Draft Saved';
     btn.style.background = '#22c55e';
     btn.style.borderColor = '#22c55e';
-    showToast(`Draft saved to Duda: "${data.title}"`, 'success');
+    showToast(publish ? `Published to Duda: "${data.title}"` : `Draft saved to Duda: "${data.title}"`, 'success');
     loadBlogHistory(id);
   } catch (err) {
     btn.disabled = false;
-    btn.textContent = 'Push to Duda';
+    otherBtn.disabled = false;
+    btn.textContent = publish ? 'Publish' : 'Save Draft';
     showToast(err.message, 'error');
   }
 }
@@ -7851,8 +7862,11 @@ async function loadBlogHistory(id) {
     listEl.innerHTML = data.posts.map(p => {
       const date = p.pushedAt ? new Date(p.pushedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
       const meta = [p.industry, p.city].filter(Boolean).join(' · ');
+      const statusBadge = p.status === 'published'
+        ? '<span style="font-size:.67rem;font-weight:700;background:#22c55e22;color:#16a34a;border-radius:20px;padding:.1rem .45rem;margin-left:.4rem">Published</span>'
+        : '<span style="font-size:.67rem;font-weight:700;background:color-mix(in srgb,var(--text-muted) 12%,transparent);color:var(--text-muted);border-radius:20px;padding:.1rem .45rem;margin-left:.4rem">Draft</span>';
       return `<div class="blog-history-row">
-        <div class="blog-history-title">${esc(p.title)}</div>
+        <div class="blog-history-title">${esc(p.title)}${statusBadge}</div>
         <div class="blog-history-meta">${meta ? esc(meta) + ' &nbsp;·&nbsp; ' : ''}${date}</div>
       </div>`;
     }).join('');

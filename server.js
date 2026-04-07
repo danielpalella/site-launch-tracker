@@ -2414,7 +2414,7 @@ Return only the HTML content, no markdown fencing, no explanation.`;
 
 // Push a pre-generated HTML blog post to a specific site's Duda blog
 app.post('/api/analytics/:id/push-blog', requireAuth, async (req, res) => {
-  const { title, html } = req.body;
+  const { title, html, publish = false } = req.body;
   if (!title || !html) return res.status(400).json({ error: 'title and html are required' });
   try {
     const doc = await db.collection('launches').doc(req.params.id).get();
@@ -2424,11 +2424,14 @@ app.post('/api/analytics/:id/push-blog', requireAuth, async (req, res) => {
     if (!siteName) return res.status(400).json({ error: 'No Duda site name configured for this site' });
     const creds = await getDudaCredentials();
     const token = Buffer.from(`${creds.api_user}:${creds.api_pass}`).toString('base64');
+    const authHeader = { Authorization: `Basic ${token}`, 'Content-Type': 'application/json' };
+
+    // Step 1: Import (always creates a draft)
     const dRes = await fetch(
       `https://api.duda.co/api/sites/multiscreen/${siteName}/blog/posts/import`,
       {
         method: 'POST',
-        headers: { Authorization: `Basic ${token}`, 'Content-Type': 'application/json' },
+        headers: authHeader,
         body: JSON.stringify({
           title,
           description: '',
@@ -2443,16 +2446,32 @@ app.post('/api/analytics/:id/push-blog', requireAuth, async (req, res) => {
     }
     const post = await dRes.json();
     const postId = post.id || null;
-    // Save to history subcollection
+
+    // Step 2: Publish if requested
+    if (publish && postId) {
+      const pRes = await fetch(
+        `https://api.duda.co/api/sites/multiscreen/${siteName}/blog/posts/${postId}/publish`,
+        { method: 'POST', headers: authHeader }
+      );
+      if (!pRes.ok) {
+        const txt = await pRes.text();
+        console.error('Duda publish error:', pRes.status, txt);
+        // Still saved the draft — surface the publish failure to the client
+        return res.status(502).json({ error: `Post saved but publish failed (${pRes.status}): ${txt || 'empty response'}` });
+      }
+    }
+
+    const status = publish ? 'published' : 'draft';
     await db.collection('launches').doc(req.params.id)
       .collection('blog_drafts').add({
         title,
         postId,
+        status,
         pushedAt: new Date(),
         industry: req.body.industry || null,
         city: req.body.city || null,
       });
-    res.json({ success: true, title, postId });
+    res.json({ success: true, title, postId, status });
   } catch (err) {
     console.error('push-blog error:', err);
     res.status(500).json({ error: err.message });
