@@ -2496,11 +2496,48 @@ app.get('/api/analytics/:id/blog-history', requireAuth, async (req, res) => {
   }
 });
 
+// ── Reddit OAuth ──
+// Reads credentials from Firestore config/reddit_credentials.
+// Returns null gracefully if not configured — callers fall back to anonymous.
+let _redditToken = null;
+let _redditTokenExpiry = 0;
+let _redditUsername = null;
+
+async function getRedditToken() {
+  if (_redditToken && Date.now() < _redditTokenExpiry) return { token: _redditToken, username: _redditUsername };
+  try {
+    const snap = await db.collection('config').doc('reddit_credentials').get();
+    if (!snap.exists) return null;
+    const { client_id, client_secret, username, password } = snap.data();
+    if (!client_id || !client_secret || !username || !password) return null;
+    const basic = Buffer.from(`${client_id}:${client_secret}`).toString('base64');
+    const res = await fetch('https://www.reddit.com/api/v1/access_token', {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${basic}`,
+        'User-Agent': `SiteLaunchTracker/1.0 (by /u/${username})`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({ grant_type: 'password', username, password }),
+    });
+    if (!res.ok) { console.warn('Reddit OAuth failed:', res.status, await res.text()); return null; }
+    const data = await res.json();
+    if (!data.access_token) return null;
+    _redditToken = data.access_token;
+    _redditUsername = username;
+    _redditTokenExpiry = Date.now() + ((data.expires_in || 86400) - 300) * 1000;
+    return { token: _redditToken, username };
+  } catch (e) {
+    console.warn('getRedditToken error:', e.message);
+    return null;
+  }
+}
+
 // ── Blog Generator ──
 const INDUSTRY_SUBREDDITS = {
   'plumbing':           ['Plumbing', 'DIY', 'HomeImprovement'],
   'roofing':            ['Roofing', 'HomeImprovement', 'DIY'],
-  'hvac':               ['HVAC', 'HomeImprovement', 'DIY'],
+  'hvac':               ['hvacadvice', 'HVAC', 'HomeImprovement'],
   'home improvement':   ['HomeImprovement', 'DIY', 'fixit'],
   'diy':                ['DIY', 'HomeImprovement', 'fixit'],
   'landscaping':        ['landscaping', 'gardening', 'HomeImprovement'],
@@ -2510,13 +2547,6 @@ const INDUSTRY_SUBREDDITS = {
   'general contractor': ['HomeImprovement', 'DIY', 'fixit'],
 };
 
-// Dedicated subreddits fetched via Gemini URL context (bypasses Reddit rate limiting)
-const GEMINI_SCRAPE_SUBREDDITS = {
-  'hvac':     ['hvacadvice'],
-  'roofing':  ['Roofing'],
-  'plumbing': ['Plumbing'],
-};
-
 app.post('/api/blog/questions', requireAuth, async (req, res) => {
   try {
     const { industry, city } = req.body;
@@ -2524,86 +2554,44 @@ app.post('/api/blog/questions', requireAuth, async (req, res) => {
 
     const key = industry.toLowerCase();
     const subreddits = INDUSTRY_SUBREDDITS[key] || ['HomeImprovement', 'DIY'];
-    const geminiSubs = GEMINI_SCRAPE_SUBREDDITS[key];
-
     let questions = [];
 
-    // Layer 1: Gemini URL context scrape (hvac, roofing, plumbing only)
-    // Gemini fetches from Google's infrastructure — avoids Reddit rate limiting
-    if (geminiSubs) {
-      try {
-        const geminiKey = await getGeminiKey();
-        const urlList = geminiSubs.map(sub => `https://www.reddit.com/r/${sub}/top.json?t=month&limit=50`).join('\n');
-        const prompt = `Fetch each of these Reddit JSON URLs and extract real homeowner questions about ${industry}.
+    // Layer 1: Reddit API — OAuth if credentials are in Firestore, anonymous otherwise
+    try {
+      const auth = await getRedditToken();
+      const baseUrl = auth ? 'https://oauth.reddit.com' : 'https://www.reddit.com';
+      const headers = auth
+        ? { Authorization: `Bearer ${auth.token}`, 'User-Agent': `SiteLaunchTracker/1.0 (by /u/${auth.username})` }
+        : { 'User-Agent': 'SiteLaunchTracker/1.0 (internal marketing tool)' };
 
-URLs:
-${urlList}
-
-Return ONLY a valid JSON array (no markdown, no code fences, no explanation) of up to 10 posts where the title contains a question (has ?) or clearly describes a homeowner problem. Each item must have:
-{"title": "exact post title", "detail": "first 150 chars of selftext body or null if empty", "upvotes": 123, "subreddit": "subreddit_name"}`;
-
-        const gRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            tools: [{ urlContext: {} }],
-            contents: [{ parts: [{ text: prompt }] }],
-          }),
-        });
-        const gData = await gRes.json();
-        if (gRes.ok) {
-          const raw = gData.candidates?.[0]?.content?.parts?.[0]?.text || '';
-          const jsonMatch = raw.match(/\[[\s\S]*\]/);
-          if (jsonMatch) {
-            const parsed = JSON.parse(jsonMatch[0]);
-            questions = parsed.map((q, i) => ({
-              id: 'q' + (i + 1),
-              title: q.title,
-              detail: q.detail || null,
-              upvotes: q.upvotes || null,
-              subreddit: q.subreddit || geminiSubs[0],
-              url: null,
-            }));
-          }
-        }
-      } catch (e) {
-        console.warn('Gemini URL scrape failed:', e.message);
+      for (const sub of subreddits) {
+        if (questions.length >= 5) break;
+        // Only throttle for anonymous requests — OAuth has much higher rate limits
+        if (!auth && questions.length > 0) await new Promise(r => setTimeout(r, 600));
+        const rRes = await fetch(`${baseUrl}/r/${sub}/top.json?t=month&limit=50`, { headers });
+        if (!rRes.ok) continue;
+        const rData = await rRes.json();
+        const posts = (rData.data?.children || [])
+          .filter(p =>
+            !p.data.stickied && p.data.score > 5 && p.data.title &&
+            (p.data.title.includes('?') || (p.data.selftext && p.data.selftext.length > 20))
+          )
+          .map((p, i) => ({
+            id: 'q' + (questions.length + i + 1),
+            title: p.data.title,
+            detail: (p.data.selftext || '').slice(0, 200).replace(/\n+/g, ' ').trim() || null,
+            upvotes: p.data.score,
+            subreddit: p.data.subreddit,
+            url: 'https://reddit.com' + p.data.permalink,
+          }));
+        questions.push(...posts);
       }
+      questions = questions.slice(0, 10);
+    } catch (e) {
+      console.warn('Reddit API failed:', e.message);
     }
 
-    // Layer 2: Reddit JSON API (non-scraped industries, or scrape fallback)
-    if (questions.length < 5) {
-      try {
-        for (const sub of subreddits) {
-          if (questions.length >= 5) break;
-          if (questions.length > 0) await new Promise(r => setTimeout(r, 600));
-          const rRes = await fetch(`https://www.reddit.com/r/${sub}/top.json?t=month&limit=50`, {
-            headers: { 'User-Agent': 'SiteLaunchTracker/1.0 (internal marketing tool)' },
-          });
-          if (!rRes.ok) continue;
-          const rData = await rRes.json();
-          const posts = (rData.data?.children || [])
-            .filter(p =>
-              !p.data.stickied && p.data.score > 5 && p.data.title &&
-              (p.data.title.includes('?') || (p.data.selftext && p.data.selftext.length > 20))
-            )
-            .map((p, i) => ({
-              id: 'q' + (questions.length + i + 1),
-              title: p.data.title,
-              detail: (p.data.selftext || '').slice(0, 200).replace(/\n+/g, ' ').trim() || null,
-              upvotes: p.data.score,
-              subreddit: p.data.subreddit,
-              url: 'https://reddit.com' + p.data.permalink,
-            }));
-          questions.push(...posts);
-        }
-        questions = questions.slice(0, 10);
-      } catch (e) {
-        console.warn('Reddit JSON failed:', e.message);
-      }
-    }
-
-    // Layer 3: Reddit RSS fallback
+    // Layer 2: Reddit RSS fallback
     if (questions.length < 5) {
       try {
         for (const sub of subreddits) {
@@ -2613,7 +2601,6 @@ Return ONLY a valid JSON array (no markdown, no code fences, no explanation) of 
           });
           if (!rRes.ok) continue;
           const xml = await rRes.text();
-          // Reddit serves Atom feeds; entry titles are plain text (not CDATA)
           const titles = [...xml.matchAll(/<entry>[\s\S]*?<title[^>]*>([^<]+)<\/title>/g)]
             .map(m => m[1].trim().replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>'))
             .filter(t => t.includes('?'));
@@ -2633,7 +2620,7 @@ Return ONLY a valid JSON array (no markdown, no code fences, no explanation) of 
       }
     }
 
-    // Layer 4: Gemini text generation (last resort)
+    // Layer 3: Gemini text generation (last resort)
     if (questions.length < 5) {
       const location = city ? ` in ${city}` : '';
       const geminiKey = await getGeminiKey();
@@ -2656,7 +2643,7 @@ ids must be q1 through q10. upvotes should be realistic numbers between 12 and 8
     }
 
     const source = !questions[0]?.subreddit ? 'ai' : questions[0]?.upvotes != null ? 'reddit' : 'rss';
-    res.json({ questions, subreddits: geminiSubs || subreddits, source });
+    res.json({ questions, subreddits, source });
   } catch (err) {
     console.error('blog/questions error:', err);
     res.status(500).json({ error: err.message });
