@@ -4698,7 +4698,7 @@ function computeTopConversions(entries, period) {
       return { id, account_name: d.account_name, domain: d.domain, total, forms, calls, visitors, rate };
     })
     .filter(s => s.total > 0)
-    .sort((a, b) => b.total - a.total)
+    .sort((a, b) => b.rate - a.rate)
     .slice(0, 10);
 }
 
@@ -4949,7 +4949,7 @@ function renderAnalyticsOverview(industryFilter) {
         <div id="tc-sec-body" class="ov-sec-body">
           ${topConversions.length ? topConversions.map(s => {
             const barColor = '#059669';
-            const barWidth = Math.round(s.total / topConversions[0].total * 100);
+            const barWidth = Math.round(s.rate / topConversions[0].rate * 100);
             return `<div class="ov-att-row" style="border-left:3px solid ${barColor}" onclick="openAnalyticsModal('${esc(s.id)}')">
               <div class="ov-att-top">
                 <div class="ov-att-name">
