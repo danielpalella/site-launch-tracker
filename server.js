@@ -2412,6 +2412,74 @@ Return only the HTML content, no markdown fencing, no explanation.`;
   }
 });
 
+// ── Blog Generator ──
+app.post('/api/blog/questions', requireAuth, async (req, res) => {
+  try {
+    const { industry, city } = req.body;
+    if (!industry) return res.status(400).json({ error: 'industry is required' });
+    const location = city ? ` in ${city}` : '';
+    const geminiKey = await getGeminiKey();
+    const prompt = `You are simulating Reddit posts from homeowners${location} asking questions about ${industry}.
+Generate exactly 10 realistic questions a homeowner might post on r/HomeImprovement or r/DIY.
+Return ONLY a valid JSON array with no markdown, no code fences, no explanation. Each item must have:
+{"id": "q1", "title": "short question headline under 80 chars", "detail": "1-2 sentence context from homeowner perspective", "upvotes": 42}
+ids must be q1 through q10. upvotes should be realistic numbers between 12 and 847.`;
+
+    const gRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+    });
+    const gData = await gRes.json();
+    if (!gRes.ok) throw new Error(gData.error?.message || 'Gemini error');
+    const raw = gData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const jsonMatch = raw.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) throw new Error('No JSON array in Gemini response');
+    const questions = JSON.parse(jsonMatch[0]);
+    res.json({ questions });
+  } catch (err) {
+    console.error('blog/questions error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/blog/post', requireAuth, async (req, res) => {
+  try {
+    const { industry, city, question, detail } = req.body;
+    if (!industry || !question) return res.status(400).json({ error: 'industry and question are required' });
+    const location = city ? ` in ${city}` : '';
+    const geminiKey = await getGeminiKey();
+    const prompt = `Write a professional contractor blog post answering this homeowner question about ${industry}${location}.
+
+Question: "${question}"
+Context: ${detail || ''}
+
+Write an SEO-optimized blog post in clean HTML. Include:
+- A compelling <h1> title (include the location if provided)
+- A brief intro paragraph (2-3 sentences)
+- Three <h2> sections with practical advice
+- A "When to Call a Professional" section with a clear CTA
+- Total length: 400-600 words
+
+Return ONLY the HTML body content (no <html>, <head>, <body> wrapper tags). Use only <h1>, <h2>, <p> tags.`;
+
+    const gRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+    });
+    const gData = await gRes.json();
+    if (!gRes.ok) throw new Error(gData.error?.message || 'Gemini error');
+    const raw = gData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const post = raw.replace(/^```html?\n?/i, '').replace(/\n?```$/m, '').trim();
+    if (!post) throw new Error('Gemini returned no content');
+    res.json({ post });
+  } catch (err) {
+    console.error('blog/post error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── Milestone Thresholds Config ──
 const DEFAULT_MILESTONES = {
   '30day': { gscImpressions: 500,  gscClicks: 20,  ga4Sessions: 100 },

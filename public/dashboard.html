@@ -247,6 +247,7 @@
         <button class="ac-view-btn ac-view-active" id="ac-view-sites" onclick="switchAnalyticsView('sites')">Sites</button>
         <button class="ac-view-btn" id="ac-view-overview" onclick="switchAnalyticsView('overview')">Dashboard</button>
         <button class="ac-view-btn" id="ac-view-seo" onclick="switchAnalyticsView('seo')">Site Audit</button>
+        <button class="ac-view-btn" id="ac-view-blog" onclick="switchAnalyticsView('blog')">Blog</button>
       </div>
       <div class="ac-toolbar-divider"></div>
       <div class="ac-filters-group" id="ac-filters-group">
@@ -351,6 +352,49 @@
 
         <!-- SEO panel -->
         <div id="ac-seo" style="display:none"></div>
+
+        <!-- Blog panel -->
+        <div id="ac-blog" style="display:none">
+          <div class="card acd-section" style="margin-bottom:1rem">
+            <div class="acd-section-header" style="margin-bottom:1rem">
+              <span class="acd-section-title">Blog Post Generator</span>
+              <span class="acd-section-meta">Generate homeowner questions &amp; contractor blog posts with AI</span>
+            </div>
+            <div style="display:flex;gap:.75rem;align-items:flex-end;flex-wrap:wrap;margin-bottom:1.25rem">
+              <div style="display:flex;flex-direction:column;gap:.35rem">
+                <label style="font-size:.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em">Industry</label>
+                <select id="blog-industry-select" class="ac-search" style="min-width:200px;cursor:pointer">
+                  <option value="plumbing">Plumbing</option>
+                  <option value="roofing">Roofing</option>
+                  <option value="hvac">HVAC</option>
+                  <option value="home improvement">Home Improvement</option>
+                  <option value="diy">DIY</option>
+                </select>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:.35rem">
+                <label style="font-size:.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em">City <span style="font-weight:400;opacity:.6">(optional)</span></label>
+                <input type="text" id="blog-city-input" class="ac-search" placeholder="e.g. Austin, TX" style="min-width:180px">
+              </div>
+              <button class="btn-primary" id="blog-get-questions-btn" onclick="generateBlogQuestions()" style="height:36px;padding:0 1.1rem">Get Questions</button>
+            </div>
+            <!-- Questions grid -->
+            <div id="blog-questions-area" style="display:none">
+              <div style="font-size:.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.6rem">
+                Questions from r/HomeImprovement
+              </div>
+              <div id="blog-questions-grid" class="blog-q-grid"></div>
+            </div>
+            <!-- Blog post output -->
+            <div id="blog-post-area" style="display:none;margin-top:1.25rem">
+              <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.65rem">
+                <span id="blog-post-question-label" style="font-size:.85rem;font-weight:600;color:var(--text);flex:1"></span>
+                <span id="blog-writing-badge" style="display:none;font-size:.72rem;font-weight:700;background:#f59e0b22;color:#d97706;border-radius:20px;padding:.2rem .65rem">✍ Writing…</span>
+                <button id="blog-copy-btn" onclick="copyBlogPost()" style="display:none;font-size:.78rem;padding:.3rem .75rem;border:1px solid var(--border);border-radius:6px;background:none;cursor:pointer;color:var(--text);font-family:inherit">Copy post</button>
+              </div>
+              <div id="blog-post-content" class="blog-post-output"></div>
+            </div>
+          </div>
+        </div>
 
         <!-- All-sites card grid -->
         <div id="ac-sites-panel">
@@ -2883,6 +2927,7 @@ const ANALYTICS_SUBTITLES = {
   sites:    'GSC, GA4 &amp; Duda performance insights for all active sites.',
   overview: 'Aggregated traffic, search health, and performance trends across your portfolio.',
   seo:      'Sitemap, indexing, broken links, schema markup, and safe browsing status per site.',
+  blog:     'Generate Reddit-style homeowner questions and full contractor blog posts with AI.',
 };
 const PERIOD_LABELS = { '4w': 'Last 4 weeks', '12w': 'Last 12 weeks', all: 'Since Launch' };
 
@@ -3427,14 +3472,16 @@ function switchAnalyticsView(view) {
   document.getElementById('ac-view-sites').classList.toggle('ac-view-active', view === 'sites');
   document.getElementById('ac-view-overview').classList.toggle('ac-view-active', view === 'overview');
   document.getElementById('ac-view-seo').classList.toggle('ac-view-active', view === 'seo');
+  document.getElementById('ac-view-blog').classList.toggle('ac-view-active', view === 'blog');
   document.getElementById('ac-sites-panel').style.display       = view === 'sites' ? '' : 'none';
   document.getElementById('ac-industry-summary').style.display  = view === 'sites' && analyticsIndustry !== 'all' ? '' : 'none';
   document.getElementById('ac-overview').style.display          = view === 'overview' ? '' : 'none';
   document.getElementById('ac-seo').style.display               = view === 'seo' ? '' : 'none';
+  document.getElementById('ac-blog').style.display              = view === 'blog' ? '' : 'none';
   document.getElementById('analytics-search').style.display     = (view === 'sites' || view === 'seo') ? '' : 'none';
-  document.getElementById('ac-sort-wrap').style.display = view === 'seo' ? 'none' : '';
+  document.getElementById('ac-sort-wrap').style.display         = (view === 'seo' || view === 'blog') ? 'none' : '';
   document.getElementById('seo-toolbar-extras').style.display   = view === 'seo' ? 'flex' : 'none';
-  document.getElementById('ac-toolbar-right').style.display     = view === 'seo' ? 'none' : 'flex';
+  document.getElementById('ac-toolbar-right').style.display     = (view === 'seo' || view === 'blog') ? 'none' : 'flex';
   const _fp = document.getElementById('ac-filter-panel');
   if (_fp) _fp.style.display = (view === 'sites' || view === 'overview') ? '' : 'none';
   if (view === 'seo' && !_seoCacheLoaded) loadSeoCache();
@@ -7623,6 +7670,103 @@ async function generateBlogDraft(id, keyword, btnEl) {
     btnEl.textContent = '✍ Draft';
     showToast(err.message, 'error');
   }
+}
+
+// ── Blog Generator ───────────────────────────────────────────────────
+let _blogLastPost = '';
+
+async function generateBlogQuestions() {
+  const btn = document.getElementById('blog-get-questions-btn');
+  const industry = document.getElementById('blog-industry-select').value;
+  const city = document.getElementById('blog-city-input').value.trim();
+  btn.disabled = true;
+  btn.textContent = 'Generating…';
+  const qa = document.getElementById('blog-questions-area');
+  const grid = document.getElementById('blog-questions-grid');
+  const pa = document.getElementById('blog-post-area');
+  qa.style.display = 'none';
+  pa.style.display = 'none';
+  grid.innerHTML = '<div style="color:var(--text-muted);font-size:.875rem;padding:.5rem 0">Generating questions…</div>';
+  try {
+    const res = await fetch('/api/blog/questions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ industry, city }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed');
+    qa.style.display = '';
+    grid.innerHTML = '';
+    data.questions.forEach(q => {
+      const card = document.createElement('div');
+      card.className = 'blog-q-card';
+      card.id = 'bq-' + q.id;
+      card.innerHTML =
+        '<div class="blog-q-votes">▲ ' + q.upvotes + '</div>' +
+        '<div class="blog-q-body">' +
+          '<div class="blog-q-title">' + esc(q.title) + '</div>' +
+          '<div class="blog-q-detail">' + esc(q.detail) + '</div>' +
+        '</div>';
+      card.onclick = () => generateBlogPost(industry, city, q);
+      grid.appendChild(card);
+    });
+  } catch (err) {
+    grid.innerHTML = '<div style="color:var(--danger,#ef4444);font-size:.875rem;padding:.5rem 0">' + esc(err.message) + '</div>';
+    qa.style.display = '';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Get Questions';
+  }
+}
+
+async function generateBlogPost(industry, city, question) {
+  document.querySelectorAll('.blog-q-card').forEach(c => c.classList.remove('blog-q-selected'));
+  const card = document.getElementById('bq-' + question.id);
+  if (card) card.classList.add('blog-q-selected');
+
+  const pa = document.getElementById('blog-post-area');
+  const badge = document.getElementById('blog-writing-badge');
+  const copyBtn = document.getElementById('blog-copy-btn');
+  const label = document.getElementById('blog-post-question-label');
+  const content = document.getElementById('blog-post-content');
+
+  label.textContent = question.title;
+  badge.style.display = '';
+  copyBtn.style.display = 'none';
+  content.innerHTML = '<div style="color:var(--text-muted);font-size:.875rem;padding:1rem 0">Writing blog post…</div>';
+  pa.style.display = '';
+  pa.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+  _blogLastPost = '';
+  try {
+    const res = await fetch('/api/blog/post', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ industry, city, question: question.title, detail: question.detail }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed');
+    _blogLastPost = data.post;
+    content.innerHTML = data.post;
+    copyBtn.style.display = '';
+  } catch (err) {
+    content.innerHTML = '<div style="color:var(--danger,#ef4444);font-size:.875rem;padding:.5rem 0">' + esc(err.message) + '</div>';
+  } finally {
+    badge.style.display = 'none';
+  }
+}
+
+function copyBlogPost() {
+  if (!_blogLastPost) return;
+  const tmp = document.createElement('div');
+  tmp.innerHTML = _blogLastPost;
+  navigator.clipboard.writeText(tmp.innerText).then(() => {
+    const btn = document.getElementById('blog-copy-btn');
+    btn.textContent = 'Copied!';
+    btn.style.color = '#22c55e';
+    btn.style.borderColor = '#22c55e';
+    setTimeout(() => { btn.textContent = 'Copy post'; btn.style.color = ''; btn.style.borderColor = ''; }, 2000);
+  });
 }
 
 function toggleGshNrMore(btnEl) {
