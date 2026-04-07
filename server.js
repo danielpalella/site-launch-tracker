@@ -2478,30 +2478,76 @@ app.get('/api/analytics/:id/blog-history', requireAuth, async (req, res) => {
 });
 
 // ── Blog Generator ──
+const INDUSTRY_SUBREDDITS = {
+  'plumbing':           ['Plumbing', 'DIY', 'HomeImprovement'],
+  'roofing':            ['Roofing', 'HomeImprovement', 'DIY'],
+  'hvac':               ['HVAC', 'HomeImprovement', 'DIY'],
+  'home improvement':   ['HomeImprovement', 'DIY', 'fixit'],
+  'diy':                ['DIY', 'HomeImprovement', 'fixit'],
+  'landscaping':        ['landscaping', 'gardening', 'HomeImprovement'],
+  'electrical':         ['electrical', 'DIY', 'HomeImprovement'],
+  'painting':           ['paint', 'DIY', 'HomeImprovement'],
+  'flooring':           ['flooring', 'DIY', 'HomeImprovement'],
+  'general contractor': ['HomeImprovement', 'DIY', 'fixit'],
+};
+
 app.post('/api/blog/questions', requireAuth, async (req, res) => {
   try {
     const { industry, city } = req.body;
     if (!industry) return res.status(400).json({ error: 'industry is required' });
-    const location = city ? ` in ${city}` : '';
-    const geminiKey = await getGeminiKey();
-    const prompt = `You are simulating Reddit posts from homeowners${location} asking questions about ${industry}.
+
+    // Try Reddit first
+    const key = industry.toLowerCase();
+    const subreddits = INDUSTRY_SUBREDDITS[key] || ['HomeImprovement', 'DIY'];
+    const query = city ? `${industry} ${city}` : industry;
+    const redditUrl = `https://www.reddit.com/r/${subreddits.join('+')}/search.json?q=${encodeURIComponent(query)}&sort=top&t=year&limit=25&restrict_sr=1&type=link`;
+
+    let questions = [];
+    try {
+      const rRes = await fetch(redditUrl, {
+        headers: { 'User-Agent': 'SiteLaunchTracker/1.0 (internal marketing tool)' },
+      });
+      if (rRes.ok) {
+        const rData = await rRes.json();
+        questions = (rData.data?.children || [])
+          .filter(p => p.data.title && p.data.score > 0 && !p.data.stickied)
+          .slice(0, 10)
+          .map((p, i) => ({
+            id: 'q' + (i + 1),
+            title: p.data.title,
+            detail: (p.data.selftext || '').slice(0, 200).replace(/\n+/g, ' ').trim() || null,
+            upvotes: p.data.score,
+            subreddit: p.data.subreddit,
+            url: 'https://reddit.com' + p.data.permalink,
+          }));
+      }
+    } catch (redditErr) {
+      console.warn('Reddit fetch failed, falling back to Gemini:', redditErr.message);
+    }
+
+    // Fall back to Gemini if Reddit returned too few results
+    if (questions.length < 5) {
+      const location = city ? ` in ${city}` : '';
+      const geminiKey = await getGeminiKey();
+      const prompt = `You are simulating Reddit posts from homeowners${location} asking questions about ${industry}.
 Generate exactly 10 realistic questions a homeowner might post on r/HomeImprovement or r/DIY.
 Return ONLY a valid JSON array with no markdown, no code fences, no explanation. Each item must have:
 {"id": "q1", "title": "short question headline under 80 chars", "detail": "1-2 sentence context from homeowner perspective", "upvotes": 42}
 ids must be q1 through q10. upvotes should be realistic numbers between 12 and 847.`;
+      const gRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+      });
+      const gData = await gRes.json();
+      if (gRes.ok) {
+        const raw = gData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        const jsonMatch = raw.match(/\[[\s\S]*\]/);
+        if (jsonMatch) questions = JSON.parse(jsonMatch[0]);
+      }
+    }
 
-    const gRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
-    });
-    const gData = await gRes.json();
-    if (!gRes.ok) throw new Error(gData.error?.message || 'Gemini error');
-    const raw = gData.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    const jsonMatch = raw.match(/\[[\s\S]*\]/);
-    if (!jsonMatch) throw new Error('No JSON array in Gemini response');
-    const questions = JSON.parse(jsonMatch[0]);
-    res.json({ questions });
+    res.json({ questions, subreddits, source: questions[0]?.subreddit ? 'reddit' : 'ai' });
   } catch (err) {
     console.error('blog/questions error:', err);
     res.status(500).json({ error: err.message });
