@@ -5891,7 +5891,13 @@ function renderAnalyticsModalBody(id, data, forms) {
         || /we provide\s+professional.{0,60}(?:service|contractor|construction)/i.test(text)
         || /(?:competitive\s+bids|submit.*bids|bidding\s+service)/i.test(text)
         || /shoot\s+me\s+an?\s+(?:e-?mail|text|message)/i.test(text)
-        || /send\s+you\s+a\s+personalized/i.test(text);
+        || /send\s+you\s+a\s+personalized/i.test(text)
+        || /(?:ssl\s+certificate|not\s+secure\s+warning|stop\s+bleeding\s+cash)/i.test(text)
+        || /I(?:'ve)?\s+(?:already\s+)?built\s+a\s+(?:fully\s+)?(?:secure\s+)?(?:custom\s+)?(?:demo|1-second)/i.test(text)
+        || /(?:complimentary\s+(?:cleaning|bid|quote|estimate)|commercial\s+cleaning\s+(?:bid|service))/i.test(text)
+        || /respond\s+with\s+stop\s+to\s+opt\s*out/i.test(text)
+        || /(?:buyers?\s+(?:are\s+)?interested\s+in\s+(?:purchasing|buying)|interest(?:ed)?\s+in\s+selling)/i.test(text)
+        || /(?:I\s+have\s+(?:several|a\s+(?:few|number\s+of))\s+buyers?|acquisition\s+(?:offer|interest|inquiry))/i.test(text);
   };
   // Quality form count for the active period — excludes zip checks and spam
   const _periodDays  = period === '12w' ? 84 : period === '4w' ? 30 : null;
