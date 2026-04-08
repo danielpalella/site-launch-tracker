@@ -7836,6 +7836,12 @@ function dismissBlogQuestion(id, qId, e) {
   card.remove();
   if (!_blogDismissed[id]) _blogDismissed[id] = new Set();
   _blogDismissed[id].add(qId);
+  // Persist dismissal to Firestore (fire-and-forget)
+  fetch(`/api/launches/${id}/blog-dismiss`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ question_ids: [qId] }),
+  }).catch(() => {});
   // Clear selection if dismissed card was selected
   if (_blogSelectedQ[id]?.id === qId) {
     delete _blogSelectedQ[id];
@@ -7907,7 +7913,7 @@ async function generateBlogQuestions(id) {
     const res = await fetch('/api/blog/questions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ industry, city }),
+      body: JSON.stringify({ industry, city, launchId: id }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Failed');
@@ -7999,7 +8005,7 @@ async function generateBlogPost(id) {
     if (!res.ok) throw new Error(data.error || 'Failed');
     const titleMatch = data.post.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
     const title = titleMatch ? titleMatch[1].replace(/<[^>]+>/g, '').trim() : question.title;
-    _blogPosts[id] = { title, html: data.post, jsonLd: data.jsonLd || null, industry, city };
+    _blogPosts[id] = { title, html: data.post, jsonLd: data.jsonLd || null, industry, city, questionId: question.id };
     content.innerHTML = data.post;
     // Mark all active keyword chips as injected
     keywords.forEach(kw => {
@@ -8039,7 +8045,7 @@ async function pushBlogToDuda(id, publish) {
     const res = await fetch(`/api/analytics/${id}/push-blog`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: post.title, html: htmlWithSchema, industry: post.industry || null, city: post.city || null, keyword: [...(_blogKeywords[id] || new Set())][0] || null, publish }),
+      body: JSON.stringify({ title: post.title, html: htmlWithSchema, industry: post.industry || null, city: post.city || null, keyword: [...(_blogKeywords[id] || new Set())][0] || null, questionId: post.questionId || null, publish }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Failed');

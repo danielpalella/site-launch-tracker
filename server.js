@@ -2514,16 +2514,21 @@ app.post('/api/analytics/:id/push-blog', requireAuth, async (req, res) => {
     }
 
     const status = publish ? 'published' : 'draft';
-    await db.collection('launches').doc(req.params.id)
-      .collection('blog_drafts').add({
-        title,
-        postId,
-        status,
-        pushedAt: new Date(),
-        industry: req.body.industry || null,
-        city: req.body.city || null,
-        keyword: req.body.keyword || null,
-      });
+    const launchRef = db.collection('launches').doc(req.params.id);
+    const draftWrite = launchRef.collection('blog_drafts').add({
+      title,
+      postId,
+      status,
+      pushedAt: new Date(),
+      industry: req.body.industry || null,
+      city: req.body.city || null,
+      keyword: req.body.keyword || null,
+      questionId: req.body.questionId || null,
+    });
+    const excludeWrite = req.body.questionId
+      ? launchRef.update({ blog_excluded_ids: admin.firestore.FieldValue.arrayUnion(req.body.questionId) })
+      : Promise.resolve();
+    await Promise.all([draftWrite, excludeWrite]);
     res.json({ success: true, title, postId, status });
   } catch (err) {
     console.error('push-blog error:', err);
@@ -2614,10 +2619,33 @@ const INDUSTRY_SUBREDDITS = {
   'general contractor': ['HomeImprovement', 'DIY', 'fixit'],
 };
 
+app.post('/api/launches/:id/blog-dismiss', requireAuth, async (req, res) => {
+  try {
+    const { question_ids } = req.body;
+    if (!Array.isArray(question_ids) || !question_ids.length) return res.status(400).json({ error: 'question_ids array required' });
+    const ref = db.collection('launches').doc(req.params.id);
+    if (!(await ref.get()).exists) return res.status(404).json({ error: 'Not found' });
+    await ref.update({ blog_excluded_ids: admin.firestore.FieldValue.arrayUnion(...question_ids) });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post('/api/blog/questions', requireAuth, async (req, res) => {
   try {
-    const { industry, city } = req.body;
+    const { industry, city, launchId } = req.body;
     if (!industry) return res.status(400).json({ error: 'industry is required' });
+
+    // Load excluded IDs (dismissed + already used) for this launch
+    let excludedIds = new Set();
+    if (launchId) {
+      const snap = await db.collection('launches').doc(launchId).get();
+      if (snap.exists) {
+        const ids = snap.data().blog_excluded_ids || [];
+        ids.forEach(id => excludedIds.add(id));
+      }
+    }
 
     const key = industry.toLowerCase();
     const subreddits = INDUSTRY_SUBREDDITS[key] || ['HomeImprovement', 'DIY'];
@@ -2635,17 +2663,18 @@ app.post('/api/blog/questions', requireAuth, async (req, res) => {
         if (questions.length >= 5) break;
         // Only throttle for anonymous requests — OAuth has much higher rate limits
         if (!auth && questions.length > 0) await new Promise(r => setTimeout(r, 600));
-        const rRes = await fetch(`${baseUrl}/r/${sub}/top.json?t=month&limit=50`, { headers });
+        const rRes = await fetch(`${baseUrl}/r/${sub}/top.json?t=week&limit=50`, { headers });
         if (!rRes.ok) continue;
         const rData = await rRes.json();
         const posts = (rData.data?.children || [])
           .filter(p =>
             !p.data.stickied && p.data.score > 5 && p.data.title &&
             !isVagueTitle(p.data.title) &&
+            !excludedIds.has(p.data.id) &&
             (p.data.title.includes('?') || (p.data.selftext && p.data.selftext.length > 20))
           )
-          .map((p, i) => ({
-            id: 'q' + (questions.length + i + 1),
+          .map(p => ({
+            id: p.data.id,
             title: p.data.title,
             detail: (p.data.selftext || '').slice(0, 200).replace(/\n+/g, ' ').trim() || null,
             upvotes: p.data.score,
@@ -2664,7 +2693,7 @@ app.post('/api/blog/questions', requireAuth, async (req, res) => {
       try {
         for (const sub of subreddits) {
           if (questions.length >= 5) break;
-          const rRes = await fetch(`https://www.reddit.com/r/${sub}/top.rss?t=month&limit=25`, {
+          const rRes = await fetch(`https://www.reddit.com/r/${sub}/top.rss?t=week&limit=25`, {
             headers: { 'User-Agent': 'SiteLaunchTracker/1.0 (internal marketing tool)' },
           });
           if (!rRes.ok) continue;
