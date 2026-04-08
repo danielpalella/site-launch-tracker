@@ -3418,7 +3418,8 @@ app.get('/api/bulk-blog/industries', requireAuth, async (req, res) => {
     snap.forEach(doc => {
       const d = doc.data();
       if (d.archived === true) return;
-      if (d.status === 'decommissioned') return;
+      if (d.status !== 'launched') return;
+      if (!d.duda_site_name) return;
       const ind = (d.industry || '').trim();
       if (!ind) return;
       counts[ind] = (counts[ind] || 0) + 1;
@@ -3441,7 +3442,7 @@ app.get('/api/bulk-blog/sites', requireAuth, async (req, res) => {
     const sites = [];
     snap.forEach(doc => {
       const d = doc.data();
-      if (d.archived || d.status === 'decommissioned') return;
+      if (d.archived || d.status !== 'launched' || !d.duda_site_name) return;
       sites.push({
         id:              doc.id,
         account_name:    d.account_name    || '',
