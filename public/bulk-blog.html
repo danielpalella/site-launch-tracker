@@ -31,7 +31,7 @@
 .s1-site-info { flex:1;min-width:0 }
 .s1-site-name { font-size:.82rem;font-weight:600;color:var(--text) }
 .s1-site-domain { font-size:.7rem;color:var(--text-muted) }
-.s1-site-kw { flex-shrink:0;margin-left:auto }
+.s1-site-kw { flex-shrink:0 }
 .s1-kw-chip { font-size:.7rem;font-weight:600;padding:.22rem .65rem;border-radius:20px;cursor:pointer;border:1.5px solid var(--border);background:none;font-family:inherit;color:var(--text-muted);transition:all .15s;white-space:nowrap }
 .s1-kw-chip.active { border-color:#f97316;color:#f97316;background:#fff7ed }
 .s1-kw-chip:hover:not(.active) { border-color:#94a3b8 }
@@ -551,7 +551,9 @@ async function loadSitesInline(industryName) {
   try {
     const r = await fetch(`/api/bulk-blog/sites?industry=${encodeURIComponent(industryName)}`);
     const { sites } = await r.json();
-    if (!state.sites.length || state.industry !== industryName) {
+    // Stale check: industry may have changed while request was in flight
+    if (state.industry !== industryName) return;
+    if (!state.sites.length) {
       sites.forEach(s => { s.included = true; });
       state.sites = sites;
     } else {
@@ -570,6 +572,7 @@ async function loadSitesInline(industryName) {
     const chunks = [];
     for (let i = 0; i < sites.length; i += 5) chunks.push(sites.slice(i, i + 5));
     for (const chunk of chunks) {
+      if (state.industry !== industryName) break; // industry changed, stop loading
       await Promise.all(chunk.map(async s => {
         if (s.gsc_keyword !== undefined) return;
         try {
@@ -578,6 +581,7 @@ async function loadSitesInline(industryName) {
           s.gsc_keyword = kd.keyword || null;
           s.gsc_keyword_reason = kd.reason || null;
         } catch { s.gsc_keyword = null; }
+        if (state.industry !== industryName) return; // stale
         updateSiteKwChip(s);
         saveState();
       }));
@@ -598,7 +602,7 @@ function renderSitesInline() {
   </div>`;
   list.innerHTML = state.sites.map(s => {
     const domain = cleanDomain(s.domain_name);
-    const favicon = domain ? `<img src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=16" width="16" height="16" style="border-radius:3px;flex-shrink:0" onerror="this.style.display='none'">` : '';
+    const favicon = domain ? `<img src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=16" width="16" height="16" style="border-radius:3px;flex-shrink:0;display:block" onerror="this.style.display='none'">` : '';
     const kwHtml = s.gsc_keyword === undefined
       ? `<span class="s1-kw-spin"></span>`
       : s.gsc_keyword
@@ -606,7 +610,7 @@ function renderSitesInline() {
         : `<span class="s1-kw-none">—</span>`;
     return `<div class="s1-site-row${s.included ? '' : ' excluded'}" id="s1-site-row-${s.id}">
       <input type="checkbox" ${s.included ? 'checked' : ''} onchange="toggleSiteInline('${s.id}',this.checked)" style="cursor:pointer;flex-shrink:0">
-      <div style="display:flex;align-items:center;gap:.4rem;flex-shrink:0">${favicon}</div>
+      ${favicon}
       <div class="s1-site-info">
         <div class="s1-site-name">${esc(s.account_name)}</div>
         <div class="s1-site-domain">${esc(domain)}</div>
