@@ -282,6 +282,7 @@ const state = JSON.parse(sessionStorage.getItem('bb-state') || 'null') || {
   posts: {},       // { [siteId]: { title, html, jsonLd, status, error } }
   published: {},   // { [siteId]: { status, postId } }
 };
+let _topicList = [];
 let genQueue   = [];
 let genStopped = false;
 let genActive  = 0;
@@ -374,8 +375,9 @@ async function loadTopics() {
     });
     const { questions } = await r.json();
     if (!questions?.length) { grid.innerHTML = '<div class="bb-empty">No topics found. Try again.</div>'; return; }
-    grid.innerHTML = questions.map(q => `
-      <div class="bb-topic-card${state.topic?.id === q.id ? ' selected' : ''}" onclick="selectTopic(this, ${JSON.stringify(JSON.stringify(q))})">
+    _topicList = questions;
+    grid.innerHTML = questions.map((q, i) => `
+      <div class="bb-topic-card${state.topic?.id === q.id ? ' selected' : ''}" onclick="selectTopic(this, ${i})">
         <div class="bb-topic-radio"><div class="bb-topic-radio-dot"></div></div>
         <div class="bb-topic-body">
           <div class="bb-topic-title">${esc(q.title)}</div>
@@ -394,8 +396,8 @@ async function loadTopics() {
   }
 }
 
-function selectTopic(el, jsonStr) {
-  const q = JSON.parse(jsonStr);
+function selectTopic(el, idx) {
+  const q = _topicList[idx];
   document.querySelectorAll('.bb-topic-card').forEach(c => c.classList.remove('selected'));
   el.classList.add('selected');
   state.topic = q;
