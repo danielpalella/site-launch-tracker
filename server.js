@@ -3413,11 +3413,11 @@ app.get('/share/:id', (_req, res) => res.sendFile(join(__dirname, 'public', 'sha
 
 app.get('/api/bulk-blog/industries', requireAuth, async (req, res) => {
   try {
-    const snap = await db.collection('launches')
-      .where('archived', '!=', true).get();
+    const snap = await db.collection('launches').get();
     const counts = {};
     snap.forEach(doc => {
       const d = doc.data();
+      if (d.archived === true) return;
       if (d.status === 'decommissioned') return;
       const ind = (d.industry || '').trim();
       if (!ind) return;
