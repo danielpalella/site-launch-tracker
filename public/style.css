@@ -4183,6 +4183,14 @@ mark.schema-fill-mark {
 .blog-get-q-btn:active:not(:disabled) { transform: scale(.97); }
 .blog-get-q-btn:disabled { opacity: .4; cursor: default; }
 .blog-section-divider { border: none; border-top: 1px solid var(--border); margin: 0 0 1.5rem; }
+.blog-kw-section { margin-bottom: 1.25rem; }
+.blog-kw-chips { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .4rem; }
+.blog-kw-chip { font-size: .75rem; font-weight: 600; padding: .25rem .65rem; border: 1px solid var(--border); border-radius: 20px; background: none; color: var(--text-muted); cursor: pointer; font-family: inherit; transition: border-color .15s, color .15s, background .15s; }
+.blog-kw-chip:hover { border-color: var(--primary); color: var(--primary); }
+.blog-kw-chip.blog-kw-active { background: color-mix(in srgb, var(--primary) 12%, transparent); border-color: var(--primary); color: var(--primary); }
+.blog-kw-opp { border-color: #f59e0b66; color: #b45309; }
+.blog-kw-opp:hover { border-color: #f59e0b; color: #92400e; }
+.blog-kw-opp.blog-kw-active { background: #f59e0b22; border-color: #f59e0b; color: #92400e; }
 
 .blog-q-grid {
   display: grid;

@@ -2470,6 +2470,7 @@ app.post('/api/analytics/:id/push-blog', requireAuth, async (req, res) => {
         pushedAt: new Date(),
         industry: req.body.industry || null,
         city: req.body.city || null,
+        keyword: req.body.keyword || null,
       });
     res.json({ success: true, title, postId, status });
   } catch (err) {
@@ -2652,17 +2653,20 @@ ids must be q1 through q10. upvotes should be realistic numbers between 12 and 8
 
 app.post('/api/blog/post', requireAuth, async (req, res) => {
   try {
-    const { industry, city, question, detail } = req.body;
+    const { industry, city, question, detail, keyword } = req.body;
     if (!industry || !question) return res.status(400).json({ error: 'industry and question are required' });
     const location = city ? ` in ${city}` : '';
     const geminiKey = await getGeminiKey();
+    const keywordLine = keyword
+      ? `\nTarget SEO keyword: "${keyword}" — include it naturally in the <h1> title, at least one <h2> heading, and 2-3 times in the body.\n`
+      : '';
     const prompt = `Write a professional contractor blog post answering this homeowner question about ${industry}${location}.
 
 Question: "${question}"
 Context: ${detail || ''}
-
+${keywordLine}
 Write an SEO-optimized blog post in clean HTML. Include:
-- A compelling <h1> title (include the location if provided)
+- A compelling <h1> title (include the location if provided${keyword ? ` and the target keyword` : ''})
 - A brief intro paragraph (2-3 sentences)
 - Three <h2> sections with practical advice
 - A "When to Call a Professional" section with a clear CTA

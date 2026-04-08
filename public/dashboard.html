@@ -6165,6 +6165,20 @@ function renderAnalyticsModalBody(id, data, forms) {
   // Lead count for tab badge — reuse hoisted helpers, qualityFormCount already computed
   const leadCount = qualityFormCount !== null ? qualityFormCount : 0;
 
+  // GSC keyword chips for blog tab: opportunity keywords (pos 4-10) first, then top queries
+  const _blogOppSet = new Set((gsc.topQueries || []).filter(q => q.position >= 4 && q.position <= 10).map(q => q.query));
+  const _blogKwList = [...new Set([
+    ...(gsc.topQueries || []).filter(q => q.position >= 4 && q.position <= 10).slice(0, 5).map(q => q.query),
+    ...(gsc.topQueries || []).slice(0, 8).map(q => q.query),
+  ])].slice(0, 8);
+  const blogKwSection = (gsc.available && _blogKwList.length)
+    ? '<div class="blog-kw-section" id="blog-kw-section-' + esc(id) + '">'
+      + '<div class="blog-field-label"><img src="/gsc-icon.png" style="width:12px;height:12px;vertical-align:middle;margin-right:.3rem;opacity:.7"> GSC Keywords <span class="blog-optional-badge">Optional — boosts SEO</span></div>'
+      + '<div class="blog-kw-chips">'
+      + _blogKwList.map(kw => '<button class="blog-kw-chip' + (_blogOppSet.has(kw) ? ' blog-kw-opp' : '') + '" onclick="selectBlogKeyword(\'' + esc(id) + '\',this)" data-kw="' + esc(kw) + '">' + esc(kw) + '</button>').join('')
+      + '</div></div>'
+    : '';
+
   document.getElementById('acd-body').innerHTML = `
     <div class="acd-tabs-nav" id="acd-tnav-${id}">
       <button class="acd-tab-btn acd-tab-active" onclick="switchAcdTab('overview','${esc(id)}')">Overview</button>
@@ -6229,6 +6243,7 @@ function renderAnalyticsModalBody(id, data, forms) {
           Get Questions
         </button>
       </div>
+      ${blogKwSection}
       <div id="blog-q-area-${id}" style="display:none">
         <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.6rem">
           <span style="font-size:.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em" id="blog-q-label-${id}">Questions</span>
@@ -7674,7 +7689,23 @@ async function generateBlogDraft(id, keyword, btnEl) {
 }
 
 // ── Blog Generator (modal-scoped) ────────────────────────────────────
-const _blogPosts = {}; // { [siteId]: { title, html } }
+const _blogPosts   = {}; // { [siteId]: { title, html, industry, city } }
+const _blogKeyword = {}; // { [siteId]: string } — selected GSC keyword
+
+function selectBlogKeyword(id, btnEl) {
+  const kw = btnEl.dataset.kw;
+  const prev = _blogKeyword[id];
+  // Toggle off if same keyword clicked again
+  if (prev === kw) {
+    delete _blogKeyword[id];
+    document.querySelectorAll('#blog-kw-section-' + id + ' .blog-kw-chip').forEach(c => c.classList.remove('blog-kw-active'));
+    return;
+  }
+  _blogKeyword[id] = kw;
+  document.querySelectorAll('#blog-kw-section-' + id + ' .blog-kw-chip').forEach(c => {
+    c.classList.toggle('blog-kw-active', c.dataset.kw === kw);
+  });
+}
 
 async function generateBlogQuestions(id) {
   const btn = document.getElementById('blog-get-q-btn-' + id);
@@ -7775,7 +7806,7 @@ async function generateBlogPost(id, industry, city, question) {
     const res = await fetch('/api/blog/post', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ industry, city, question: question.title, detail: question.detail }),
+      body: JSON.stringify({ industry, city, question: question.title, detail: question.detail, keyword: _blogKeyword[id] || null }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Failed');
@@ -7811,7 +7842,7 @@ async function pushBlogToDuda(id, publish) {
     const res = await fetch(`/api/analytics/${id}/push-blog`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: post.title, html: post.html, industry: post.industry || null, city: post.city || null, publish }),
+      body: JSON.stringify({ title: post.title, html: post.html, industry: post.industry || null, city: post.city || null, keyword: _blogKeyword[id] || null, publish }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Failed');
@@ -7862,11 +7893,12 @@ async function loadBlogHistory(id) {
     listEl.innerHTML = data.posts.map(p => {
       const date = p.pushedAt ? new Date(p.pushedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
       const meta = [p.industry, p.city].filter(Boolean).join(' · ');
+      const kwBadge = p.keyword ? '<span style="font-size:.67rem;font-weight:600;background:#f59e0b22;color:#b45309;border-radius:20px;padding:.1rem .45rem;margin-left:.4rem">' + esc(p.keyword) + '</span>' : '';
       const statusBadge = p.status === 'published'
         ? '<span style="font-size:.67rem;font-weight:700;background:#22c55e22;color:#16a34a;border-radius:20px;padding:.1rem .45rem;margin-left:.4rem">Published</span>'
         : '<span style="font-size:.67rem;font-weight:700;background:color-mix(in srgb,var(--text-muted) 12%,transparent);color:var(--text-muted);border-radius:20px;padding:.1rem .45rem;margin-left:.4rem">Draft</span>';
       return `<div class="blog-history-row">
-        <div class="blog-history-title">${esc(p.title)}${statusBadge}</div>
+        <div class="blog-history-title">${esc(p.title)}${statusBadge}${kwBadge}</div>
         <div class="blog-history-meta">${meta ? esc(meta) + ' &nbsp;·&nbsp; ' : ''}${date}</div>
       </div>`;
     }).join('');
