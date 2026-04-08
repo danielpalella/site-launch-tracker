@@ -600,22 +600,23 @@ function renderSitesInline() {
     <button class="bb-btn bb-btn-ghost bb-btn-sm" onclick="toggleAllSitesInline(true)">Select all</button>
     <button class="bb-btn bb-btn-ghost bb-btn-sm" onclick="toggleAllSitesInline(false)">Deselect all</button>
   </div>`;
+  const ROW = 'display:flex;align-items:center;gap:.6rem;padding:.5rem .85rem;border:1px solid var(--border);border-radius:8px;margin-bottom:.3rem;background:var(--surface)';
   list.innerHTML = state.sites.map(s => {
     const domain = cleanDomain(s.domain_name);
-    const favicon = domain ? `<img src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=16" width="16" height="16" style="border-radius:3px;flex-shrink:0;display:block" onerror="this.style.display='none'">` : '';
+    const fav = domain ? `<img src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=16" width="16" height="16" style="width:16px;height:16px;border-radius:3px;display:inline-block;vertical-align:middle;flex:none" onerror="this.style.display='none'">` : '';
     const kwHtml = s.gsc_keyword === undefined
       ? `<span class="s1-kw-spin"></span>`
       : s.gsc_keyword
         ? `<button class="s1-kw-chip${s.keyword_override === s.gsc_keyword ? ' active' : ''}" onclick="toggleSiteKwInline('${s.id}')" id="s1-kw-chip-${s.id}">${esc(s.gsc_keyword)}</button>`
         : `<span class="s1-kw-none">—</span>`;
-    return `<div class="s1-site-row${s.included ? '' : ' excluded'}" id="s1-site-row-${s.id}">
-      <input type="checkbox" ${s.included ? 'checked' : ''} onchange="toggleSiteInline('${s.id}',this.checked)" style="cursor:pointer;flex-shrink:0">
-      ${favicon}
-      <div class="s1-site-info">
-        <div class="s1-site-name">${esc(s.account_name)}</div>
-        <div class="s1-site-domain">${esc(domain)}</div>
+    return `<div id="s1-site-row-${s.id}" style="${ROW};opacity:${s.included ? '1' : '.38'}">
+      <input type="checkbox" ${s.included ? 'checked' : ''} onchange="toggleSiteInline('${s.id}',this.checked)" style="width:14px;height:14px;cursor:pointer;flex:none;margin:0">
+      ${fav}
+      <div style="flex:1;min-width:0;overflow:hidden">
+        <div style="font-size:.82rem;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(s.account_name)}</div>
+        <div style="font-size:.7rem;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(domain)}</div>
       </div>
-      <div class="s1-site-kw" id="s1-site-kw-${s.id}">${kwHtml}</div>
+      <div id="s1-site-kw-${s.id}" style="flex:none;white-space:nowrap">${kwHtml}</div>
     </div>`;
   }).join('') || '<div style="padding:.5rem 0;font-size:.8rem;color:var(--text-muted)">No sites found.</div>';
 }
@@ -634,7 +635,7 @@ function toggleSiteInline(id, checked) {
   const s = state.sites.find(s => s.id === id);
   if (s) { s.included = checked; saveState(); }
   const row = document.getElementById(`s1-site-row-${id}`);
-  if (row) row.classList.toggle('excluded', !checked);
+  if (row) row.style.opacity = checked ? '1' : '.38';
   const included = state.sites.filter(s => s.included).length;
   showStickyBar(state.industry, included);
   const lbl = document.getElementById('s1-sites-count-label');
