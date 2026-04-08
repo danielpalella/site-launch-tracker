@@ -6129,6 +6129,18 @@ function renderAnalyticsModalBody(id, data, forms) {
     </div>
   </div>`;
 
+  const placeIdSection = `<div class="acd-section">
+    <div class="acd-section-title">Google Place ID</div>
+    <div style="display:flex;gap:.4rem;align-items:center">
+      <input type="text" class="acd-duda-input" id="acd-place-id-${id}"
+        value="${esc(data.google_place_id || '')}"
+        placeholder="e.g. ChIJN1t_tDeuEmsRUsoyG83frY4"
+        spellcheck="false" autocomplete="off">
+      <button onclick="savePlaceId('${esc(id)}')" style="font-size:.78rem;padding:.32rem .7rem;background:var(--primary);color:#fff;border:none;border-radius:.4rem;cursor:pointer;white-space:nowrap;font-family:inherit">Save</button>
+    </div>
+    <div id="acd-place-status-${id}" class="acd-note-status" style="margin-top:.3rem"></div>
+  </div>`;
+
   const noteSection = '<div class="acd-section acd-note-section">'
     + '<div class="acd-section-title">Internal Notes</div>'
     + '<textarea class="acd-note-textarea" id="acd-note-' + id + '" maxlength="500" placeholder="Add a note about this account…">' + esc(data.analytics_note || '') + '</textarea>'
@@ -6213,6 +6225,7 @@ function renderAnalyticsModalBody(id, data, forms) {
         ${tagsSection}
         <div style="display:flex;flex-direction:column;gap:.75rem">
           ${dudaIdSection}
+          ${placeIdSection}
           ${noteSection}
         </div>
       </div>
@@ -6940,6 +6953,25 @@ async function saveHcpApiKey(id) {
   } catch (e) {
     status.style.color = '#ef4444';
     status.textContent = `Error: ${e.message}`;
+  }
+}
+
+async function savePlaceId(id) {
+  const input  = document.getElementById(`acd-place-id-${id}`);
+  const status = document.getElementById(`acd-place-status-${id}`);
+  if (!input) return;
+  if (status) { status.textContent = 'Saving…'; status.style.color = 'var(--text-muted)'; }
+  try {
+    const r = await fetch(`/api/launches/${id}/place-id`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ place_id: input.value.trim() }),
+    });
+    if (!r.ok) throw new Error((await r.json()).error);
+    if (analyticsData[id]) analyticsData[id].google_place_id = input.value.trim() || null;
+    if (status) { status.style.color = '#22c55e'; status.textContent = 'Saved'; setTimeout(() => { if (status) status.textContent = ''; }, 2000); }
+  } catch (e) {
+    if (status) { status.style.color = '#ef4444'; status.textContent = `Error: ${e.message}`; }
   }
 }
 
@@ -7951,7 +7983,7 @@ async function generateBlogPost(id) {
     const res = await fetch('/api/blog/post', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ industry, city, question: question.title, detail: question.detail, keywords, bizName: analyticsData[id]?.account_name || null, domain: analyticsData[id]?.domain_name || null, wordCount }),
+      body: JSON.stringify({ industry, city, question: question.title, detail: question.detail, keywords, bizName: analyticsData[id]?.account_name || null, domain: analyticsData[id]?.domain_name || null, wordCount, placeId: analyticsData[id]?.google_place_id || null }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Failed');

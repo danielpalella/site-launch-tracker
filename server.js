@@ -180,6 +180,7 @@ function formatLaunch(doc) {
     analytics_start_date: d.analytics_start_date || null,
     duda_site_name:       d.duda_site_name       || null,
     analytics_note:       d.analytics_note       || '',
+    google_place_id:      d.google_place_id      || null,
     custom_favicon:       d.custom_favicon        || null,
     tags:                 d.tags                  || [],
     last_contact_date:    d.last_contact_date     || null,
@@ -1745,6 +1746,27 @@ async function getGeminiKey() {
   return geminiKeyCache;
 }
 
+let placesKeyCache = null;
+async function getPlacesApiKey() {
+  if (placesKeyCache) return placesKeyCache;
+  if (process.env.GOOGLE_PLACES_API_KEY) { placesKeyCache = process.env.GOOGLE_PLACES_API_KEY; return placesKeyCache; }
+  const snap = await db.collection('config').doc('google_credentials').get();
+  if (!snap.exists || !snap.data().places_api_key) return null; // optional — graceful fallback
+  placesKeyCache = snap.data().places_api_key;
+  return placesKeyCache;
+}
+
+async function fetchPlaceRating(placeId) {
+  try {
+    const key = await getPlacesApiKey();
+    if (!key) return null;
+    const r = await fetch(`https://maps.googleapis.com/maps/api/place/details/json?place_id=${encodeURIComponent(placeId)}&fields=rating,user_ratings_total&key=${key}`);
+    const d = await r.json();
+    if (d.status !== 'OK' || !d.result) return null;
+    return { rating: d.result.rating || null, reviewCount: d.result.user_ratings_total || null };
+  } catch { return null; }
+}
+
 // ── Duda Analytics ──
 let dudaCredsCache = null;
 async function getDudaCredentials() {
@@ -2104,8 +2126,9 @@ async function fetchAndCacheAnalytics(id, { force = false } = {}) {
     id: launch.id, account_name: launch.account_name, domain,
     industry: launch.industry || '', launchDate: rawLaunchDate,
     analyticsStartDate, daysSince, gsc, ga4, duda,
-    analytics_note: launch.analytics_note || '',
-    duda_site_name: launch.duda_site_name || '',
+    analytics_note:  launch.analytics_note  || '',
+    duda_site_name:  launch.duda_site_name  || '',
+    google_place_id: launch.google_place_id || null,
   };
   const cachedAt = new Date().toISOString();
 
@@ -2252,10 +2275,11 @@ app.get('/api/analytics/:id', requireAuth, async (req, res) => {
     const noteDoc = await db.collection('launches').doc(req.params.id).get();
     const freshNote          = noteDoc.exists ? (noteDoc.data().analytics_note   || '') : '';
     const freshTags          = noteDoc.exists ? (noteDoc.data().tags             || []) : [];
-    const freshDudaName      = noteDoc.exists ? (noteDoc.data().duda_site_name  || '') : '';
-    const freshFavicon       = noteDoc.exists ? (noteDoc.data().custom_favicon  || null) : null;
-    const freshHideFormSubs  = noteDoc.exists ? (noteDoc.data().hideFormSubmits || false) : false;
-    res.json({ ...data, analytics_note: freshNote, tags: freshTags, duda_site_name: freshDudaName, custom_favicon: freshFavicon, hideFormSubmits: freshHideFormSubs });
+    const freshDudaName      = noteDoc.exists ? (noteDoc.data().duda_site_name   || '') : '';
+    const freshFavicon       = noteDoc.exists ? (noteDoc.data().custom_favicon   || null) : null;
+    const freshHideFormSubs  = noteDoc.exists ? (noteDoc.data().hideFormSubmits  || false) : false;
+    const freshPlaceId       = noteDoc.exists ? (noteDoc.data().google_place_id  || null) : null;
+    res.json({ ...data, analytics_note: freshNote, tags: freshTags, duda_site_name: freshDudaName, custom_favicon: freshFavicon, hideFormSubmits: freshHideFormSubs, google_place_id: freshPlaceId });
   } catch (err) {
     console.error('Analytics error:', err.message);
     if (err.code === 'not_connected') return res.status(503).json({ error: 'not_connected' });
@@ -2413,6 +2437,19 @@ Return only the HTML content, no markdown fencing, no explanation.`;
 });
 
 // Push a pre-generated HTML blog post to a specific site's Duda blog
+app.post('/api/launches/:id/place-id', requireAuth, async (req, res) => {
+  try {
+    const { place_id } = req.body;
+    if (typeof place_id !== 'string') return res.status(400).json({ error: 'place_id required' });
+    const ref = db.collection('launches').doc(req.params.id);
+    if (!(await ref.get()).exists) return res.status(404).json({ error: 'Not found' });
+    await ref.update({ google_place_id: place_id.trim() || null });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post('/api/analytics/:id/push-blog', requireAuth, async (req, res) => {
   const { title, html, publish = false } = req.body;
   if (!title || !html) return res.status(400).json({ error: 'title and html are required' });
@@ -2668,34 +2705,49 @@ ids must be q1 through q10. upvotes should be realistic numbers between 12 and 8
 
 app.post('/api/blog/post', requireAuth, async (req, res) => {
   try {
-    const { industry, city, question, detail, keywords, bizName, domain, wordCount } = req.body;
+    const { industry, city, question, detail, keywords, bizName, domain, wordCount, placeId } = req.body;
     const kwArray = Array.isArray(keywords) ? keywords.filter(Boolean) : (keywords ? [keywords] : []);
     if (!industry || !question) return res.status(400).json({ error: 'industry and question are required' });
     const words = Math.min(Math.max(parseInt(wordCount) || 600, 400), 1200);
     const location = city ? ` in ${city}` : '';
+    const cleanDomain = domain ? domain.replace(/^https?:\/\//, '').replace(/\/$/, '') : null;
     const geminiKey = await getGeminiKey();
+
+    // Fetch Google place rating if a Place ID is provided
+    const placeData = placeId ? await fetchPlaceRating(placeId) : null;
+
     const keywordLine = kwArray.length
       ? `\nTarget SEO keywords: ${kwArray.map(k => `"${k}"`).join(', ')} — weave these naturally throughout the post. Include "${kwArray[0]}" in the <h1> and at least one <h2>.\n`
       : '';
     const bizLine = bizName
-      ? `\nBusiness: "${bizName}"${domain ? ` (${domain.replace(/^https?:\/\//, '').replace(/\/$/, '')})` : ''} — use this exact name in the CTA paragraph, never write "[Your Company Name]".\n`
+      ? `\nBusiness: "${bizName}"${cleanDomain ? ` (${cleanDomain})` : ''} — use this exact name in the CTA paragraph, never write "[Your Company Name]".\n`
       : '';
     const cityLine = city
       ? `\nService area: "${city}" — mention this city/region naturally in the <h1>, the intro paragraph, and the CTA to improve local SEO.\n`
       : '';
+    const reviewsLine = (placeData?.rating && placeData?.reviewCount)
+      ? `\nGoogle reviews: This business has ${placeData.rating} stars from ${placeData.reviewCount} Google reviews. Mention this naturally in the CTA (e.g. "Trusted by homeowners across ${city || 'the area'} — ${placeData.reviewCount} 5-star Google reviews"). Link the review count to: https://search.google.com/local/reviews?placeid=${placeId}\n`
+      : '';
+    const internalLinksLine = cleanDomain
+      ? `\nInternal links: where contextually natural, link to these pages using <a href="..."> tags with descriptive anchor text:
+- Services: https://${cleanDomain}/services (when mentioning what the contractor offers)
+- Service area: https://${cleanDomain}/service-area (when mentioning the city or coverage area)
+- Customer reviews: https://${cleanDomain}/customer-reviews (in the CTA or trust section)\n`
+      : '';
+
     const prompt = `Write a professional contractor blog post answering this homeowner question about ${industry}${location}.
 
 Question: "${question}"
 Context: ${detail || '(no additional context)'}
-${keywordLine}${bizLine}${cityLine}
+${keywordLine}${bizLine}${cityLine}${reviewsLine}${internalLinksLine}
 Write an SEO-optimized blog post in clean HTML. Include:
 - A compelling <h1> title — rewrite the source question into an SEO-friendly blog title (e.g. not "Which one of yall did this?" but "5 Signs Your Roof Was Damaged in a Storm")${kwArray.length ? ` Include the target keyword.` : ''}${city ? ` Include "${city}".` : ''}
 - A brief intro paragraph (2-3 sentences)
 - Three <h2> sections with practical advice
-- A "When to Call a Professional" section with a clear CTA that mentions the business by name
+- A "When to Call a Professional" section with a clear CTA that mentions the business by name${placeData?.rating ? `, their Google rating, and links to their reviews page` : ''}
 - Total length: approximately ${words} words
 
-Return ONLY the HTML body content (no <html>, <head>, <body> wrapper tags). Use only <h1>, <h2>, <p> tags.`;
+Return ONLY the HTML body content (no <html>, <head>, <body> wrapper tags). Use only <h1>, <h2>, <p>, <a> tags.`;
 
     const gRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
       method: 'POST',
@@ -2708,12 +2760,11 @@ Return ONLY the HTML body content (no <html>, <head>, <body> wrapper tags). Use 
     const post = raw.replace(/^```html?\n?/i, '').replace(/\n?```$/m, '').trim();
     if (!post) throw new Error('Gemini returned no content');
 
-    // Build BlogPosting JSON-LD from the generated content
-    const h1Match   = post.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
-    const pMatch    = post.match(/<p[^>]*>([\s\S]*?)<\/p>/i);
+    // Build BlogPosting JSON-LD
+    const h1Match     = post.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+    const pMatch      = post.match(/<p[^>]*>([\s\S]*?)<\/p>/i);
     const jsonLdTitle = h1Match ? h1Match[1].replace(/<[^>]+>/g, '').trim() : question;
     const jsonLdDesc  = pMatch  ? pMatch[1].replace(/<[^>]+>/g, '').trim().slice(0, 160) : '';
-    const cleanDomain = domain ? domain.replace(/^https?:\/\//, '').replace(/\/$/, '') : null;
     const jsonLd = {
       '@context': 'https://schema.org',
       '@type': 'BlogPosting',
@@ -2723,6 +2774,14 @@ Return ONLY the HTML body content (no <html>, <head>, <body> wrapper tags). Use 
       author:    { '@type': 'Organization', name: bizName || industry },
       publisher: { '@type': 'Organization', name: bizName || industry },
       ...(cleanDomain ? { url: `https://${cleanDomain}` } : {}),
+      ...(placeData?.rating && placeData?.reviewCount ? {
+        aggregateRating: {
+          '@type': 'AggregateRating',
+          ratingValue: placeData.rating,
+          reviewCount: placeData.reviewCount,
+          bestRating: 5,
+        },
+      } : {}),
     };
 
     res.json({ post, jsonLd, metaDesc: jsonLdDesc });
