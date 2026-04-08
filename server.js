@@ -2463,6 +2463,19 @@ Return only the HTML content, no markdown fencing, no explanation.`;
   }
 });
 
+app.post('/api/launches/:id/place-city', requireAuth, async (req, res) => {
+  try {
+    const { city } = req.body;
+    if (typeof city !== 'string') return res.status(400).json({ error: 'city required' });
+    const ref = db.collection('launches').doc(req.params.id);
+    if (!(await ref.get()).exists) return res.status(404).json({ error: 'Not found' });
+    await ref.update({ place_city: city.trim() || null });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Push a pre-generated HTML blog post to a specific site's Duda blog
 app.post('/api/launches/:id/place-id', requireAuth, async (req, res) => {
   try {

@@ -6139,6 +6139,17 @@ function renderAnalyticsModalBody(id, data, forms) {
       <button onclick="savePlaceId('${esc(id)}')" style="font-size:.78rem;padding:.32rem .7rem;background:var(--primary);color:#fff;border:none;border-radius:.4rem;cursor:pointer;white-space:nowrap;font-family:inherit">Save</button>
     </div>
     <div id="acd-place-status-${id}" class="acd-note-status" style="margin-top:.3rem"></div>
+    <div style="margin-top:.5rem">
+      <div style="font-size:.7rem;color:var(--text-muted);margin-bottom:.3rem;text-transform:uppercase;letter-spacing:.04em">City / State <span style="text-transform:none;font-size:.68rem;opacity:.7">(service area businesses)</span></div>
+      <div style="display:flex;gap:.4rem;align-items:center">
+        <input type="text" class="acd-duda-input" id="acd-place-city-${id}"
+          value="${esc(data.place_city || '')}"
+          placeholder="e.g. Cumming, GA"
+          spellcheck="false" autocomplete="off">
+        <button onclick="savePlaceCity('${esc(id)}')" style="font-size:.78rem;padding:.32rem .7rem;background:var(--primary);color:#fff;border:none;border-radius:.4rem;cursor:pointer;white-space:nowrap;font-family:inherit">Save</button>
+      </div>
+      <div id="acd-place-city-status-${id}" class="acd-note-status" style="margin-top:.3rem"></div>
+    </div>
   </div>`;
 
   const noteSection = '<div class="acd-section acd-note-section">'
@@ -6979,6 +6990,29 @@ async function savePlaceId(id) {
       if (cityInput && !cityInput.value) cityInput.value = data.place_city;
     }
     if (status) { status.style.color = '#22c55e'; status.textContent = data.place_city ? `Saved — ${data.place_city}` : 'Saved'; setTimeout(() => { if (status) status.textContent = ''; }, 3000); }
+  } catch (e) {
+    if (status) { status.style.color = '#ef4444'; status.textContent = `Error: ${e.message}`; }
+  }
+}
+
+async function savePlaceCity(id) {
+  const input  = document.getElementById(`acd-place-city-${id}`);
+  const status = document.getElementById(`acd-place-city-status-${id}`);
+  if (!input) return;
+  if (status) { status.textContent = 'Saving…'; status.style.color = 'var(--text-muted)'; }
+  try {
+    const city = input.value.trim();
+    const r = await fetch(`/api/launches/${id}/place-city`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ city }),
+    });
+    if (!r.ok) throw new Error((await r.json()).error);
+    if (analyticsData[id]) analyticsData[id].place_city = city || null;
+    // Update blog city field
+    const cityInput = document.getElementById(`blog-city-${id}`);
+    if (cityInput) cityInput.value = city;
+    if (status) { status.style.color = '#22c55e'; status.textContent = 'Saved'; setTimeout(() => { if (status) status.textContent = ''; }, 2000); }
   } catch (e) {
     if (status) { status.style.color = '#ef4444'; status.textContent = `Error: ${e.message}`; }
   }
