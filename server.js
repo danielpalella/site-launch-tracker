@@ -2729,10 +2729,10 @@ app.post('/api/blog/post', requireAuth, async (req, res) => {
       ? `\nGoogle reviews: This business has ${placeData.rating} stars from ${placeData.reviewCount} Google reviews. Mention this naturally in the CTA (e.g. "Trusted by homeowners across ${city || 'the area'} — ${placeData.reviewCount} 5-star Google reviews"). Link the review count to: https://search.google.com/local/reviews?placeid=${placeId}\n`
       : '';
     const internalLinksLine = cleanDomain
-      ? `\nInternal links — you MUST include all three of these as <a href="..."> tags with descriptive anchor text somewhere in the post body. Do not skip any of them:
-- https://${cleanDomain}/services — link this when discussing services or what the contractor offers
-- https://${cleanDomain}/service-area — link this when mentioning the city, region, or coverage area
-- https://${cleanDomain}/customer-reviews — link this in the CTA or trust-building section\n`
+      ? `\nInternal links — you MUST embed all three of the following hyperlinks in the post body using the exact href URLs shown. Use descriptive anchor text. Do not use "#" or placeholder hrefs:
+- <a href="https://${cleanDomain}/services">anchor text about their services</a> — place when discussing what the contractor offers
+- <a href="https://${cleanDomain}/service-area">anchor text about their service area</a> — place when mentioning the city or coverage area
+- <a href="https://${cleanDomain}/customer-reviews">anchor text about their reviews</a> — place in the CTA or trust section\n`
       : '';
 
     const prompt = `Write a professional contractor blog post answering this homeowner question about ${industry}${location}.
