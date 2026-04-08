@@ -7,16 +7,6 @@
 <link rel="stylesheet" href="/style.css">
 <style>
 /* ── Layout ── */
-.bb-nav { display:flex;align-items:center;gap:.75rem;padding:.6rem 1.25rem;border-bottom:1px solid var(--border);background:var(--nav-bg,var(--bg));position:sticky;top:0;z-index:100 }
-.bb-nav-logo { display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text);font-weight:700;font-size:.95rem;flex-shrink:0 }
-.bb-nav-logo img { width:28px;height:28px;border-radius:6px }
-.bb-nav-tabs { display:flex;gap:.15rem;flex:1 }
-.bb-nav-tab { display:flex;align-items:center;gap:.4rem;padding:.45rem .8rem;border-radius:.5rem;font-size:.8rem;font-weight:500;color:var(--text-muted);text-decoration:none;border:none;background:none;cursor:pointer;font-family:inherit;transition:background .15s,color .15s }
-.bb-nav-tab:hover { background:var(--hover-bg,rgba(0,0,0,.05));color:var(--text) }
-.bb-nav-tab.active { background:var(--primary-light,#f59e0b22);color:var(--primary,#f59e0b) }
-.bb-nav-right { display:flex;align-items:center;gap:.75rem;margin-left:auto }
-.bb-user { font-size:.78rem;color:var(--text-muted) }
-
 .bb-page { max-width:1000px;margin:0 auto;padding:2rem 1.25rem 4rem }
 .bb-steps { display:flex;align-items:center;gap:0;margin-bottom:2.5rem }
 .bb-step { display:flex;align-items:center;gap:.5rem;font-size:.78rem;font-weight:600;color:var(--text-muted);flex-shrink:0 }
@@ -138,24 +128,37 @@
 </head>
 <body>
 
-<nav class="bb-nav">
-  <a href="/dashboard" class="bb-nav-logo">
-    <img src="/favicon.ico" onerror="this.style.display='none'">
-    RealWork Labs
+<nav>
+  <a class="nav-brand" href="/">
+    <img src="/logo.svg" alt="RealWork Labs" class="nav-logo" />
   </a>
-  <div class="bb-nav-tabs">
-    <a href="/dashboard" class="bb-nav-tab">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-      Dashboard
+
+  <div class="nav-tabs">
+    <a href="/" class="nav-tab" title="Intake">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>
+      <span class="nav-label">Intake</span>
     </a>
-    <a href="/bulk-blog" class="bb-nav-tab active">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-      Blog
+    <a href="/dashboard" class="nav-tab" title="Pipeline">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+      <span class="nav-label">Pipeline</span>
+    </a>
+    <a href="/dashboard" class="nav-tab" title="Edits">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      <span class="nav-label">Edits</span>
+    </a>
+    <a href="/dashboard" class="nav-tab" title="Insights">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      <span class="nav-label">Insights</span>
+    </a>
+    <a href="/bulk-blog" class="nav-tab nav-tab-active" title="Blog">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>
+      <span class="nav-label">Blog</span>
     </a>
   </div>
-  <div class="bb-nav-right">
-    <span class="bb-user" id="bb-user-email"></span>
-    <button class="bb-btn bb-btn-ghost bb-btn-sm" id="bb-logout">Sign Out</button>
+
+  <div class="nav-right">
+    <span id="nav-user-email" class="nav-user-email"></span>
+    <button id="logout-btn" class="btn btn-ghost" style="padding:.3rem .9rem;font-size:.8rem">Sign Out</button>
   </div>
 </nav>
 
@@ -293,10 +296,10 @@ function saveState() {
     const r = await fetch('/api/auth/me');
     if (!r.ok) { location.href = '/login'; return; }
     const { email } = await r.json();
-    document.getElementById('bb-user-email').textContent = email;
+    document.getElementById('nav-user-email').textContent = email;
   } catch { location.href = '/login'; }
 })();
-document.getElementById('bb-logout').onclick = async () => {
+document.getElementById('logout-btn').onclick = async () => {
   await fetch('/api/auth/logout', { method: 'POST' });
   location.href = '/login';
 };
