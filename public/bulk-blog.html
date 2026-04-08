@@ -103,11 +103,11 @@
 .bb-review-card-body p { margin:.35rem 0 }
 .bb-review-card-body a { color:var(--primary,#f59e0b) }
 .bb-review-card-body.open { display:block }
-.bb-pub-status { font-size:.72rem;font-weight:700;padding:.15rem .5rem;border-radius:20px }
-.bb-pub-status.draft { background:#6366f122;color:#6366f1 }
-.bb-pub-status.published { background:#22c55e22;color:#16a34a }
-.bb-pub-status.error { background:#ef444422;color:#dc2626 }
-.bb-pub-status.saving { background:var(--border);color:var(--text-muted) }
+.bb-pub-status { font-size:.72rem;font-weight:600;padding:.25rem .6rem;border-radius:5px;white-space:nowrap }
+.bb-pub-status.draft { background:#6366f115;color:#6366f1;border:1px solid #6366f133 }
+.bb-pub-status.published { background:#22c55e15;color:#16a34a;border:1px solid #22c55e33 }
+.bb-pub-status.error { background:#ef444415;color:#dc2626;border:1px solid #ef444433 }
+.bb-pub-status.saving { background:var(--border);color:var(--text-muted);border:1px solid transparent }
 
 /* Shared buttons */
 .bb-btn { display:inline-flex;align-items:center;gap:.4rem;padding:.45rem 1rem;border-radius:.5rem;font-size:.82rem;font-weight:600;cursor:pointer;border:1px solid transparent;font-family:inherit;transition:opacity .15s }
@@ -259,14 +259,15 @@
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
         Save all as drafts
       </button>
-      <button class="bb-btn bb-btn-green" id="bb-publish-all-btn" onclick="confirmPublishAll()">
-        <img src="/duda-logo.svg" style="height:16px;border-radius:3px;vertical-align:middle"> Publish all to Duda
+      <button class="bb-btn bb-btn-outline" id="bb-publish-all-btn" onclick="confirmPublishAll()" style="border-color:#22c55e;color:#16a34a">
+        Publish all to <img src="/duda-logo.svg" style="height:15px;border-radius:2px;vertical-align:middle;margin-left:2px">
       </button>
       <span id="bb-review-summary" style="font-size:.78rem;color:var(--text-muted);margin-left:.5rem"></span>
     </div>
     <div class="bb-review-grid" id="bb-review-grid"></div>
-    <div style="margin-top:1.5rem">
+    <div style="margin-top:1.5rem;display:flex;justify-content:space-between;align-items:center">
       <button class="bb-btn bb-btn-outline" onclick="goStep(3)">← Back to sites</button>
+      <button class="bb-btn bb-btn-primary" onclick="startNewBatch()">Generate another batch →</button>
     </div>
   </div>
 
@@ -624,12 +625,17 @@ function buildReviewGrid() {
     const post = state.posts[s.id];
     const pub  = state.published[s.id];
     const pubBadge = pub ? `<span class="bb-pub-status ${pub.status}">${pub.status === 'draft' ? 'Draft saved' : pub.status === 'published' ? 'Published' : pub.status === 'saving' ? 'Saving…' : 'Error'}</span>` : '';
+    const favicon = s.domain_name ? `<img src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(s.domain_name)}&sz=16" width="16" height="16" style="border-radius:3px;flex-shrink:0" onerror="this.style.display='none'">` : '';
+    const blogUrl = pub && pub.domain_name && (pub.status === 'draft' || pub.status === 'published')
+      ? `<a href="https://${esc(pub.domain_name)}/blog" target="_blank" style="font-size:.72rem;color:var(--text-muted);text-decoration:none;white-space:nowrap" title="Open blog">${esc(pub.domain_name)}/blog ↗</a>`
+      : '';
     const htmlWithSchema = post.jsonLd ? `<script type="application/ld+json">\n${JSON.stringify(post.jsonLd,null,2)}\n<\/script>\n` + post.html : post.html;
     return `<div class="bb-review-card" id="bb-rc-${s.id}">
       <div class="bb-review-card-head">
-        <div class="bb-review-card-site">${esc(s.account_name)}</div>
+        <div class="bb-review-card-site" style="display:flex;align-items:center;gap:.5rem">${favicon}${esc(s.account_name)}</div>
         <div class="bb-review-card-title">${esc(post.title)}</div>
         <div class="bb-review-card-actions">
+          ${blogUrl}
           ${pubBadge}
           <button class="bb-btn bb-btn-ghost bb-btn-sm" onclick="toggleReviewBody('${s.id}')">Preview</button>
           <button class="bb-btn bb-btn-outline bb-btn-sm" onclick="pushOne('${s.id}', false)" ${pub ? 'disabled' : ''}>Draft</button>
@@ -676,7 +682,7 @@ async function pushOne(siteId, publish) {
     });
     const data = await r.json();
     if (!r.ok) throw new Error(data.error || 'Failed');
-    state.published[siteId] = { status: publish ? 'published' : 'draft', postId: data.postId };
+    state.published[siteId] = { status: publish ? 'published' : 'draft', postId: data.postId, domain_name: site.domain_name || null };
   } catch (err) {
     state.published[siteId] = { status: 'error', error: err.message };
     showToast(`${site.account_name}: ${err.message}`, 'error');
@@ -724,6 +730,11 @@ if (state.step === 2 && state.topic) {
 }
 if (state.step === 1 && state.industry) {
   document.getElementById('bb-step1-next').disabled = false;
+}
+
+function startNewBatch() {
+  sessionStorage.removeItem('bb-state');
+  location.reload();
 }
 
 // Step 2: load topics when entering step 2
