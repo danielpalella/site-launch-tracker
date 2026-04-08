@@ -6119,7 +6119,7 @@ function renderAnalyticsModalBody(id, data, forms) {
   const hasModalChart = (gsc.available && gscChartWks.length > 1) || (ga4.available && ga4ChartWks.length > 1) || hasDudaWks;
 
   const dudaIdSection = `<div class="acd-section">
-    <div class="acd-section-title">Duda Site ID</div>
+    <div class="acd-section-title"><img src="/duda-icon.png" style="width:13px;height:13px;border-radius:2px;vertical-align:middle;margin-right:.3rem;margin-bottom:1px">Duda Site ID</div>
     <div style="display:flex;gap:.4rem;align-items:center">
       <input type="text" class="acd-duda-input" id="acd-duda-${id}"
         value="${esc(data.duda_site_name || '')}"
@@ -6130,7 +6130,7 @@ function renderAnalyticsModalBody(id, data, forms) {
   </div>`;
 
   const placeIdSection = `<div class="acd-section">
-    <div class="acd-section-title">Google Place ID</div>
+    <div class="acd-section-title"><img src="/gmaps-icon.svg" style="width:13px;height:13px;vertical-align:middle;margin-right:.3rem;margin-bottom:1px">Google Place ID</div>
     <div style="display:flex;gap:.4rem;align-items:center">
       <input type="text" class="acd-duda-input" id="acd-place-id-${id}"
         value="${esc(data.google_place_id || '')}"
