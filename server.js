@@ -3409,8 +3409,126 @@ app.get('/api/share/:id/:token', async (req, res) => {
 app.get('/share/:id/:token', (_req, res) => res.sendFile(join(__dirname, 'public', 'share.html')));
 app.get('/share/:id', (_req, res) => res.sendFile(join(__dirname, 'public', 'share.html')));
 
+// ── Bulk Blog Generator ──────────────────────────────────────────────────────
+
+app.get('/api/bulk-blog/industries', requireAuth, async (req, res) => {
+  try {
+    const snap = await db.collection('launches')
+      .where('archived', '!=', true).get();
+    const counts = {};
+    snap.forEach(doc => {
+      const d = doc.data();
+      if (d.status === 'decommissioned') return;
+      const ind = (d.industry || '').trim();
+      if (!ind) return;
+      counts[ind] = (counts[ind] || 0) + 1;
+    });
+    const industries = Object.entries(counts)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count);
+    res.json({ industries });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/bulk-blog/sites', requireAuth, async (req, res) => {
+  try {
+    const { industry } = req.query;
+    if (!industry) return res.status(400).json({ error: 'industry required' });
+    const snap = await db.collection('launches')
+      .where('industry', '==', industry).get();
+    const sites = [];
+    snap.forEach(doc => {
+      const d = doc.data();
+      if (d.archived || d.status === 'decommissioned') return;
+      sites.push({
+        id:              doc.id,
+        account_name:    d.account_name    || '',
+        domain_name:     d.domain_name     || '',
+        duda_site_name:  d.duda_site_name  || null,
+        place_city:      d.place_city      || null,
+        google_place_id: d.google_place_id || null,
+        status:          d.status          || '',
+        has_duda:        !!d.duda_site_name,
+      });
+    });
+    sites.sort((a, b) => a.account_name.localeCompare(b.account_name));
+    res.json({ sites });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/bulk-blog/gsc-keyword/:id', requireAuth, async (req, res) => {
+  try {
+    // 1. Read from analytics cache (warm-all job populates this nightly)
+    const cacheDoc = await db.collection('launches').doc(req.params.id)
+      .collection('analytics_cache').doc('daily').get();
+    if (cacheDoc.exists) {
+      const { data } = cacheDoc.data();
+      const queries = data?.gsc?.topQueries || [];
+      const best = queries
+        .filter(q => q.position >= 5 && q.position <= 20)
+        .sort((a, b) => b.impressions - a.impressions)[0] || null;
+      if (best) return res.json({ keyword: best.query, impressions: best.impressions, position: best.position });
+      if (queries.length > 0) return res.json({ keyword: null, reason: 'no_opportunity' });
+    }
+    return res.json({ keyword: null, reason: 'no_data' });
+  } catch (err) {
+    res.status(500).json({ keyword: null, reason: 'error', error: err.message });
+  }
+});
+
+app.post('/api/bulk-blog/push-batch', requireAuth, async (req, res) => {
+  const { posts } = req.body;
+  if (!Array.isArray(posts) || !posts.length) return res.status(400).json({ error: 'posts array required' });
+  const creds = await getDudaCredentials();
+  const token = Buffer.from(`${creds.api_user}:${creds.api_pass}`).toString('base64');
+  const authHeader = { Authorization: `Basic ${token}`, 'Content-Type': 'application/json' };
+  const results = [];
+  for (const p of posts) {
+    await new Promise(r => setTimeout(r, 200)); // small gap between Duda calls
+    try {
+      const doc = await db.collection('launches').doc(p.launchId).get();
+      if (!doc.exists) throw new Error('Site not found');
+      const siteName = doc.data().duda_site_name;
+      if (!siteName) throw new Error('No Duda site name configured');
+      const bizName = doc.data().account_name || '';
+      const dRes = await fetch(
+        `https://api.duda.co/api/sites/multiscreen/${siteName}/blog/posts/import`,
+        { method: 'POST', headers: authHeader,
+          body: JSON.stringify({ title: p.title, description: '', content: Buffer.from(p.html).toString('base64'), author: bizName || 'Team' }) }
+      );
+      if (!dRes.ok) { const txt = await dRes.text(); throw new Error(`Duda error (${dRes.status}): ${txt}`); }
+      const post = await dRes.json();
+      const postId = post.id || null;
+      const publish = p.publish === true;
+      if (publish && postId) {
+        await fetch(`https://api.duda.co/api/sites/multiscreen/${siteName}/blog/posts/${postId}/publish`,
+          { method: 'POST', headers: authHeader });
+      }
+      const status = publish ? 'published' : 'draft';
+      const launchRef = db.collection('launches').doc(p.launchId);
+      await Promise.all([
+        launchRef.collection('blog_drafts').add({
+          title: p.title, postId, status, pushedAt: new Date(),
+          industry: p.industry || null, city: p.city || null,
+          keyword: p.keyword || null, questionId: p.questionId || null,
+        }),
+        p.questionId ? launchRef.update({ blog_excluded_ids: FieldValue.arrayUnion(p.questionId) }) : Promise.resolve(),
+      ]);
+      results.push({ launchId: p.launchId, success: true, postId, status });
+    } catch (err) {
+      results.push({ launchId: p.launchId, success: false, error: err.message });
+    }
+  }
+  res.json({ results });
+});
+
 // ── Pages ──
 app.get('/edit-request', (_req, res) => res.sendFile(join(__dirname, 'public', 'edit-request.html')));
+app.get('/bulk-blog', requireAuth, (_req, res) => res.sendFile(join(__dirname, 'public', 'bulk-blog.html')));
 app.get('/dashboard', requireAuth, (_req, res) => res.sendFile(join(__dirname, 'public', 'dashboard.html')));
 
 app.listen(PORT, () => {

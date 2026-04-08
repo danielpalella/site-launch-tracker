@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blog Generator · RealWork Labs</title>
+<link rel="stylesheet" href="/style.css">
+<style>
+/* ── Layout ── */
+.bb-nav { display:flex;align-items:center;gap:.75rem;padding:.6rem 1.25rem;border-bottom:1px solid var(--border);background:var(--nav-bg,var(--bg));position:sticky;top:0;z-index:100 }
+.bb-nav-logo { display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text);font-weight:700;font-size:.95rem;flex-shrink:0 }
+.bb-nav-logo img { width:28px;height:28px;border-radius:6px }
+.bb-nav-tabs { display:flex;gap:.15rem;flex:1 }
+.bb-nav-tab { display:flex;align-items:center;gap:.4rem;padding:.45rem .8rem;border-radius:.5rem;font-size:.8rem;font-weight:500;color:var(--text-muted);text-decoration:none;border:none;background:none;cursor:pointer;font-family:inherit;transition:background .15s,color .15s }
+.bb-nav-tab:hover { background:var(--hover-bg,rgba(0,0,0,.05));color:var(--text) }
+.bb-nav-tab.active { background:var(--primary-light,#f59e0b22);color:var(--primary,#f59e0b) }
+.bb-nav-right { display:flex;align-items:center;gap:.75rem;margin-left:auto }
+.bb-user { font-size:.78rem;color:var(--text-muted) }
+
+.bb-page { max-width:1000px;margin:0 auto;padding:2rem 1.25rem 4rem }
+.bb-steps { display:flex;align-items:center;gap:0;margin-bottom:2.5rem }
+.bb-step { display:flex;align-items:center;gap:.5rem;font-size:.78rem;font-weight:600;color:var(--text-muted);flex-shrink:0 }
+.bb-step-num { width:22px;height:22px;border-radius:50%;background:var(--border);color:var(--text-muted);display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;flex-shrink:0;transition:all .2s }
+.bb-step.active .bb-step-num { background:var(--primary,#f59e0b);color:#fff }
+.bb-step.active { color:var(--text) }
+.bb-step.done .bb-step-num { background:#22c55e;color:#fff }
+.bb-step.done { color:var(--text-muted) }
+.bb-step-line { flex:1;height:1px;background:var(--border);margin:0 .5rem;min-width:20px }
+
+/* ── Step panels ── */
+.bb-panel { display:none }
+.bb-panel.active { display:block }
+
+.bb-heading { font-size:1.3rem;font-weight:700;color:var(--text);margin-bottom:.35rem }
+.bb-sub { font-size:.875rem;color:var(--text-muted);margin-bottom:1.5rem }
+
+/* Step 1 — Industry cards */
+.bb-industry-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:.75rem }
+.bb-industry-card { border:2px solid var(--border);border-radius:.75rem;padding:1.1rem .9rem;cursor:pointer;transition:border-color .15s,background .15s;text-align:center }
+.bb-industry-card:hover { border-color:var(--primary,#f59e0b);background:var(--primary-light,#f59e0b11) }
+.bb-industry-card.selected { border-color:var(--primary,#f59e0b);background:var(--primary-light,#f59e0b18) }
+.bb-industry-name { font-size:.9rem;font-weight:700;color:var(--text);margin-bottom:.25rem }
+.bb-industry-count { font-size:.75rem;color:var(--text-muted) }
+
+/* Step 2 — Topic picker */
+.bb-topic-grid { display:flex;flex-direction:column;gap:.6rem;margin-bottom:1rem }
+.bb-topic-card { border:2px solid var(--border);border-radius:.65rem;padding:.8rem 1rem;cursor:pointer;transition:border-color .15s,background .15s;display:flex;align-items:flex-start;gap:.75rem }
+.bb-topic-card:hover { border-color:var(--primary,#f59e0b);background:var(--primary-light,#f59e0b08) }
+.bb-topic-card.selected { border-color:var(--primary,#f59e0b);background:var(--primary-light,#f59e0b18) }
+.bb-topic-radio { width:16px;height:16px;border:2px solid var(--border);border-radius:50%;flex-shrink:0;margin-top:2px;transition:all .15s;display:flex;align-items:center;justify-content:center }
+.bb-topic-card.selected .bb-topic-radio { border-color:var(--primary,#f59e0b);background:var(--primary,#f59e0b) }
+.bb-topic-radio-dot { width:6px;height:6px;border-radius:50%;background:#fff;display:none }
+.bb-topic-card.selected .bb-topic-radio-dot { display:block }
+.bb-topic-body { flex:1;min-width:0 }
+.bb-topic-title { font-size:.875rem;font-weight:600;color:var(--text);line-height:1.4 }
+.bb-topic-meta { font-size:.72rem;color:var(--text-muted);margin-top:.25rem;display:flex;gap:.6rem;flex-wrap:wrap }
+.bb-topic-upvotes { color:#ff4500;font-weight:600 }
+.bb-topic-load-btn { display:flex;align-items:center;gap:.5rem;font-size:.82rem;font-weight:600;color:var(--primary,#f59e0b);border:1px solid var(--primary,#f59e0b);border-radius:.5rem;padding:.45rem .9rem;background:none;cursor:pointer;font-family:inherit;transition:background .15s }
+.bb-topic-load-btn:hover { background:var(--primary-light,#f59e0b18) }
+
+/* Step 3 — Sites table */
+.bb-sites-header { display:flex;align-items:center;gap:.75rem;margin-bottom:1rem }
+.bb-sites-count { font-size:.8rem;color:var(--text-muted) }
+.bb-sites-warn { font-size:.75rem;color:#f59e0b;font-weight:600 }
+.bb-table-wrap { overflow-x:auto;border:1px solid var(--border);border-radius:.65rem }
+.bb-table { width:100%;border-collapse:collapse;font-size:.82rem }
+.bb-table th { padding:.6rem .9rem;text-align:left;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text-muted);border-bottom:1px solid var(--border);white-space:nowrap }
+.bb-table td { padding:.6rem .9rem;border-bottom:1px solid var(--border);vertical-align:middle }
+.bb-table tr:last-child td { border-bottom:none }
+.bb-table tr.excluded { opacity:.45 }
+.bb-site-name { font-weight:600;color:var(--text) }
+.bb-site-domain { font-size:.72rem;color:var(--text-muted) }
+.bb-inline-input { border:1px solid transparent;border-radius:.35rem;padding:.25rem .4rem;font-size:.82rem;font-family:inherit;color:var(--text);background:transparent;width:100%;min-width:120px }
+.bb-inline-input:hover { border-color:var(--border) }
+.bb-inline-input:focus { border-color:var(--primary,#f59e0b);outline:none;background:var(--input-bg,var(--bg)) }
+.bb-kw-loading { color:var(--text-muted);font-size:.75rem;font-style:italic }
+.bb-kw-none { color:var(--text-muted);font-size:.75rem }
+.bb-badge-warn { font-size:.68rem;font-weight:700;background:#f59e0b22;color:#b45309;border-radius:20px;padding:.1rem .45rem }
+.bb-badge-ok { font-size:.68rem;font-weight:700;background:#22c55e22;color:#16a34a;border-radius:20px;padding:.1rem .45rem }
+.bb-badge-err { font-size:.68rem;font-weight:700;background:#ef444422;color:#dc2626;border-radius:20px;padding:.1rem .45rem }
+
+/* Step 4 — Generate progress */
+.bb-progress-bar-wrap { height:6px;background:var(--border);border-radius:3px;margin-bottom:1.25rem;overflow:hidden }
+.bb-progress-bar { height:100%;background:var(--primary,#f59e0b);border-radius:3px;transition:width .3s }
+.bb-progress-label { font-size:.82rem;color:var(--text-muted);margin-bottom:1.25rem }
+.bb-gen-list { display:flex;flex-direction:column;gap:.5rem }
+.bb-gen-row { display:flex;align-items:center;gap:.75rem;padding:.6rem .9rem;border:1px solid var(--border);border-radius:.55rem;font-size:.82rem }
+.bb-gen-row.done { border-color:#22c55e44 }
+.bb-gen-row.error { border-color:#ef444444 }
+.bb-gen-site { font-weight:600;flex:1;color:var(--text) }
+.bb-gen-status { font-size:.75rem;color:var(--text-muted);flex-shrink:0;display:flex;align-items:center;gap:.4rem }
+.bb-gen-status.generating { color:var(--primary,#f59e0b) }
+.bb-gen-status.done { color:#22c55e }
+.bb-gen-status.error { color:#ef4444 }
+.bb-retry-btn { font-size:.72rem;color:var(--primary,#f59e0b);border:1px solid var(--primary,#f59e0b);border-radius:.35rem;padding:.15rem .45rem;background:none;cursor:pointer;font-family:inherit }
+
+/* Scribble animation */
+@keyframes bb-scribble { 0%{stroke-dashoffset:60;opacity:.5}60%{stroke-dashoffset:0;opacity:1}100%{stroke-dashoffset:0;opacity:1} }
+
+/* Step 5 — Review */
+.bb-review-actions { display:flex;gap:.6rem;align-items:center;margin-bottom:1.25rem;flex-wrap:wrap }
+.bb-review-grid { display:flex;flex-direction:column;gap:.75rem }
+.bb-review-card { border:1px solid var(--border);border-radius:.75rem;overflow:hidden }
+.bb-review-card-head { display:flex;align-items:center;gap:.75rem;padding:.75rem 1rem;background:var(--row-bg,transparent);border-bottom:1px solid var(--border) }
+.bb-review-card-site { font-size:.82rem;font-weight:700;color:var(--text);flex:1;min-width:0 }
+.bb-review-card-title { font-size:.78rem;color:var(--text-muted);flex:2;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap }
+.bb-review-card-actions { display:flex;gap:.4rem;flex-shrink:0 }
+.bb-review-card-body { display:none;padding:1rem;font-size:.82rem;line-height:1.65;color:var(--text);max-height:350px;overflow-y:auto }
+.bb-review-card-body h1,.bb-review-card-body h2 { color:var(--text);margin:.75rem 0 .35rem }
+.bb-review-card-body h1 { font-size:1.1rem }
+.bb-review-card-body h2 { font-size:.95rem }
+.bb-review-card-body p { margin:.35rem 0 }
+.bb-review-card-body a { color:var(--primary,#f59e0b) }
+.bb-review-card-body.open { display:block }
+.bb-pub-status { font-size:.72rem;font-weight:700;padding:.15rem .5rem;border-radius:20px }
+.bb-pub-status.draft { background:#6366f122;color:#6366f1 }
+.bb-pub-status.published { background:#22c55e22;color:#16a34a }
+.bb-pub-status.error { background:#ef444422;color:#dc2626 }
+.bb-pub-status.saving { background:var(--border);color:var(--text-muted) }
+
+/* Shared buttons */
+.bb-btn { display:inline-flex;align-items:center;gap:.4rem;padding:.45rem 1rem;border-radius:.5rem;font-size:.82rem;font-weight:600;cursor:pointer;border:1px solid transparent;font-family:inherit;transition:opacity .15s }
+.bb-btn:disabled { opacity:.45;cursor:not-allowed }
+.bb-btn-primary { background:var(--primary,#f59e0b);color:#fff;border-color:var(--primary,#f59e0b) }
+.bb-btn-primary:hover:not(:disabled) { opacity:.88 }
+.bb-btn-outline { background:none;color:var(--text);border-color:var(--border) }
+.bb-btn-outline:hover:not(:disabled) { background:var(--hover-bg,rgba(0,0,0,.04)) }
+.bb-btn-ghost { background:none;color:var(--text-muted);border-color:transparent }
+.bb-btn-ghost:hover:not(:disabled) { color:var(--text) }
+.bb-btn-green { background:#22c55e;color:#fff;border-color:#22c55e }
+.bb-btn-green:hover:not(:disabled) { opacity:.88 }
+.bb-btn-sm { padding:.3rem .7rem;font-size:.75rem }
+
+.bb-empty { text-align:center;padding:3rem;color:var(--text-muted);font-size:.875rem }
+.bb-spinner { display:inline-block;width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--primary,#f59e0b);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0 }
+@keyframes spin { to { transform:rotate(360deg) } }
+</style>
+</head>
+<body>
+
+<nav class="bb-nav">
+  <a href="/dashboard" class="bb-nav-logo">
+    <img src="/favicon.ico" onerror="this.style.display='none'">
+    RealWork Labs
+  </a>
+  <div class="bb-nav-tabs">
+    <a href="/dashboard" class="bb-nav-tab">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+      Dashboard
+    </a>
+    <a href="/bulk-blog" class="bb-nav-tab active">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+      Blog
+    </a>
+  </div>
+  <div class="bb-nav-right">
+    <span class="bb-user" id="bb-user-email"></span>
+    <button class="bb-btn bb-btn-ghost bb-btn-sm" id="bb-logout">Sign Out</button>
+  </div>
+</nav>
+
+<div class="bb-page">
+
+  <!-- Step indicators -->
+  <div class="bb-steps" id="bb-steps">
+    <div class="bb-step active" data-step="1"><div class="bb-step-num">1</div><span>Industry</span></div>
+    <div class="bb-step-line"></div>
+    <div class="bb-step" data-step="2"><div class="bb-step-num">2</div><span>Topic</span></div>
+    <div class="bb-step-line"></div>
+    <div class="bb-step" data-step="3"><div class="bb-step-num">3</div><span>Sites</span></div>
+    <div class="bb-step-line"></div>
+    <div class="bb-step" data-step="4"><div class="bb-step-num">4</div><span>Generate</span></div>
+    <div class="bb-step-line"></div>
+    <div class="bb-step" data-step="5"><div class="bb-step-num">5</div><span>Review</span></div>
+  </div>
+
+  <!-- ── Step 1: Industry ── -->
+  <div class="bb-panel active" id="bb-step-1">
+    <div class="bb-heading">Select an industry</div>
+    <div class="bb-sub">Posts will be generated for every active site in the chosen industry.</div>
+    <div class="bb-industry-grid" id="bb-industry-grid">
+      <div class="bb-empty">Loading industries…</div>
+    </div>
+    <div style="margin-top:1.5rem;display:flex;justify-content:flex-end">
+      <button class="bb-btn bb-btn-primary" id="bb-step1-next" disabled onclick="goStep(2)">Next →</button>
+    </div>
+  </div>
+
+  <!-- ── Step 2: Topic ── -->
+  <div class="bb-panel" id="bb-step-2">
+    <div class="bb-heading">Pick a Reddit topic</div>
+    <div class="bb-sub">This question is the content seed. Each site gets a unique post built around it.</div>
+    <button class="bb-topic-load-btn" id="bb-load-topics" onclick="loadTopics()">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="-25.65 -42.75 222.3 256.5"><g transform="translate(-85.4 -85.4)"><circle r="85.5" cy="170.9" cx="170.9" fill="#ff4500"/><path d="M227.9 170.9c0-6.9-5.6-12.5-12.5-12.5-3.4 0-6.4 1.3-8.6 3.5-8.5-6.1-20.3-10.1-33.3-10.6l5.7-26.7 18.5 3.9c.2 4.7 4.1 8.5 8.9 8.5 4.9 0 8.9-4 8.9-8.9s-4-8.9-8.9-8.9c-3.5 0-6.5 2-7.9 5l-20.7-4.4c-.6-.1-1.2 0-1.7.3s-.8.8-1 1.4l-6.3 29.8c-13.3.4-25.2 4.3-33.8 10.6-2.2-2.1-5.3-3.5-8.6-3.5-6.9 0-12.5 5.6-12.5 12.5 0 5.1 3 9.4 7.4 11.4-.2 1.2-.3 2.5-.3 3.8 0 19.2 22.3 34.7 49.9 34.7 27.6 0 49.9-15.5 49.9-34.7 0-1.3-.1-2.5-.3-3.7 4.1-2 7.2-6.4 7.2-11.5zm-85.5 8.9c0-4.9 4-8.9 8.9-8.9s8.9 4 8.9 8.9-4 8.9-8.9 8.9-8.9-4-8.9-8.9zm49.7 23.5c-6.1 6.1-17.7 6.5-21.1 6.5-3.4 0-15.1-.5-21.1-6.5-.9-.9-.9-2.4 0-3.3.9-.9 2.4-.9 3.3 0 3.8 3.8 12 5.2 17.9 5.2 5.9 0 14-1.4 17.9-5.2.9-.9 2.4-.9 3.3 0 .7 1 .7 2.4-.2 3.3zm-1.6-14.6c-4.9 0-8.9-4-8.9-8.9s4-8.9 8.9-8.9 8.9 4 8.9 8.9-4 8.9-8.9 8.9z" fill="#fff"/></g></svg>
+      Get ideas from Reddit
+    </button>
+    <div id="bb-topic-grid" class="bb-topic-grid" style="margin-top:1rem"></div>
+    <div style="margin-top:1.5rem;display:flex;justify-content:space-between">
+      <button class="bb-btn bb-btn-outline" onclick="goStep(1)">← Back</button>
+      <button class="bb-btn bb-btn-primary" id="bb-step2-next" disabled onclick="goStep(3)">Next →</button>
+    </div>
+  </div>
+
+  <!-- ── Step 3: Sites ── -->
+  <div class="bb-panel" id="bb-step-3">
+    <div class="bb-heading">Configure sites</div>
+    <div class="bb-sub">Review auto-filled city and keyword for each site. Uncheck any you want to skip.</div>
+    <div class="bb-sites-header">
+      <span class="bb-sites-count" id="bb-sites-count"></span>
+      <span class="bb-sites-warn" id="bb-sites-warn" style="display:none"></span>
+      <button class="bb-btn bb-btn-ghost bb-btn-sm" onclick="toggleAllSites(true)">Select all</button>
+      <button class="bb-btn bb-btn-ghost bb-btn-sm" onclick="toggleAllSites(false)">Deselect all</button>
+    </div>
+    <div class="bb-table-wrap">
+      <table class="bb-table">
+        <thead>
+          <tr>
+            <th style="width:32px"></th>
+            <th>Site</th>
+            <th>City / State</th>
+            <th>GSC Keyword</th>
+            <th>Duda</th>
+          </tr>
+        </thead>
+        <tbody id="bb-sites-tbody"></tbody>
+      </table>
+    </div>
+    <div style="margin-top:1.5rem;display:flex;justify-content:space-between;align-items:center">
+      <button class="bb-btn bb-btn-outline" onclick="goStep(2)">← Back</button>
+      <button class="bb-btn bb-btn-primary" id="bb-step3-next" onclick="startGeneration()">Generate posts →</button>
+    </div>
+  </div>
+
+  <!-- ── Step 4: Generate ── -->
+  <div class="bb-panel" id="bb-step-4">
+    <div class="bb-heading">Generating posts</div>
+    <div class="bb-sub" id="bb-gen-sub">Generating unique posts for each site. This takes about 10 seconds per site.</div>
+    <div class="bb-progress-bar-wrap"><div class="bb-progress-bar" id="bb-progress-bar" style="width:0%"></div></div>
+    <div class="bb-progress-label" id="bb-progress-label">0 of 0 complete</div>
+    <div style="display:flex;gap:.5rem;margin-bottom:1rem">
+      <button class="bb-btn bb-btn-outline bb-btn-sm" id="bb-stop-btn" onclick="stopGeneration()">Stop</button>
+    </div>
+    <div class="bb-gen-list" id="bb-gen-list"></div>
+    <div style="margin-top:1.5rem;display:flex;justify-content:flex-end">
+      <button class="bb-btn bb-btn-primary" id="bb-step4-next" disabled onclick="goStep(5)">Review posts →</button>
+    </div>
+  </div>
+
+  <!-- ── Step 5: Review & Publish ── -->
+  <div class="bb-panel" id="bb-step-5">
+    <div class="bb-heading">Review &amp; publish</div>
+    <div class="bb-sub">Expand any post to read it before publishing. Default action is Save as Draft.</div>
+    <div class="bb-review-actions">
+      <button class="bb-btn bb-btn-outline" id="bb-draft-all-btn" onclick="publishAll(false)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        Save all as drafts
+      </button>
+      <button class="bb-btn bb-btn-green" id="bb-publish-all-btn" onclick="confirmPublishAll()">
+        <img src="/duda-logo.svg" style="height:16px;border-radius:3px;vertical-align:middle"> Publish all to Duda
+      </button>
+      <span id="bb-review-summary" style="font-size:.78rem;color:var(--text-muted);margin-left:.5rem"></span>
+    </div>
+    <div class="bb-review-grid" id="bb-review-grid"></div>
+    <div style="margin-top:1.5rem">
+      <button class="bb-btn bb-btn-outline" onclick="goStep(3)">← Back to sites</button>
+    </div>
+  </div>
+
+</div><!-- /bb-page -->
+
+<script>
+// ── State ──
+const state = JSON.parse(sessionStorage.getItem('bb-state') || 'null') || {
+  step: 1,
+  industry: null,
+  topic: null,
+  sites: [],
+  posts: {},       // { [siteId]: { title, html, jsonLd, status, error } }
+  published: {},   // { [siteId]: { status, postId } }
+};
+let genQueue   = [];
+let genStopped = false;
+let genActive  = 0;
+const GEN_CONCURRENCY = 3;
+
+function saveState() {
+  try { sessionStorage.setItem('bb-state', JSON.stringify(state)); } catch {}
+}
+
+// ── Auth ──
+(async () => {
+  try {
+    const r = await fetch('/api/auth/me');
+    if (!r.ok) { location.href = '/login'; return; }
+    const { email } = await r.json();
+    document.getElementById('bb-user-email').textContent = email;
+  } catch { location.href = '/login'; }
+})();
+document.getElementById('bb-logout').onclick = async () => {
+  await fetch('/api/auth/logout', { method: 'POST' });
+  location.href = '/login';
+};
+
+// ── Utilities ──
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function showToast(msg, type='info') {
+  const t = document.createElement('div');
+  t.style.cssText = `position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);padding:.6rem 1.2rem;border-radius:.5rem;font-size:.82rem;font-weight:600;z-index:9999;color:#fff;background:${type==='error'?'#dc2626':'#22c55e'}`;
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3500);
+}
+
+// ── Step navigation ──
+function goStep(n) {
+  state.step = n;
+  saveState();
+  document.querySelectorAll('.bb-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('bb-step-' + n).classList.add('active');
+  document.querySelectorAll('.bb-step').forEach(el => {
+    const s = +el.dataset.step;
+    el.classList.toggle('active', s === n);
+    el.classList.toggle('done', s < n);
+  });
+  window.scrollTo(0, 0);
+}
+
+// ── Step 1: Industries ──
+async function loadIndustries() {
+  try {
+    const r = await fetch('/api/bulk-blog/industries');
+    const { industries } = await r.json();
+    const grid = document.getElementById('bb-industry-grid');
+    if (!industries.length) { grid.innerHTML = '<div class="bb-empty">No active sites found.</div>'; return; }
+    grid.innerHTML = industries.map(ind => `
+      <div class="bb-industry-card${state.industry === ind.name ? ' selected' : ''}" onclick="selectIndustry(this,'${esc(ind.name)}')">
+        <div class="bb-industry-name">${esc(ind.name)}</div>
+        <div class="bb-industry-count">${ind.count} site${ind.count !== 1 ? 's' : ''}</div>
+      </div>`).join('');
+    if (state.industry) document.getElementById('bb-step1-next').disabled = false;
+  } catch (e) {
+    document.getElementById('bb-industry-grid').innerHTML = '<div class="bb-empty">Failed to load industries.</div>';
+  }
+}
+
+function selectIndustry(el, name) {
+  document.querySelectorAll('.bb-industry-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  state.industry = name;
+  state.topic = null;
+  state.sites = [];
+  state.posts = {};
+  state.published = {};
+  saveState();
+  document.getElementById('bb-step1-next').disabled = false;
+}
+
+// ── Step 2: Topics ──
+async function loadTopics() {
+  const btn = document.getElementById('bb-load-topics');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="bb-spinner"></div> Loading…';
+  const grid = document.getElementById('bb-topic-grid');
+  grid.innerHTML = '';
+  try {
+    const r = await fetch('/api/blog/questions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ industry: state.industry, city: '' }),
+    });
+    const { questions } = await r.json();
+    if (!questions?.length) { grid.innerHTML = '<div class="bb-empty">No topics found. Try again.</div>'; return; }
+    grid.innerHTML = questions.map(q => `
+      <div class="bb-topic-card${state.topic?.id === q.id ? ' selected' : ''}" onclick="selectTopic(this, ${JSON.stringify(JSON.stringify(q))})">
+        <div class="bb-topic-radio"><div class="bb-topic-radio-dot"></div></div>
+        <div class="bb-topic-body">
+          <div class="bb-topic-title">${esc(q.title)}</div>
+          <div class="bb-topic-meta">
+            ${q.subreddit ? `<span>r/${esc(q.subreddit)}</span>` : ''}
+            ${q.upvotes != null ? `<span class="bb-topic-upvotes">▲ ${q.upvotes > 999 ? (q.upvotes/1000).toFixed(1)+'k' : q.upvotes}</span>` : ''}
+          </div>
+        </div>
+      </div>`).join('');
+    if (state.topic) document.getElementById('bb-step2-next').disabled = false;
+  } catch (e) {
+    grid.innerHTML = '<div class="bb-empty">Failed to load topics. Try again.</div>';
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="-25.65 -42.75 222.3 256.5"><g transform="translate(-85.4 -85.4)"><circle r="85.5" cy="170.9" cx="170.9" fill="#ff4500"/><path d="M227.9 170.9c0-6.9-5.6-12.5-12.5-12.5-3.4 0-6.4 1.3-8.6 3.5-8.5-6.1-20.3-10.1-33.3-10.6l5.7-26.7 18.5 3.9c.2 4.7 4.1 8.5 8.9 8.5 4.9 0 8.9-4 8.9-8.9s-4-8.9-8.9-8.9c-3.5 0-6.5 2-7.9 5l-20.7-4.4c-.6-.1-1.2 0-1.7.3s-.8.8-1 1.4l-6.3 29.8c-13.3.4-25.2 4.3-33.8 10.6-2.2-2.1-5.3-3.5-8.6-3.5-6.9 0-12.5 5.6-12.5 12.5 0 5.1 3 9.4 7.4 11.4-.2 1.2-.3 2.5-.3 3.8 0 19.2 22.3 34.7 49.9 34.7 27.6 0 49.9-15.5 49.9-34.7 0-1.3-.1-2.5-.3-3.7 4.1-2 7.2-6.4 7.2-11.5zm-85.5 8.9c0-4.9 4-8.9 8.9-8.9s8.9 4 8.9 8.9-4 8.9-8.9 8.9-8.9-4-8.9-8.9zm49.7 23.5c-6.1 6.1-17.7 6.5-21.1 6.5-3.4 0-15.1-.5-21.1-6.5-.9-.9-.9-2.4 0-3.3.9-.9 2.4-.9 3.3 0 3.8 3.8 12 5.2 17.9 5.2 5.9 0 14-1.4 17.9-5.2.9-.9 2.4-.9 3.3 0 .7 1 .7 2.4-.2 3.3zm-1.6-14.6c-4.9 0-8.9-4-8.9-8.9s4-8.9 8.9-8.9 8.9 4 8.9 8.9-4 8.9-8.9 8.9z" fill="#fff"/></g></svg> Refresh ideas`;
+  }
+}
+
+function selectTopic(el, jsonStr) {
+  const q = JSON.parse(jsonStr);
+  document.querySelectorAll('.bb-topic-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  state.topic = q;
+  saveState();
+  document.getElementById('bb-step2-next').disabled = false;
+}
+
+// ── Step 3: Sites ──
+async function loadSites() {
+  const tbody = document.getElementById('bb-sites-tbody');
+  tbody.innerHTML = '<tr><td colspan="5" style="padding:1.5rem;text-align:center;color:var(--text-muted);font-size:.82rem">Loading sites…</td></tr>';
+  try {
+    const r = await fetch(`/api/bulk-blog/sites?industry=${encodeURIComponent(state.industry)}`);
+    const { sites } = await r.json();
+    // Merge with existing state (preserve overrides)
+    if (state.sites.length) {
+      sites.forEach(s => {
+        const existing = state.sites.find(e => e.id === s.id);
+        if (existing) { Object.assign(s, { city_override: existing.city_override, keyword_override: existing.keyword_override, included: existing.included ?? true, gsc_keyword: existing.gsc_keyword }); }
+        else { s.included = true; }
+      });
+    } else {
+      sites.forEach(s => { s.included = true; });
+    }
+    state.sites = sites;
+    saveState();
+    renderSitesTable();
+    // Lazy-load GSC keywords in batches of 5
+    const chunks = [];
+    for (let i = 0; i < sites.length; i += 5) chunks.push(sites.slice(i, i + 5));
+    for (const chunk of chunks) {
+      await Promise.all(chunk.map(async s => {
+        if (s.gsc_keyword !== undefined) return; // already loaded
+        try {
+          const kr = await fetch(`/api/bulk-blog/gsc-keyword/${s.id}`);
+          const kd = await kr.json();
+          s.gsc_keyword = kd.keyword || null;
+          s.gsc_keyword_reason = kd.reason || null;
+        } catch { s.gsc_keyword = null; }
+        updateSiteKeywordCell(s);
+        saveState();
+      }));
+    }
+    updateSitesSummary();
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="5" style="padding:1.5rem;text-align:center;color:#ef4444;font-size:.82rem">${esc(e.message)}</td></tr>`;
+  }
+}
+
+function renderSitesTable() {
+  const tbody = document.getElementById('bb-sites-tbody');
+  tbody.innerHTML = state.sites.map(s => {
+    const effectiveCity = s.city_override ?? s.place_city ?? '';
+    const effectiveKw = s.keyword_override ?? s.gsc_keyword ?? '';
+    const kwCell = s.gsc_keyword === undefined
+      ? `<span class="bb-kw-loading">Loading…</span>`
+      : `<input class="bb-inline-input" value="${esc(s.keyword_override ?? s.gsc_keyword ?? '')}" placeholder="Enter keyword…" onchange="setSiteKw('${s.id}',this.value)" oninput="setSiteKw('${s.id}',this.value)">`;
+    const dudaBadge = s.has_duda
+      ? `<span class="bb-badge-ok">✓</span>`
+      : `<span class="bb-badge-err">No Duda</span>`;
+    return `<tr id="bb-site-row-${s.id}" class="${s.included ? '' : 'excluded'}">
+      <td><input type="checkbox" ${s.included ? 'checked' : ''} onchange="toggleSite('${s.id}',this.checked)" style="cursor:pointer"></td>
+      <td><div class="bb-site-name">${esc(s.account_name)}</div><div class="bb-site-domain">${esc(s.domain_name)}</div></td>
+      <td><input class="bb-inline-input" id="bb-city-${s.id}" value="${esc(effectiveCity)}" placeholder="Enter city…" onchange="setSiteCity('${s.id}',this.value)" oninput="setSiteCity('${s.id}',this.value)"></td>
+      <td id="bb-kw-cell-${s.id}">${kwCell}</td>
+      <td>${dudaBadge}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="5" style="padding:1.5rem;text-align:center;color:var(--text-muted)">No sites found.</td></tr>';
+  updateSitesSummary();
+}
+
+function updateSiteKeywordCell(s) {
+  const cell = document.getElementById(`bb-kw-cell-${s.id}`);
+  if (!cell) return;
+  cell.innerHTML = `<input class="bb-inline-input" value="${esc(s.keyword_override ?? s.gsc_keyword ?? '')}" placeholder="${s.gsc_keyword_reason === 'no_data' ? 'No GSC data' : 'Enter keyword…'}" onchange="setSiteKw('${s.id}',this.value)" oninput="setSiteKw('${s.id}',this.value)">`;
+}
+
+function updateSitesSummary() {
+  const included = state.sites.filter(s => s.included);
+  const noCity = included.filter(s => !(s.city_override ?? s.place_city));
+  const noDuda = included.filter(s => !s.has_duda);
+  document.getElementById('bb-sites-count').textContent = `${included.length} of ${state.sites.length} sites selected`;
+  const warn = document.getElementById('bb-sites-warn');
+  const issues = [];
+  if (noCity.length) issues.push(`${noCity.length} missing city`);
+  if (noDuda.length) issues.push(`${noDuda.length} no Duda`);
+  if (issues.length) { warn.textContent = '⚠ ' + issues.join(', '); warn.style.display = ''; }
+  else { warn.style.display = 'none'; }
+}
+
+function toggleSite(id, checked) {
+  const s = state.sites.find(s => s.id === id);
+  if (s) { s.included = checked; saveState(); }
+  const row = document.getElementById(`bb-site-row-${id}`);
+  if (row) row.classList.toggle('excluded', !checked);
+  updateSitesSummary();
+}
+
+function toggleAllSites(checked) {
+  state.sites.forEach(s => { s.included = checked; });
+  saveState();
+  renderSitesTable();
+}
+
+function setSiteCity(id, val) {
+  const s = state.sites.find(s => s.id === id);
+  if (s) { s.city_override = val.trim() || null; saveState(); updateSitesSummary(); }
+}
+
+function setSiteKw(id, val) {
+  const s = state.sites.find(s => s.id === id);
+  if (s) { s.keyword_override = val.trim() || null; saveState(); }
+}
+
+// ── Step 4: Generate ──
+function startGeneration() {
+  const included = state.sites.filter(s => s.included);
+  if (!included.length) { showToast('No sites selected', 'error'); return; }
+  goStep(4);
+  genQueue = [...included];
+  genStopped = false;
+  genActive = 0;
+  document.getElementById('bb-step4-next').disabled = true;
+  document.getElementById('bb-stop-btn').disabled = false;
+
+  // Build gen list UI
+  const list = document.getElementById('bb-gen-list');
+  list.innerHTML = included.map(s => `
+    <div class="bb-gen-row" id="bb-gen-row-${s.id}">
+      <div class="bb-gen-site">${esc(s.account_name)}<span style="font-size:.72rem;color:var(--text-muted);margin-left:.4rem">${esc(s.domain_name)}</span></div>
+      <div class="bb-gen-status" id="bb-gen-status-${s.id}">Pending</div>
+    </div>`).join('');
+
+  updateProgress();
+  processNextGen();
+}
+
+function updateProgress() {
+  const included = state.sites.filter(s => s.included);
+  const done = included.filter(s => state.posts[s.id]?.status === 'done' || state.posts[s.id]?.status === 'error');
+  const total = included.length;
+  const pct = total ? Math.round(done.length / total * 100) : 0;
+  document.getElementById('bb-progress-bar').style.width = pct + '%';
+  document.getElementById('bb-progress-label').textContent = `${done.length} of ${total} complete`;
+  if (done.length === total) {
+    document.getElementById('bb-step4-next').disabled = false;
+    document.getElementById('bb-stop-btn').disabled = true;
+    document.getElementById('bb-gen-sub').textContent = '✓ All posts generated. Click Review to continue.';
+  }
+}
+
+function processNextGen() {
+  while (genActive < GEN_CONCURRENCY && genQueue.length > 0 && !genStopped) {
+    genActive++;
+    const site = genQueue.shift();
+    generateForSite(site).finally(() => { genActive--; processNextGen(); });
+  }
+}
+
+async function generateForSite(site) {
+  const statusEl = document.getElementById(`bb-gen-status-${site.id}`);
+  const rowEl = document.getElementById(`bb-gen-row-${site.id}`);
+  if (statusEl) {
+    statusEl.className = 'bb-gen-status generating';
+    statusEl.innerHTML = `<svg width="16" height="10" viewBox="0 0 36 14" fill="none"><path d="M2 11 C5 3,9 3,12 7 S17 13,21 7 S26 1,30 6 S33 11,34 9" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" fill="none" style="stroke-dasharray:60;stroke-dashoffset:60;animation:bb-scribble 1.1s ease-in-out infinite alternate"/></svg> Writing…`;
+  }
+  try {
+    const city    = site.city_override ?? site.place_city ?? '';
+    const keyword = site.keyword_override ?? site.gsc_keyword ?? '';
+    const r = await fetch('/api/blog/post', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        industry: state.industry,
+        city,
+        question: state.topic.title,
+        detail:   state.topic.detail || '',
+        keywords: keyword ? [keyword] : [],
+        bizName:  site.account_name,
+        domain:   site.domain_name,
+        wordCount: 600,
+        placeId:  site.google_place_id || null,
+      }),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'Generation failed');
+    const titleMatch = data.post.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+    const title = titleMatch ? titleMatch[1].replace(/<[^>]+>/g,'').trim() : state.topic.title;
+    state.posts[site.id] = { status: 'done', title, html: data.post, jsonLd: data.jsonLd || null, keyword, city };
+    if (statusEl) { statusEl.className = 'bb-gen-status done'; statusEl.textContent = '✓ Done'; }
+    if (rowEl) rowEl.classList.add('done');
+  } catch (err) {
+    state.posts[site.id] = { status: 'error', error: err.message };
+    if (statusEl) { statusEl.className = 'bb-gen-status error'; statusEl.innerHTML = `✗ Error <button class="bb-retry-btn" onclick="retryGenSite('${site.id}')">Retry</button>`; }
+    if (rowEl) rowEl.classList.add('error');
+  }
+  saveState();
+  updateProgress();
+}
+
+function stopGeneration() {
+  genStopped = true;
+  genQueue = [];
+  document.getElementById('bb-stop-btn').disabled = true;
+  document.getElementById('bb-step4-next').disabled = false;
+  document.getElementById('bb-gen-sub').textContent = 'Generation stopped. You can review completed posts.';
+}
+
+function retryGenSite(siteId) {
+  const site = state.sites.find(s => s.id === siteId);
+  if (!site) return;
+  delete state.posts[siteId];
+  genQueue.push(site);
+  genStopped = false;
+  processNextGen();
+}
+
+// ── Step 5: Review ──
+function buildReviewGrid() {
+  const grid = document.getElementById('bb-review-grid');
+  const included = state.sites.filter(s => s.included && state.posts[s.id]?.status === 'done');
+  if (!included.length) { grid.innerHTML = '<div class="bb-empty">No posts generated yet.</div>'; return; }
+  grid.innerHTML = included.map(s => {
+    const post = state.posts[s.id];
+    const pub  = state.published[s.id];
+    const pubBadge = pub ? `<span class="bb-pub-status ${pub.status}">${pub.status === 'draft' ? 'Draft saved' : pub.status === 'published' ? 'Published' : pub.status === 'saving' ? 'Saving…' : 'Error'}</span>` : '';
+    const htmlWithSchema = post.jsonLd ? `<script type="application/ld+json">\n${JSON.stringify(post.jsonLd,null,2)}\n<\/script>\n` + post.html : post.html;
+    return `<div class="bb-review-card" id="bb-rc-${s.id}">
+      <div class="bb-review-card-head">
+        <div class="bb-review-card-site">${esc(s.account_name)}</div>
+        <div class="bb-review-card-title">${esc(post.title)}</div>
+        <div class="bb-review-card-actions">
+          ${pubBadge}
+          <button class="bb-btn bb-btn-ghost bb-btn-sm" onclick="toggleReviewBody('${s.id}')">Preview</button>
+          <button class="bb-btn bb-btn-outline bb-btn-sm" onclick="pushOne('${s.id}', false)" ${pub ? 'disabled' : ''}>Draft</button>
+          <button class="bb-btn bb-btn-primary bb-btn-sm" onclick="pushOne('${s.id}', true)" ${pub ? 'disabled' : ''}>Publish</button>
+        </div>
+      </div>
+      <div class="bb-review-card-body" id="bb-rcb-${s.id}">${post.html}</div>
+    </div>`;
+  }).join('');
+  updateReviewSummary();
+}
+
+function toggleReviewBody(siteId) {
+  document.getElementById(`bb-rcb-${siteId}`)?.classList.toggle('open');
+}
+
+function updateReviewSummary() {
+  const counts = Object.values(state.published);
+  const drafted = counts.filter(p => p.status === 'draft').length;
+  const published = counts.filter(p => p.status === 'published').length;
+  const parts = [];
+  if (drafted)   parts.push(`${drafted} drafted`);
+  if (published) parts.push(`${published} published`);
+  document.getElementById('bb-review-summary').textContent = parts.join(' · ');
+}
+
+async function pushOne(siteId, publish) {
+  const site = state.sites.find(s => s.id === siteId);
+  const post = state.posts[siteId];
+  if (!site || !post) return;
+  state.published[siteId] = { status: 'saving' };
+  buildReviewGrid();
+  const htmlWithSchema = post.jsonLd ? `<script type="application/ld+json">\n${JSON.stringify(post.jsonLd,null,2)}\n<\/script>\n` + post.html : post.html;
+  try {
+    const r = await fetch(`/api/analytics/${siteId}/push-blog`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: post.title, html: htmlWithSchema, publish,
+        questionId: state.topic?.id || null,
+        keyword: post.keyword || null,
+        industry: state.industry, city: post.city || null,
+      }),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'Failed');
+    state.published[siteId] = { status: publish ? 'published' : 'draft', postId: data.postId };
+  } catch (err) {
+    state.published[siteId] = { status: 'error', error: err.message };
+    showToast(`${site.account_name}: ${err.message}`, 'error');
+  }
+  saveState();
+  buildReviewGrid();
+}
+
+async function publishAll(publish) {
+  const included = state.sites.filter(s => s.included && state.posts[s.id]?.status === 'done' && !state.published[s.id]);
+  if (!included.length) { showToast('Nothing left to push', 'error'); return; }
+  document.getElementById('bb-draft-all-btn').disabled = true;
+  document.getElementById('bb-publish-all-btn').disabled = true;
+  for (const site of included) {
+    await pushOne(site.id, publish);
+  }
+  document.getElementById('bb-draft-all-btn').disabled = false;
+  document.getElementById('bb-publish-all-btn').disabled = false;
+  showToast(publish ? 'All posts published!' : 'All posts saved as drafts!');
+}
+
+function confirmPublishAll() {
+  const included = state.sites.filter(s => s.included && state.posts[s.id]?.status === 'done' && !state.published[s.id]);
+  if (!included.length) { showToast('Nothing left to publish', 'error'); return; }
+  if (!confirm(`Publish ${included.length} posts live to Duda? This cannot be undone from here.`)) return;
+  publishAll(true);
+}
+
+// ── Restore state / init ──
+goStep(state.step);
+loadIndustries();
+
+// If returning to a step that needs data
+if (state.step >= 2 && state.industry) {
+  // Topic grid will reload on demand
+}
+if (state.step === 3 && state.industry) {
+  loadSites();
+}
+if (state.step === 5) {
+  buildReviewGrid();
+}
+if (state.step === 2 && state.topic) {
+  document.getElementById('bb-step2-next').disabled = false;
+}
+if (state.step === 1 && state.industry) {
+  document.getElementById('bb-step1-next').disabled = false;
+}
+
+// Step 2: load topics when entering step 2
+const origGoStep = goStep;
+window.goStep = function(n) {
+  origGoStep(n);
+  if (n === 3 && state.industry) loadSites();
+  if (n === 5) buildReviewGrid();
+};
+</script>
+</body>
+</html>
