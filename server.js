@@ -3460,6 +3460,35 @@ app.get('/api/bulk-blog/sites', requireAuth, async (req, res) => {
   }
 });
 
+app.get('/api/bulk-blog/recent', requireAuth, async (req, res) => {
+  try {
+    const snap = await db.collectionGroup('blog_drafts')
+      .orderBy('pushedAt', 'desc').limit(150).get();
+    const counts = {};
+    const first  = {};
+    snap.forEach(doc => {
+      const d = doc.data();
+      const key = d.questionId || d.title;
+      if (!key) return;
+      counts[key] = (counts[key] || 0) + 1;
+      if (!first[key]) first[key] = d;
+    });
+    const recent = Object.entries(first)
+      .map(([key, d]) => ({
+        title: d.title,
+        industry: d.industry || null,
+        questionId: d.questionId || null,
+        pushedAt: d.pushedAt?.toDate?.()?.toISOString() || null,
+        count: counts[key],
+      }))
+      .sort((a, b) => (b.pushedAt || '') > (a.pushedAt || '') ? 1 : -1)
+      .slice(0, 5);
+    res.json({ recent });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/bulk-blog/gsc-keyword/:id', requireAuth, async (req, res) => {
   try {
     // 1. Read from analytics cache (warm-all job populates this nightly)
