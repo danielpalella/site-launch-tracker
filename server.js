@@ -2553,7 +2553,7 @@ app.post('/api/analytics/:id/push-blog', requireAuth, async (req, res) => {
       questionId: req.body.questionId || null,
     });
     const excludeWrite = req.body.questionId
-      ? launchRef.update({ blog_excluded_ids: admin.firestore.FieldValue.arrayUnion(req.body.questionId) })
+      ? launchRef.update({ blog_excluded_ids: FieldValue.arrayUnion(req.body.questionId) })
       : Promise.resolve();
     await Promise.all([draftWrite, excludeWrite]);
     res.json({ success: true, title, postId, status });
@@ -2652,7 +2652,7 @@ app.post('/api/launches/:id/blog-dismiss', requireAuth, async (req, res) => {
     if (!Array.isArray(question_ids) || !question_ids.length) return res.status(400).json({ error: 'question_ids array required' });
     const ref = db.collection('launches').doc(req.params.id);
     if (!(await ref.get()).exists) return res.status(404).json({ error: 'Not found' });
-    await ref.update({ blog_excluded_ids: admin.firestore.FieldValue.arrayUnion(...question_ids) });
+    await ref.update({ blog_excluded_ids: FieldValue.arrayUnion(...question_ids) });
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
