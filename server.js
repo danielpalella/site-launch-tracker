@@ -181,6 +181,7 @@ function formatLaunch(doc) {
     duda_site_name:       d.duda_site_name       || null,
     analytics_note:       d.analytics_note       || '',
     google_place_id:      d.google_place_id      || null,
+    place_city:           d.place_city           || null,
     custom_favicon:       d.custom_favicon        || null,
     tags:                 d.tags                  || [],
     last_contact_date:    d.last_contact_date     || null,
@@ -1760,11 +1761,22 @@ async function fetchPlaceRating(placeId) {
   try {
     const key = await getPlacesApiKey();
     if (!key) return null;
-    const r = await fetch(`https://maps.googleapis.com/maps/api/place/details/json?place_id=${encodeURIComponent(placeId)}&fields=rating,user_ratings_total&key=${key}`);
+    const r = await fetch(`https://maps.googleapis.com/maps/api/place/details/json?place_id=${encodeURIComponent(placeId)}&fields=rating,user_ratings_total,address_components&key=${key}`);
     const d = await r.json();
     if (d.status !== 'OK' || !d.result) return null;
-    return { rating: d.result.rating || null, reviewCount: d.result.user_ratings_total || null };
+    const comps = d.result.address_components || [];
+    const cityComp  = comps.find(c => c.types.includes('locality'));
+    const stateComp = comps.find(c => c.types.includes('administrative_area_level_1'));
+    const city = cityComp && stateComp
+      ? `${cityComp.long_name}, ${stateComp.short_name}`
+      : (cityComp?.long_name || null);
+    return { rating: d.result.rating || null, reviewCount: d.result.user_ratings_total || null, city };
   } catch { return null; }
+}
+
+async function fetchPlaceCity(placeId) {
+  const data = await fetchPlaceRating(placeId);
+  return data?.city || null;
 }
 
 // ── Duda Analytics ──
@@ -2279,7 +2291,8 @@ app.get('/api/analytics/:id', requireAuth, async (req, res) => {
     const freshFavicon       = noteDoc.exists ? (noteDoc.data().custom_favicon   || null) : null;
     const freshHideFormSubs  = noteDoc.exists ? (noteDoc.data().hideFormSubmits  || false) : false;
     const freshPlaceId       = noteDoc.exists ? (noteDoc.data().google_place_id  || null) : null;
-    res.json({ ...data, analytics_note: freshNote, tags: freshTags, duda_site_name: freshDudaName, custom_favicon: freshFavicon, hideFormSubmits: freshHideFormSubs, google_place_id: freshPlaceId });
+    const freshPlaceCity     = noteDoc.exists ? (noteDoc.data().place_city       || null) : null;
+    res.json({ ...data, analytics_note: freshNote, tags: freshTags, duda_site_name: freshDudaName, custom_favicon: freshFavicon, hideFormSubmits: freshHideFormSubs, google_place_id: freshPlaceId, place_city: freshPlaceCity });
   } catch (err) {
     console.error('Analytics error:', err.message);
     if (err.code === 'not_connected') return res.status(503).json({ error: 'not_connected' });
@@ -2443,8 +2456,10 @@ app.post('/api/launches/:id/place-id', requireAuth, async (req, res) => {
     if (typeof place_id !== 'string') return res.status(400).json({ error: 'place_id required' });
     const ref = db.collection('launches').doc(req.params.id);
     if (!(await ref.get()).exists) return res.status(404).json({ error: 'Not found' });
-    await ref.update({ google_place_id: place_id.trim() || null });
-    res.json({ ok: true });
+    const trimmedId = place_id.trim() || null;
+    const city = trimmedId ? await fetchPlaceCity(trimmedId) : null;
+    await ref.update({ google_place_id: trimmedId, ...(city !== undefined ? { place_city: city } : {}) });
+    res.json({ ok: true, place_city: city });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -2705,16 +2720,17 @@ ids must be q1 through q10. upvotes should be realistic numbers between 12 and 8
 
 app.post('/api/blog/post', requireAuth, async (req, res) => {
   try {
-    const { industry, city, question, detail, keywords, bizName, domain, wordCount, placeId } = req.body;
+    const { industry, city: cityParam, question, detail, keywords, bizName, domain, wordCount, placeId } = req.body;
     const kwArray = Array.isArray(keywords) ? keywords.filter(Boolean) : (keywords ? [keywords] : []);
     if (!industry || !question) return res.status(400).json({ error: 'industry and question are required' });
     const words = Math.min(Math.max(parseInt(wordCount) || 600, 400), 1200);
-    const location = city ? ` in ${city}` : '';
     const cleanDomain = domain ? domain.replace(/^https?:\/\//, '').replace(/\/$/, '') : null;
     const geminiKey = await getGeminiKey();
 
-    // Fetch Google place rating if a Place ID is provided
+    // Fetch Google place data (rating + city) if a Place ID is provided
     const placeData = placeId ? await fetchPlaceRating(placeId) : null;
+    const city = cityParam || placeData?.city || '';
+    const location = city ? ` in ${city}` : '';
 
     const keywordLine = kwArray.length
       ? `\nTarget SEO keywords: ${kwArray.map(k => `"${k}"`).join(', ')} — weave these naturally throughout the post. Include "${kwArray[0]}" in the <h1> and at least one <h2>.\n`
