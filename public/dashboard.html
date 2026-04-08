@@ -7844,7 +7844,7 @@ async function generateBlogPost(id, industry, city, question) {
     const res = await fetch('/api/blog/post', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ industry, city, question: question.title, detail: question.detail, keyword: _blogKeyword[id] || null }),
+      body: JSON.stringify({ industry, city, question: question.title, detail: question.detail, keyword: _blogKeyword[id] || null, bizName: analyticsData[id]?.account_name || null, domain: analyticsData[id]?.domain_name || null }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Failed');

@@ -2653,23 +2653,26 @@ ids must be q1 through q10. upvotes should be realistic numbers between 12 and 8
 
 app.post('/api/blog/post', requireAuth, async (req, res) => {
   try {
-    const { industry, city, question, detail, keyword } = req.body;
+    const { industry, city, question, detail, keyword, bizName, domain } = req.body;
     if (!industry || !question) return res.status(400).json({ error: 'industry and question are required' });
     const location = city ? ` in ${city}` : '';
     const geminiKey = await getGeminiKey();
     const keywordLine = keyword
       ? `\nTarget SEO keyword: "${keyword}" — include it naturally in the <h1> title, at least one <h2> heading, and 2-3 times in the body.\n`
       : '';
+    const bizLine = bizName
+      ? `\nBusiness: "${bizName}"${domain ? ` (${domain.replace(/^https?:\/\//, '').replace(/\/$/, '')})` : ''} — use this exact name in the CTA paragraph, never write "[Your Company Name]".\n`
+      : '';
     const prompt = `Write a professional contractor blog post answering this homeowner question about ${industry}${location}.
 
 Question: "${question}"
 Context: ${detail || ''}
-${keywordLine}
+${keywordLine}${bizLine}
 Write an SEO-optimized blog post in clean HTML. Include:
 - A compelling <h1> title (include the location if provided${keyword ? ` and the target keyword` : ''})
 - A brief intro paragraph (2-3 sentences)
 - Three <h2> sections with practical advice
-- A "When to Call a Professional" section with a clear CTA
+- A "When to Call a Professional" section with a clear CTA that mentions the business by name
 - Total length: 400-600 words
 
 Return ONLY the HTML body content (no <html>, <head>, <body> wrapper tags). Use only <h1>, <h2>, <p> tags.`;
