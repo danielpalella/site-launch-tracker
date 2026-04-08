@@ -985,13 +985,12 @@ async function pushOne(siteId, publish) {
   if (!site || !post) return;
   state.published[siteId] = { status: 'saving' };
   buildReviewGrid();
-  const htmlWithSchema = post.jsonLd ? `<script type="application/ld+json">\n${JSON.stringify(post.jsonLd,null,2)}\n<\/script>\n` + post.html : post.html;
   try {
     const r = await fetch(`/api/analytics/${siteId}/push-blog`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        title: post.title, html: htmlWithSchema, publish,
+        title: post.title, html: post.html, publish,
         questionId: state.topic?.id || null,
         keyword: post.keyword || null,
         industry: state.industry, city: post.city || null,
