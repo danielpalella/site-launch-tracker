@@ -25,13 +25,18 @@
 .bb-heading { font-size:1.3rem;font-weight:700;color:var(--text);margin-bottom:.35rem }
 .bb-sub { font-size:.875rem;color:var(--text-muted);margin-bottom:1.5rem }
 
-/* Step 1 — Industry cards */
-.bb-industry-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:.75rem }
-.bb-industry-card { border:2px solid var(--border);border-radius:.75rem;padding:1.1rem .9rem;cursor:pointer;transition:border-color .15s,background .15s;text-align:center }
-.bb-industry-card:hover { border-color:var(--primary,#f59e0b);background:var(--primary-light,#f59e0b11) }
-.bb-industry-card.selected { border-color:var(--primary,#f59e0b);background:var(--primary-light,#f59e0b18) }
-.bb-industry-name { font-size:.9rem;font-weight:700;color:var(--text);margin-bottom:.25rem }
-.bb-industry-count { font-size:.75rem;color:var(--text-muted) }
+/* Inline sites (step 1) */
+.s1-site-row { display:flex;align-items:center;gap:.7rem;padding:.55rem .85rem;border:1px solid var(--border);border-radius:8px;margin-bottom:.35rem;background:var(--surface);transition:opacity .15s }
+.s1-site-row.excluded { opacity:.38 }
+.s1-site-info { flex:1;min-width:0 }
+.s1-site-name { font-size:.82rem;font-weight:600;color:var(--text) }
+.s1-site-domain { font-size:.7rem;color:var(--text-muted) }
+.s1-site-kw { flex-shrink:0;margin-left:auto }
+.s1-kw-chip { font-size:.7rem;font-weight:600;padding:.22rem .65rem;border-radius:20px;cursor:pointer;border:1.5px solid var(--border);background:none;font-family:inherit;color:var(--text-muted);transition:all .15s;white-space:nowrap }
+.s1-kw-chip.active { border-color:#f97316;color:#f97316;background:#fff7ed }
+.s1-kw-chip:hover:not(.active) { border-color:#94a3b8 }
+.s1-kw-spin { display:inline-block;width:10px;height:10px;border:1.5px solid var(--border);border-top-color:var(--text-muted);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle }
+.s1-kw-none { font-size:.7rem;color:var(--text-muted) }
 
 /* Step 2 — Topic picker */
 .bb-topic-grid { display:flex;flex-direction:column;gap:.6rem;margin-bottom:1rem }
@@ -208,11 +213,9 @@
     <div class="bb-step-line"></div>
     <div class="bb-step" data-step="2"><div class="bb-step-num">2</div><span>Topic</span></div>
     <div class="bb-step-line"></div>
-    <div class="bb-step" data-step="3"><div class="bb-step-num">3</div><span>Sites</span></div>
+    <div class="bb-step" data-step="4"><div class="bb-step-num">3</div><span>Generate</span></div>
     <div class="bb-step-line"></div>
-    <div class="bb-step" data-step="4"><div class="bb-step-num">4</div><span>Generate</span></div>
-    <div class="bb-step-line"></div>
-    <div class="bb-step" data-step="5"><div class="bb-step-num">5</div><span>Review</span></div>
+    <div class="bb-step" data-step="5"><div class="bb-step-num">4</div><span>Review</span></div>
   </div>
 
   <!-- ── Step 1: Industry ── -->
@@ -239,6 +242,13 @@
     <div class="s1-ind-grid" id="bb-industry-grid">
       <div style="grid-column:1/-1" class="bb-empty">Loading industries…</div>
     </div>
+    <!-- Inline sites (shown after selecting an industry) -->
+    <div id="s1-sites-section" style="display:none">
+      <div class="s1-section-label" style="margin-top:1.5rem">SITES IN THIS INDUSTRY</div>
+      <div id="s1-sites-header"></div>
+      <div id="s1-sites-list"></div>
+    </div>
+
     <div id="s1-recent-wrap" style="display:none">
       <div class="s1-section-label">RECENTLY GENERATED</div>
       <div class="s1-recent" id="s1-recent-list"></div>
@@ -256,7 +266,7 @@
     <div id="bb-topic-grid" class="bb-topic-grid" style="margin-top:1rem"></div>
     <div style="margin-top:1.5rem;display:flex;justify-content:space-between">
       <button class="bb-btn bb-btn-outline" onclick="goStep(1)">← Back</button>
-      <button class="bb-btn bb-btn-primary" id="bb-step2-next" disabled onclick="goStep(3)">Next →</button>
+      <button class="bb-btn bb-btn-primary" id="bb-step2-next" disabled onclick="proceedToGenerate()">Generate posts →</button>
     </div>
   </div>
 
@@ -321,7 +331,7 @@
     </div>
     <div class="bb-review-grid" id="bb-review-grid"></div>
     <div style="margin-top:1.5rem;display:flex;justify-content:space-between;align-items:center">
-      <button class="bb-btn bb-btn-outline" onclick="goStep(3)">← Back to sites</button>
+      <button class="bb-btn bb-btn-outline" onclick="goStep(2)">← Back to topic</button>
       <button class="bb-btn bb-btn-primary" onclick="startNewBatch()">Generate another batch →</button>
     </div>
   </div>
@@ -477,6 +487,7 @@ function selectIndustry(el, name, count) {
   state.published = {};
   saveState();
   showStickyBar(name, count);
+  loadSitesInline(name);
 }
 
 function showStickyBar(name, count) {
@@ -524,6 +535,130 @@ async function loadRecent() {
       </div>`;
     }).join('');
   } catch {}
+}
+
+// ── Step 1: Inline sites ──
+function cleanDomain(raw) {
+  return (raw || '').replace(/^https?:\/\//,'').replace(/^www\./,'').replace(/\/.*$/,'');
+}
+
+async function loadSitesInline(industryName) {
+  const section = document.getElementById('s1-sites-section');
+  const list = document.getElementById('s1-sites-list');
+  section.style.display = '';
+  list.innerHTML = '<div style="padding:.5rem 0;font-size:.8rem;color:var(--text-muted)">Loading sites…</div>';
+  document.getElementById('s1-sites-header').innerHTML = '';
+  try {
+    const r = await fetch(`/api/bulk-blog/sites?industry=${encodeURIComponent(industryName)}`);
+    const { sites } = await r.json();
+    if (!state.sites.length || state.industry !== industryName) {
+      sites.forEach(s => { s.included = true; });
+      state.sites = sites;
+    } else {
+      sites.forEach(s => {
+        const existing = state.sites.find(e => e.id === s.id);
+        if (existing) Object.assign(s, { included: existing.included ?? true, gsc_keyword: existing.gsc_keyword, gsc_keyword_reason: existing.gsc_keyword_reason, keyword_override: existing.keyword_override, city_override: existing.city_override });
+        else s.included = true;
+      });
+      state.sites = sites;
+    }
+    saveState();
+    renderSitesInline();
+    const includedCount = state.sites.filter(s => s.included).length;
+    showStickyBar(industryName, includedCount);
+    // Lazy-load GSC keyword chips in batches of 5
+    const chunks = [];
+    for (let i = 0; i < sites.length; i += 5) chunks.push(sites.slice(i, i + 5));
+    for (const chunk of chunks) {
+      await Promise.all(chunk.map(async s => {
+        if (s.gsc_keyword !== undefined) return;
+        try {
+          const kr = await fetch(`/api/bulk-blog/gsc-keyword/${s.id}`);
+          const kd = await kr.json();
+          s.gsc_keyword = kd.keyword || null;
+          s.gsc_keyword_reason = kd.reason || null;
+        } catch { s.gsc_keyword = null; }
+        updateSiteKwChip(s);
+        saveState();
+      }));
+    }
+  } catch (e) {
+    list.innerHTML = `<div style="padding:.5rem 0;font-size:.8rem;color:#ef4444">Failed to load sites: ${esc(e.message)}</div>`;
+  }
+}
+
+function renderSitesInline() {
+  const list = document.getElementById('s1-sites-list');
+  const header = document.getElementById('s1-sites-header');
+  const included = state.sites.filter(s => s.included).length;
+  header.innerHTML = `<div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.6rem">
+    <span id="s1-sites-count-label" style="font-size:.78rem;color:var(--text-muted)">${included} of ${state.sites.length} selected</span>
+    <button class="bb-btn bb-btn-ghost bb-btn-sm" onclick="toggleAllSitesInline(true)">Select all</button>
+    <button class="bb-btn bb-btn-ghost bb-btn-sm" onclick="toggleAllSitesInline(false)">Deselect all</button>
+  </div>`;
+  list.innerHTML = state.sites.map(s => {
+    const domain = cleanDomain(s.domain_name);
+    const favicon = domain ? `<img src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=16" width="16" height="16" style="border-radius:3px;flex-shrink:0" onerror="this.style.display='none'">` : '';
+    const kwHtml = s.gsc_keyword === undefined
+      ? `<span class="s1-kw-spin"></span>`
+      : s.gsc_keyword
+        ? `<button class="s1-kw-chip${s.keyword_override === s.gsc_keyword ? ' active' : ''}" onclick="toggleSiteKwInline('${s.id}')" id="s1-kw-chip-${s.id}">${esc(s.gsc_keyword)}</button>`
+        : `<span class="s1-kw-none">—</span>`;
+    return `<div class="s1-site-row${s.included ? '' : ' excluded'}" id="s1-site-row-${s.id}">
+      <input type="checkbox" ${s.included ? 'checked' : ''} onchange="toggleSiteInline('${s.id}',this.checked)" style="cursor:pointer;flex-shrink:0">
+      <div style="display:flex;align-items:center;gap:.4rem;flex-shrink:0">${favicon}</div>
+      <div class="s1-site-info">
+        <div class="s1-site-name">${esc(s.account_name)}</div>
+        <div class="s1-site-domain">${esc(domain)}</div>
+      </div>
+      <div class="s1-site-kw" id="s1-site-kw-${s.id}">${kwHtml}</div>
+    </div>`;
+  }).join('') || '<div style="padding:.5rem 0;font-size:.8rem;color:var(--text-muted)">No sites found.</div>';
+}
+
+function updateSiteKwChip(s) {
+  const kw = document.getElementById(`s1-site-kw-${s.id}`);
+  if (!kw) return;
+  if (s.gsc_keyword) {
+    kw.innerHTML = `<button class="s1-kw-chip${s.keyword_override === s.gsc_keyword ? ' active' : ''}" onclick="toggleSiteKwInline('${s.id}')" id="s1-kw-chip-${s.id}">${esc(s.gsc_keyword)}</button>`;
+  } else {
+    kw.innerHTML = `<span class="s1-kw-none">—</span>`;
+  }
+}
+
+function toggleSiteInline(id, checked) {
+  const s = state.sites.find(s => s.id === id);
+  if (s) { s.included = checked; saveState(); }
+  const row = document.getElementById(`s1-site-row-${id}`);
+  if (row) row.classList.toggle('excluded', !checked);
+  const included = state.sites.filter(s => s.included).length;
+  showStickyBar(state.industry, included);
+  const lbl = document.getElementById('s1-sites-count-label');
+  if (lbl) lbl.textContent = `${included} of ${state.sites.length} selected`;
+}
+
+function toggleAllSitesInline(checked) {
+  state.sites.forEach(s => { s.included = checked; });
+  saveState();
+  renderSitesInline();
+  const included = state.sites.filter(s => s.included).length;
+  showStickyBar(state.industry, included);
+}
+
+function toggleSiteKwInline(id) {
+  const s = state.sites.find(x => x.id === id);
+  if (!s || !s.gsc_keyword) return;
+  s.keyword_override = s.keyword_override === s.gsc_keyword ? null : s.gsc_keyword;
+  saveState();
+  const chip = document.getElementById(`s1-kw-chip-${id}`);
+  if (chip) chip.classList.toggle('active', s.keyword_override === s.gsc_keyword);
+}
+
+function proceedToGenerate() {
+  if (!state.sites.length) { showToast('Sites are still loading. Please wait.', 'error'); return; }
+  const included = state.sites.filter(s => s.included);
+  if (!included.length) { showToast('No sites selected', 'error'); return; }
+  startGeneration();
 }
 
 // ── Step 2: Topics ──
@@ -877,24 +1012,20 @@ function confirmPublishAll() {
 }
 
 // ── Restore state / init ──
+// Remap old step 3 (Sites) to step 2 since Sites is now inline in step 1
+if (state.step === 3) state.step = 2;
 goStep(state.step);
 loadIndustries();
 
-// If returning to a step that needs data
-if (state.step >= 2 && state.industry) {
-  // Topic grid will reload on demand
-}
-if (state.step === 3 && state.industry) {
-  loadSites();
-}
-if (state.step === 5) {
-  buildReviewGrid();
+if (state.step === 1 && state.industry) {
+  showStickyBar(state.industry, state.industryCount || 0);
+  loadSitesInline(state.industry);
 }
 if (state.step === 2 && state.topic) {
   document.getElementById('bb-step2-next').disabled = false;
 }
-if (state.step === 1 && state.industry) {
-  showStickyBar(state.industry, state.industryCount || 0);
+if (state.step === 5) {
+  buildReviewGrid();
 }
 
 function startNewBatch() {
@@ -902,13 +1033,18 @@ function startNewBatch() {
   location.reload();
 }
 
-// Step 2: load topics when entering step 2
 const origGoStep = goStep;
 window.goStep = function(n) {
   origGoStep(n);
-  if (n === 1) { if (state.industry) showStickyBar(state.industry, state.industryCount || 0); }
-  else { hideStickyBar(); }
-  if (n === 3 && state.industry) loadSites();
+  if (n === 1) {
+    if (state.industry) {
+      showStickyBar(state.industry, state.sites.filter(s => s.included).length || state.industryCount || 0);
+      if (!document.getElementById('s1-site-row-' + (state.sites[0]?.id || ''))) loadSitesInline(state.industry);
+      document.getElementById('s1-sites-section').style.display = state.industry ? '' : 'none';
+    }
+  } else {
+    hideStickyBar();
+  }
   if (n === 5) buildReviewGrid();
 };
 </script>
