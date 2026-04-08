@@ -1761,15 +1761,29 @@ async function fetchPlaceRating(placeId) {
   try {
     const key = await getPlacesApiKey();
     if (!key) return null;
-    const r = await fetch(`https://maps.googleapis.com/maps/api/place/details/json?place_id=${encodeURIComponent(placeId)}&fields=rating,user_ratings_total,address_components&key=${key}`);
+    const r = await fetch(`https://maps.googleapis.com/maps/api/place/details/json?place_id=${encodeURIComponent(placeId)}&fields=rating,user_ratings_total,address_components,vicinity,formatted_address&key=${key}`);
     const d = await r.json();
     if (d.status !== 'OK' || !d.result) return null;
+
+    // Extract city — SABs hide their address so address_components may be empty;
+    // fall back to vicinity then formatted_address which Google still returns
     const comps = d.result.address_components || [];
     const cityComp  = comps.find(c => c.types.includes('locality'));
     const stateComp = comps.find(c => c.types.includes('administrative_area_level_1'));
-    const city = cityComp && stateComp
+    let city = cityComp && stateComp
       ? `${cityComp.long_name}, ${stateComp.short_name}`
       : (cityComp?.long_name || null);
+
+    if (!city && d.result.vicinity) {
+      // vicinity is typically "City, State" or just "City" for SABs
+      city = d.result.vicinity;
+    }
+    if (!city && d.result.formatted_address) {
+      // formatted_address is "Street, City, State ZIP, Country" — extract City, ST
+      const m = d.result.formatted_address.match(/([^,]+),\s*([A-Z]{2})\s+\d/);
+      if (m) city = `${m[1].trim()}, ${m[2]}`;
+    }
+
     return { rating: d.result.rating || null, reviewCount: d.result.user_ratings_total || null, city };
   } catch { return null; }
 }
