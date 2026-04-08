@@ -4699,3 +4699,9 @@ mark.schema-fill-mark {
   flex-shrink: 0;
 }
 .acfp-item.active .acfp-count { display: none; }
+
+@keyframes scribble-draw {
+  0%   { stroke-dashoffset: 60; opacity: .5; }
+  60%  { stroke-dashoffset: 0;  opacity: 1; }
+  100% { stroke-dashoffset: 0;  opacity: 1; }
+}
