@@ -2899,7 +2899,10 @@ loadTagsRegistry();
 // Handle post-OAuth redirects
 (function() {
   const p = new URLSearchParams(window.location.search);
-  if (p.get('tab') === 'analytics') {
+  if (p.get('tab') === 'edit-requests') {
+    switchTab('edit-requests');
+    window.history.replaceState({}, '', '/dashboard');
+  } else if (p.get('tab') === 'analytics') {
     switchTab('analytics');
     if (p.get('analytics_connected')) showToast('Analytics account connected!');
     window.history.replaceState({}, '', '/dashboard');
