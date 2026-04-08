@@ -2535,6 +2535,20 @@ async function getRedditToken() {
 }
 
 // ── Blog Generator ──
+// Returns true for Reddit titles too vague to generate a useful blog post from
+function isVagueTitle(title) {
+  if (!title) return true;
+  const t = title.trim();
+  if (t.length < 20) return true;
+  // Purely demonstrative — no concrete subject
+  if (/^(what|which|who)\s+(is|are|was|were)?\s*(this|these|that|those|it)\b/i.test(t)) return true;
+  if (/^which\s+one\b/i.test(t)) return true;
+  if (/^(what would you do|wwyd)\b/i.test(t)) return true;
+  // Short sentences whose only noun is a demonstrative
+  if (t.split(/\s+/).length <= 6 && /\b(this|these|that|those)\b/i.test(t)) return true;
+  return false;
+}
+
 const INDUSTRY_SUBREDDITS = {
   'plumbing':           ['Plumbing', 'DIY', 'HomeImprovement'],
   'roofing':            ['Roofing', 'HomeImprovement', 'DIY'],
@@ -2575,6 +2589,7 @@ app.post('/api/blog/questions', requireAuth, async (req, res) => {
         const posts = (rData.data?.children || [])
           .filter(p =>
             !p.data.stickied && p.data.score > 5 && p.data.title &&
+            !isVagueTitle(p.data.title) &&
             (p.data.title.includes('?') || (p.data.selftext && p.data.selftext.length > 20))
           )
           .map((p, i) => ({
@@ -2604,7 +2619,7 @@ app.post('/api/blog/questions', requireAuth, async (req, res) => {
           const xml = await rRes.text();
           const titles = [...xml.matchAll(/<entry>[\s\S]*?<title[^>]*>([^<]+)<\/title>/g)]
             .map(m => m[1].trim().replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>'))
-            .filter(t => t.includes('?'));
+            .filter(t => t.includes('?') && !isVagueTitle(t));
           const newPosts = titles.map((title, i) => ({
             id: 'q' + (questions.length + i + 1),
             title,
@@ -2653,27 +2668,32 @@ ids must be q1 through q10. upvotes should be realistic numbers between 12 and 8
 
 app.post('/api/blog/post', requireAuth, async (req, res) => {
   try {
-    const { industry, city, question, detail, keyword, bizName, domain } = req.body;
+    const { industry, city, question, detail, keywords, bizName, domain, wordCount } = req.body;
+    const kwArray = Array.isArray(keywords) ? keywords.filter(Boolean) : (keywords ? [keywords] : []);
     if (!industry || !question) return res.status(400).json({ error: 'industry and question are required' });
+    const words = Math.min(Math.max(parseInt(wordCount) || 600, 400), 1200);
     const location = city ? ` in ${city}` : '';
     const geminiKey = await getGeminiKey();
-    const keywordLine = keyword
-      ? `\nTarget SEO keyword: "${keyword}" — include it naturally in the <h1> title, at least one <h2> heading, and 2-3 times in the body.\n`
+    const keywordLine = kwArray.length
+      ? `\nTarget SEO keywords: ${kwArray.map(k => `"${k}"`).join(', ')} — weave these naturally throughout the post. Include "${kwArray[0]}" in the <h1> and at least one <h2>.\n`
       : '';
     const bizLine = bizName
       ? `\nBusiness: "${bizName}"${domain ? ` (${domain.replace(/^https?:\/\//, '').replace(/\/$/, '')})` : ''} — use this exact name in the CTA paragraph, never write "[Your Company Name]".\n`
       : '';
+    const cityLine = city
+      ? `\nService area: "${city}" — mention this city/region naturally in the <h1>, the intro paragraph, and the CTA to improve local SEO.\n`
+      : '';
     const prompt = `Write a professional contractor blog post answering this homeowner question about ${industry}${location}.
 
 Question: "${question}"
-Context: ${detail || ''}
-${keywordLine}${bizLine}
+Context: ${detail || '(no additional context)'}
+${keywordLine}${bizLine}${cityLine}
 Write an SEO-optimized blog post in clean HTML. Include:
-- A compelling <h1> title (include the location if provided${keyword ? ` and the target keyword` : ''})
+- A compelling <h1> title — rewrite the source question into an SEO-friendly blog title (e.g. not "Which one of yall did this?" but "5 Signs Your Roof Was Damaged in a Storm")${kwArray.length ? ` Include the target keyword.` : ''}${city ? ` Include "${city}".` : ''}
 - A brief intro paragraph (2-3 sentences)
 - Three <h2> sections with practical advice
 - A "When to Call a Professional" section with a clear CTA that mentions the business by name
-- Total length: 400-600 words
+- Total length: approximately ${words} words
 
 Return ONLY the HTML body content (no <html>, <head>, <body> wrapper tags). Use only <h1>, <h2>, <p> tags.`;
 
@@ -2687,7 +2707,25 @@ Return ONLY the HTML body content (no <html>, <head>, <body> wrapper tags). Use 
     const raw = gData.candidates?.[0]?.content?.parts?.[0]?.text || '';
     const post = raw.replace(/^```html?\n?/i, '').replace(/\n?```$/m, '').trim();
     if (!post) throw new Error('Gemini returned no content');
-    res.json({ post });
+
+    // Build BlogPosting JSON-LD from the generated content
+    const h1Match   = post.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+    const pMatch    = post.match(/<p[^>]*>([\s\S]*?)<\/p>/i);
+    const jsonLdTitle = h1Match ? h1Match[1].replace(/<[^>]+>/g, '').trim() : question;
+    const jsonLdDesc  = pMatch  ? pMatch[1].replace(/<[^>]+>/g, '').trim().slice(0, 160) : '';
+    const cleanDomain = domain ? domain.replace(/^https?:\/\//, '').replace(/\/$/, '') : null;
+    const jsonLd = {
+      '@context': 'https://schema.org',
+      '@type': 'BlogPosting',
+      headline: jsonLdTitle,
+      ...(jsonLdDesc ? { description: jsonLdDesc } : {}),
+      datePublished: new Date().toISOString().slice(0, 10),
+      author:    { '@type': 'Organization', name: bizName || industry },
+      publisher: { '@type': 'Organization', name: bizName || industry },
+      ...(cleanDomain ? { url: `https://${cleanDomain}` } : {}),
+    };
+
+    res.json({ post, jsonLd, metaDesc: jsonLdDesc });
   } catch (err) {
     console.error('blog/post error:', err);
     res.status(500).json({ error: err.message });

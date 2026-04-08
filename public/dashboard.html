@@ -6173,7 +6173,10 @@ function renderAnalyticsModalBody(id, data, forms) {
   ])].slice(0, 8);
   const blogKwSection = (gsc.available && _blogKwList.length)
     ? '<div class="blog-kw-section" id="blog-kw-section-' + esc(id) + '">'
-      + '<div class="blog-field-label"><img src="/gsc-icon.png" style="width:12px;height:12px;vertical-align:middle;margin-right:.3rem;opacity:.7"> GSC Keywords <span class="blog-optional-badge">Optional — boosts SEO</span></div>'
+      + '<div class="blog-kw-header">'
+      + '<span class="blog-kw-label"><img src="/gsc-icon.png" style="width:12px;height:12px;vertical-align:middle;margin-right:.3rem;opacity:.7"> GSC KEYWORDS</span>'
+      + '<span id="blog-kw-status-' + esc(id) + '" class="blog-kw-status">Click to boost SEO</span>'
+      + '</div>'
       + '<div class="blog-kw-chips">'
       + _blogKwList.map(kw => '<button class="blog-kw-chip' + (_blogOppSet.has(kw) ? ' blog-kw-opp' : '') + '" onclick="selectBlogKeyword(\'' + esc(id) + '\',this)" data-kw="' + esc(kw) + '">' + esc(kw) + '</button>').join('')
       + '</div></div>'
@@ -6229,6 +6232,10 @@ function renderAnalyticsModalBody(id, data, forms) {
       </div>
     </div>
     <div id="acd-tp-blog-${id}" class="acd-tab-pane" style="display:none">
+      <div class="blog-header">
+        <div class="blog-header-title">Blog generator</div>
+        <div class="blog-header-sub">Surface real questions from Reddit, boost with GSC keywords, generate a post.</div>
+      </div>
       <div class="blog-top-row">
         <div class="blog-field">
           <label class="blog-field-label">Industry</label>
@@ -6239,17 +6246,41 @@ function renderAnalyticsModalBody(id, data, forms) {
           <input type="text" id="blog-city-${id}" class="blog-field-input" placeholder="e.g. Austin, TX">
         </div>
         <button class="blog-get-q-btn" id="blog-get-q-btn-${id}" onclick="generateBlogQuestions('${esc(id)}')">
-          <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="-25.65 -42.75 222.3 256.5" style="flex-shrink:0"><g transform="translate(-85.4 -85.4)"><circle r="85.5" cy="170.9" cx="170.9" fill="#ff4500"/><path d="M227.9 170.9c0-6.9-5.6-12.5-12.5-12.5-3.4 0-6.4 1.3-8.6 3.5-8.5-6.1-20.3-10.1-33.3-10.6l5.7-26.7 18.5 3.9c.2 4.7 4.1 8.5 8.9 8.5 4.9 0 8.9-4 8.9-8.9s-4-8.9-8.9-8.9c-3.5 0-6.5 2-7.9 5l-20.7-4.4c-.6-.1-1.2 0-1.7.3s-.8.8-1 1.4l-6.3 29.8c-13.3.4-25.2 4.3-33.8 10.6-2.2-2.1-5.3-3.5-8.6-3.5-6.9 0-12.5 5.6-12.5 12.5 0 5.1 3 9.4 7.4 11.4-.2 1.2-.3 2.5-.3 3.8 0 19.2 22.3 34.7 49.9 34.7 27.6 0 49.9-15.5 49.9-34.7 0-1.3-.1-2.5-.3-3.7 4.1-2 7.2-6.4 7.2-11.5zm-85.5 8.9c0-4.9 4-8.9 8.9-8.9s8.9 4 8.9 8.9-4 8.9-8.9 8.9-8.9-4-8.9-8.9zm49.7 23.5c-6.1 6.1-17.7 6.5-21.1 6.5-3.4 0-15.1-.5-21.1-6.5-.9-.9-.9-2.4 0-3.3.9-.9 2.4-.9 3.3 0 3.8 3.8 12 5.2 17.9 5.2 5.9 0 14-1.4 17.9-5.2.9-.9 2.4-.9 3.3 0 .7 1 .7 2.4-.2 3.3zm-1.6-14.6c-4.9 0-8.9-4-8.9-8.9s4-8.9 8.9-8.9 8.9 4 8.9 8.9-4 8.9-8.9 8.9z" fill="#fff"/></g></svg>
-          Get Questions
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="-25.65 -42.75 222.3 256.5" style="flex-shrink:0"><g transform="translate(-85.4 -85.4)"><circle r="85.5" cy="170.9" cx="170.9" fill="#ff4500"/><path d="M227.9 170.9c0-6.9-5.6-12.5-12.5-12.5-3.4 0-6.4 1.3-8.6 3.5-8.5-6.1-20.3-10.1-33.3-10.6l5.7-26.7 18.5 3.9c.2 4.7 4.1 8.5 8.9 8.5 4.9 0 8.9-4 8.9-8.9s-4-8.9-8.9-8.9c-3.5 0-6.5 2-7.9 5l-20.7-4.4c-.6-.1-1.2 0-1.7.3s-.8.8-1 1.4l-6.3 29.8c-13.3.4-25.2 4.3-33.8 10.6-2.2-2.1-5.3-3.5-8.6-3.5-6.9 0-12.5 5.6-12.5 12.5 0 5.1 3 9.4 7.4 11.4-.2 1.2-.3 2.5-.3 3.8 0 19.2 22.3 34.7 49.9 34.7 27.6 0 49.9-15.5 49.9-34.7 0-1.3-.1-2.5-.3-3.7 4.1-2 7.2-6.4 7.2-11.5zm-85.5 8.9c0-4.9 4-8.9 8.9-8.9s8.9 4 8.9 8.9-4 8.9-8.9 8.9-8.9-4-8.9-8.9zm49.7 23.5c-6.1 6.1-17.7 6.5-21.1 6.5-3.4 0-15.1-.5-21.1-6.5-.9-.9-.9-2.4 0-3.3.9-.9 2.4-.9 3.3 0 3.8 3.8 12 5.2 17.9 5.2 5.9 0 14-1.4 17.9-5.2.9-.9 2.4-.9 3.3 0 .7 1 .7 2.4-.2 3.3zm-1.6-14.6c-4.9 0-8.9-4-8.9-8.9s4-8.9 8.9-8.9 8.9 4 8.9 8.9-4 8.9-8.9 8.9z" fill="#fff"/></g></svg>
+          Get ideas
         </button>
       </div>
       ${blogKwSection}
       <div id="blog-q-area-${id}" style="display:none">
-        <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.6rem">
-          <span style="font-size:.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em" id="blog-q-label-${id}">Questions</span>
-          <span id="blog-q-source-${id}" style="font-size:.7rem;font-weight:600;border-radius:20px;padding:.15rem .55rem;display:none"></span>
+        <hr class="blog-section-divider">
+        <div class="blog-q-header">
+          <div style="display:flex;align-items:center;gap:.6rem">
+            <span class="blog-q-section-title">Top posts</span>
+            <span id="blog-q-source-${id}" style="font-size:.7rem;font-weight:600;border-radius:20px;padding:.15rem .55rem;display:none"></span>
+          </div>
+          <span id="blog-q-count-${id}" class="blog-q-count" style="display:none"></span>
         </div>
         <div id="blog-q-grid-${id}" class="blog-q-grid"></div>
+        <div id="blog-ready-panel-${id}" class="blog-ready-panel" style="display:none">
+          <div class="blog-ready-left">
+            <div class="blog-ready-title">Ready to generate</div>
+            <div class="blog-ready-status" id="blog-ready-status-${id}">Select a post above to get started</div>
+            <div class="blog-ready-features">
+              <span class="blog-ready-feat blog-ready-feat-green">BlogPosting schema included</span>
+              <span class="blog-ready-feat blog-ready-feat-blue">SEO title rewrite</span>
+              <span class="blog-ready-feat blog-ready-feat-blue">Meta description</span>
+            </div>
+          </div>
+          <div class="blog-ready-right">
+            <select id="blog-word-count-${id}" class="blog-ready-words">
+              <option value="400">~400 words</option>
+              <option value="600" selected>~600 words</option>
+              <option value="800">~800 words</option>
+              <option value="1200">~1200 words</option>
+            </select>
+            <button id="blog-generate-btn-${id}" class="blog-generate-btn" onclick="generateBlogPost('${esc(id)}')" disabled>Generate blog post</button>
+          </div>
+        </div>
       </div>
       <div id="blog-post-area-${id}" style="display:none;margin-top:1.25rem">
         <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.65rem;flex-wrap:wrap">
@@ -6272,7 +6303,7 @@ function renderAnalyticsModalBody(id, data, forms) {
         <div class="blog-history-empty-wrap">
           <svg class="blog-history-empty-icon" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
           <div class="blog-history-empty-title">No posts sent yet</div>
-          <div class="blog-history-empty-sub">Generate questions above and send them to Duda to get started.</div>
+          <div class="blog-history-empty-sub">Select a post above, generate, and send it to Duda to get started.</div>
         </div>
       </div>
     </div>
@@ -7690,26 +7721,71 @@ async function generateBlogDraft(id, keyword, btnEl) {
 }
 
 // ── Blog Generator (modal-scoped) ────────────────────────────────────
-const _blogPosts     = {}; // { [siteId]: { title, html, industry, city } }
-const _blogKeyword   = {}; // { [siteId]: string } — selected GSC keyword
+const _blogPosts     = {}; // { [siteId]: { title, html, jsonLd, industry, city } }
+const _blogKeywords  = {}; // { [siteId]: Set<string> } — selected GSC keywords (multi-select)
 const _blogQuestions = {}; // { [siteId]: Question[] } — full pool for X/replace
+const _blogDismissed = {}; // { [siteId]: Set<string> } — dismissed question IDs
+const _blogSelectedQ = {}; // { [siteId]: Question } — currently selected question
 
 function makeBlogQCard(id, q, industry, city) {
   const card = document.createElement('div');
   card.className = 'blog-q-card';
   card.id = 'bq-' + id + '-' + q.id;
   card.dataset.qid = q.id;
-  const subBadge  = q.subreddit ? '<span class="blog-q-sub">r/' + esc(q.subreddit) + '</span>' : '';
-  const detailHtml = q.detail   ? '<div class="blog-q-detail">' + esc(q.detail) + '</div>' : '';
+  const subBadge   = q.subreddit ? '<span class="blog-q-sub">r/' + esc(q.subreddit) + '</span>' : '';
+  const upvotesSpan = q.upvotes != null ? '<span class="blog-q-upvotes">' + (q.upvotes > 999 ? (q.upvotes / 1000).toFixed(1) + 'k' : q.upvotes) + ' upvotes</span>' : '';
   card.innerHTML =
-    '<button class="blog-q-dismiss" onclick="dismissBlogQuestion(\'' + id + '\',\'' + q.id + '\',event)" title="Skip">✕</button>' +
-    '<div class="blog-q-votes">' + (q.upvotes != null ? '▲ ' + (q.upvotes > 999 ? (q.upvotes / 1000).toFixed(1) + 'k' : q.upvotes) : '—') + '</div>' +
-    '<div class="blog-q-body">' +
+    '<button class="blog-q-dismiss" onclick="dismissBlogQuestion(\'' + id + '\',\'' + q.id + '\',event)" title="Dismiss — load next post">✕</button>' +
+    '<div class="blog-q-card-main">' +
       '<div class="blog-q-title">' + esc(q.title) + '</div>' +
-      detailHtml + subBadge +
-    '</div>';
-  card.onclick = () => generateBlogPost(id, industry, city, q);
+      '<button class="blog-q-use-btn">Use this</button>' +
+    '</div>' +
+    '<div class="blog-q-card-foot">' + subBadge + upvotesSpan + '</div>';
+  card.querySelector('.blog-q-use-btn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    selectBlogQuestion(id, q, e.currentTarget);
+  });
   return card;
+}
+
+function selectBlogQuestion(id, q, btnEl) {
+  // Toggle off if same card re-clicked
+  if (_blogSelectedQ[id]?.id === q.id) {
+    delete _blogSelectedQ[id];
+    btnEl.textContent = 'Use this';
+    btnEl.classList.remove('blog-q-use-selected');
+    document.getElementById('bq-' + id + '-' + q.id)?.classList.remove('blog-q-card-active');
+  } else {
+    // Deselect previous
+    if (_blogSelectedQ[id]) {
+      const prev = document.getElementById('bq-' + id + '-' + _blogSelectedQ[id].id);
+      if (prev) {
+        prev.classList.remove('blog-q-card-active');
+        const pb = prev.querySelector('.blog-q-use-btn');
+        if (pb) { pb.textContent = 'Use this'; pb.classList.remove('blog-q-use-selected'); }
+      }
+    }
+    _blogSelectedQ[id] = q;
+    btnEl.textContent = 'Selected';
+    btnEl.classList.add('blog-q-use-selected');
+    document.getElementById('bq-' + id + '-' + q.id)?.classList.add('blog-q-card-active');
+  }
+  updateReadyPanel(id);
+}
+
+function updateReadyPanel(id) {
+  const genBtn = document.getElementById('blog-generate-btn-' + id);
+  const statusEl = document.getElementById('blog-ready-status-' + id);
+  if (!genBtn || !statusEl) return;
+  const industry = document.getElementById('blog-industry-' + id)?.value.trim() || '';
+  const kwCount  = (_blogKeywords[id] || new Set()).size;
+  const hasPost  = !!_blogSelectedQ[id];
+  const parts = [];
+  parts.push(hasPost ? '1 post selected' : 'No post selected');
+  if (kwCount > 0) parts.push(kwCount + ' GSC keyword' + (kwCount > 1 ? 's' : '') + ' active');
+  if (industry) parts.push('Industry: ' + industry);
+  statusEl.textContent = parts.join(' · ');
+  genBtn.disabled = !hasPost;
 }
 
 function dismissBlogQuestion(id, qId, e) {
@@ -7717,10 +7793,21 @@ function dismissBlogQuestion(id, qId, e) {
   const card = document.getElementById('bq-' + id + '-' + qId);
   if (!card) return;
   card.remove();
-  // Show next unseen question from pool
+  if (!_blogDismissed[id]) _blogDismissed[id] = new Set();
+  _blogDismissed[id].add(qId);
+  // Clear selection if dismissed card was selected
+  if (_blogSelectedQ[id]?.id === qId) {
+    delete _blogSelectedQ[id];
+    updateReadyPanel(id);
+  }
+  // Update count badge
   const grid = document.getElementById('blog-q-grid-' + id);
+  const remaining = grid.querySelectorAll('.blog-q-card').length;
+  const countEl = document.getElementById('blog-q-count-' + id);
+  if (countEl) countEl.textContent = remaining + ' post' + (remaining !== 1 ? 's' : '');
+  // Show next unseen, non-dismissed question from pool
   const shownIds = new Set([...grid.querySelectorAll('.blog-q-card')].map(c => c.dataset.qid));
-  const next = (_blogQuestions[id] || []).find(q => !shownIds.has(q.id));
+  const next = (_blogQuestions[id] || []).find(q => !shownIds.has(q.id) && !_blogDismissed[id].has(q.id));
   if (next) {
     const industry = document.getElementById('blog-industry-' + id)?.value.trim() || '';
     const city     = document.getElementById('blog-city-' + id)?.value.trim() || '';
@@ -7745,18 +7832,20 @@ function toggleBlogEdit(id) {
 }
 
 function selectBlogKeyword(id, btnEl) {
+  if (!_blogKeywords[id]) _blogKeywords[id] = new Set();
   const kw = btnEl.dataset.kw;
-  const prev = _blogKeyword[id];
-  // Toggle off if same keyword clicked again
-  if (prev === kw) {
-    delete _blogKeyword[id];
-    document.querySelectorAll('#blog-kw-section-' + id + ' .blog-kw-chip').forEach(c => c.classList.remove('blog-kw-active'));
-    return;
+  if (_blogKeywords[id].has(kw)) {
+    _blogKeywords[id].delete(kw);
+    btnEl.classList.remove('blog-kw-active', 'blog-kw-injected');
+  } else {
+    _blogKeywords[id].add(kw);
+    btnEl.classList.add('blog-kw-active');
+    btnEl.classList.remove('blog-kw-injected');
   }
-  _blogKeyword[id] = kw;
-  document.querySelectorAll('#blog-kw-section-' + id + ' .blog-kw-chip').forEach(c => {
-    c.classList.toggle('blog-kw-active', c.dataset.kw === kw);
-  });
+  const count = _blogKeywords[id].size;
+  const statusEl = document.getElementById('blog-kw-status-' + id);
+  if (statusEl) statusEl.textContent = count > 0 ? 'Click to boost SEO — ' + count + ' selected' : 'Click to boost SEO';
+  updateReadyPanel(id);
 }
 
 async function generateBlogQuestions(id) {
@@ -7801,22 +7890,41 @@ async function generateBlogQuestions(id) {
       srcEl.style.display = '';
     }
     _blogQuestions[id] = data.questions; // store full pool for X/replace
+    _blogDismissed[id] = new Set();      // reset dismissed on fresh fetch
+    delete _blogSelectedQ[id];           // reset selection on fresh fetch
     qa.style.display = '';
     grid.innerHTML = '';
     data.questions.slice(0, 6).forEach(q => grid.appendChild(makeBlogQCard(id, q, industry, city)));
+    // Show ready panel and update count
+    const readyPanel = document.getElementById('blog-ready-panel-' + id);
+    if (readyPanel) readyPanel.style.display = '';
+    const countEl = document.getElementById('blog-q-count-' + id);
+    if (countEl) {
+      const total = Math.min(data.questions.length, 6);
+      countEl.textContent = total + ' post' + (total !== 1 ? 's' : '');
+      countEl.style.display = '';
+    }
+    updateReadyPanel(id);
   } catch (err) {
     grid.innerHTML = '<div style="color:var(--danger,#ef4444);font-size:.875rem;padding:.5rem 0">' + esc(err.message) + '</div>';
     qa.style.display = '';
   } finally {
     btn.disabled = false;
-    btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="-25.65 -42.75 222.3 256.5" style="flex-shrink:0"><g transform="translate(-85.4 -85.4)"><circle r="85.5" cy="170.9" cx="170.9" fill="#ff4500"/><path d="M227.9 170.9c0-6.9-5.6-12.5-12.5-12.5-3.4 0-6.4 1.3-8.6 3.5-8.5-6.1-20.3-10.1-33.3-10.6l5.7-26.7 18.5 3.9c.2 4.7 4.1 8.5 8.9 8.5 4.9 0 8.9-4 8.9-8.9s-4-8.9-8.9-8.9c-3.5 0-6.5 2-7.9 5l-20.7-4.4c-.6-.1-1.2 0-1.7.3s-.8.8-1 1.4l-6.3 29.8c-13.3.4-25.2 4.3-33.8 10.6-2.2-2.1-5.3-3.5-8.6-3.5-6.9 0-12.5 5.6-12.5 12.5 0 5.1 3 9.4 7.4 11.4-.2 1.2-.3 2.5-.3 3.8 0 19.2 22.3 34.7 49.9 34.7 27.6 0 49.9-15.5 49.9-34.7 0-1.3-.1-2.5-.3-3.7 4.1-2 7.2-6.4 7.2-11.5zm-85.5 8.9c0-4.9 4-8.9 8.9-8.9s8.9 4 8.9 8.9-4 8.9-8.9 8.9-8.9-4-8.9-8.9zm49.7 23.5c-6.1 6.1-17.7 6.5-21.1 6.5-3.4 0-15.1-.5-21.1-6.5-.9-.9-.9-2.4 0-3.3.9-.9 2.4-.9 3.3 0 3.8 3.8 12 5.2 17.9 5.2 5.9 0 14-1.4 17.9-5.2.9-.9 2.4-.9 3.3 0 .7 1 .7 2.4-.2 3.3zm-1.6-14.6c-4.9 0-8.9-4-8.9-8.9s4-8.9 8.9-8.9 8.9 4 8.9 8.9-4 8.9-8.9 8.9z" fill="#fff"/></g></svg> Get Questions';
+    btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="-25.65 -42.75 222.3 256.5" style="flex-shrink:0"><g transform="translate(-85.4 -85.4)"><circle r="85.5" cy="170.9" cx="170.9" fill="#ff4500"/><path d="M227.9 170.9c0-6.9-5.6-12.5-12.5-12.5-3.4 0-6.4 1.3-8.6 3.5-8.5-6.1-20.3-10.1-33.3-10.6l5.7-26.7 18.5 3.9c.2 4.7 4.1 8.5 8.9 8.5 4.9 0 8.9-4 8.9-8.9s-4-8.9-8.9-8.9c-3.5 0-6.5 2-7.9 5l-20.7-4.4c-.6-.1-1.2 0-1.7.3s-.8.8-1 1.4l-6.3 29.8c-13.3.4-25.2 4.3-33.8 10.6-2.2-2.1-5.3-3.5-8.6-3.5-6.9 0-12.5 5.6-12.5 12.5 0 5.1 3 9.4 7.4 11.4-.2 1.2-.3 2.5-.3 3.8 0 19.2 22.3 34.7 49.9 34.7 27.6 0 49.9-15.5 49.9-34.7 0-1.3-.1-2.5-.3-3.7 4.1-2 7.2-6.4 7.2-11.5zm-85.5 8.9c0-4.9 4-8.9 8.9-8.9s8.9 4 8.9 8.9-4 8.9-8.9 8.9-8.9-4-8.9-8.9zm49.7 23.5c-6.1 6.1-17.7 6.5-21.1 6.5-3.4 0-15.1-.5-21.1-6.5-.9-.9-.9-2.4 0-3.3.9-.9 2.4-.9 3.3 0 3.8 3.8 12 5.2 17.9 5.2 5.9 0 14-1.4 17.9-5.2.9-.9 2.4-.9 3.3 0 .7 1 .7 2.4-.2 3.3zm-1.6-14.6c-4.9 0-8.9-4-8.9-8.9s4-8.9 8.9-8.9 8.9 4 8.9 8.9-4 8.9-8.9 8.9z" fill="#fff"/></g></svg> Get ideas';
   }
 }
 
-async function generateBlogPost(id, industry, city, question) {
-  document.querySelectorAll('#blog-q-grid-' + id + ' .blog-q-card').forEach(c => c.classList.remove('blog-q-selected'));
-  const card = document.getElementById('bq-' + id + '-' + question.id);
-  if (card) card.classList.add('blog-q-selected');
+async function generateBlogPost(id) {
+  const industry = document.getElementById('blog-industry-' + id)?.value.trim() || '';
+  const city     = document.getElementById('blog-city-' + id)?.value.trim() || '';
+  const question = _blogSelectedQ[id];
+  if (!question) return;
+  const keywords  = [...(_blogKeywords[id] || new Set())];
+  const wordCount = document.getElementById('blog-word-count-' + id)?.value || 600;
+
+  document.querySelectorAll('#blog-q-grid-' + id + ' .blog-q-card').forEach(c => {
+    if (c.id !== 'bq-' + id + '-' + question.id) c.classList.remove('blog-q-card-active');
+  });
 
   const pa         = document.getElementById('blog-post-area-' + id);
   const badge      = document.getElementById('blog-writing-badge-' + id);
@@ -7833,7 +7941,6 @@ async function generateBlogPost(id, industry, city, question) {
   if (publishBtn) publishBtn.style.display = 'none';
   if (editBtn)  { editBtn.style.display = 'none'; editBtn.textContent = 'Edit'; }
   copyBtn.style.display = 'none';
-  // Reset any in-progress edit
   content.contentEditable = 'false';
   content.innerHTML = '<div style="color:var(--text-muted);font-size:.875rem;padding:1rem 0">Writing blog post…</div>';
   pa.style.display = '';
@@ -7844,15 +7951,20 @@ async function generateBlogPost(id, industry, city, question) {
     const res = await fetch('/api/blog/post', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ industry, city, question: question.title, detail: question.detail, keyword: _blogKeyword[id] || null, bizName: analyticsData[id]?.account_name || null, domain: analyticsData[id]?.domain_name || null }),
+      body: JSON.stringify({ industry, city, question: question.title, detail: question.detail, keywords, bizName: analyticsData[id]?.account_name || null, domain: analyticsData[id]?.domain_name || null, wordCount }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Failed');
     const titleMatch = data.post.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
     const title = titleMatch ? titleMatch[1].replace(/<[^>]+>/g, '').trim() : question.title;
-    _blogPosts[id] = { title, html: data.post, industry, city };
+    _blogPosts[id] = { title, html: data.post, jsonLd: data.jsonLd || null, industry, city };
     content.innerHTML = data.post;
-    // Show Duda buttons only if this site has a Duda site name
+    // Mark all active keyword chips as injected
+    keywords.forEach(kw => {
+      document.querySelectorAll('#blog-kw-section-' + id + ' .blog-kw-chip').forEach(c => {
+        if (c.dataset.kw === kw) c.classList.add('blog-kw-injected');
+      });
+    });
     const site = analyticsData[id];
     if (site && site.duda_site_name) {
       if (draftBtn)   draftBtn.style.display = '';
@@ -7878,10 +7990,14 @@ async function pushBlogToDuda(id, publish) {
   otherBtn.disabled = true;
   btn.textContent = publish ? 'Publishing…' : 'Saving…';
   try {
+    // Prepend JSON-LD schema block if available
+    const htmlWithSchema = post.jsonLd
+      ? `<script type="application/ld+json">\n${JSON.stringify(post.jsonLd, null, 2)}\n<\/script>\n` + post.html
+      : post.html;
     const res = await fetch(`/api/analytics/${id}/push-blog`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: post.title, html: post.html, industry: post.industry || null, city: post.city || null, keyword: _blogKeyword[id] || null, publish }),
+      body: JSON.stringify({ title: post.title, html: htmlWithSchema, industry: post.industry || null, city: post.city || null, keyword: [...(_blogKeywords[id] || new Set())][0] || null, publish }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Failed');
