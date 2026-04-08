@@ -652,6 +652,7 @@ function screenerDetectCms(html) {
   if (/cdn\.shopify\.com|shopify\.com\/s\//i.test(html))                   return { name: 'Shopify',    flag: 'green'  };
   if (/webflow\.io|webflow\.com\/css|generator[^>]*webflow/i.test(html))   return { name: 'Webflow',    flag: 'orange'   };
   if (/wp-content\/|wp-includes\/|generator[^>]*wordpress/i.test(html))   return { name: 'WordPress',  flag: 'neutral'  };
+  if (/\/_next\/static\/|__NEXT_DATA__|"__next"|next\/dist\//i.test(html)) return { name: 'Next.js',    flag: 'orange'   };
   return { name: 'Unknown', flag: 'neutral' };
 }
 
@@ -874,7 +875,8 @@ app.post('/api/screen-site', requireAuth, async (req, res) => {
     const flags = [], warnings = [];
 
     // ── HTML signals ──
-    if (cms.flag === 'orange') warnings.push(`Built on ${cms.name} — complex platform`);
+    if (cms.name === 'Next.js') flags.push('Built on Next.js — custom-built site, not a website builder');
+    else if (cms.flag === 'orange') warnings.push(`Built on ${cms.name} — complex platform`);
     for (const sig of htmlSigs) {
       if (sig.type === 'multi_trade')
         flags.push(`Multi-trade site (${sig.trades.slice(0, 3).join(' + ')})`);
@@ -889,7 +891,9 @@ app.post('/api/screen-site', requireAuth, async (req, res) => {
     }
 
     // ── Sitemap signals ──
-    if (sitemap) {
+    if (!sitemap) {
+      flags.push('No sitemap found — site structure unknown');
+    } else if (sitemap) {
       if (sitemap.totalPages > 20)       flags.push(`${sitemap.totalPages} pages — large site`);
       else if (sitemap.totalPages > 12)  warnings.push(`${sitemap.totalPages} pages detected`);
 
