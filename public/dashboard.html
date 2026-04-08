@@ -6257,6 +6257,7 @@ function renderAnalyticsModalBody(id, data, forms) {
           <span id="blog-writing-badge-${id}" style="display:none;font-size:.72rem;font-weight:700;background:#f59e0b22;color:#d97706;border-radius:20px;padding:.2rem .65rem">✍ Writing…</span>
           <button id="blog-draft-btn-${id}" onclick="pushBlogToDuda('${esc(id)}', false)" style="display:none;font-size:.78rem;padding:.3rem .8rem;border:1px solid var(--border);border-radius:6px;background:none;color:var(--text);cursor:pointer;font-family:inherit;font-weight:600">Save Draft</button>
           <button id="blog-publish-btn-${id}" onclick="pushBlogToDuda('${esc(id)}', true)" style="display:none;font-size:.78rem;padding:.3rem .8rem;border:1px solid var(--primary);border-radius:6px;background:var(--primary);color:#fff;cursor:pointer;font-family:inherit;font-weight:600">Publish</button>
+          <button id="blog-edit-btn-${id}" onclick="toggleBlogEdit('${esc(id)}')" style="display:none;font-size:.78rem;padding:.3rem .75rem;border:1px solid var(--border);border-radius:6px;background:none;cursor:pointer;color:var(--text);font-family:inherit">Edit</button>
           <button id="blog-copy-btn-${id}" onclick="copyBlogPost('${esc(id)}')" style="display:none;font-size:.78rem;padding:.3rem .75rem;border:1px solid var(--border);border-radius:6px;background:none;cursor:pointer;color:var(--text);font-family:inherit">Copy post</button>
         </div>
         <div id="blog-post-content-${id}" class="blog-post-output"></div>
@@ -7689,8 +7690,59 @@ async function generateBlogDraft(id, keyword, btnEl) {
 }
 
 // ── Blog Generator (modal-scoped) ────────────────────────────────────
-const _blogPosts   = {}; // { [siteId]: { title, html, industry, city } }
-const _blogKeyword = {}; // { [siteId]: string } — selected GSC keyword
+const _blogPosts     = {}; // { [siteId]: { title, html, industry, city } }
+const _blogKeyword   = {}; // { [siteId]: string } — selected GSC keyword
+const _blogQuestions = {}; // { [siteId]: Question[] } — full pool for X/replace
+
+function makeBlogQCard(id, q, industry, city) {
+  const card = document.createElement('div');
+  card.className = 'blog-q-card';
+  card.id = 'bq-' + id + '-' + q.id;
+  card.dataset.qid = q.id;
+  const subBadge  = q.subreddit ? '<span class="blog-q-sub">r/' + esc(q.subreddit) + '</span>' : '';
+  const detailHtml = q.detail   ? '<div class="blog-q-detail">' + esc(q.detail) + '</div>' : '';
+  card.innerHTML =
+    '<button class="blog-q-dismiss" onclick="dismissBlogQuestion(\'' + id + '\',\'' + q.id + '\',event)" title="Skip">✕</button>' +
+    '<div class="blog-q-votes">' + (q.upvotes != null ? '▲ ' + (q.upvotes > 999 ? (q.upvotes / 1000).toFixed(1) + 'k' : q.upvotes) : '—') + '</div>' +
+    '<div class="blog-q-body">' +
+      '<div class="blog-q-title">' + esc(q.title) + '</div>' +
+      detailHtml + subBadge +
+    '</div>';
+  card.onclick = () => generateBlogPost(id, industry, city, q);
+  return card;
+}
+
+function dismissBlogQuestion(id, qId, e) {
+  e.stopPropagation();
+  const card = document.getElementById('bq-' + id + '-' + qId);
+  if (!card) return;
+  card.remove();
+  // Show next unseen question from pool
+  const grid = document.getElementById('blog-q-grid-' + id);
+  const shownIds = new Set([...grid.querySelectorAll('.blog-q-card')].map(c => c.dataset.qid));
+  const next = (_blogQuestions[id] || []).find(q => !shownIds.has(q.id));
+  if (next) {
+    const industry = document.getElementById('blog-industry-' + id)?.value.trim() || '';
+    const city     = document.getElementById('blog-city-' + id)?.value.trim() || '';
+    grid.appendChild(makeBlogQCard(id, next, industry, city));
+  }
+}
+
+function toggleBlogEdit(id) {
+  const content = document.getElementById('blog-post-content-' + id);
+  const btn     = document.getElementById('blog-edit-btn-' + id);
+  if (!content || !btn) return;
+  const editing = content.contentEditable === 'true';
+  if (editing) {
+    content.contentEditable = 'false';
+    btn.textContent = 'Edit';
+    if (_blogPosts[id]) _blogPosts[id].html = content.innerHTML;
+  } else {
+    content.contentEditable = 'true';
+    content.focus();
+    btn.textContent = 'Done';
+  }
+}
 
 function selectBlogKeyword(id, btnEl) {
   const kw = btnEl.dataset.kw;
@@ -7748,28 +7800,10 @@ async function generateBlogQuestions(id) {
       }
       srcEl.style.display = '';
     }
+    _blogQuestions[id] = data.questions; // store full pool for X/replace
     qa.style.display = '';
     grid.innerHTML = '';
-    data.questions.forEach(q => {
-      const card = document.createElement('div');
-      card.className = 'blog-q-card';
-      card.id = 'bq-' + id + '-' + q.id;
-      const subBadge = q.subreddit
-        ? '<span class="blog-q-sub">r/' + esc(q.subreddit) + '</span>'
-        : '';
-      const detailHtml = q.detail
-        ? '<div class="blog-q-detail">' + esc(q.detail) + '</div>'
-        : '';
-      card.innerHTML =
-        '<div class="blog-q-votes">' + (q.upvotes != null ? '▲ ' + (q.upvotes > 999 ? (q.upvotes / 1000).toFixed(1) + 'k' : q.upvotes) : '—') + '</div>' +
-        '<div class="blog-q-body">' +
-          '<div class="blog-q-title">' + esc(q.title) + '</div>' +
-          detailHtml +
-          subBadge +
-        '</div>';
-      card.onclick = () => generateBlogPost(id, industry, city, q);
-      grid.appendChild(card);
-    });
+    data.questions.slice(0, 6).forEach(q => grid.appendChild(makeBlogQCard(id, q, industry, city)));
   } catch (err) {
     grid.innerHTML = '<div style="color:var(--danger,#ef4444);font-size:.875rem;padding:.5rem 0">' + esc(err.message) + '</div>';
     qa.style.display = '';
@@ -7789,6 +7823,7 @@ async function generateBlogPost(id, industry, city, question) {
   const draftBtn   = document.getElementById('blog-draft-btn-' + id);
   const publishBtn = document.getElementById('blog-publish-btn-' + id);
   const copyBtn    = document.getElementById('blog-copy-btn-' + id);
+  const editBtn    = document.getElementById('blog-edit-btn-' + id);
   const label      = document.getElementById('blog-post-label-' + id);
   const content    = document.getElementById('blog-post-content-' + id);
 
@@ -7796,7 +7831,10 @@ async function generateBlogPost(id, industry, city, question) {
   badge.style.display = '';
   if (draftBtn)   draftBtn.style.display = 'none';
   if (publishBtn) publishBtn.style.display = 'none';
+  if (editBtn)  { editBtn.style.display = 'none'; editBtn.textContent = 'Edit'; }
   copyBtn.style.display = 'none';
+  // Reset any in-progress edit
+  content.contentEditable = 'false';
   content.innerHTML = '<div style="color:var(--text-muted);font-size:.875rem;padding:1rem 0">Writing blog post…</div>';
   pa.style.display = '';
   pa.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -7820,6 +7858,7 @@ async function generateBlogPost(id, industry, city, question) {
       if (draftBtn)   draftBtn.style.display = '';
       if (publishBtn) publishBtn.style.display = '';
     }
+    if (editBtn) editBtn.style.display = '';
     copyBtn.style.display = '';
   } catch (err) {
     content.innerHTML = '<div style="color:var(--danger,#ef4444);font-size:.875rem;padding:.5rem 0">' + esc(err.message) + '</div>';
