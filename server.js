@@ -2801,10 +2801,10 @@ app.post('/api/blog/post', requireAuth, async (req, res) => {
       ? `\nGoogle reviews: This business has ${placeData.rating} stars from ${placeData.reviewCount} Google reviews. Mention this naturally in the CTA (e.g. "Trusted by homeowners across ${city || 'the area'} — ${placeData.reviewCount} 5-star Google reviews"). Link the review count to: https://search.google.com/local/reviews?placeid=${placeId}\n`
       : '';
     const internalLinksLine = cleanDomain
-      ? `\nInternal links — you MUST embed all three of the following hyperlinks in the post body using the exact href URLs shown. Use descriptive anchor text. Do not use "#" or placeholder hrefs:
-- <a href="https://${cleanDomain}/services">anchor text about their services</a> — place when discussing what the contractor offers
-- <a href="https://${cleanDomain}/service-area">anchor text about their service area</a> — place when mentioning the city or coverage area
-- <a href="https://${cleanDomain}/customer-reviews">anchor text about their reviews</a> — place in the CTA or trust section\n`
+      ? `\nInternal links — embed these three hyperlinks naturally in the post body:
+- <a href="https://${cleanDomain}/services">our services</a>
+- <a href="https://${cleanDomain}/service-areas">our service areas</a>
+- <a href="https://${cleanDomain}/customer-reviews">customer reviews</a>\n`
       : '';
 
     const prompt = `Write a professional contractor blog post answering this homeowner question about ${industry}${location}.
@@ -2829,8 +2829,27 @@ Return ONLY the HTML body content (no <html>, <head>, <body> wrapper tags). Use 
     const gData = await gRes.json();
     if (!gRes.ok) throw new Error(gData.error?.message || 'Gemini error');
     const raw = gData.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    const post = raw.replace(/^```html?\n?/i, '').replace(/\n?```$/m, '').trim();
+    let post = raw.replace(/^```html?\n?/i, '').replace(/\n?```$/m, '').trim();
     if (!post) throw new Error('Gemini returned no content');
+
+    // Guarantee internal links are present — inject any that Gemini skipped
+    if (cleanDomain) {
+      const internalLinks = [
+        { url: `https://${cleanDomain}/services`,         anchor: 'our services' },
+        { url: `https://${cleanDomain}/service-areas`,    anchor: 'our service areas' },
+        { url: `https://${cleanDomain}/customer-reviews`, anchor: 'our customer reviews' },
+      ];
+      const missing = internalLinks.filter(l => !post.includes(l.url));
+      if (missing.length > 0) {
+        const linkStr = missing.map(l => `<a href="${l.url}">${l.anchor}</a>`).join(', ');
+        const inject = `<p>For more information, visit ${linkStr}.</p>`;
+        // Insert before last </p> close if possible, otherwise append
+        const lastP = post.lastIndexOf('</p>');
+        post = lastP !== -1
+          ? post.slice(0, lastP + 4) + '\n' + inject
+          : post + '\n' + inject;
+      }
+    }
 
     // Build BlogPosting JSON-LD
     const h1Match     = post.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
