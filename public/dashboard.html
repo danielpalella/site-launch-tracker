@@ -356,6 +356,15 @@
               <button class="acfp-item active" data-val="" onclick="setTagFilterVal('')"><span class="acfp-item-text">All Labels</span></button>
             </div>
           </div>
+          <div class="acfp-section">
+            <div class="acfp-section-label">Health</div>
+            <div id="ac-health-drop">
+              <button class="acfp-item active" data-val="all" onclick="filterAnalyticsHealth('all')"><span class="acfp-item-text">All</span></button>
+              <button class="acfp-item" data-val="healthy" onclick="filterAnalyticsHealth('healthy')"><span class="acfp-health-dot" style="background:#22c55e"></span><span class="acfp-item-text">Healthy</span></button>
+              <button class="acfp-item" data-val="moderate" onclick="filterAnalyticsHealth('moderate')"><span class="acfp-health-dot" style="background:#f59e0b"></span><span class="acfp-item-text">Moderate</span></button>
+              <button class="acfp-item" data-val="review" onclick="filterAnalyticsHealth('review')"><span class="acfp-health-dot" style="background:#ef4444"></span><span class="acfp-item-text">Needs Review</span></button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -2865,6 +2874,8 @@ const analyticsData    = {}; // raw data keyed by launch id
 let analyticsLoaded    = false;
 let analyticsView      = 'sites'; // 'sites' | 'overview' | 'seo'
 let analyticsIndustry  = 'all';
+let analyticsHealthFilter = 'all';
+let _recentBlogPosts = null;
 let analyticsPeriod    = '4w'; // '4w' | '12w' | 'all'
 let analyticsTotal     = 0;
 let analyticsLoadedCount = 0;
@@ -4474,11 +4485,17 @@ function indBenchRowHtml(b) {
 
 // ── Aggregate helpers ──
 function getAnalyticsEntries(industryFilter) {
-  return Object.entries(analyticsData).filter(([id]) => {
+  return Object.entries(analyticsData).filter(([id, d]) => {
     const card = document.getElementById('ac-card-' + id);
     if (!card) return false;
     if (industryFilter && industryFilter !== 'all' && card.dataset.industry !== industryFilter) return false;
     if (_tagFilter && !(card.dataset.tags || '').split(',').filter(Boolean).includes(_tagFilter)) return false;
+    if (analyticsHealthFilter && analyticsHealthFilter !== 'all') {
+      const h = computeGscHealth(d);
+      if (analyticsHealthFilter === 'review') {
+        if (!['review', 'attention', 'no-data'].includes(h.level)) return false;
+      } else if (h.level !== analyticsHealthFilter) return false;
+    }
     return true;
   });
 }
@@ -5057,78 +5074,30 @@ function renderAnalyticsOverview(industryFilter) {
         </div>
       </div>` : ''}
 
-      <div class="card ov-section gsh-card">
+      <div class="card ov-section" id="ov-blog-posts-card">
         <div class="ov-section-hdr">
           <div class="ov-section-hdr-left">
-            <img src="/gsc-icon.png" width="14" height="14" style="object-fit:contain;flex-shrink:0">
-            <span class="ov-section-title">Search Health</span>
-            <span class="ac-tip" data-tip="GSC health score (0–100) for every site, grouped by tier. Scored on 4 signals: impressions/day (30pts), CTR (25pts), avg position (25pts), and 4-week trend (20pts). Healthy ≥68, Moderate ≥45, Needs Review ≥22.">?</span>
+            <svg width="14" height="14" viewBox="0 0 80 80" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M58 6C42 1 18 12 13 33c-2 8 0 15 6 20" stroke-width="6"/>
+              <path d="M58 6C51 20 43 29 28 36c-7 3.5-12 7-17 17" stroke-width="6"/>
+              <path d="M13 33c7-3.5 15-5 25-3" stroke-width="4"/>
+              <path d="M17 51c6-3.5 13-6 22-7" stroke-width="3.8"/>
+              <path d="M11 53 Q8 59 9 64" stroke-width="4.5" fill="none"/>
+              <path d="M9 64 Q16 61 22 65" stroke-width="4" fill="none"/>
+            </svg>
+            <span class="ov-section-title">Recent Blog Posts</span>
           </div>
-          <span class="ov-section-badge">${healthEntries.length} sites</span>
+          <span class="ov-section-badge" id="ov-blog-badge">—</span>
         </div>
-        <div class="gsh-chart-row">
-          <div class="gsh-donut-wrap">
-            <canvas id="gsh-donut-canvas"></canvas>
-            <div class="gsh-donut-center" style="pointer-events:none">
-              <span class="gsh-donut-total">${healthEntries.length}</span>
-              <span class="gsh-donut-sublabel">sites</span>
-            </div>
-          </div>
-          <div class="gsh-legend">
-            ${GSH_LEVELS.filter(l => gshGrouped[l]?.length).map(l => {
-              const color = gshGrouped[l][0].health.color;
-              const pct = healthEntries.length ? Math.round(gshGrouped[l].length / healthEntries.length * 100) : 0;
-              return `<div class="gsh-legend-row" onclick="gshToggleLevel('${l}')" title="Click to expand ${GSH_LABELS[l]}">
-                <span class="gsh-legend-dot" style="background:${color}"></span>
-                <span class="gsh-legend-name" style="color:${color}">${GSH_LABELS[l]}</span>
-                <span class="gsh-legend-count">${gshGrouped[l].length} site${gshGrouped[l].length !== 1 ? 's' : ''}</span>
-                <div class="gsh-legend-bar-wrap"><div class="gsh-legend-bar" style="width:${pct}%;background:${color}"></div></div>
-                <span class="gsh-legend-pct">${pct}%</span>
-              </div>`;
-            }).join('')}
-          </div>
-        </div>
-        ${gshTableHtml}
+        <div id="ov-blog-list"><div class="ac-overview-loading"><div class="ac-ov-spinner"></div><div>Loading…</div></div></div>
       </div>
 
     </div>
 
   `;
 
-  // Build GSC Health donut chart
-  const gshDonutCanvas = document.getElementById('gsh-donut-canvas');
-  if (gshDonutCanvas && healthEntries.length) {
-    const gshLevelsWithData = GSH_LEVELS.filter(l => gshGrouped[l]?.length);
-    const gshColors = gshLevelsWithData.map(l => gshGrouped[l][0].health.color);
-    gshChart = new Chart(gshDonutCanvas, {
-      type: 'doughnut',
-      data: {
-        labels: gshLevelsWithData.map(l => GSH_LABELS[l]),
-        datasets: [{
-          data: gshLevelsWithData.map(l => gshGrouped[l].length),
-          backgroundColor: gshColors.map(c => c + 'cc'),
-          borderColor: gshColors,
-          borderWidth: 2,
-          hoverOffset: 8,
-        }]
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false, cutout: '68%',
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            callbacks: {
-              label: ctx => ` ${ctx.label}: ${ctx.parsed} site${ctx.parsed !== 1 ? 's' : ''}`,
-            }
-          }
-        },
-        onClick: (evt, elements) => {
-          if (!elements.length) return;
-          gshToggleLevel(gshLevelsWithData[elements[0].index]);
-        }
-      }
-    });
-  }
+  // Load blog posts card
+  loadRecentBlogPostsCard();
 
   // Build combined trend chart
   const allWeeks = [...new Set([
@@ -5211,7 +5180,18 @@ function applyAnalyticsFilters() {
       const daysSince = Math.floor((Date.now() - new Date(card.dataset.launchDate).getTime()) / 86400000);
       ageMatch = daysSince >= ageRange.min && daysSince < ageRange.max;
     }
-    const show = industryMatch && searchMatch && tagMatch && ageMatch;
+    let healthMatch = true;
+    if (analyticsHealthFilter && analyticsHealthFilter !== 'all') {
+      const siteId = card.id.replace('ac-card-', '');
+      const d = analyticsData[siteId];
+      if (d) {
+        const h = computeGscHealth(d);
+        healthMatch = analyticsHealthFilter === 'review'
+          ? ['review', 'attention', 'no-data'].includes(h.level)
+          : h.level === analyticsHealthFilter;
+      } else { healthMatch = false; }
+    }
+    const show = industryMatch && searchMatch && tagMatch && ageMatch && healthMatch;
     card.style.display  = show ? '' : 'none';
     if (show) visible++;
   });
@@ -5345,7 +5325,7 @@ function _initAcFilterPanel() {
 }
 
 function _updateAcFilterPanelState() {
-  const hasFilters = (analyticsIndustry && analyticsIndustry !== 'all') || !!_tagFilter;
+  const hasFilters = (analyticsIndustry && analyticsIndustry !== 'all') || !!_tagFilter || (analyticsHealthFilter && analyticsHealthFilter !== 'all');
   const clearBtn = document.getElementById('acfp-clear-btn');
   if (clearBtn) clearBtn.style.display = hasFilters ? '' : 'none';
   const toggleBtn = document.getElementById('acfp-toggle-btn');
@@ -6481,6 +6461,11 @@ function renderActiveFilters() {
   if (analyticsIndustry && analyticsIndustry !== 'all') {
     pills.push(`<span class="ac-filter-pill"><span>${esc(analyticsIndustry)}</span><button onclick="filterAnalyticsIndustry('all')">×</button></span>`);
   }
+  if (analyticsHealthFilter && analyticsHealthFilter !== 'all') {
+    const hLabel = analyticsHealthFilter === 'review' ? 'Needs Review' : analyticsHealthFilter.charAt(0).toUpperCase() + analyticsHealthFilter.slice(1);
+    const hColor = analyticsHealthFilter === 'healthy' ? '#22c55e' : analyticsHealthFilter === 'moderate' ? '#f59e0b' : '#ef4444';
+    pills.push(`<span class="ac-filter-pill"><span class="acfp-health-dot" style="background:${hColor}"></span><span>${hLabel}</span><button onclick="filterAnalyticsHealth('all')">×</button></span>`);
+  }
   if (_tagFilter && _tagMap[_tagFilter]) {
     const t = _tagMap[_tagFilter];
     pills.push(`<span class="ac-filter-pill" style="--pill-c:${t.color}"><span class="ac-tag-dot" style="background:${t.color}"></span><span>${esc(t.name)}</span><button onclick="setTagFilterVal('')">×</button></span>`);
@@ -6499,10 +6484,90 @@ function renderActiveFilters() {
 }
 
 function clearAnalyticsFilters() {
+  analyticsHealthFilter = 'all';
+  document.querySelectorAll('#ac-health-drop [data-val]').forEach(o => o.classList.toggle('active', o.dataset.val === 'all'));
   filterAnalyticsIndustry('all');
   setTagFilterVal('');
   const s = document.getElementById('analytics-search');
   if (s) { s.value = ''; filterAnalyticsSearch(''); }
+}
+
+function filterAnalyticsHealth(val) {
+  analyticsHealthFilter = val;
+  document.querySelectorAll('#ac-health-drop [data-val]').forEach(o =>
+    o.classList.toggle('active', o.dataset.val === val));
+  _updateAcFilterPanelState();
+  applyAnalyticsFilters();
+  if (analyticsView === 'overview') renderAnalyticsOverview(null);
+  renderActiveFilters();
+}
+
+async function loadRecentBlogPostsCard() {
+  const container = document.getElementById('ov-blog-list');
+  if (!container) return;
+  if (!_recentBlogPosts) {
+    try {
+      const r = await fetch('/api/analytics/recent-blog-posts?limit=40');
+      if (!r.ok) throw new Error('fetch failed');
+      const { posts } = await r.json();
+      _recentBlogPosts = posts;
+    } catch(e) {
+      if (container) container.innerHTML = '<div class="ac-empty" style="padding:1.5rem">Failed to load blog posts.</div>';
+      return;
+    }
+  }
+  renderBlogPostsCard(_recentBlogPosts);
+}
+
+function renderBlogPostsCard(posts) {
+  const container = document.getElementById('ov-blog-list');
+  const badge = document.getElementById('ov-blog-badge');
+  if (!container) return;
+
+  const filtered = posts.filter(p => {
+    if (analyticsIndustry !== 'all' && p.industry && p.industry !== analyticsIndustry) return false;
+    if (analyticsHealthFilter && analyticsHealthFilter !== 'all') {
+      const d = analyticsData[p.siteId];
+      if (!d) return false;
+      const h = computeGscHealth(d);
+      if (analyticsHealthFilter === 'review') {
+        if (!['review', 'attention', 'no-data'].includes(h.level)) return false;
+      } else if (h.level !== analyticsHealthFilter) return false;
+    }
+    return true;
+  });
+
+  if (badge) badge.textContent = `${filtered.length} post${filtered.length !== 1 ? 's' : ''}`;
+
+  if (!filtered.length) {
+    container.innerHTML = '<div class="ac-empty" style="padding:2rem">No blog posts found.</div>';
+    return;
+  }
+
+  container.innerHTML = filtered.map(post => {
+    const domain = (post.domain || '').replace(/^https?:\/\//, '').replace(/\/$/, '');
+    const fav = domain
+      ? `<img src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=16" width="14" height="14" style="border-radius:2px;flex-shrink:0;margin-top:1px" onerror="this.style.display='none'">`
+      : '';
+    const d = analyticsData[post.siteId];
+    const health = d ? computeGscHealth(d) : null;
+    const healthDot = health
+      ? `<span style="width:7px;height:7px;border-radius:50%;background:${health.color};flex-shrink:0;display:inline-block" title="${health.label}"></span>`
+      : '';
+    const statusBadge = post.status === 'published'
+      ? `<span class="ov-blog-status ov-blog-status-pub">Published</span>`
+      : `<span class="ov-blog-status ov-blog-status-draft">Draft</span>`;
+    const dateStr = post.pushedAt ? timeAgo(new Date(post.pushedAt)) : '';
+    const clickAttr = d ? `onclick="openAnalyticsModal('${esc(post.siteId)}')" style="cursor:pointer"` : '';
+    return `<div class="ov-blog-row" ${clickAttr}>
+      <div class="ov-blog-site">${fav}<div style="min-width:0"><div class="ov-blog-site-name">${esc(post.account_name)}</div><div class="ov-blog-domain">${esc(domain)}</div></div></div>
+      <div class="ov-blog-content">
+        <div class="ov-blog-title">${esc(post.title)}</div>
+        <div class="ov-blog-meta">${post.keyword ? `<span class="ov-blog-kw">${esc(post.keyword)}</span>` : ''}${post.city ? `<span class="ov-blog-city">${esc(post.city)}</span>` : ''}</div>
+      </div>
+      <div class="ov-blog-right">${healthDot}${statusBadge}<span class="ov-blog-date">${dateStr}</span></div>
+    </div>`;
+  }).join('');
 }
 
 function filterAnalyticsTags(val) {
@@ -8113,6 +8178,7 @@ async function pushBlogToDuda(id, publish) {
     btn.style.background = '#22c55e';
     btn.style.borderColor = '#22c55e';
     showToast(publish ? `Published to Duda: "${data.title}"` : `Draft saved to Duda: "${data.title}"`, 'success');
+    _recentBlogPosts = null; // bust cache so overview card refreshes
     loadBlogHistory(id);
   } catch (err) {
     btn.disabled = false;
