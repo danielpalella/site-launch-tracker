@@ -9,14 +9,17 @@
 <style>
 /* ── Layout ── */
 .bb-page { max-width:1200px;margin:0 auto;padding:2rem 1.25rem 4rem;--bb-primary:#1259FF;--bb-primary-light:#1259FF14 }
-.bb-steps { display:flex;align-items:center;gap:0;margin-bottom:2.5rem }
-.bb-step { display:flex;align-items:center;gap:.5rem;font-size:.78rem;font-weight:600;color:var(--text-muted);flex-shrink:0 }
-.bb-step-num { width:22px;height:22px;border-radius:50%;background:var(--border);color:var(--text-muted);display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;flex-shrink:0;transition:all .2s }
-.bb-step.active .bb-step-num { background:var(--bb-primary);color:#fff }
-.bb-step.active { color:var(--text) }
-.bb-step.done .bb-step-num { background:#22c55e;color:#fff }
-.bb-step.done { color:var(--text-muted) }
-.bb-step-line { flex:1;height:1px;background:var(--border);margin:0 .5rem;min-width:20px }
+/* Step indicator */
+.bb-steps { display:flex;align-items:center;gap:0;margin-top:1.75rem;margin-bottom:1.1rem }
+.bb-step { display:flex;align-items:center;gap:.55rem;font-size:.8rem;font-weight:600;color:var(--text-muted);flex-shrink:0 }
+.bb-step-num { width:26px;height:26px;border-radius:50%;background:var(--border);color:var(--text-muted);display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:700;flex-shrink:0;transition:all .22s;position:relative }
+.bb-step.active .bb-step-num { background:var(--bb-primary);color:#fff;box-shadow:0 0 0 3px rgba(18,89,255,.14) }
+.bb-step.active { color:var(--text);font-weight:700 }
+.bb-step.done .bb-step-num { background:#22c55e;color:#fff;font-size:0 }
+.bb-step.done .bb-step-num::after { content:'';display:block;width:5px;height:9px;border-right:2.5px solid #fff;border-bottom:2.5px solid #fff;transform:rotate(45deg) translate(-1px,-2px);position:absolute }
+.bb-step.done { color:#16a34a;font-weight:600 }
+.bb-step-line { flex:1;height:2px;background:var(--border);margin:0 .9rem;min-width:30px;border-radius:2px;transition:background .25s }
+.bb-step.done + .bb-step-line { background:#22c55e }
 
 /* ── Step panels ── */
 .bb-panel { display:none }
@@ -159,30 +162,33 @@
 @keyframes spin { to { transform:rotate(360deg) } }
 
 /* ── Step 1 layout ── */
-.s1-header { margin-bottom:.65rem }
+.s1-header { margin-bottom:.25rem }
 .s1-title { font-size:1.5rem;font-weight:800;color:var(--text);letter-spacing:-.3px;margin:0 0 .3rem }
 .s1-sub-text { font-size:.875rem;color:var(--text-muted);margin:0 }
 .s1-last-gen { display:flex;align-items:center;gap:.3rem;font-size:.75rem;color:var(--text-muted) }
 .s1-stats { font-size:.75rem;color:var(--text-muted) }
 .s1-section-label { font-size:.67rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:.6rem }
 /* Top toolbar (always visible) */
-.s1-top-toolbar { display:flex;align-items:center;gap:.45rem;padding:.45rem .6rem;border:1.5px solid var(--border);border-radius:10px;background:var(--surface);margin-bottom:.6rem;box-shadow:0 1px 4px rgba(0,0,0,.05) }
+.s1-top-toolbar { display:flex;align-items:center;gap:.4rem;padding:.45rem .65rem;border:1.5px solid var(--border);border-radius:10px;background:var(--surface);margin-bottom:.6rem;box-shadow:0 1px 4px rgba(0,0,0,.05) }
 .s1-search { flex:1;min-width:0;border:1.5px solid var(--border);border-radius:6px;padding:.3rem .65rem;font-size:.8rem;font-family:inherit;color:var(--text);background:var(--bg);outline:none;transition:border-color .15s }
 .s1-search:focus { border-color:var(--bb-primary) }
-.s1-tb-divider { width:1px;height:18px;background:var(--border);flex-shrink:0;margin:0 .1rem }
+.s1-tb-divider { width:1px;height:18px;background:var(--border);flex-shrink:0;margin:0 .15rem }
+/* Toolbar chip buttons (All / None) */
+.s1-tb-chip { background:var(--bg);border:1.5px solid var(--border);border-radius:99px;padding:.2rem .65rem;font-size:.75rem;font-weight:600;color:var(--text-muted);cursor:pointer;font-family:inherit;transition:border-color .12s,color .12s;white-space:nowrap;flex-shrink:0 }
+.s1-tb-chip:hover { border-color:var(--bb-primary);color:var(--bb-primary) }
 /* Saved-for-later queue panel */
 .s1-queue-btn { position:relative }
 .s1-queue-badge { display:inline-flex;align-items:center;justify-content:center;min-width:17px;height:17px;border-radius:50%;background:var(--bb-primary);color:#fff;font-size:.65rem;font-weight:700;padding:0 4px;margin-left:.25rem }
-.s1-queue-panel { position:absolute;top:calc(100% + 6px);right:0;width:400px;background:var(--surface);border:1.5px solid var(--border);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:300;overflow:hidden }
+.s1-queue-panel { position:absolute;top:calc(100% + 6px);right:0;width:420px;background:var(--surface);border:1.5px solid var(--border);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:300;overflow:hidden }
 .s1-queue-panel-head { display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);font-size:.82rem;font-weight:700;color:var(--text) }
 .s1-queue-panel-body { max-height:340px;overflow-y:auto }
 /* Split panel */
-.s1-split { display:flex;height:calc(100vh - 250px);min-height:460px;border:1.5px solid var(--border);border-radius:12px;overflow:hidden }
+.s1-split { display:flex;height:calc(100vh - 248px);min-height:460px;border:1.5px solid var(--border);border-radius:12px;overflow:hidden }
 /* Sidebar */
-.s1-sidebar { width:215px;flex-shrink:0;border-right:1px solid var(--border);display:flex;flex-direction:column;background:var(--surface) }
-.s1-sidebar-head { padding:.7rem 1rem .6rem;border-bottom:1px solid var(--border) }
+.s1-sidebar { width:215px;flex-shrink:0;border-right:1px solid var(--border);display:flex;flex-direction:column;background:var(--surface);overflow:hidden }
+.s1-sidebar-head { padding:.7rem 1rem .6rem;border-bottom:1px solid var(--border);flex-shrink:0 }
 .s1-sidebar-title { font-size:.67rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted) }
-.s1-ind-list { flex:1;overflow-y:auto;padding:.35rem }
+.s1-ind-list { flex:1;overflow-y:auto;padding:.35rem;min-height:0 }
 .s1-ind-item { display:flex;align-items:center;gap:.55rem;padding:.5rem .6rem;border-radius:7px;cursor:pointer;transition:background .12s }
 .s1-ind-item:hover { background:var(--hover-bg,rgba(0,0,0,.04)) }
 .s1-ind-item.selected { background:var(--bb-primary-light) }
@@ -193,14 +199,14 @@
 .s1-ind-item.selected .s1-ind-badge { background:var(--bb-primary);color:#fff }
 /* Right panel */
 .s1-right { flex:1;min-width:0;display:flex;flex-direction:column;background:var(--bg) }
-.s1-right-body { flex:1;overflow-y:auto;padding:.65rem .8rem }
+.s1-right-body { flex:1;overflow-y:auto;padding:.65rem .8rem;min-height:0 }
 .s1-right-empty { display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2.5rem;text-align:center;color:var(--text-muted) }
-/* GSC keyword dropdown */
-.s1-kw-wrap { display:inline-flex;align-items:center;gap:.3rem;background:var(--surface);border:1.5px solid var(--border);border-radius:6px;padding:.22rem .5rem;flex-shrink:0 }
-.s1-kw-wrap.kw-ok { border-color:#1a73e844 }
-.s1-kw-wrap.kw-missing { border-color:#f59e0b55;background:#fffbeb }
-.s1-kw-select { border:none;background:transparent;font-size:.75rem;font-family:inherit;color:var(--text);font-weight:600;cursor:pointer;outline:none;padding:0;max-width:160px }
-.s1-kw-select:disabled { color:var(--text-muted);cursor:default }
+/* GSC keyword pills */
+.s1-kw-pills { display:flex;align-items:center;gap:.3rem;flex-shrink:0;flex-wrap:nowrap }
+.s1-kw-pill { background:var(--bg);border:1.5px solid var(--border);border-radius:99px;padding:.2rem .6rem;font-size:.72rem;font-weight:600;color:var(--text-muted);cursor:pointer;font-family:inherit;transition:all .12s;white-space:nowrap }
+.s1-kw-pill.active { background:var(--bb-primary-light);border-color:var(--bb-primary);color:var(--bb-primary) }
+.s1-kw-pill:hover:not(.active) { border-color:var(--bb-primary);color:var(--bb-primary) }
+.s1-kw-missing { display:inline-flex;align-items:center;gap:.3rem;font-size:.72rem;color:#b45309;font-weight:600;background:#fffbeb;border:1.5px solid #f59e0b55;border-radius:6px;padding:.2rem .55rem;flex-shrink:0 }
 /* Sticky bottom bar */
 .s1-sticky { position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);padding:.9rem 2rem;display:flex;align-items:center;justify-content:space-between;z-index:200;box-shadow:0 -4px 20px rgba(0,0,0,.07);transform:translateY(110%);transition:transform .22s cubic-bezier(.4,0,.2,1) }
 .s1-sticky.visible { transform:translateY(0) }
@@ -284,8 +290,8 @@
       <input class="s1-search" id="s1-search" placeholder="Search sites…" oninput="filterSitesInline(this.value)" style="display:none">
       <!-- Site count + bulk controls (visible when industry selected) -->
       <span id="s1-sites-count-label" style="font-size:.75rem;color:var(--text-muted);white-space:nowrap;flex-shrink:0;display:none"></span>
-      <button class="bb-btn bb-btn-ghost bb-btn-sm" id="s1-all-btn" onclick="toggleAllSitesInline(true)" style="display:none">All</button>
-      <button class="bb-btn bb-btn-ghost bb-btn-sm" id="s1-none-btn" onclick="toggleAllSitesInline(false)" style="display:none">None</button>
+      <button class="s1-tb-chip" id="s1-all-btn" onclick="toggleAllSitesInline(true)" style="display:none">All</button>
+      <button class="s1-tb-chip" id="s1-none-btn" onclick="toggleAllSitesInline(false)" style="display:none">None</button>
       <div class="s1-tb-divider" id="s1-tb-div1" style="display:none"></div>
       <!-- Last gen + stats (always visible) -->
       <span class="s1-last-gen" id="s1-last-gen" style="display:none">
@@ -720,15 +726,15 @@ async function loadSitesInline(industryName) {
     for (const chunk of chunks) {
       if (state.industry !== industryName) break; // industry changed, stop loading
       await Promise.all(chunk.map(async s => {
-        if (s.gsc_keyword !== undefined) return;
+        if (s.gsc_keywords !== undefined) return;
         try {
           const kr = await fetch(`/api/bulk-blog/gsc-keyword/${s.id}`);
           const kd = await kr.json();
-          s.gsc_keyword = kd.keyword || null;
+          s.gsc_keywords = kd.keywords || (kd.keyword ? [{ query: kd.keyword }] : []);
+          s.gsc_keyword = kd.keyword || s.gsc_keywords[0]?.query || null; // compat for step 3
           s.gsc_keyword_reason = kd.reason || null;
-          // Auto-select top keyword if none chosen yet
-          if (s.gsc_keyword && s.keyword_override === undefined) s.keyword_override = s.gsc_keyword;
-        } catch { s.gsc_keyword = null; }
+          if (s.gsc_keywords.length && s.keyword_override === undefined) s.keyword_override = s.gsc_keywords[0].query;
+        } catch { s.gsc_keywords = []; s.gsc_keyword = null; }
         if (state.industry !== industryName) return; // stale
         updateSiteKwChip(s);
         saveState();
@@ -744,12 +750,11 @@ function renderSitesInline() {
   const included = state.sites.filter(s => s.included).length;
   const countLbl = document.getElementById('s1-sites-count-label');
   if (countLbl) countLbl.textContent = `${included} of ${state.sites.length} selected`;
-  const GSC_ICON = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1a73e8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/></svg>`;
   const ROW = 'display:flex;align-items:center;gap:.6rem;padding:.5rem .85rem;border:1px solid var(--border);border-radius:8px;margin-bottom:.3rem;background:var(--surface)';
   list.innerHTML = state.sites.map(s => {
     const domain = cleanDomain(s.domain_name);
     const fav = domain ? `<img src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=16" width="16" height="16" style="width:16px;height:16px;border-radius:3px;display:inline-block;vertical-align:middle;flex:none" onerror="this.style.display='none'">` : '';
-    const kwHtml = buildKwHtml(s, GSC_ICON);
+    const kwHtml = buildKwHtml(s);
     return `<div id="s1-site-row-${s.id}" style="${ROW};opacity:${s.included ? '1' : '.38'}">
       <input type="checkbox" ${s.included ? 'checked' : ''} onchange="toggleSiteInline('${s.id}',this.checked)" style="width:14px;height:14px;cursor:pointer;flex:none;margin:0">
       ${fav}
@@ -762,18 +767,22 @@ function renderSitesInline() {
   }).join('') || '<div style="padding:.5rem 0;font-size:.8rem;color:var(--text-muted)">No sites found.</div>';
 }
 
-function buildKwHtml(s, gscIcon) {
-  const icon = gscIcon || `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1a73e8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/></svg>`;
-  if (s.gsc_keyword === undefined) {
-    return `<div class="s1-kw-wrap">${icon}<span class="s1-kw-spin" style="width:10px;height:10px;border:1.5px solid var(--border);border-top-color:#1a73e8;border-radius:50%;animation:spin .7s linear infinite;display:inline-block"></span></div>`;
+const GSC_LOGO = `<svg width="14" height="14" viewBox="0 0 16 16" style="flex-shrink:0;border-radius:2px"><rect width="16" height="16" rx="2.5" fill="#4285F4"/><circle cx="6.5" cy="6.5" r="3" fill="none" stroke="#fff" stroke-width="1.7"/><line x1="8.6" y1="8.6" x2="11.8" y2="11.8" stroke="#fff" stroke-width="1.7" stroke-linecap="round"/></svg>`;
+
+function buildKwHtml(s) {
+  if (s.gsc_keywords === undefined) {
+    return `<div class="s1-kw-pills">${GSC_LOGO}<span style="width:10px;height:10px;border:1.5px solid var(--border);border-top-color:#4285F4;border-radius:50%;animation:spin .7s linear infinite;display:inline-block"></span></div>`;
   }
-  if (s.gsc_keyword) {
-    const selectedVal = s.keyword_override || s.gsc_keyword;
-    return `<div class="s1-kw-wrap kw-ok">${icon}<select class="s1-kw-select" onchange="setSiteKwSelect('${s.id}',this.value)" title="GSC top keyword">
-      <option value="${esc(s.gsc_keyword)}" ${selectedVal === s.gsc_keyword ? 'selected' : ''}>${esc(s.gsc_keyword)}</option>
-    </select></div>`;
+  if (s.gsc_keywords && s.gsc_keywords.length) {
+    const selected = s.keyword_override || s.gsc_keywords[0].query;
+    const pills = s.gsc_keywords.map((kw, i) => {
+      const isActive = selected === kw.query;
+      const tip = `Position ${kw.position}${kw.impressions ? ' · ' + kw.impressions + ' impressions' : ''}`;
+      return `<button class="s1-kw-pill${isActive ? ' active' : ''}" data-kw="${esc(kw.query)}" title="${esc(tip)}" onclick="selectKwPill('${s.id}','${esc(kw.query)}',this)">${esc(kw.query)}</button>`;
+    }).join('');
+    return `<div class="s1-kw-pills">${GSC_LOGO}${pills}</div>`;
   }
-  return `<div class="s1-kw-wrap kw-missing">${icon}<span style="font-size:.72rem;color:#b45309;font-weight:600">No GSC data</span></div>`;
+  return `<span class="s1-kw-missing">${GSC_LOGO}<span>No GSC data</span></span>`;
 }
 
 function updateSiteKwChip(s) {
@@ -782,9 +791,13 @@ function updateSiteKwChip(s) {
   kw.innerHTML = buildKwHtml(s);
 }
 
-function setSiteKwSelect(id, val) {
-  const s = state.sites.find(s => s.id === id);
-  if (s) { s.keyword_override = val || null; saveState(); }
+function selectKwPill(siteId, query, btn) {
+  const s = state.sites.find(x => x.id === siteId);
+  if (!s) return;
+  s.keyword_override = query;
+  saveState();
+  const cell = document.getElementById(`s1-site-kw-${siteId}`);
+  if (cell) cell.querySelectorAll('.s1-kw-pill').forEach(p => p.classList.toggle('active', p.dataset.kw === query));
 }
 
 function toggleSiteInline(id, checked) {

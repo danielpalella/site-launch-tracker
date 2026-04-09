@@ -3608,13 +3608,15 @@ app.get('/api/bulk-blog/gsc-keyword/:id', requireAuth, async (req, res) => {
     if (cacheDoc.exists) {
       const { data } = cacheDoc.data();
       const queries = data?.gsc?.topQueries || [];
-      const best = queries
-        .filter(q => q.position >= 5 && q.position <= 20)
-        .sort((a, b) => b.impressions - a.impressions)[0] || null;
-      if (best) return res.json({ keyword: best.query, impressions: best.impressions, position: best.position });
-      if (queries.length > 0) return res.json({ keyword: null, reason: 'no_opportunity' });
+      const top3 = queries
+        .filter(q => q.position >= 3 && q.position <= 30)
+        .sort((a, b) => b.impressions - a.impressions)
+        .slice(0, 3)
+        .map(q => ({ query: q.query, impressions: q.impressions, position: Math.round(q.position * 10) / 10 }));
+      if (top3.length) return res.json({ keywords: top3, keyword: top3[0].query });
+      if (queries.length > 0) return res.json({ keywords: [], keyword: null, reason: 'no_opportunity' });
     }
-    return res.json({ keyword: null, reason: 'no_data' });
+    return res.json({ keywords: [], keyword: null, reason: 'no_data' });
   } catch (err) {
     res.status(500).json({ keyword: null, reason: 'error', error: err.message });
   }
