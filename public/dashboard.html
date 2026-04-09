@@ -5314,6 +5314,9 @@ function setCohortWindow(val, _skipRerender) {
   _cohortWindow = val;
   if (val) _acAgeFilter = ''; // mutually exclusive with age filter
   _updateSortFilterBadge();
+  // Hide timeframe picker — irrelevant when cohort defines the window
+  const tfWrap = document.getElementById('ac-timeframe-wrap');
+  if (tfWrap) tfWrap.style.display = val ? 'none' : '';
   // Banner
   const banner = document.getElementById('cohort-banner');
   if (banner) {
