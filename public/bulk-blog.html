@@ -203,7 +203,7 @@
 .s1-right-empty { display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2.5rem;text-align:center;color:var(--text-muted) }
 /* GSC keyword pills */
 .s1-kw-pills { display:flex;align-items:center;gap:.3rem;flex-shrink:0;flex-wrap:nowrap }
-.s1-kw-pill { background:var(--bg);border:1.5px solid var(--border);border-radius:99px;padding:.2rem .6rem;font-size:.72rem;font-weight:600;color:var(--text-muted);cursor:pointer;font-family:inherit;transition:all .12s;white-space:nowrap }
+.s1-kw-pill { background:var(--bg);border:1.5px solid var(--border);border-radius:99px;padding:.2rem .6rem;font-size:.72rem;font-weight:600;color:var(--text-muted);cursor:pointer;font-family:inherit;transition:all .12s;white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis;display:inline-block;vertical-align:middle }
 .s1-kw-pill.active { background:var(--bb-primary-light);border-color:var(--bb-primary);color:var(--bb-primary) }
 .s1-kw-pill:hover:not(.active) { border-color:var(--bb-primary);color:var(--bb-primary) }
 .s1-kw-missing { display:inline-flex;align-items:center;gap:.3rem;font-size:.72rem;color:#b45309;font-weight:600;background:#fffbeb;border:1.5px solid #f59e0b55;border-radius:6px;padding:.2rem .55rem;flex-shrink:0 }
@@ -332,20 +332,21 @@
       <!-- Right panel -->
       <div class="s1-right">
         <div class="s1-right-body" id="s1-right-body">
-          <!-- Default: select-industry prompt + recent posts -->
+          <!-- Default: select-industry prompt (hidden once industry chosen) -->
           <div id="s1-no-industry">
             <div class="s1-right-empty">
               <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" style="opacity:.28"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
               <div style="font-size:.9rem;font-weight:700;color:var(--text);margin-top:.9rem">Select an industry</div>
               <div style="font-size:.8rem;margin-top:.3rem">Sites for the chosen industry will appear here</div>
             </div>
-            <div id="s1-recent-wrap" style="display:none;margin-top:.25rem">
-              <div class="s1-section-label">RECENT BLOG POSTS</div>
-              <div id="s1-recent-list" style="border:1px solid var(--border);border-radius:8px;overflow:hidden"></div>
-            </div>
           </div>
           <!-- Sites list (shown when industry selected) -->
           <div id="s1-sites-list" style="display:none"></div>
+          <!-- Recent blog posts — always visible below -->
+          <div id="s1-recent-wrap" style="display:none;margin-top:1.25rem">
+            <div class="s1-section-label">RECENT BLOG POSTS</div>
+            <div id="s1-recent-list" style="border:1px solid var(--border);border-radius:8px;overflow:hidden"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -663,13 +664,15 @@ async function loadRecent() {
         ? queued.map(buildRecentRow).join('')
         : '<div style="padding:1.5rem;text-align:center;color:var(--text-muted);font-size:.82rem">No saved posts yet.</div>';
     }
-  } catch {}
+  } catch (err) { console.error('[loadRecent]', err); }
 }
 
 function toggleQueuePanel(e) {
   e && e.stopPropagation();
   const panel = document.getElementById('s1-queue-panel');
-  panel.style.display = panel.style.display === 'none' ? '' : 'none';
+  const opening = panel.style.display === 'none';
+  panel.style.display = opening ? '' : 'none';
+  if (opening) loadRecent(); // always fetch fresh data when panel opens
 }
 // Close queue panel on outside click
 document.addEventListener('click', e => {
@@ -758,7 +761,7 @@ function renderSitesInline() {
     return `<div id="s1-site-row-${s.id}" style="${ROW};opacity:${s.included ? '1' : '.38'}">
       <input type="checkbox" ${s.included ? 'checked' : ''} onchange="toggleSiteInline('${s.id}',this.checked)" style="width:14px;height:14px;cursor:pointer;flex:none;margin:0">
       ${fav}
-      <div style="flex:1;min-width:0;overflow:hidden">
+      <div style="flex:1 1 170px;min-width:170px;overflow:hidden">
         <div style="font-size:.82rem;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(s.account_name)}</div>
         <div style="font-size:.7rem;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(domain)}</div>
       </div>
