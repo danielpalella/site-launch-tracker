@@ -2641,6 +2641,52 @@ app.get('/api/analytics/:id/blog-history', requireAuth, async (req, res) => {
   }
 });
 
+// Save a generated post to Firestore without pushing to Duda (queued status)
+app.post('/api/analytics/:id/save-blog-draft', requireAuth, async (req, res) => {
+  const { title, html, industry, city, keyword, questionId } = req.body;
+  if (!title || !html) return res.status(400).json({ error: 'title and html required' });
+  try {
+    const ref = db.collection('launches').doc(req.params.id);
+    if (!(await ref.get()).exists) return res.status(404).json({ error: 'Site not found' });
+    const doc = await ref.collection('blog_drafts').add({
+      title,
+      html,
+      status: 'queued',
+      pushedAt: new Date(),
+      industry: industry || null,
+      city: city || null,
+      keyword: keyword || null,
+      questionId: questionId || null,
+    });
+    res.json({ success: true, id: doc.id });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Fetch a specific blog draft (including html content for preview)
+app.get('/api/analytics/:siteId/blog-drafts/:draftId', requireAuth, async (req, res) => {
+  try {
+    const doc = await db.collection('launches').doc(req.params.siteId)
+      .collection('blog_drafts').doc(req.params.draftId).get();
+    if (!doc.exists) return res.status(404).json({ error: 'Not found' });
+    const data = doc.data();
+    res.json({
+      id: doc.id,
+      title: data.title || '',
+      html: data.html || null,
+      status: data.status || 'queued',
+      industry: data.industry || null,
+      city: data.city || null,
+      keyword: data.keyword || null,
+      questionId: data.questionId || null,
+      pushedAt: data.pushedAt?.toDate?.()?.toISOString() || null,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── Reddit OAuth ──
 // Reads credentials from Firestore config/reddit_credentials.
 // Returns null gracefully if not configured — callers fall back to anonymous.
