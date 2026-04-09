@@ -2310,6 +2310,50 @@ app.post('/api/analytics/warm-all', requireAuthOrWarmKey, async (req, res) => {
   }
 });
 
+// Recent blog posts across all sites (for overview card)
+app.get('/api/analytics/recent-blog-posts', requireAuth, async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit) || 40, 100);
+    const snap = await db.collectionGroup('blog_drafts')
+      .orderBy('pushedAt', 'desc')
+      .limit(limit)
+      .get();
+
+    // Collect unique site IDs
+    const siteIds = [...new Set(snap.docs.map(d => d.ref.parent.parent.id))];
+    const siteSnaps = await Promise.all(siteIds.map(id => db.collection('launches').doc(id).get()));
+    const siteMap = {};
+    siteSnaps.forEach(s => {
+      if (s.exists) {
+        const d = s.data();
+        siteMap[s.id] = { account_name: d.account_name || '', domain: d.domain_name || '', industry: d.industry || null };
+      }
+    });
+
+    const posts = snap.docs.map(doc => {
+      const siteId = doc.ref.parent.parent.id;
+      const data = doc.data();
+      return {
+        id: doc.id,
+        siteId,
+        title: data.title || '',
+        status: data.status || 'draft',
+        pushedAt: data.pushedAt?.toDate?.()?.toISOString() || null,
+        industry: data.industry || siteMap[siteId]?.industry || null,
+        city: data.city || null,
+        keyword: data.keyword || null,
+        account_name: siteMap[siteId]?.account_name || '',
+        domain: siteMap[siteId]?.domain || '',
+      };
+    });
+
+    res.json({ posts });
+  } catch (err) {
+    console.error('recent-blog-posts error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/analytics/:id', requireAuth, async (req, res) => {
   try {
     const data = await fetchAndCacheAnalytics(req.params.id, { force: req.query.force === 'true' });
@@ -2575,50 +2619,6 @@ app.post('/api/analytics/:id/push-blog', requireAuth, async (req, res) => {
     res.json({ success: true, title, postId, status });
   } catch (err) {
     console.error('push-blog error:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Recent blog posts across all sites (for overview card)
-app.get('/api/analytics/recent-blog-posts', requireAuth, async (req, res) => {
-  try {
-    const limit = Math.min(parseInt(req.query.limit) || 40, 100);
-    const snap = await db.collectionGroup('blog_drafts')
-      .orderBy('pushedAt', 'desc')
-      .limit(limit)
-      .get();
-
-    // Collect unique site IDs
-    const siteIds = [...new Set(snap.docs.map(d => d.ref.parent.parent.id))];
-    const siteSnaps = await Promise.all(siteIds.map(id => db.collection('launches').doc(id).get()));
-    const siteMap = {};
-    siteSnaps.forEach(s => {
-      if (s.exists) {
-        const d = s.data();
-        siteMap[s.id] = { account_name: d.account_name || '', domain: d.domain_name || '', industry: d.industry || null };
-      }
-    });
-
-    const posts = snap.docs.map(doc => {
-      const siteId = doc.ref.parent.parent.id;
-      const data = doc.data();
-      return {
-        id: doc.id,
-        siteId,
-        title: data.title || '',
-        status: data.status || 'draft',
-        pushedAt: data.pushedAt?.toDate?.()?.toISOString() || null,
-        industry: data.industry || siteMap[siteId]?.industry || null,
-        city: data.city || null,
-        keyword: data.keyword || null,
-        account_name: siteMap[siteId]?.account_name || '',
-        domain: siteMap[siteId]?.domain || '',
-      };
-    });
-
-    res.json({ posts });
-  } catch (err) {
-    console.error('recent-blog-posts error:', err);
     res.status(500).json({ error: err.message });
   }
 });
