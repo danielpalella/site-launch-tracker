@@ -8,11 +8,11 @@
 <link rel="stylesheet" href="/style.css">
 <style>
 /* ── Layout ── */
-.bb-page { max-width:1000px;margin:0 auto;padding:2rem 1.25rem 4rem }
+.bb-page { max-width:1200px;margin:0 auto;padding:2rem 1.25rem 4rem;--bb-primary:#1259FF;--bb-primary-light:#1259FF14 }
 .bb-steps { display:flex;align-items:center;gap:0;margin-bottom:2.5rem }
 .bb-step { display:flex;align-items:center;gap:.5rem;font-size:.78rem;font-weight:600;color:var(--text-muted);flex-shrink:0 }
 .bb-step-num { width:22px;height:22px;border-radius:50%;background:var(--border);color:var(--text-muted);display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;flex-shrink:0;transition:all .2s }
-.bb-step.active .bb-step-num { background:var(--primary,#f59e0b);color:#fff }
+.bb-step.active .bb-step-num { background:var(--bb-primary);color:#fff }
 .bb-step.active { color:var(--text) }
 .bb-step.done .bb-step-num { background:#22c55e;color:#fff }
 .bb-step.done { color:var(--text-muted) }
@@ -22,7 +22,7 @@
 .bb-panel { display:none }
 .bb-panel.active { display:block }
 
-.bb-heading { font-size:1.3rem;font-weight:700;color:var(--text);margin-bottom:.35rem }
+.bb-heading { font-size:1.5rem;font-weight:800;color:var(--text);margin-bottom:.35rem;letter-spacing:-.3px }
 .bb-sub { font-size:.875rem;color:var(--text-muted);margin-bottom:1.5rem }
 
 /* Inline sites (step 1) */
@@ -41,18 +41,18 @@
 /* Step 2 — Topic picker */
 .bb-topic-grid { display:flex;flex-direction:column;gap:.6rem;margin-bottom:1rem }
 .bb-topic-card { border:2px solid var(--border);border-radius:.65rem;padding:.8rem 1rem;cursor:pointer;transition:border-color .15s,background .15s;display:flex;align-items:flex-start;gap:.75rem }
-.bb-topic-card:hover { border-color:var(--primary,#f59e0b);background:var(--primary-light,#f59e0b08) }
-.bb-topic-card.selected { border-color:var(--primary,#f59e0b);background:var(--primary-light,#f59e0b18) }
+.bb-topic-card:hover { border-color:var(--bb-primary);background:var(--bb-primary-light) }
+.bb-topic-card.selected { border-color:var(--bb-primary);background:var(--bb-primary-light) }
 .bb-topic-radio { width:16px;height:16px;border:2px solid var(--border);border-radius:50%;flex-shrink:0;margin-top:2px;transition:all .15s;display:flex;align-items:center;justify-content:center }
-.bb-topic-card.selected .bb-topic-radio { border-color:var(--primary,#f59e0b);background:var(--primary,#f59e0b) }
+.bb-topic-card.selected .bb-topic-radio { border-color:var(--bb-primary);background:var(--bb-primary) }
 .bb-topic-radio-dot { width:6px;height:6px;border-radius:50%;background:#fff;display:none }
 .bb-topic-card.selected .bb-topic-radio-dot { display:block }
 .bb-topic-body { flex:1;min-width:0 }
 .bb-topic-title { font-size:.875rem;font-weight:600;color:var(--text);line-height:1.4 }
 .bb-topic-meta { font-size:.72rem;color:var(--text-muted);margin-top:.25rem;display:flex;gap:.6rem;flex-wrap:wrap }
 .bb-topic-upvotes { color:#ff4500;font-weight:600 }
-.bb-topic-load-btn { display:flex;align-items:center;gap:.5rem;font-size:.82rem;font-weight:600;color:var(--primary,#f59e0b);border:1px solid var(--primary,#f59e0b);border-radius:.5rem;padding:.45rem .9rem;background:none;cursor:pointer;font-family:inherit;transition:background .15s }
-.bb-topic-load-btn:hover { background:var(--primary-light,#f59e0b18) }
+.bb-topic-load-btn { display:flex;align-items:center;gap:.5rem;font-size:.82rem;font-weight:600;color:var(--bb-primary);border:1px solid var(--bb-primary);border-radius:.5rem;padding:.45rem .9rem;background:none;cursor:pointer;font-family:inherit;transition:background .15s }
+.bb-topic-load-btn:hover { background:var(--bb-primary-light) }
 
 /* Step 3 — Sites table */
 .bb-sites-header { display:flex;align-items:center;gap:.75rem;margin-bottom:1rem }
@@ -68,7 +68,7 @@
 .bb-site-domain { font-size:.72rem;color:var(--text-muted) }
 .bb-inline-input { border:1px solid transparent;border-radius:.35rem;padding:.25rem .4rem;font-size:.82rem;font-family:inherit;color:var(--text);background:transparent;width:100%;min-width:120px }
 .bb-inline-input:hover { border-color:var(--border) }
-.bb-inline-input:focus { border-color:var(--primary,#f59e0b);outline:none;background:var(--input-bg,var(--bg)) }
+.bb-inline-input:focus { border-color:var(--bb-primary);outline:none;background:var(--input-bg,var(--bg)) }
 .bb-kw-loading { color:var(--text-muted);font-size:.75rem;font-style:italic }
 .bb-kw-none { color:var(--text-muted);font-size:.75rem }
 .bb-badge-warn { font-size:.68rem;font-weight:700;background:#f59e0b22;color:#b45309;border-radius:20px;padding:.1rem .45rem }
@@ -77,7 +77,7 @@
 
 /* Step 4 — Generate progress */
 .bb-progress-bar-wrap { height:6px;background:var(--border);border-radius:3px;margin-bottom:1.25rem;overflow:hidden }
-.bb-progress-bar { height:100%;background:var(--primary,#f59e0b);border-radius:3px;transition:width .3s }
+.bb-progress-bar { height:100%;background:var(--bb-primary);border-radius:3px;transition:width .3s }
 .bb-progress-label { font-size:.82rem;color:var(--text-muted);margin-bottom:1.25rem }
 .bb-gen-list { display:flex;flex-direction:column;gap:.5rem }
 .bb-gen-row { display:flex;align-items:center;gap:.75rem;padding:.6rem .9rem;border:1px solid var(--border);border-radius:.55rem;font-size:.82rem }
@@ -85,16 +85,19 @@
 .bb-gen-row.error { border-color:#ef444444 }
 .bb-gen-site { font-weight:600;flex:1;color:var(--text) }
 .bb-gen-status { font-size:.75rem;color:var(--text-muted);flex-shrink:0;display:flex;align-items:center;gap:.4rem }
-.bb-gen-status.generating { color:var(--primary,#f59e0b) }
+.bb-gen-status.generating { color:var(--bb-primary) }
 .bb-gen-status.done { color:#22c55e }
 .bb-gen-status.error { color:#ef4444 }
-.bb-retry-btn { font-size:.72rem;color:var(--primary,#f59e0b);border:1px solid var(--primary,#f59e0b);border-radius:.35rem;padding:.15rem .45rem;background:none;cursor:pointer;font-family:inherit }
+.bb-retry-btn { font-size:.72rem;color:var(--bb-primary);border:1px solid var(--bb-primary);border-radius:.35rem;padding:.15rem .45rem;background:none;cursor:pointer;font-family:inherit }
 
 /* Scribble animation */
 @keyframes bb-scribble { 0%{stroke-dashoffset:60;opacity:.5}60%{stroke-dashoffset:0;opacity:1}100%{stroke-dashoffset:0;opacity:1} }
 
 /* Step 5 — Review */
-.bb-review-actions { display:flex;gap:.6rem;align-items:center;margin-bottom:1.25rem;flex-wrap:wrap }
+.bb-review-actions { position:sticky;top:52px;z-index:100;background:var(--surface);border:1px solid var(--border);border-radius:.75rem;padding:.85rem 1.1rem;margin-bottom:1.25rem;display:flex;gap:.75rem;align-items:center;flex-wrap:wrap;box-shadow:0 2px 10px rgba(0,0,0,.06) }
+.bb-review-actions-left { flex:1;min-width:180px }
+.bb-review-actions-topic { font-size:.82rem;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:500px }
+.bb-review-actions-btns { display:flex;gap:.5rem;flex-shrink:0;align-items:center;flex-wrap:wrap }
 .bb-review-grid { display:flex;flex-direction:column;gap:.75rem }
 .bb-review-card { border:1px solid var(--border);border-radius:.75rem;overflow:hidden }
 .bb-review-card-head { display:flex;align-items:center;gap:.75rem;padding:.75rem 1rem;background:var(--row-bg,transparent);border-bottom:1px solid var(--border) }
@@ -106,7 +109,7 @@
 .bb-review-card-body h1 { font-size:1.1rem }
 .bb-review-card-body h2 { font-size:.95rem }
 .bb-review-card-body p { margin:.35rem 0 }
-.bb-review-card-body a { color:var(--primary,#f59e0b) }
+.bb-review-card-body a { color:var(--bb-primary) }
 .bb-review-card-body.open { display:block }
 .bb-pub-status { font-size:.72rem;font-weight:600;padding:.25rem .6rem;border-radius:5px;white-space:nowrap }
 .bb-pub-status.draft { background:#6366f115;color:#6366f1;border:1px solid #6366f133 }
@@ -117,7 +120,7 @@
 /* Shared buttons */
 .bb-btn { display:inline-flex;align-items:center;gap:.4rem;padding:.45rem 1rem;border-radius:.5rem;font-size:.82rem;font-weight:600;cursor:pointer;border:1px solid transparent;font-family:inherit;transition:opacity .15s }
 .bb-btn:disabled { opacity:.45;cursor:not-allowed }
-.bb-btn-primary { background:var(--primary,#f59e0b);color:#fff;border-color:var(--primary,#f59e0b) }
+.bb-btn-primary { background:var(--bb-primary);color:#fff;border-color:var(--bb-primary) }
 .bb-btn-primary:hover:not(:disabled) { opacity:.88 }
 .bb-btn-outline { background:none;color:var(--text);border-color:var(--border) }
 .bb-btn-outline:hover:not(:disabled) { background:var(--hover-bg,rgba(0,0,0,.04)) }
@@ -128,7 +131,7 @@
 .bb-btn-sm { padding:.3rem .7rem;font-size:.75rem }
 
 .bb-empty { text-align:center;padding:3rem;color:var(--text-muted);font-size:.875rem }
-.bb-spinner { display:inline-block;width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--primary,#f59e0b);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0 }
+.bb-spinner { display:inline-block;width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--bb-primary);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0 }
 @keyframes spin { to { transform:rotate(360deg) } }
 
 /* ── Step 1 redesign ── */
@@ -220,6 +223,12 @@
 
 <div class="bb-page">
 
+  <!-- Page header (always visible) -->
+  <div class="s1-header">
+    <h1 class="s1-title">Blog generator</h1>
+    <p class="s1-sub-text">Generate SEO posts in bulk for every active site in a chosen industry.</p>
+  </div>
+
   <!-- Step indicators -->
   <div class="bb-steps" id="bb-steps">
     <div class="bb-step active" data-step="1"><div class="bb-step-num">1</div><span>Industry</span></div>
@@ -233,10 +242,6 @@
 
   <!-- ── Step 1: Industry ── -->
   <div class="bb-panel active" id="bb-step-1">
-    <div class="s1-header">
-      <h1 class="s1-title">Blog generator</h1>
-      <p class="s1-sub-text">Generate SEO posts in bulk for every active site in a chosen industry.</p>
-    </div>
     <div class="s1-filter-bar">
       <button class="s1-ftab active" id="s1-ftab-all" onclick="filterQuickTab(null,this)">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
@@ -270,13 +275,17 @@
 
   <!-- ── Step 2: Topic ── -->
   <div class="bb-panel" id="bb-step-2">
-    <div class="bb-heading">Pick a Reddit topic</div>
+    <div class="bb-heading">Pick a topic</div>
     <div class="bb-sub">This question is the content seed. Each site gets a unique post built around it.</div>
-    <button class="bb-topic-load-btn" id="bb-load-topics" onclick="loadTopics()">
-      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="-25.65 -42.75 222.3 256.5"><g transform="translate(-85.4 -85.4)"><circle r="85.5" cy="170.9" cx="170.9" fill="#ff4500"/><path d="M227.9 170.9c0-6.9-5.6-12.5-12.5-12.5-3.4 0-6.4 1.3-8.6 3.5-8.5-6.1-20.3-10.1-33.3-10.6l5.7-26.7 18.5 3.9c.2 4.7 4.1 8.5 8.9 8.5 4.9 0 8.9-4 8.9-8.9s-4-8.9-8.9-8.9c-3.5 0-6.5 2-7.9 5l-20.7-4.4c-.6-.1-1.2 0-1.7.3s-.8.8-1 1.4l-6.3 29.8c-13.3.4-25.2 4.3-33.8 10.6-2.2-2.1-5.3-3.5-8.6-3.5-6.9 0-12.5 5.6-12.5 12.5 0 5.1 3 9.4 7.4 11.4-.2 1.2-.3 2.5-.3 3.8 0 19.2 22.3 34.7 49.9 34.7 27.6 0 49.9-15.5 49.9-34.7 0-1.3-.1-2.5-.3-3.7 4.1-2 7.2-6.4 7.2-11.5zm-85.5 8.9c0-4.9 4-8.9 8.9-8.9s8.9 4 8.9 8.9-4 8.9-8.9 8.9-8.9-4-8.9-8.9zm49.7 23.5c-6.1 6.1-17.7 6.5-21.1 6.5-3.4 0-15.1-.5-21.1-6.5-.9-.9-.9-2.4 0-3.3.9-.9 2.4-.9 3.3 0 3.8 3.8 12 5.2 17.9 5.2 5.9 0 14-1.4 17.9-5.2.9-.9 2.4-.9 3.3 0 .7 1 .7 2.4-.2 3.3zm-1.6-14.6c-4.9 0-8.9-4-8.9-8.9s4-8.9 8.9-8.9 8.9 4 8.9 8.9-4 8.9-8.9 8.9z" fill="#fff"/></g></svg>
-      Get ideas from Reddit
-    </button>
-    <div id="bb-topic-grid" class="bb-topic-grid" style="margin-top:1rem"></div>
+    <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:1.75rem;flex-wrap:wrap">
+      <button class="bb-topic-load-btn" id="bb-load-topics" onclick="loadTopics()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="-25.65 -42.75 222.3 256.5"><g transform="translate(-85.4 -85.4)"><circle r="85.5" cy="170.9" cx="170.9" fill="#ff4500"/><path d="M227.9 170.9c0-6.9-5.6-12.5-12.5-12.5-3.4 0-6.4 1.3-8.6 3.5-8.5-6.1-20.3-10.1-33.3-10.6l5.7-26.7 18.5 3.9c.2 4.7 4.1 8.5 8.9 8.5 4.9 0 8.9-4 8.9-8.9s-4-8.9-8.9-8.9c-3.5 0-6.5 2-7.9 5l-20.7-4.4c-.6-.1-1.2 0-1.7.3s-.8.8-1 1.4l-6.3 29.8c-13.3.4-25.2 4.3-33.8 10.6-2.2-2.1-5.3-3.5-8.6-3.5-6.9 0-12.5 5.6-12.5 12.5 0 5.1 3 9.4 7.4 11.4-.2 1.2-.3 2.5-.3 3.8 0 19.2 22.3 34.7 49.9 34.7 27.6 0 49.9-15.5 49.9-34.7 0-1.3-.1-2.5-.3-3.7 4.1-2 7.2-6.4 7.2-11.5zm-85.5 8.9c0-4.9 4-8.9 8.9-8.9s8.9 4 8.9 8.9-4 8.9-8.9 8.9-8.9-4-8.9-8.9zm49.7 23.5c-6.1 6.1-17.7 6.5-21.1 6.5-3.4 0-15.1-.5-21.1-6.5-.9-.9-.9-2.4 0-3.3.9-.9 2.4-.9 3.3 0 3.8 3.8 12 5.2 17.9 5.2 5.9 0 14-1.4 17.9-5.2.9-.9 2.4-.9 3.3 0 .7 1 .7 2.4-.2 3.3zm-1.6-14.6c-4.9 0-8.9-4-8.9-8.9s4-8.9 8.9-8.9 8.9 4 8.9 8.9-4 8.9-8.9 8.9z" fill="#fff"/></g></svg>
+        Get ideas from Reddit
+      </button>
+      <span id="bb-topic-industry-label" style="font-size:.78rem;color:var(--text-muted)"></span>
+    </div>
+    <div id="bb-topic-section-label" class="s1-section-label" style="display:none">SELECT A TOPIC</div>
+    <div id="bb-topic-grid" class="bb-topic-grid"></div>
     <div style="margin-top:1.5rem;display:flex;justify-content:space-between">
       <button class="bb-btn bb-btn-outline" onclick="goStep(1)">← Back</button>
       <button class="bb-btn bb-btn-primary" id="bb-step2-next" disabled onclick="proceedToGenerate()">Generate posts →</button>
@@ -333,14 +342,19 @@
     <div class="bb-heading">Review &amp; publish</div>
     <div class="bb-sub">Expand any post to read it before publishing. Default action is Save as Draft.</div>
     <div class="bb-review-actions">
-      <button class="bb-btn bb-btn-outline" id="bb-draft-all-btn" onclick="publishAll(false)">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-        Save all as drafts
-      </button>
-      <button class="bb-btn bb-btn-outline" id="bb-publish-all-btn" onclick="confirmPublishAll()" style="border-color:#22c55e;color:#16a34a">
-        Publish all to <img src="/duda-logo.svg" style="height:15px;border-radius:2px;vertical-align:middle;margin-left:2px">
-      </button>
-      <span id="bb-review-summary" style="font-size:.78rem;color:var(--text-muted);margin-left:.5rem"></span>
+      <div class="bb-review-actions-left">
+        <div class="bb-review-actions-topic" id="bb-review-topic-label"></div>
+        <div style="font-size:.75rem;color:var(--text-muted);margin-top:.2rem" id="bb-review-summary"></div>
+      </div>
+      <div class="bb-review-actions-btns">
+        <button class="bb-btn bb-btn-outline bb-btn-sm" id="bb-draft-all-btn" onclick="publishAll(false)">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          Save all as drafts
+        </button>
+        <button class="bb-btn bb-btn-sm" id="bb-publish-all-btn" onclick="confirmPublishAll()" style="background:none;color:#16a34a;border:1px solid #22c55e">
+          Publish all to <img src="/duda-logo.svg" style="height:13px;border-radius:2px;vertical-align:middle;margin-left:3px">
+        </button>
+      </div>
     </div>
     <div class="bb-review-grid" id="bb-review-grid"></div>
     <div style="margin-top:1.5rem;display:flex;justify-content:space-between;align-items:center">
@@ -701,6 +715,7 @@ async function loadTopics() {
     const { questions } = await r.json();
     if (!questions?.length) { grid.innerHTML = '<div class="bb-empty">No topics found. Try again.</div>'; return; }
     _topicList = questions;
+    document.getElementById('bb-topic-section-label').style.display = '';
     grid.innerHTML = questions.map((q, i) => `
       <div class="bb-topic-card${state.topic?.id === q.id ? ' selected' : ''}" onclick="selectTopic(this, ${i})">
         <div class="bb-topic-radio"><div class="bb-topic-radio-dot"></div></div>
@@ -945,6 +960,11 @@ function buildReviewGrid() {
   const grid = document.getElementById('bb-review-grid');
   const included = state.sites.filter(s => s.included && state.posts[s.id]?.status === 'done');
   if (!included.length) { grid.innerHTML = '<div class="bb-empty">No posts generated yet.</div>'; return; }
+  const topicEl = document.getElementById('bb-review-topic-label');
+  if (topicEl && state.topic) {
+    const t = state.topic.title;
+    topicEl.textContent = `"${t.length > 90 ? t.slice(0, 90) + '…' : t}"`;
+  }
   grid.innerHTML = included.map(s => {
     const post = state.posts[s.id];
     const pub  = state.published[s.id];
@@ -977,13 +997,17 @@ function toggleReviewBody(siteId) {
 }
 
 function updateReviewSummary() {
+  const included = state.sites.filter(s => s.included && state.posts[s.id]?.status === 'done');
   const counts = Object.values(state.published);
   const drafted = counts.filter(p => p.status === 'draft').length;
   const published = counts.filter(p => p.status === 'published').length;
+  const remaining = included.length - counts.filter(p => p.status === 'draft' || p.status === 'published').length;
   const parts = [];
-  if (drafted)   parts.push(`${drafted} drafted`);
   if (published) parts.push(`${published} published`);
-  document.getElementById('bb-review-summary').textContent = parts.join(' · ');
+  if (drafted)   parts.push(`${drafted} drafted`);
+  if (remaining > 0) parts.push(`${remaining} pending`);
+  const el = document.getElementById('bb-review-summary');
+  if (el) el.textContent = parts.join(' · ') || `${included.length} posts ready to publish`;
 }
 
 async function pushOne(siteId, publish) {
@@ -1067,6 +1091,11 @@ window.goStep = function(n) {
     }
   } else {
     hideStickyBar();
+  }
+  if (n === 2) {
+    const lbl = document.getElementById('bb-topic-industry-label');
+    if (lbl && state.industry) lbl.textContent = `For ${state.industry} · ${state.sites.filter(s => s.included).length} sites`;
+    if (_topicList.length) document.getElementById('bb-topic-section-label').style.display = '';
   }
   if (n === 5) buildReviewGrid();
 };
