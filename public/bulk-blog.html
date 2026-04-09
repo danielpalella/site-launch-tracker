@@ -158,16 +158,26 @@
 .bb-spinner { display:inline-block;width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--bb-primary);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0 }
 @keyframes spin { to { transform:rotate(360deg) } }
 
-/* ── Step 1 split layout ── */
-.s1-header { margin-bottom:1rem }
+/* ── Step 1 layout ── */
+.s1-header { margin-bottom:.65rem }
 .s1-title { font-size:1.5rem;font-weight:800;color:var(--text);letter-spacing:-.3px;margin:0 0 .3rem }
 .s1-sub-text { font-size:.875rem;color:var(--text-muted);margin:0 }
-.s1-topbar { display:flex;align-items:center;gap:.75rem;margin-bottom:.75rem }
 .s1-last-gen { display:flex;align-items:center;gap:.3rem;font-size:.75rem;color:var(--text-muted) }
-.s1-stats { font-size:.75rem;color:var(--text-muted);margin-left:auto }
+.s1-stats { font-size:.75rem;color:var(--text-muted) }
 .s1-section-label { font-size:.67rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:.6rem }
+/* Top toolbar (always visible) */
+.s1-top-toolbar { display:flex;align-items:center;gap:.45rem;padding:.45rem .6rem;border:1.5px solid var(--border);border-radius:10px;background:var(--surface);margin-bottom:.6rem;box-shadow:0 1px 4px rgba(0,0,0,.05) }
+.s1-search { flex:1;min-width:0;border:1.5px solid var(--border);border-radius:6px;padding:.3rem .65rem;font-size:.8rem;font-family:inherit;color:var(--text);background:var(--bg);outline:none;transition:border-color .15s }
+.s1-search:focus { border-color:var(--bb-primary) }
+.s1-tb-divider { width:1px;height:18px;background:var(--border);flex-shrink:0;margin:0 .1rem }
+/* Saved-for-later queue panel */
+.s1-queue-btn { position:relative }
+.s1-queue-badge { display:inline-flex;align-items:center;justify-content:center;min-width:17px;height:17px;border-radius:50%;background:var(--bb-primary);color:#fff;font-size:.65rem;font-weight:700;padding:0 4px;margin-left:.25rem }
+.s1-queue-panel { position:absolute;top:calc(100% + 6px);right:0;width:400px;background:var(--surface);border:1.5px solid var(--border);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:300;overflow:hidden }
+.s1-queue-panel-head { display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);font-size:.82rem;font-weight:700;color:var(--text) }
+.s1-queue-panel-body { max-height:340px;overflow-y:auto }
 /* Split panel */
-.s1-split { display:flex;height:calc(100vh - 275px);min-height:460px;border:1.5px solid var(--border);border-radius:12px;overflow:hidden }
+.s1-split { display:flex;height:calc(100vh - 250px);min-height:460px;border:1.5px solid var(--border);border-radius:12px;overflow:hidden }
 /* Sidebar */
 .s1-sidebar { width:215px;flex-shrink:0;border-right:1px solid var(--border);display:flex;flex-direction:column;background:var(--surface) }
 .s1-sidebar-head { padding:.7rem 1rem .6rem;border-bottom:1px solid var(--border) }
@@ -183,11 +193,14 @@
 .s1-ind-item.selected .s1-ind-badge { background:var(--bb-primary);color:#fff }
 /* Right panel */
 .s1-right { flex:1;min-width:0;display:flex;flex-direction:column;background:var(--bg) }
-.s1-right-toolbar { display:flex;align-items:center;gap:.45rem;padding:.5rem .7rem;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--surface) }
-.s1-search { flex:1;min-width:0;border:1.5px solid var(--border);border-radius:6px;padding:.3rem .65rem;font-size:.8rem;font-family:inherit;color:var(--text);background:var(--bg);outline:none;transition:border-color .15s }
-.s1-search:focus { border-color:var(--bb-primary) }
 .s1-right-body { flex:1;overflow-y:auto;padding:.65rem .8rem }
 .s1-right-empty { display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2.5rem;text-align:center;color:var(--text-muted) }
+/* GSC keyword dropdown */
+.s1-kw-wrap { display:inline-flex;align-items:center;gap:.3rem;background:var(--surface);border:1.5px solid var(--border);border-radius:6px;padding:.22rem .5rem;flex-shrink:0 }
+.s1-kw-wrap.kw-ok { border-color:#1a73e844 }
+.s1-kw-wrap.kw-missing { border-color:#f59e0b55;background:#fffbeb }
+.s1-kw-select { border:none;background:transparent;font-size:.75rem;font-family:inherit;color:var(--text);font-weight:600;cursor:pointer;outline:none;padding:0;max-width:160px }
+.s1-kw-select:disabled { color:var(--text-muted);cursor:default }
 /* Sticky bottom bar */
 .s1-sticky { position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);padding:.9rem 2rem;display:flex;align-items:center;justify-content:space-between;z-index:200;box-shadow:0 -4px 20px rgba(0,0,0,.07);transform:translateY(110%);transition:transform .22s cubic-bezier(.4,0,.2,1) }
 .s1-sticky.visible { transform:translateY(0) }
@@ -265,13 +278,39 @@
 
   <!-- ── Step 1: Industry ── -->
   <div class="bb-panel active" id="bb-step-1">
-    <!-- Top meta bar -->
-    <div class="s1-topbar">
+    <!-- Unified top toolbar -->
+    <div class="s1-top-toolbar">
+      <!-- Search (visible when industry selected) -->
+      <input class="s1-search" id="s1-search" placeholder="Search sites…" oninput="filterSitesInline(this.value)" style="display:none">
+      <!-- Site count + bulk controls (visible when industry selected) -->
+      <span id="s1-sites-count-label" style="font-size:.75rem;color:var(--text-muted);white-space:nowrap;flex-shrink:0;display:none"></span>
+      <button class="bb-btn bb-btn-ghost bb-btn-sm" id="s1-all-btn" onclick="toggleAllSitesInline(true)" style="display:none">All</button>
+      <button class="bb-btn bb-btn-ghost bb-btn-sm" id="s1-none-btn" onclick="toggleAllSitesInline(false)" style="display:none">None</button>
+      <div class="s1-tb-divider" id="s1-tb-div1" style="display:none"></div>
+      <!-- Last gen + stats (always visible) -->
       <span class="s1-last-gen" id="s1-last-gen" style="display:none">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
         <span id="s1-last-gen-text"></span>
       </span>
-      <span class="s1-stats" id="s1-stats"></span>
+      <span class="s1-stats" id="s1-stats" style="flex:1"></span>
+      <div class="s1-tb-divider"></div>
+      <!-- Saved for Later -->
+      <div style="position:relative" class="s1-queue-btn">
+        <button class="bb-btn bb-btn-outline bb-btn-sm" onclick="toggleQueuePanel(event)" id="s1-queue-open-btn">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+          Saved for Later
+          <span class="s1-queue-badge" id="s1-queue-badge" style="display:none">0</span>
+        </button>
+        <div class="s1-queue-panel" id="s1-queue-panel" style="display:none">
+          <div class="s1-queue-panel-head">
+            <span>Saved for Later</span>
+            <button onclick="document.getElementById('s1-queue-panel').style.display='none'" style="border:none;background:none;cursor:pointer;color:var(--text-muted);font-size:1rem;line-height:1">✕</button>
+          </div>
+          <div class="s1-queue-panel-body" id="s1-queue-list">
+            <div style="padding:1.5rem;text-align:center;color:var(--text-muted);font-size:.82rem">No saved posts yet.</div>
+          </div>
+        </div>
+      </div>
     </div>
     <!-- Split panel -->
     <div class="s1-split">
@@ -286,14 +325,6 @@
       </div>
       <!-- Right panel -->
       <div class="s1-right">
-        <!-- Toolbar (visible when industry selected) -->
-        <div class="s1-right-toolbar" id="s1-right-toolbar" style="display:none">
-          <input class="s1-search" id="s1-search" placeholder="Search sites…" oninput="filterSitesInline(this.value)">
-          <span id="s1-sites-count-label" style="font-size:.75rem;color:var(--text-muted);white-space:nowrap;flex-shrink:0"></span>
-          <button class="bb-btn bb-btn-ghost bb-btn-sm" onclick="toggleAllSitesInline(true)">All</button>
-          <button class="bb-btn bb-btn-ghost bb-btn-sm" onclick="toggleAllSitesInline(false)">None</button>
-        </div>
-        <!-- Body -->
         <div class="s1-right-body" id="s1-right-body">
           <!-- Default: select-industry prompt + recent posts -->
           <div id="s1-no-industry">
@@ -579,9 +610,33 @@ function hideStickyBar() {
 }
 
 
+function buildRecentRow(p) {
+  const statusColor = p.status === 'published' ? '#22c55e' : p.status === 'queued' ? '#d97706' : '#6366f1';
+  const statusBg = p.status === 'published' ? '#22c55e18' : p.status === 'queued' ? '#f59e0b15' : '#6366f115';
+  const statusLabel = p.status === 'published' ? 'Published' : p.status === 'queued' ? 'Saved' : 'Draft';
+  const domain = (p.domain || '').replace(/^https?:\/\//, '').replace(/\/$/, '');
+  const fav = domain ? `<img src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=16" width="13" height="13" style="border-radius:2px;flex-shrink:0;vertical-align:middle" onerror="this.style.display='none'">` : '';
+  const queueActions = p.status === 'queued' ? `
+    <button class="bb-btn bb-btn-ghost bb-btn-sm" style="font-size:.68rem;padding:.15rem .5rem" onclick="previewQueuedPost('${esc(p.siteId)}','${esc(p.id)}','${esc(p.title)}','${esc(p.account_name)}')">Preview</button>
+    <button class="bb-btn bb-btn-outline bb-btn-sm" style="font-size:.68rem;padding:.15rem .5rem" onclick="pushQueuedPost('${esc(p.siteId)}','${esc(p.id)}',false,this)">Draft</button>
+    <button class="bb-btn bb-btn-primary bb-btn-sm" style="font-size:.68rem;padding:.15rem .5rem" onclick="pushQueuedPost('${esc(p.siteId)}','${esc(p.id)}',true,this)">Publish</button>` : '';
+  return `<div class="s1-recent-post-row">
+    <div class="s1-rp-dot" style="background:${statusColor}"></div>
+    <div class="s1-rp-content">
+      <div class="s1-rp-title">${fav} ${esc(p.title)}</div>
+      <div class="s1-rp-site">${esc(p.account_name)}${domain ? ' · ' + esc(domain) : ''}</div>
+    </div>
+    <div class="s1-rp-meta">
+      <span class="s1-rp-status" style="background:${statusBg};color:${statusColor};border:1px solid ${statusColor}33">${statusLabel}</span>
+      <span class="s1-rp-date">${timeAgo(p.pushedAt)}</span>
+      ${queueActions}
+    </div>
+  </div>`;
+}
+
 async function loadRecent() {
   try {
-    const r = await fetch('/api/analytics/recent-blog-posts?limit=15');
+    const r = await fetch('/api/analytics/recent-blog-posts?limit=40');
     if (!r.ok) return;
     const { posts } = await r.json();
     if (!posts?.length) return;
@@ -589,36 +644,45 @@ async function loadRecent() {
       document.getElementById('s1-last-gen-text').textContent = 'Last post: ' + timeAgo(posts[0].pushedAt);
       document.getElementById('s1-last-gen').style.display = 'flex';
     }
+    // Recent posts panel (no-industry default view)
     document.getElementById('s1-recent-wrap').style.display = '';
-    document.getElementById('s1-recent-list').innerHTML = posts.map(p => {
-      const statusColor = p.status === 'published' ? '#22c55e' : p.status === 'queued' ? '#d97706' : '#6366f1';
-      const statusBg = p.status === 'published' ? '#22c55e18' : p.status === 'queued' ? '#f59e0b15' : '#6366f115';
-      const statusLabel = p.status === 'published' ? 'Published' : p.status === 'queued' ? 'Saved for later' : 'Draft';
-      const domain = (p.domain || '').replace(/^https?:\/\//, '').replace(/\/$/, '');
-      const fav = domain ? `<img src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=16" width="13" height="13" style="border-radius:2px;flex-shrink:0;vertical-align:middle" onerror="this.style.display='none'">` : '';
-      const queueActions = p.status === 'queued' ? `
-        <button class="bb-btn bb-btn-ghost bb-btn-sm" style="font-size:.68rem;padding:.15rem .5rem" onclick="previewQueuedPost('${esc(p.siteId)}','${esc(p.id)}','${esc(p.title)}','${esc(p.account_name)}')">Preview</button>
-        <button class="bb-btn bb-btn-outline bb-btn-sm" style="font-size:.68rem;padding:.15rem .5rem" onclick="pushQueuedPost('${esc(p.siteId)}','${esc(p.id)}',false,this)">Draft</button>
-        <button class="bb-btn bb-btn-primary bb-btn-sm" style="font-size:.68rem;padding:.15rem .5rem" onclick="pushQueuedPost('${esc(p.siteId)}','${esc(p.id)}',true,this)">Publish</button>` : '';
-      return `<div class="s1-recent-post-row">
-        <div class="s1-rp-dot" style="background:${statusColor}"></div>
-        <div class="s1-rp-content">
-          <div class="s1-rp-title">${fav} ${esc(p.title)}</div>
-          <div class="s1-rp-site">${esc(p.account_name)}${domain ? ' · ' + esc(domain) : ''}</div>
-        </div>
-        <div class="s1-rp-meta">
-          <span class="s1-rp-status" style="background:${statusBg};color:${statusColor};border:1px solid ${statusColor}33">${statusLabel}</span>
-          <span class="s1-rp-date">${timeAgo(p.pushedAt)}</span>
-          ${queueActions}
-        </div>
-      </div>`;
-    }).join('');
+    document.getElementById('s1-recent-list').innerHTML = posts.slice(0, 15).map(buildRecentRow).join('');
+    // Populate Saved-for-Later queue panel
+    const queued = posts.filter(p => p.status === 'queued');
+    const badge = document.getElementById('s1-queue-badge');
+    if (badge) { badge.textContent = queued.length; badge.style.display = queued.length ? '' : 'none'; }
+    const queueList = document.getElementById('s1-queue-list');
+    if (queueList) {
+      queueList.innerHTML = queued.length
+        ? queued.map(buildRecentRow).join('')
+        : '<div style="padding:1.5rem;text-align:center;color:var(--text-muted);font-size:.82rem">No saved posts yet.</div>';
+    }
   } catch {}
 }
+
+function toggleQueuePanel(e) {
+  e && e.stopPropagation();
+  const panel = document.getElementById('s1-queue-panel');
+  panel.style.display = panel.style.display === 'none' ? '' : 'none';
+}
+// Close queue panel on outside click
+document.addEventListener('click', e => {
+  const panel = document.getElementById('s1-queue-panel');
+  if (panel && panel.style.display !== 'none' && !panel.closest('.s1-queue-btn').contains(e.target)) {
+    panel.style.display = 'none';
+  }
+});
 
 // ── Step 1: Inline sites ──
 function cleanDomain(raw) {
   return (raw || '').replace(/^https?:\/\//,'').replace(/^www\./,'').replace(/\/.*$/,'');
+}
+
+function _showToolbarControls(visible) {
+  ['s1-search','s1-sites-count-label','s1-all-btn','s1-none-btn','s1-tb-div1'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = visible ? (id === 's1-search' ? '' : id === 's1-tb-div1' ? '' : '') : 'none';
+  });
 }
 
 async function loadSitesInline(industryName) {
@@ -626,7 +690,7 @@ async function loadSitesInline(industryName) {
   // Switch right panel to sites view
   document.getElementById('s1-no-industry').style.display = 'none';
   list.style.display = '';
-  document.getElementById('s1-right-toolbar').style.display = '';
+  _showToolbarControls(true);
   const searchEl = document.getElementById('s1-search');
   if (searchEl) searchEl.value = '';
   list.innerHTML = '<div style="padding:.5rem 0;font-size:.8rem;color:var(--text-muted)">Loading sites…</div>';
@@ -662,6 +726,8 @@ async function loadSitesInline(industryName) {
           const kd = await kr.json();
           s.gsc_keyword = kd.keyword || null;
           s.gsc_keyword_reason = kd.reason || null;
+          // Auto-select top keyword if none chosen yet
+          if (s.gsc_keyword && s.keyword_override === undefined) s.keyword_override = s.gsc_keyword;
         } catch { s.gsc_keyword = null; }
         if (state.industry !== industryName) return; // stale
         updateSiteKwChip(s);
@@ -678,15 +744,12 @@ function renderSitesInline() {
   const included = state.sites.filter(s => s.included).length;
   const countLbl = document.getElementById('s1-sites-count-label');
   if (countLbl) countLbl.textContent = `${included} of ${state.sites.length} selected`;
+  const GSC_ICON = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1a73e8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/></svg>`;
   const ROW = 'display:flex;align-items:center;gap:.6rem;padding:.5rem .85rem;border:1px solid var(--border);border-radius:8px;margin-bottom:.3rem;background:var(--surface)';
   list.innerHTML = state.sites.map(s => {
     const domain = cleanDomain(s.domain_name);
     const fav = domain ? `<img src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=16" width="16" height="16" style="width:16px;height:16px;border-radius:3px;display:inline-block;vertical-align:middle;flex:none" onerror="this.style.display='none'">` : '';
-    const kwHtml = s.gsc_keyword === undefined
-      ? `<span class="s1-kw-spin"></span>`
-      : s.gsc_keyword
-        ? `<button class="s1-kw-chip${s.keyword_override === s.gsc_keyword ? ' active' : ''}" onclick="toggleSiteKwInline('${s.id}')" id="s1-kw-chip-${s.id}">${esc(s.gsc_keyword)}</button>`
-        : `<span class="s1-kw-none">—</span>`;
+    const kwHtml = buildKwHtml(s, GSC_ICON);
     return `<div id="s1-site-row-${s.id}" style="${ROW};opacity:${s.included ? '1' : '.38'}">
       <input type="checkbox" ${s.included ? 'checked' : ''} onchange="toggleSiteInline('${s.id}',this.checked)" style="width:14px;height:14px;cursor:pointer;flex:none;margin:0">
       ${fav}
@@ -694,19 +757,34 @@ function renderSitesInline() {
         <div style="font-size:.82rem;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(s.account_name)}</div>
         <div style="font-size:.7rem;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(domain)}</div>
       </div>
-      <div id="s1-site-kw-${s.id}" style="flex:none;white-space:nowrap">${kwHtml}</div>
+      <div id="s1-site-kw-${s.id}" style="flex:none">${kwHtml}</div>
     </div>`;
   }).join('') || '<div style="padding:.5rem 0;font-size:.8rem;color:var(--text-muted)">No sites found.</div>';
+}
+
+function buildKwHtml(s, gscIcon) {
+  const icon = gscIcon || `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1a73e8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/></svg>`;
+  if (s.gsc_keyword === undefined) {
+    return `<div class="s1-kw-wrap">${icon}<span class="s1-kw-spin" style="width:10px;height:10px;border:1.5px solid var(--border);border-top-color:#1a73e8;border-radius:50%;animation:spin .7s linear infinite;display:inline-block"></span></div>`;
+  }
+  if (s.gsc_keyword) {
+    const selectedVal = s.keyword_override || s.gsc_keyword;
+    return `<div class="s1-kw-wrap kw-ok">${icon}<select class="s1-kw-select" onchange="setSiteKwSelect('${s.id}',this.value)" title="GSC top keyword">
+      <option value="${esc(s.gsc_keyword)}" ${selectedVal === s.gsc_keyword ? 'selected' : ''}>${esc(s.gsc_keyword)}</option>
+    </select></div>`;
+  }
+  return `<div class="s1-kw-wrap kw-missing">${icon}<span style="font-size:.72rem;color:#b45309;font-weight:600">No GSC data</span></div>`;
 }
 
 function updateSiteKwChip(s) {
   const kw = document.getElementById(`s1-site-kw-${s.id}`);
   if (!kw) return;
-  if (s.gsc_keyword) {
-    kw.innerHTML = `<button class="s1-kw-chip${s.keyword_override === s.gsc_keyword ? ' active' : ''}" onclick="toggleSiteKwInline('${s.id}')" id="s1-kw-chip-${s.id}">${esc(s.gsc_keyword)}</button>`;
-  } else {
-    kw.innerHTML = `<span class="s1-kw-none">—</span>`;
-  }
+  kw.innerHTML = buildKwHtml(s);
+}
+
+function setSiteKwSelect(id, val) {
+  const s = state.sites.find(s => s.id === id);
+  if (s) { s.keyword_override = val || null; saveState(); }
 }
 
 function toggleSiteInline(id, checked) {
@@ -741,14 +819,6 @@ function toggleAllSitesInline(checked) {
   if (lbl) lbl.textContent = `${included} of ${state.sites.length} selected`;
 }
 
-function toggleSiteKwInline(id) {
-  const s = state.sites.find(x => x.id === id);
-  if (!s || !s.gsc_keyword) return;
-  s.keyword_override = s.keyword_override === s.gsc_keyword ? null : s.gsc_keyword;
-  saveState();
-  const chip = document.getElementById(`s1-kw-chip-${id}`);
-  if (chip) chip.classList.toggle('active', s.keyword_override === s.gsc_keyword);
-}
 
 function proceedToGenerate() {
   if (!state.sites.length) { showToast('Sites are still loading. Please wait.', 'error'); return; }
