@@ -295,6 +295,11 @@
             <button class="ac-sort-option" data-age-filter="8-16" onclick="setAcAgeFilter('8-16')">8 – 16 weeks</button>
             <button class="ac-sort-option" data-age-filter="16-26" onclick="setAcAgeFilter('16-26')">4 – 6 months</button>
             <button class="ac-sort-option" data-age-filter="26+" onclick="setAcAgeFilter('26+')">6+ months</button>
+            <hr class="ac-sort-divider">
+            <div class="ac-sort-section-label">Cohort View</div>
+            <button class="ac-sort-option" data-cohort-window="0-4" onclick="setCohortWindow('0-4')">Weeks 0–4 post-launch</button>
+            <button class="ac-sort-option" data-cohort-window="4-8" onclick="setCohortWindow('4-8')">Weeks 4–8 post-launch</button>
+            <button class="ac-sort-option" data-cohort-window="8-12" onclick="setCohortWindow('8-12')">Weeks 8–12 post-launch</button>
           </div>
         </div>
       </div>
@@ -380,6 +385,11 @@
 
         <!-- All-sites card grid -->
         <div id="ac-sites-panel">
+          <div id="cohort-banner" style="display:none;background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:10px;padding:.65rem 1rem;margin-bottom:.75rem;align-items:center;gap:.75rem;font-size:.82rem;color:#1e40af">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <span id="cohort-banner-text" style="flex:1;font-weight:500"></span>
+            <button onclick="setCohortWindow(null)" style="border:1px solid #bfdbfe;background:#dbeafe;color:#1d4ed8;border-radius:6px;padding:.22rem .65rem;font-size:.73rem;font-weight:600;cursor:pointer;font-family:inherit;flex-shrink:0">Exit cohort view</button>
+          </div>
           <div class="card analytics-card-outer">
             <div id="analytics-grid" class="analytics-grid">
               <div style="color:var(--text-muted);font-size:.875rem">Loading…</div>
@@ -2886,6 +2896,7 @@ let _tagFilter         = '';
 let _acSortKey         = 'published';
 let _acSortOrder       = 'newest';
 let _acAgeFilter       = '';
+let _cohortWindow      = null; // '0-4' | '4-8' | '8-12' | null
 let overviewChart      = null;
 let gshChart           = null;
 let _indBenchData      = [];
@@ -5266,30 +5277,54 @@ function _updateSortUI() {
 const _AC_AGE_LABELS = { '0-4': '0–4 wks', '4-8': '4–8 wks', '8-16': '8–16 wks', '16-26': '4–6 mo', '26+': '6+ mo' };
 
 function _updateSortFilterBadge() {
-  const isDefault = _acSortKey === 'published' && _acSortOrder === 'newest' && !_acAgeFilter;
+  const isDefault = _acSortKey === 'published' && _acSortOrder === 'newest' && !_acAgeFilter && !_cohortWindow;
   const btn   = document.getElementById('ac-sort-btn');
   const reset = document.getElementById('ac-sort-reset-btn');
   const badge = document.getElementById('ac-sort-filter-badge');
   if (btn)   btn.classList.toggle('active', !isDefault);
   if (reset) { reset.style.opacity = isDefault ? '.35' : '1'; reset.style.pointerEvents = isDefault ? 'none' : ''; }
-  if (badge) { badge.textContent = _acAgeFilter ? _AC_AGE_LABELS[_acAgeFilter] : ''; badge.style.display = _acAgeFilter ? '' : 'none'; }
-  document.querySelectorAll('[data-age-filter]').forEach(btn =>
-    btn.classList.toggle('active', btn.dataset.ageFilter === _acAgeFilter));
+  const badgeLabel = _cohortWindow ? _COHORT_WINDOWS[_cohortWindow].label : (_acAgeFilter ? _AC_AGE_LABELS[_acAgeFilter] : '');
+  if (badge) { badge.textContent = badgeLabel; badge.style.display = badgeLabel ? '' : 'none'; }
+  document.querySelectorAll('[data-age-filter]').forEach(b =>
+    b.classList.toggle('active', b.dataset.ageFilter === _acAgeFilter));
+  document.querySelectorAll('[data-cohort-window]').forEach(b =>
+    b.classList.toggle('active', b.dataset.cohortWindow === _cohortWindow));
 }
 
 function resetSortAndFilters() {
-  _acSortKey   = 'published';
-  _acSortOrder = 'newest';
-  _acAgeFilter = '';
+  _acSortKey    = 'published';
+  _acSortOrder  = 'newest';
+  _acAgeFilter  = '';
+  _cohortWindow = null;
+  setCohortWindow(null, true); // hide banner
   _updateSortUI();
   applyAnalyticsFilters();
+  Object.entries(analyticsData).forEach(([id, d]) => renderAnalyticsCard(id, d));
   closeSortDrop();
 }
 
 function setAcAgeFilter(val) {
   _acAgeFilter = val;
+  if (val) setCohortWindow(null, true); // clear cohort without re-render (we'll re-render below)
   _updateSortFilterBadge();
   applyAnalyticsFilters();
+}
+
+function setCohortWindow(val, _skipRerender) {
+  _cohortWindow = val;
+  if (val) _acAgeFilter = ''; // mutually exclusive with age filter
+  _updateSortFilterBadge();
+  // Banner
+  const banner = document.getElementById('cohort-banner');
+  if (banner) {
+    banner.style.display = val ? 'flex' : 'none';
+    const txt = document.getElementById('cohort-banner-text');
+    if (txt && val) txt.textContent = `Showing each site's ${_COHORT_WINDOWS[val].label} metrics`;
+  }
+  if (!_skipRerender) {
+    Object.entries(analyticsData).forEach(([id, d]) => renderAnalyticsCard(id, d));
+    closeSortDrop?.();
+  }
 }
 
 function toggleSortDrop(e) {
@@ -5465,6 +5500,63 @@ function periodDudaTotals(duda, period) {
     result.formSubmits = duda.formDates.filter(d => new Date(d).getTime() >= cutoff).length;
   }
   return result;
+}
+
+// ── Cohort window definitions ──
+const _COHORT_WINDOWS = {
+  '0-4':  { dayStart: 0,  dayEnd: 28, label: 'Weeks 0–4 post-launch'  },
+  '4-8':  { dayStart: 28, dayEnd: 56, label: 'Weeks 4–8 post-launch'  },
+  '8-12': { dayStart: 56, dayEnd: 84, label: 'Weeks 8–12 post-launch' },
+};
+
+function _cohortWeekSlice(weeks, launchDate, dayStart, dayEnd) {
+  if (!weeks?.length || !launchDate) return [];
+  const launch   = new Date(launchDate);
+  const winStart = new Date(launch.getTime() + dayStart * 86400000);
+  const winEnd   = new Date(launch.getTime() + dayEnd   * 86400000);
+  return weeks.filter(w => { const d = new Date(w.week); return d >= winStart && d < winEnd; });
+}
+
+function cohortGa4Totals(ga4, launchDate, dayStart, dayEnd) {
+  if (!ga4?.available) return {};
+  const slice = _cohortWeekSlice(ga4.weeks, launchDate, dayStart, dayEnd);
+  if (!slice.length) return { sessions: 0, users: 0, newUsers: 0, engagementRate: null };
+  const totalSessions = Math.round(sumWeeks(slice, 'sessions'));
+  const engSlice = slice.filter(w => w.engagementRate != null && w.sessions > 0);
+  const engRate  = engSlice.length && totalSessions > 0
+    ? Math.round(engSlice.reduce((s, w) => s + w.engagementRate * w.sessions, 0) / totalSessions * 10) / 10
+    : null;
+  return { sessions: totalSessions, users: Math.round(sumWeeks(slice, 'users')), newUsers: Math.round(sumWeeks(slice, 'newUsers')), engagementRate: engRate };
+}
+
+function cohortGscTotals(gsc, launchDate, dayStart, dayEnd) {
+  if (!gsc?.available) return {};
+  const slice = _cohortWeekSlice(gsc.weeks, launchDate, dayStart, dayEnd);
+  if (!slice.length) return { clicks: 0, impressions: 0, ctr: 0, position: null };
+  const clicks = sumWeeks(slice, 'clicks'), impressions = sumWeeks(slice, 'impressions');
+  const posSlice = slice.filter(w => w.position != null && w.impressions > 0);
+  const totalWImps = posSlice.reduce((s, w) => s + w.impressions, 0);
+  const position   = totalWImps > 0
+    ? Math.round(posSlice.reduce((s, w) => s + w.position * w.impressions, 0) / totalWImps * 10) / 10
+    : (gsc.total?.position ?? null);
+  return { clicks, impressions, ctr: impressions > 0 ? Math.round(clicks / impressions * 10000) / 100 : 0, position };
+}
+
+function cohortDudaTotals(duda, launchDate, dayStart, dayEnd) {
+  if (!duda?.available || !duda.days?.length) return {};
+  const launch   = new Date(launchDate);
+  const winStart = new Date(launch.getTime() + dayStart * 86400000);
+  const winEnd   = new Date(launch.getTime() + dayEnd   * 86400000);
+  const slice    = duda.days.filter(d => { const day = new Date(d.day); return day >= winStart && day < winEnd; });
+  if (!slice.length) return { visitors: 0, visits: 0, pageViews: 0, formSubmits: 0, callClicks: 0 };
+  return slice.reduce((acc, d) => {
+    acc.visitors    += d.visitors    || 0;
+    acc.visits      += d.visits      || 0;
+    acc.pageViews   += d.pageViews   || 0;
+    acc.formSubmits += d.formSubmits || 0;
+    acc.callClicks  += d.callClicks  || 0;
+    return acc;
+  }, { visitors: 0, visits: 0, pageViews: 0, formSubmits: 0, callClicks: 0 });
 }
 
 function computeClientPct(weeks, key, period) {
@@ -7247,9 +7339,17 @@ function renderAnalyticsCard(id, data) {
   const { gsc, ga4, duda, daysSince, account_name, domain, analyticsStartDate, launchDate } = data;
   const displayDate = analyticsStartDate || launchDate;
 
-  const gscT = periodGscTotals(gsc, analyticsPeriod);
-  const ga4T = periodGa4Totals(ga4, analyticsPeriod);
-  const periodLabel = PERIOD_LABELS[analyticsPeriod] || 'Since launch';
+  let gscT, ga4T, periodLabel;
+  if (_cohortWindow) {
+    const { dayStart, dayEnd, label } = _COHORT_WINDOWS[_cohortWindow];
+    gscT        = cohortGscTotals(gsc, launchDate, dayStart, dayEnd);
+    ga4T        = cohortGa4Totals(ga4, launchDate, dayStart, dayEnd);
+    periodLabel = label;
+  } else {
+    gscT        = periodGscTotals(gsc, analyticsPeriod);
+    ga4T        = periodGa4Totals(ga4, analyticsPeriod);
+    periodLabel = PERIOD_LABELS[analyticsPeriod] || 'Since launch';
+  }
 
   const gscBlock = gsc.available ? `
     <div class="ac-section-label"><img src="/gsc-icon.png" style="width:13px;height:13px;vertical-align:middle;margin-right:.35rem;margin-bottom:1px">Search Console <span style="font-weight:400;color:var(--text-muted);font-size:.65rem;text-transform:none;letter-spacing:0">${periodLabel}</span></div>
@@ -7269,7 +7369,9 @@ function renderAnalyticsCard(id, data) {
       ${acMetric(ga4T.engagementRate != null ? ga4T.engagementRate + '%' : '—',      'Engagement', null,                                                     'Percentage of visits where the user scrolled, clicked, or stayed 10+ seconds.')}
     </div>` : `<div class="ac-unavailable">${esc(ga4.reason || 'Google Analytics unavailable')}</div>`;
 
-  const dudaT = periodDudaTotals(duda, analyticsPeriod);
+  const dudaT = _cohortWindow
+    ? cohortDudaTotals(duda, launchDate, _COHORT_WINDOWS[_cohortWindow].dayStart, _COHORT_WINDOWS[_cohortWindow].dayEnd)
+    : periodDudaTotals(duda, analyticsPeriod);
   const dudaBlock = duda?.available ? `
     <div class="ac-section-label">
       <img src="/duda-icon.png" style="width:13px;height:13px;border-radius:3px;vertical-align:middle;margin-right:.35rem;margin-bottom:1px">Duda Analytics
