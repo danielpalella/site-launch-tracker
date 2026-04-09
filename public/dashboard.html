@@ -288,14 +288,6 @@
             <button class="ac-sort-option active" data-sort-order="newest" onclick="setAcSortOrder('newest')">Newest</button>
             <button class="ac-sort-option" data-sort-order="oldest" onclick="setAcSortOrder('oldest')">Oldest</button>
             <hr class="ac-sort-divider">
-            <div class="ac-sort-section-label">Post-Launch Age</div>
-            <button class="ac-sort-option active" data-age-filter="" onclick="setAcAgeFilter('')">All ages</button>
-            <button class="ac-sort-option" data-age-filter="0-4" onclick="setAcAgeFilter('0-4')">0 – 4 weeks</button>
-            <button class="ac-sort-option" data-age-filter="4-8" onclick="setAcAgeFilter('4-8')">4 – 8 weeks</button>
-            <button class="ac-sort-option" data-age-filter="8-16" onclick="setAcAgeFilter('8-16')">8 – 16 weeks</button>
-            <button class="ac-sort-option" data-age-filter="16-26" onclick="setAcAgeFilter('16-26')">4 – 6 months</button>
-            <button class="ac-sort-option" data-age-filter="26+" onclick="setAcAgeFilter('26+')">6+ months</button>
-            <hr class="ac-sort-divider">
             <div class="ac-sort-section-label">Cohort View</div>
             <button class="ac-sort-option" data-cohort-window="0-4" onclick="setCohortWindow('0-4')">Weeks 0–4 post-launch</button>
             <button class="ac-sort-option" data-cohort-window="4-8" onclick="setCohortWindow('4-8')">Weeks 4–8 post-launch</button>
@@ -2895,7 +2887,6 @@ let _tagMap            = {};
 let _tagFilter         = '';
 let _acSortKey         = 'published';
 let _acSortOrder       = 'newest';
-let _acAgeFilter       = '';
 let _cohortWindow      = null; // '0-4' | '4-8' | '8-12' | null
 let overviewChart      = null;
 let gshChart           = null;
@@ -5170,27 +5161,13 @@ function renderIndustrySummary(industry) {
   `;
 }
 
-const _AC_AGE_RANGES = {
-  '0-4':  { min: 0,   max: 28  },
-  '4-8':  { min: 28,  max: 56  },
-  '8-16': { min: 56,  max: 112 },
-  '16-26':{ min: 112, max: 182 },
-  '26+':  { min: 182, max: Infinity },
-};
-
 function applyAnalyticsFilters() {
-  const search    = (document.getElementById('analytics-search')?.value || '').toLowerCase().trim();
-  const ageRange  = _acAgeFilter ? _AC_AGE_RANGES[_acAgeFilter] : null;
+  const search = (document.getElementById('analytics-search')?.value || '').toLowerCase().trim();
   let visible = 0;
   document.querySelectorAll('#analytics-grid .ac-card').forEach(card => {
     const industryMatch = analyticsIndustry === 'all' || card.dataset.industry === analyticsIndustry;
     const searchMatch   = !search || card.dataset.name?.includes(search) || card.dataset.domain?.includes(search);
     const tagMatch      = !_tagFilter || (card.dataset.tags || '').split(',').filter(Boolean).includes(_tagFilter);
-    let ageMatch = true;
-    if (ageRange && card.dataset.launchDate) {
-      const daysSince = Math.floor((Date.now() - new Date(card.dataset.launchDate).getTime()) / 86400000);
-      ageMatch = daysSince >= ageRange.min && daysSince < ageRange.max;
-    }
     let healthMatch = true;
     if (analyticsHealthFilter && analyticsHealthFilter !== 'all') {
       const siteId = card.id.replace('ac-card-', '');
@@ -5202,7 +5179,7 @@ function applyAnalyticsFilters() {
           : h.level === analyticsHealthFilter;
       } else { healthMatch = false; }
     }
-    const show = industryMatch && searchMatch && tagMatch && ageMatch && healthMatch;
+    const show = industryMatch && searchMatch && tagMatch && healthMatch;
     card.style.display  = show ? '' : 'none';
     if (show) visible++;
   });
@@ -5274,19 +5251,15 @@ function _updateSortUI() {
   _updateSortFilterBadge();
 }
 
-const _AC_AGE_LABELS = { '0-4': '0–4 wks', '4-8': '4–8 wks', '8-16': '8–16 wks', '16-26': '4–6 mo', '26+': '6+ mo' };
-
 function _updateSortFilterBadge() {
-  const isDefault = _acSortKey === 'published' && _acSortOrder === 'newest' && !_acAgeFilter && !_cohortWindow;
+  const isDefault = _acSortKey === 'published' && _acSortOrder === 'newest' && !_cohortWindow;
   const btn   = document.getElementById('ac-sort-btn');
   const reset = document.getElementById('ac-sort-reset-btn');
   const badge = document.getElementById('ac-sort-filter-badge');
   if (btn)   btn.classList.toggle('active', !isDefault);
   if (reset) { reset.style.opacity = isDefault ? '.35' : '1'; reset.style.pointerEvents = isDefault ? 'none' : ''; }
-  const badgeLabel = _cohortWindow ? _COHORT_WINDOWS[_cohortWindow].label : (_acAgeFilter ? _AC_AGE_LABELS[_acAgeFilter] : '');
+  const badgeLabel = _cohortWindow ? _COHORT_WINDOWS[_cohortWindow].label : '';
   if (badge) { badge.textContent = badgeLabel; badge.style.display = badgeLabel ? '' : 'none'; }
-  document.querySelectorAll('[data-age-filter]').forEach(b =>
-    b.classList.toggle('active', b.dataset.ageFilter === _acAgeFilter));
   document.querySelectorAll('[data-cohort-window]').forEach(b =>
     b.classList.toggle('active', b.dataset.cohortWindow === _cohortWindow));
 }
@@ -5294,25 +5267,16 @@ function _updateSortFilterBadge() {
 function resetSortAndFilters() {
   _acSortKey    = 'published';
   _acSortOrder  = 'newest';
-  _acAgeFilter  = '';
   _cohortWindow = null;
-  setCohortWindow(null, true); // hide banner
+  setCohortWindow(null, true); // hide banner + restore timeframe picker
   _updateSortUI();
   applyAnalyticsFilters();
   Object.entries(analyticsData).forEach(([id, d]) => renderAnalyticsCard(id, d));
   closeSortDrop();
 }
 
-function setAcAgeFilter(val) {
-  _acAgeFilter = val;
-  if (val) setCohortWindow(null, true); // clear cohort without re-render (we'll re-render below)
-  _updateSortFilterBadge();
-  applyAnalyticsFilters();
-}
-
 function setCohortWindow(val, _skipRerender) {
   _cohortWindow = val;
-  if (val) _acAgeFilter = ''; // mutually exclusive with age filter
   _updateSortFilterBadge();
   // Hide timeframe picker — irrelevant when cohort defines the window
   const tfWrap = document.getElementById('ac-timeframe-wrap');
