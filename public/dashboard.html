@@ -7318,22 +7318,25 @@ function renderAnalyticsCard(id, data) {
     periodLabel = PERIOD_LABELS[analyticsPeriod] || 'Since launch';
   }
 
+  // In cohort mode, suppress period-over-period % change arrows (no prior period to compare)
+  const _pct = _cohortWindow ? () => null : computeClientPct;
+
   const gscBlock = gsc.available ? `
     <div class="ac-section-label"><img src="/gsc-icon.png" style="width:13px;height:13px;vertical-align:middle;margin-right:.35rem;margin-bottom:1px">Search Console <span style="font-weight:400;color:var(--text-muted);font-size:.65rem;text-transform:none;letter-spacing:0">${periodLabel}</span></div>
     <div class="ac-metrics">
-      ${acMetric(fmtNum(gscT.clicks),      'Clicks',       computeClientPct(gsc.weeks, 'clicks', analyticsPeriod),      'Times users clicked this site in Google search results.')}
-      ${acMetric(fmtNum(gscT.impressions), 'Impressions',  computeClientPct(gsc.weeks, 'impressions', analyticsPeriod), 'Times the site appeared in Google search results.')}
-      ${acMetric(gscT.position ?? '—',     'Avg Position', null,                                                        'Average rank in Google search results (1 = top result).')}
-      ${acMetric((gscT.ctr ?? 0) + '%',    'CTR',          null,                                                        'Percentage of impressions that resulted in a click.')}
+      ${acMetric(fmtNum(gscT.clicks),      'Clicks',       _pct(gsc.weeks, 'clicks', analyticsPeriod),      'Times users clicked this site in Google search results.')}
+      ${acMetric(fmtNum(gscT.impressions), 'Impressions',  _pct(gsc.weeks, 'impressions', analyticsPeriod), 'Times the site appeared in Google search results.')}
+      ${acMetric(gscT.position ?? '—',     'Avg Position', null,                                             'Average rank in Google search results (1 = top result).')}
+      ${acMetric((gscT.ctr ?? 0) + '%',    'CTR',          null,                                             'Percentage of impressions that resulted in a click.')}
     </div>` : `<div class="ac-unavailable">Search Console unavailable</div>`;
 
   const ga4Block = ga4.available ? `
     <div class="ac-section-label"><img src="/ga4-icon.png" style="width:13px;height:13px;vertical-align:middle;margin-right:.35rem;margin-bottom:1px">Google Analytics <span style="font-weight:400;color:var(--text-muted);font-size:.65rem;text-transform:none;letter-spacing:0">${periodLabel}</span></div>
     <div class="ac-metrics">
-      ${acMetric(fmtNum(ga4T.sessions),                                              'Sessions',   computeClientPct(ga4.weeks, 'sessions', analyticsPeriod), 'Total site visits, including repeat visits from the same person.')}
-      ${acMetric(fmtNum(ga4T.users),                                                 'Users',      computeClientPct(ga4.weeks, 'users', analyticsPeriod),    'Unique visitors, counted once regardless of how many times they visit.')}
-      ${acMetric(ga4T.newUsers != null ? fmtNum(ga4T.newUsers) : '—',                'New Users',  null,                                                     'Visitors who have never been to the site before.')}
-      ${acMetric(ga4T.engagementRate != null ? ga4T.engagementRate + '%' : '—',      'Engagement', null,                                                     'Percentage of visits where the user scrolled, clicked, or stayed 10+ seconds.')}
+      ${acMetric(fmtNum(ga4T.sessions),                                              'Sessions',   _pct(ga4.weeks, 'sessions', analyticsPeriod), 'Total site visits, including repeat visits from the same person.')}
+      ${acMetric(fmtNum(ga4T.users),                                                 'Users',      _pct(ga4.weeks, 'users', analyticsPeriod),    'Unique visitors, counted once regardless of how many times they visit.')}
+      ${acMetric(ga4T.newUsers != null ? fmtNum(ga4T.newUsers) : '—',                'New Users',  null,                                         'Visitors who have never been to the site before.')}
+      ${acMetric(ga4T.engagementRate != null ? ga4T.engagementRate + '%' : '—',      'Engagement', null,                                         'Percentage of visits where the user scrolled, clicked, or stayed 10+ seconds.')}
     </div>` : `<div class="ac-unavailable">${esc(ga4.reason || 'Google Analytics unavailable')}</div>`;
 
   const dudaT = _cohortWindow
@@ -7351,10 +7354,18 @@ function renderAnalyticsCard(id, data) {
       ${acMetric(fmtNum(dudaT.callClicks), 'Call Clicks',  null, 'Times a visitor clicked a phone number link.')}
     </div>` : (duda && duda.reason !== 'No Duda site ID set' ? `<div class="ac-unavailable">Duda unavailable</div>` : '');
 
-  // Chart shows the weeks relevant to the period
-  const gscChartWeeks  = analyticsPeriod === 'all' ? (gsc.weeks || [])        : periodWeeks(gsc.weeks, analyticsPeriod);
-  const ga4ChartWeeks  = analyticsPeriod === 'all' ? (ga4.weeks || [])        : periodWeeks(ga4.weeks, analyticsPeriod);
-  const dudaChartWeeks = analyticsPeriod === 'all' ? (duda?.weeks || [])      : periodWeeks(duda?.weeks || [], analyticsPeriod);
+  // Chart shows cohort weeks when active, otherwise the selected period
+  let gscChartWeeks, ga4ChartWeeks, dudaChartWeeks;
+  if (_cohortWindow) {
+    const { dayStart, dayEnd } = _COHORT_WINDOWS[_cohortWindow];
+    gscChartWeeks  = _cohortWeekSlice(gsc.weeks  || [],          launchDate, dayStart, dayEnd);
+    ga4ChartWeeks  = _cohortWeekSlice(ga4.weeks  || [],          launchDate, dayStart, dayEnd);
+    dudaChartWeeks = _cohortWeekSlice(duda?.weeks || [],         launchDate, dayStart, dayEnd);
+  } else {
+    gscChartWeeks  = analyticsPeriod === 'all' ? (gsc.weeks || [])   : periodWeeks(gsc.weeks, analyticsPeriod);
+    ga4ChartWeeks  = analyticsPeriod === 'all' ? (ga4.weeks || [])   : periodWeeks(ga4.weeks, analyticsPeriod);
+    dudaChartWeeks = analyticsPeriod === 'all' ? (duda?.weeks || []) : periodWeeks(duda?.weeks || [], analyticsPeriod);
+  }
   const hasDudaChart   = duda?.available && dudaChartWeeks.length > 1;
   const hasChart = (gsc.available && gscChartWeeks.length > 1) || (ga4.available && ga4ChartWeeks.length > 1) || hasDudaChart;
   const chartBlock = hasChart ? `<div class="ac-chart-wrap"><canvas id="ac-chart-${id}"></canvas></div>` : '';
