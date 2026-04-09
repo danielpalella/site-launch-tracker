@@ -2314,9 +2314,10 @@ app.post('/api/analytics/warm-all', requireAuthOrWarmKey, async (req, res) => {
 app.get('/api/analytics/recent-blog-posts', requireAuth, async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit) || 40, 100);
+    // No orderBy — avoids requiring a Firestore collection group index.
+    // Fetch a larger batch and sort in JS.
     const snap = await db.collectionGroup('blog_drafts')
-      .orderBy('pushedAt', 'desc')
-      .limit(limit)
+      .limit(limit * 4)
       .get();
 
     // Collect unique site IDs
@@ -2330,7 +2331,15 @@ app.get('/api/analytics/recent-blog-posts', requireAuth, async (req, res) => {
       }
     });
 
-    const posts = snap.docs.map(doc => {
+    const sorted = snap.docs
+      .sort((a, b) => {
+        const aAt = a.data().pushedAt?.toDate?.() || new Date(0);
+        const bAt = b.data().pushedAt?.toDate?.() || new Date(0);
+        return bAt - aAt;
+      })
+      .slice(0, limit);
+
+    const posts = sorted.map(doc => {
       const siteId = doc.ref.parent.parent.id;
       const data = doc.data();
       return {
