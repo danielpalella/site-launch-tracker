@@ -158,38 +158,37 @@
 .bb-spinner { display:inline-block;width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--bb-primary);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0 }
 @keyframes spin { to { transform:rotate(360deg) } }
 
-/* ── Step 1 redesign ── */
-.s1-header { margin-bottom:1.5rem }
+/* ── Step 1 split layout ── */
+.s1-header { margin-bottom:1rem }
 .s1-title { font-size:1.5rem;font-weight:800;color:var(--text);letter-spacing:-.3px;margin:0 0 .3rem }
 .s1-sub-text { font-size:.875rem;color:var(--text-muted);margin:0 }
-.s1-filter-bar { display:flex;align-items:center;gap:.4rem;margin-bottom:1.75rem;flex-wrap:wrap }
-.s1-ftab { display:inline-flex;align-items:center;gap:.4rem;padding:.38rem .75rem;border-radius:6px;font-size:.78rem;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--text-muted);transition:all .15s;white-space:nowrap;font-family:inherit }
-.s1-ftab:hover { border-color:#94a3b8;color:var(--text) }
-.s1-ftab.active { background:var(--brand-navy,#06102A);color:#fff;border-color:var(--brand-navy,#06102A) }
-.s1-filter-right { margin-left:auto;display:flex;align-items:center;gap:.75rem;flex-shrink:0 }
+.s1-topbar { display:flex;align-items:center;gap:.75rem;margin-bottom:.75rem }
 .s1-last-gen { display:flex;align-items:center;gap:.3rem;font-size:.75rem;color:var(--text-muted) }
-.s1-stats { font-size:.75rem;color:var(--text-muted) }
-.s1-section-label { font-size:.67rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:.85rem }
-.s1-ind-grid { display:grid;grid-template-columns:repeat(5,1fr);gap:.75rem;margin-bottom:2rem }
-@media(max-width:900px){.s1-ind-grid{grid-template-columns:repeat(4,1fr)}}
-@media(max-width:650px){.s1-ind-grid{grid-template-columns:repeat(3,1fr)}}
-.s1-ind-card { border:1.5px solid var(--border);border-radius:10px;padding:.9rem .9rem .75rem;cursor:pointer;transition:border-color .18s,box-shadow .18s;background:var(--surface);position:relative }
-.s1-ind-card:hover { border-color:var(--ic,#6b7280) }
-.s1-ind-card.selected { border-color:var(--ic,#3b82f6);box-shadow:0 0 0 3px var(--ic-sh,rgba(59,130,246,.12)) }
-.s1-ind-icon { width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;margin-bottom:.55rem;background:var(--ic-bg,#f3f4f6);color:var(--ic,#6b7280) }
-.s1-ind-name { font-size:.85rem;font-weight:700;color:var(--text);margin-bottom:.15rem }
-.s1-ind-count { font-size:.72rem;color:var(--text-muted) }
-.s1-ind-bar { height:3px;border-radius:2px;width:38%;margin-top:.65rem;background:var(--ic,#6b7280);opacity:.7 }
-.s1-ind-check { position:absolute;top:.5rem;right:.5rem;width:18px;height:18px;border-radius:50%;background:var(--ic,#3b82f6);display:none;align-items:center;justify-content:center }
-.s1-ind-card.selected .s1-ind-check { display:flex }
-.s1-recent { border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:5rem }
-.s1-recent-row { display:flex;align-items:center;gap:.75rem;padding:.65rem 1rem;border-bottom:1px solid var(--border) }
-.s1-recent-row:last-child { border-bottom:none }
-.s1-recent-dot { width:7px;height:7px;border-radius:50%;flex-shrink:0 }
-.s1-recent-title { font-size:.83rem;color:var(--text);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap }
-.s1-recent-meta { display:flex;align-items:center;gap:.5rem;flex-shrink:0 }
-.s1-recent-pill { font-size:.67rem;font-weight:700;padding:.2rem .5rem;border-radius:4px }
-.s1-recent-info { font-size:.72rem;color:var(--text-muted);white-space:nowrap }
+.s1-stats { font-size:.75rem;color:var(--text-muted);margin-left:auto }
+.s1-section-label { font-size:.67rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:.6rem }
+/* Split panel */
+.s1-split { display:flex;height:calc(100vh - 275px);min-height:460px;border:1.5px solid var(--border);border-radius:12px;overflow:hidden }
+/* Sidebar */
+.s1-sidebar { width:215px;flex-shrink:0;border-right:1px solid var(--border);display:flex;flex-direction:column;background:var(--surface) }
+.s1-sidebar-head { padding:.7rem 1rem .6rem;border-bottom:1px solid var(--border) }
+.s1-sidebar-title { font-size:.67rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted) }
+.s1-ind-list { flex:1;overflow-y:auto;padding:.35rem }
+.s1-ind-item { display:flex;align-items:center;gap:.55rem;padding:.5rem .6rem;border-radius:7px;cursor:pointer;transition:background .12s }
+.s1-ind-item:hover { background:var(--hover-bg,rgba(0,0,0,.04)) }
+.s1-ind-item.selected { background:var(--bb-primary-light) }
+.s1-ind-dot { width:8px;height:8px;border-radius:50%;flex-shrink:0 }
+.s1-ind-label { flex:1;font-size:.82rem;font-weight:600;color:var(--text);min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis }
+.s1-ind-item.selected .s1-ind-label { color:var(--bb-primary) }
+.s1-ind-badge { font-size:.7rem;color:var(--text-muted);flex-shrink:0;background:var(--border);padding:.1rem .42rem;border-radius:20px }
+.s1-ind-item.selected .s1-ind-badge { background:var(--bb-primary);color:#fff }
+/* Right panel */
+.s1-right { flex:1;min-width:0;display:flex;flex-direction:column;background:var(--bg) }
+.s1-right-toolbar { display:flex;align-items:center;gap:.45rem;padding:.5rem .7rem;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--surface) }
+.s1-search { flex:1;min-width:0;border:1.5px solid var(--border);border-radius:6px;padding:.3rem .65rem;font-size:.8rem;font-family:inherit;color:var(--text);background:var(--bg);outline:none;transition:border-color .15s }
+.s1-search:focus { border-color:var(--bb-primary) }
+.s1-right-body { flex:1;overflow-y:auto;padding:.65rem .8rem }
+.s1-right-empty { display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2.5rem;text-align:center;color:var(--text-muted) }
+/* Sticky bottom bar */
 .s1-sticky { position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);padding:.9rem 2rem;display:flex;align-items:center;justify-content:space-between;z-index:200;box-shadow:0 -4px 20px rgba(0,0,0,.07);transform:translateY(110%);transition:transform .22s cubic-bezier(.4,0,.2,1) }
 .s1-sticky.visible { transform:translateY(0) }
 .s1-sticky-info { font-size:.875rem;color:var(--text-muted) }
@@ -266,34 +265,52 @@
 
   <!-- ── Step 1: Industry ── -->
   <div class="bb-panel active" id="bb-step-1">
-    <div class="s1-filter-bar">
-      <button class="s1-ftab active" id="s1-ftab-all" onclick="filterQuickTab(null,this)">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-        All industries
-      </button>
-      <div id="s1-quick-tabs" style="display:contents"></div>
-      <div class="s1-filter-right">
-        <span class="s1-last-gen" id="s1-last-gen" style="display:none">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          <span id="s1-last-gen-text"></span>
-        </span>
-        <span class="s1-stats" id="s1-stats"></span>
+    <!-- Top meta bar -->
+    <div class="s1-topbar">
+      <span class="s1-last-gen" id="s1-last-gen" style="display:none">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <span id="s1-last-gen-text"></span>
+      </span>
+      <span class="s1-stats" id="s1-stats"></span>
+    </div>
+    <!-- Split panel -->
+    <div class="s1-split">
+      <!-- Left sidebar: industry list -->
+      <div class="s1-sidebar">
+        <div class="s1-sidebar-head">
+          <span class="s1-sidebar-title">Industries</span>
+        </div>
+        <div class="s1-ind-list" id="bb-industry-list">
+          <div style="padding:.75rem;font-size:.8rem;color:var(--text-muted)">Loading…</div>
+        </div>
       </div>
-    </div>
-    <div class="s1-section-label">SELECT AN INDUSTRY</div>
-    <div class="s1-ind-grid" id="bb-industry-grid">
-      <div style="grid-column:1/-1" class="bb-empty">Loading industries…</div>
-    </div>
-    <!-- Inline sites (shown after selecting an industry) -->
-    <div id="s1-sites-section" style="display:none">
-      <div class="s1-section-label" style="margin-top:1.5rem">SITES IN THIS INDUSTRY</div>
-      <div id="s1-sites-header"></div>
-      <div id="s1-sites-list"></div>
-    </div>
-
-    <div id="s1-recent-wrap" style="display:none">
-      <div class="s1-section-label">RECENT BLOG POSTS</div>
-      <div class="s1-recent" id="s1-recent-list"></div>
+      <!-- Right panel -->
+      <div class="s1-right">
+        <!-- Toolbar (visible when industry selected) -->
+        <div class="s1-right-toolbar" id="s1-right-toolbar" style="display:none">
+          <input class="s1-search" id="s1-search" placeholder="Search sites…" oninput="filterSitesInline(this.value)">
+          <span id="s1-sites-count-label" style="font-size:.75rem;color:var(--text-muted);white-space:nowrap;flex-shrink:0"></span>
+          <button class="bb-btn bb-btn-ghost bb-btn-sm" onclick="toggleAllSitesInline(true)">All</button>
+          <button class="bb-btn bb-btn-ghost bb-btn-sm" onclick="toggleAllSitesInline(false)">None</button>
+        </div>
+        <!-- Body -->
+        <div class="s1-right-body" id="s1-right-body">
+          <!-- Default: select-industry prompt + recent posts -->
+          <div id="s1-no-industry">
+            <div class="s1-right-empty">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" style="opacity:.28"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+              <div style="font-size:.9rem;font-weight:700;color:var(--text);margin-top:.9rem">Select an industry</div>
+              <div style="font-size:.8rem;margin-top:.3rem">Sites for the chosen industry will appear here</div>
+            </div>
+            <div id="s1-recent-wrap" style="display:none;margin-top:.25rem">
+              <div class="s1-section-label">RECENT BLOG POSTS</div>
+              <div id="s1-recent-list" style="border:1px solid var(--border);border-radius:8px;overflow:hidden"></div>
+            </div>
+          </div>
+          <!-- Sites list (shown when industry selected) -->
+          <div id="s1-sites-list" style="display:none"></div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -512,46 +529,34 @@ async function loadIndustries() {
   try {
     const r = await fetch('/api/bulk-blog/industries');
     const { industries } = await r.json();
-    const grid = document.getElementById('bb-industry-grid');
-    if (!industries.length) { grid.innerHTML = '<div style="grid-column:1/-1" class="bb-empty">No active sites found.</div>'; return; }
+    const list = document.getElementById('bb-industry-list');
+    if (!industries.length) { list.innerHTML = '<div style="padding:.75rem;font-size:.8rem;color:var(--text-muted)">No active sites found.</div>'; return; }
 
     const totalSites = industries.reduce((s, i) => s + i.count, 0);
     document.getElementById('s1-stats').textContent = `${totalSites} sites · ${industries.length} industries`;
 
-    // Quick-access tabs (top 3 by count)
-    document.getElementById('s1-quick-tabs').innerHTML = industries.slice(0, 3).map(ind => {
+    // Sidebar list items
+    list.innerHTML = industries.map(ind => {
       const m = getIndMeta(ind.name);
-      return `<button class="s1-ftab" onclick="filterQuickTab('${esc(ind.name)}',this)">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="${m.c}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${m.icon}</svg>
-        ${esc(ind.name)}
-      </button>`;
-    }).join('');
-
-    // Industry cards
-    grid.innerHTML = industries.map(ind => {
-      const m = getIndMeta(ind.name);
-      return `<div class="s1-ind-card${state.industry === ind.name ? ' selected' : ''}"
-          style="--ic:${m.c};--ic-bg:${m.bg};--ic-sh:${m.sh}"
-          onclick="selectIndustry(this,'${esc(ind.name)}',${ind.count})">
-        <div class="s1-ind-icon">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${m.icon}</svg>
-        </div>
-        <div class="s1-ind-name">${esc(ind.name)}</div>
-        <div class="s1-ind-count">${ind.count} site${ind.count !== 1 ? 's' : ''}</div>
-        <div class="s1-ind-bar"></div>
-        <div class="s1-ind-check"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+      return `<div class="s1-ind-item${state.industry === ind.name ? ' selected' : ''}" id="s1-ind-item-${esc(ind.name)}" onclick="selectIndustry(this,'${esc(ind.name)}',${ind.count})">
+        <div class="s1-ind-dot" style="background:${m.c}"></div>
+        <div class="s1-ind-label">${esc(ind.name)}</div>
+        <div class="s1-ind-badge">${ind.count}</div>
       </div>`;
     }).join('');
 
-    if (state.industry) showStickyBar(state.industry, state.industryCount || 0);
+    if (state.industry) {
+      showStickyBar(state.industry, state.industryCount || 0);
+      loadSitesInline(state.industry);
+    }
     loadRecent();
   } catch (e) {
-    document.getElementById('bb-industry-grid').innerHTML = '<div style="grid-column:1/-1" class="bb-empty">Failed to load industries.</div>';
+    document.getElementById('bb-industry-list').innerHTML = '<div style="padding:.75rem;font-size:.8rem;color:#ef4444">Failed to load industries.</div>';
   }
 }
 
 function selectIndustry(el, name, count) {
-  document.querySelectorAll('.s1-ind-card').forEach(c => c.classList.remove('selected'));
+  document.querySelectorAll('.s1-ind-item').forEach(c => c.classList.remove('selected'));
   el.classList.add('selected');
   state.industry = name;
   state.industryCount = count;
@@ -573,18 +578,6 @@ function hideStickyBar() {
   document.getElementById('s1-sticky').classList.remove('visible');
 }
 
-function filterQuickTab(name, tabEl) {
-  if (!name) {
-    document.querySelectorAll('.s1-ftab').forEach(t => t.classList.remove('active'));
-    tabEl.classList.add('active');
-    return;
-  }
-  document.querySelectorAll('.s1-ind-card').forEach(card => {
-    if (card.querySelector('.s1-ind-name')?.textContent.trim() === name) card.click();
-  });
-  document.querySelectorAll('.s1-ftab').forEach(t => t.classList.remove('active'));
-  tabEl.classList.add('active');
-}
 
 async function loadRecent() {
   try {
@@ -629,11 +622,14 @@ function cleanDomain(raw) {
 }
 
 async function loadSitesInline(industryName) {
-  const section = document.getElementById('s1-sites-section');
   const list = document.getElementById('s1-sites-list');
-  section.style.display = '';
+  // Switch right panel to sites view
+  document.getElementById('s1-no-industry').style.display = 'none';
+  list.style.display = '';
+  document.getElementById('s1-right-toolbar').style.display = '';
+  const searchEl = document.getElementById('s1-search');
+  if (searchEl) searchEl.value = '';
   list.innerHTML = '<div style="padding:.5rem 0;font-size:.8rem;color:var(--text-muted)">Loading sites…</div>';
-  document.getElementById('s1-sites-header').innerHTML = '';
   try {
     const r = await fetch(`/api/bulk-blog/sites?industry=${encodeURIComponent(industryName)}`);
     const { sites } = await r.json();
@@ -679,13 +675,9 @@ async function loadSitesInline(industryName) {
 
 function renderSitesInline() {
   const list = document.getElementById('s1-sites-list');
-  const header = document.getElementById('s1-sites-header');
   const included = state.sites.filter(s => s.included).length;
-  header.innerHTML = `<div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.6rem">
-    <span id="s1-sites-count-label" style="font-size:.78rem;color:var(--text-muted)">${included} of ${state.sites.length} selected</span>
-    <button class="bb-btn bb-btn-ghost bb-btn-sm" onclick="toggleAllSitesInline(true)">Select all</button>
-    <button class="bb-btn bb-btn-ghost bb-btn-sm" onclick="toggleAllSitesInline(false)">Deselect all</button>
-  </div>`;
+  const countLbl = document.getElementById('s1-sites-count-label');
+  if (countLbl) countLbl.textContent = `${included} of ${state.sites.length} selected`;
   const ROW = 'display:flex;align-items:center;gap:.6rem;padding:.5rem .85rem;border:1px solid var(--border);border-radius:8px;margin-bottom:.3rem;background:var(--surface)';
   list.innerHTML = state.sites.map(s => {
     const domain = cleanDomain(s.domain_name);
@@ -728,12 +720,25 @@ function toggleSiteInline(id, checked) {
   if (lbl) lbl.textContent = `${included} of ${state.sites.length} selected`;
 }
 
+function filterSitesInline(query) {
+  const q = (query || '').toLowerCase().trim();
+  document.querySelectorAll('[id^="s1-site-row-"]').forEach(row => {
+    const id = row.id.replace('s1-site-row-', '');
+    const s = state.sites.find(x => x.id === id);
+    if (!s) return;
+    const match = !q || s.account_name.toLowerCase().includes(q) || (s.domain_name || '').toLowerCase().includes(q);
+    row.style.display = match ? '' : 'none';
+  });
+}
+
 function toggleAllSitesInline(checked) {
   state.sites.forEach(s => { s.included = checked; });
   saveState();
   renderSitesInline();
   const included = state.sites.filter(s => s.included).length;
   showStickyBar(state.industry, included);
+  const lbl = document.getElementById('s1-sites-count-label');
+  if (lbl) lbl.textContent = `${included} of ${state.sites.length} selected`;
 }
 
 function toggleSiteKwInline(id) {
