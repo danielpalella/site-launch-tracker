@@ -1765,7 +1765,7 @@ async function fetchPlaceRating(placeId) {
   try {
     const key = await getPlacesApiKey();
     if (!key) return null;
-    const r = await fetch(`https://maps.googleapis.com/maps/api/place/details/json?place_id=${encodeURIComponent(placeId)}&fields=rating,user_ratings_total,address_components,vicinity,formatted_address&key=${key}`);
+    const r = await fetch(`https://maps.googleapis.com/maps/api/place/details/json?place_id=${encodeURIComponent(placeId)}&fields=rating,user_ratings_total,address_components,vicinity,formatted_address,reviews&key=${key}`);
     const d = await r.json();
     if (d.status !== 'OK' || !d.result) return null;
 
@@ -1788,7 +1788,19 @@ async function fetchPlaceRating(placeId) {
       if (m) city = `${m[1].trim()}, ${m[2]}`;
     }
 
-    return { rating: d.result.rating || null, reviewCount: d.result.user_ratings_total || null, city };
+    // Extract reviews — 4+ star only, meaningful length, truncate last name to initial
+    const reviews = (d.result.reviews || [])
+      .filter(rv => rv.text && rv.text.trim().length > 40 && rv.rating >= 4)
+      .slice(0, 5)
+      .map(rv => {
+        const parts = (rv.author_name || '').trim().split(/\s+/);
+        const name = parts.length > 1
+          ? `${parts[0]} ${parts[parts.length - 1][0]}.`
+          : (parts[0] || 'Anonymous');
+        return { name, rating: rv.rating, text: rv.text.trim().slice(0, 300) };
+      });
+
+    return { rating: d.result.rating || null, reviewCount: d.result.user_ratings_total || null, city, reviews };
   } catch { return null; }
 }
 
@@ -2804,6 +2816,10 @@ app.post('/api/blog/post', requireAuth, async (req, res) => {
     const reviewsLine = (placeData?.rating && placeData?.reviewCount)
       ? `\nGoogle reviews: This business has ${placeData.rating} stars from ${placeData.reviewCount} Google reviews. Mention this naturally in the CTA (e.g. "Trusted by homeowners across ${city || 'the area'} — ${placeData.reviewCount} 5-star Google reviews"). Link the review count to: https://search.google.com/local/reviews?placeid=${placeId}\n`
       : '';
+    const customerReviewsLine = (placeData?.reviews?.length)
+      ? `\nCustomer reviews to feature — Add a "Don't just take our word for it" section near the end of the post (before the CTA). Use 2–3 of the reviews below. Quote them exactly — do not alter the wording. Wrap each in a <blockquote> tag. Format as: reviewer name + star rating (e.g. ★★★★★) on one line, then the quoted text.
+${placeData.reviews.map(rv => `- [${rv.rating} stars] ${rv.name}: "${rv.text}"`).join('\n')}\n`
+      : '';
     const internalLinksLine = cleanDomain
       ? `\nInternal links — embed these three hyperlinks naturally in the post body:
 - <a href="https://${cleanDomain}/services">our services</a>
@@ -2815,15 +2831,15 @@ app.post('/api/blog/post', requireAuth, async (req, res) => {
 
 Question: "${question}"
 Context: ${detail || '(no additional context)'}
-${keywordLine}${bizLine}${cityLine}${reviewsLine}${internalLinksLine}
+${keywordLine}${bizLine}${cityLine}${reviewsLine}${customerReviewsLine}${internalLinksLine}
 Write an SEO-optimized blog post in clean HTML. Include:
 - A compelling <h1> title — rewrite the source question into an SEO-friendly blog title (e.g. not "Which one of yall did this?" but "5 Signs Your Roof Was Damaged in a Storm")${kwArray.length ? ` Include the target keyword.` : ''}${city ? ` Include "${city}".` : ''}
 - A brief intro paragraph (2-3 sentences)
 - Three <h2> sections with practical advice
-- A "When to Call a Professional" section with a clear CTA that mentions the business by name${placeData?.rating ? `, their Google rating, and links to their reviews page` : ''}
+${placeData?.reviews?.length ? `- A "Don't just take our word for it" <h2> section using the provided customer reviews (blockquote each one)\n` : ''}- A "When to Call a Professional" section with a clear CTA that mentions the business by name${placeData?.rating ? `, their Google rating, and links to their reviews page` : ''}
 - Total length: approximately ${words} words
 
-Return ONLY the HTML body content (no <html>, <head>, <body> wrapper tags). Use only <h1>, <h2>, <p>, <a> tags.`;
+Return ONLY the HTML body content (no <html>, <head>, <body> wrapper tags). Use only <h1>, <h2>, <p>, <a>, <blockquote> tags.`;
 
     const gRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
       method: 'POST',
