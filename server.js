@@ -1761,6 +1761,27 @@ async function getPlacesApiKey() {
   return placesKeyCache;
 }
 
+async function fetchPexelsImage(query) {
+  try {
+    const key = process.env.PEXELS_API_KEY;
+    if (!key) return null;
+    const r = await fetch(
+      `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=5&orientation=landscape`,
+      { headers: { Authorization: key } }
+    );
+    if (!r.ok) return null;
+    const { photos } = await r.json();
+    if (!photos?.length) return null;
+    const p = photos[0];
+    return {
+      url:             p.src.large,
+      alt:             p.alt || query,
+      photographer:    p.photographer,
+      photographerUrl: p.photographer_url,
+    };
+  } catch { return null; }
+}
+
 async function fetchPlaceRating(placeId) {
   try {
     const key = await getPlacesApiKey();
@@ -2940,16 +2961,40 @@ ${placeData?.reviews?.length ? `- A "Don't just take our word for it" <h2> secti
 
 Return ONLY the HTML body content (no <html>, <head>, <body> wrapper tags). Use only <h1>, <h2>, <p>, <a>, <blockquote> tags.`;
 
-    const gRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
-    });
+    // Build Pexels search query: first 3 words of keyword (strips city) + industry
+    const pexelsQuery = [
+      ...(kwArray[0] ? kwArray[0].split(/\s+/).slice(0, 3) : []),
+      industry,
+    ].join(' ').trim();
+
+    const [gRes, heroImage] = await Promise.all([
+      fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+      }),
+      fetchPexelsImage(pexelsQuery),
+    ]);
     const gData = await gRes.json();
     if (!gRes.ok) throw new Error(gData.error?.message || 'Gemini error');
     const raw = gData.candidates?.[0]?.content?.parts?.[0]?.text || '';
     let post = raw.replace(/^```html?\n?/i, '').replace(/\n?```$/m, '').trim();
     if (!post) throw new Error('Gemini returned no content');
+
+    // Inject hero image after <h1> if Pexels returned a result
+    if (heroImage) {
+      const heroHtml = `<figure style="margin:1.25rem 0 1.75rem;border-radius:10px;overflow:hidden;line-height:0">` +
+        `<img src="${heroImage.url}" alt="${heroImage.alt.replace(/"/g, '&quot;')}" style="width:100%;height:auto;display:block">` +
+        `<figcaption style="font-size:.72rem;color:#888;padding:.3rem .5rem;line-height:1.4;background:#f9f9f9">` +
+        `Photo by <a href="${heroImage.photographerUrl}" target="_blank" rel="noopener" style="color:#888">${heroImage.photographer}</a> via Pexels` +
+        `</figcaption></figure>`;
+      const h1End = post.indexOf('</h1>');
+      if (h1End !== -1) {
+        post = post.slice(0, h1End + 5) + '\n' + heroHtml + post.slice(h1End + 5);
+      } else {
+        post = heroHtml + '\n' + post;
+      }
+    }
 
     // Guarantee internal links are present — inject any that Gemini skipped
     if (cleanDomain) {
