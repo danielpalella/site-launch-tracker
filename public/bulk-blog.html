@@ -145,13 +145,16 @@
 .bb-review-card-site { font-size:.82rem;font-weight:700;color:var(--text);flex:1;min-width:0 }
 .bb-review-card-title { font-size:.78rem;color:var(--text-muted);flex:2;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap }
 .bb-review-card-actions { display:flex;gap:.4rem;flex-shrink:0 }
-.bb-review-card-body { display:none;padding:1rem;font-size:.82rem;line-height:1.65;color:var(--text);max-height:350px;overflow-y:auto }
+.bb-review-card-body { display:none;font-size:.82rem;line-height:1.65;color:var(--text);max-height:400px;overflow-y:auto }
 .bb-review-card-body h1,.bb-review-card-body h2 { color:var(--text);margin:.75rem 0 .35rem }
 .bb-review-card-body h1 { font-size:1.1rem }
 .bb-review-card-body h2 { font-size:.95rem }
 .bb-review-card-body p { margin:.35rem 0 }
 .bb-review-card-body a { color:var(--bb-primary) }
 .bb-review-card-body.open { display:block }
+.bb-review-hero { width:100%;height:160px;object-fit:cover;display:block;border-bottom:1px solid var(--border) }
+.bb-review-hero-none { height:60px;display:flex;align-items:center;justify-content:center;font-size:.75rem;color:var(--text-muted);background:var(--surface-alt,#f8f9fa);border-bottom:1px solid var(--border);gap:.4rem }
+.bb-review-card-prose { padding:1rem }
 .bb-pub-status { font-size:.72rem;font-weight:600;padding:.25rem .6rem;border-radius:5px;white-space:nowrap }
 .bb-pub-status.draft { background:#6366f115;color:#6366f1;border:1px solid #6366f133 }
 .bb-pub-status.published { background:#22c55e15;color:#16a34a;border:1px solid #22c55e33 }
@@ -683,7 +686,7 @@ function buildRecentRow(p) {
     <button class="bb-btn bb-btn-ghost bb-btn-sm" style="font-size:.68rem;padding:.15rem .5rem" onclick="previewQueuedPost('${esc(p.siteId)}','${esc(p.id)}','${esc(p.title)}','${esc(p.account_name)}')">Preview</button>
     <button class="bb-btn bb-btn-outline bb-btn-sm" style="font-size:.68rem;padding:.15rem .5rem" onclick="pushQueuedPost('${esc(p.siteId)}','${esc(p.id)}',false,this)">Draft</button>
     <button class="bb-btn bb-btn-primary bb-btn-sm" style="font-size:.68rem;padding:.15rem .5rem" onclick="pushQueuedPost('${esc(p.siteId)}','${esc(p.id)}',true,this)">Publish</button>` : '';
-  return `<div class="s1-recent-post-row">
+  return `<div class="s1-recent-post-row" id="rpr-${esc(p.id)}">
     <div class="s1-rp-dot" style="background:${statusColor}"></div>
     <div class="s1-rp-content">
       <div class="s1-rp-title">${fav} ${esc(p.title)}</div>
@@ -693,6 +696,7 @@ function buildRecentRow(p) {
       <span class="s1-rp-status" style="background:${statusBg};color:${statusColor};border:1px solid ${statusColor}33">${statusLabel}</span>
       <span class="s1-rp-date">${timeAgo(p.pushedAt)}</span>
       ${queueActions}
+      <button class="bb-btn bb-btn-ghost bb-btn-sm" style="font-size:.68rem;padding:.15rem .4rem;color:var(--text-muted);opacity:.6" title="Remove from tracker" onclick="deleteRecentPost('${esc(p.siteId)}','${esc(p.id)}',this)">×</button>
     </div>
   </div>`;
 }
@@ -723,6 +727,19 @@ async function loadRecent() {
     document.getElementById('s1-recent-wrap').style.display = '';
     document.getElementById('s1-recent-list').innerHTML = posts.slice(0, 15).map(buildRecentRow).join('');
   } catch (err) { console.error('[loadRecent]', err); }
+}
+
+async function deleteRecentPost(siteId, draftId, btn) {
+  if (!confirm('Remove this post record from the tracker? (It will not be deleted from Duda.)')) return;
+  btn.disabled = true;
+  try {
+    const r = await fetch(`/api/analytics/${siteId}/blog-drafts/${draftId}`, { method: 'DELETE' });
+    if (!r.ok) throw new Error((await r.json()).error || 'Failed');
+    document.getElementById(`rpr-${draftId}`)?.remove();
+  } catch (e) {
+    showToast('Could not delete: ' + e.message, 'error');
+    btn.disabled = false;
+  }
 }
 
 function toggleQueuePanel(e) {
@@ -1174,7 +1191,7 @@ async function generateForSite(site) {
     if (!r.ok) throw new Error(data.error || 'Generation failed');
     const titleMatch = data.post.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
     const title = titleMatch ? titleMatch[1].replace(/<[^>]+>/g,'').trim() : state.topic.title;
-    state.posts[site.id] = { status: 'done', title, html: data.post, jsonLd: data.jsonLd || null, keyword, city };
+    state.posts[site.id] = { status: 'done', title, html: data.post, jsonLd: data.jsonLd || null, heroImageUrl: data.heroImageUrl || null, keyword, city };
     clearInterval(phaseTimer);
     if (rowEl)  { rowEl.classList.remove('generating'); rowEl.classList.add('done'); }
     if (dotEl)  { dotEl.classList.remove('active'); dotEl.classList.add('done'); }
@@ -1266,6 +1283,10 @@ function buildReviewGrid() {
       <div class="bb-review-card-head">
         <div class="bb-review-card-site" style="display:flex;align-items:center;gap:.5rem">${favicon}${esc(s.account_name)}</div>
         <div class="bb-review-card-title">${esc(post.title)}</div>
+        <div style="flex-shrink:0">${post.heroImageUrl
+          ? `<img src="${esc(post.heroImageUrl)}" title="Hero image from Pexels" style="width:48px;height:32px;object-fit:cover;border-radius:4px;border:1px solid var(--border);cursor:pointer" onclick="toggleReviewBody('${s.id}')" loading="lazy">`
+          : `<span style="font-size:.7rem;color:var(--text-muted);padding:.2rem .5rem;border:1px solid var(--border);border-radius:4px" title="No Pexels image found">No image</span>`
+        }</div>
         <div class="bb-review-card-actions">
           ${blogUrl}
           ${pubBadge}
@@ -1275,7 +1296,12 @@ function buildReviewGrid() {
           <button class="bb-btn bb-btn-primary bb-btn-sm" onclick="pushOne('${s.id}', true)" ${disableAction ? 'disabled' : ''}>Publish</button>
         </div>
       </div>
-      <div class="bb-review-card-body" id="bb-rcb-${s.id}">${post.html}</div>
+      <div class="bb-review-card-body" id="bb-rcb-${s.id}">
+        ${post.heroImageUrl
+          ? `<img class="bb-review-hero" src="${esc(post.heroImageUrl)}" alt="Hero image" loading="lazy">`
+          : `<div class="bb-review-hero-none">⚠ No hero image found — post will publish without a thumbnail</div>`}
+        <div class="bb-review-card-prose">${post.html}</div>
+      </div>
     </div>`;
   }).join('');
   updateReviewSummary();
@@ -1316,6 +1342,7 @@ async function pushOne(siteId, publish) {
         questionId: state.topic?.id || null,
         keyword: post.keyword || null,
         industry: state.industry, city: post.city || null,
+        heroImageUrl: post.heroImageUrl || null,
       }),
     });
     const data = await r.json();
@@ -1427,6 +1454,7 @@ async function pushQueuedPost(siteId, draftId, publish, btn) {
         keyword: draft.keyword || null,
         city: draft.city || null,
         questionId: draft.questionId || null,
+        heroImageUrl: draft.heroImageUrl || null,
       }),
     });
     const data = await r.json();

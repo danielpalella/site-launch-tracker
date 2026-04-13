@@ -190,6 +190,7 @@ function formatLaunch(doc) {
 }
 
 app.use(express.json());
+app.use((req, _res, next) => { if (req.method !== 'GET') console.log(`[req] ${req.method} ${req.path}`); next(); });
 // ── Auth (public) ──
 app.get('/api/auth/me', requireAuth, (req, res) => {
   res.json({ email: req.userEmail || '' });
@@ -1764,22 +1765,22 @@ async function getPlacesApiKey() {
 async function fetchPexelsImage(query) {
   try {
     const key = process.env.PEXELS_API_KEY;
-    if (!key) return null;
-    const r = await fetch(
-      `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=5&orientation=landscape`,
-      { headers: { Authorization: key } }
-    );
-    if (!r.ok) return null;
+    if (!key) { console.log('[Pexels] No API key'); return null; }
+    const url = `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=5&orientation=landscape`;
+    console.log('[Pexels] Fetching:', url);
+    const r = await fetch(url, { headers: { Authorization: key } });
+    if (!r.ok) { console.log('[Pexels] API error:', r.status); return null; }
     const { photos } = await r.json();
-    if (!photos?.length) return null;
+    if (!photos?.length) { console.log('[Pexels] No photos for query:', query); return null; }
     const p = photos[0];
+    console.log('[Pexels] Got image:', p.src.large);
     return {
       url:             p.src.large,
       alt:             p.alt || query,
       photographer:    p.photographer,
       photographerUrl: p.photographer_url,
     };
-  } catch { return null; }
+  } catch (e) { console.log('[Pexels] Error:', e.message); return null; }
 }
 
 async function fetchPlaceRating(placeId) {
@@ -2583,7 +2584,7 @@ app.post('/api/launches/:id/place-id', requireAuth, async (req, res) => {
 });
 
 app.post('/api/analytics/:id/push-blog', requireAuth, async (req, res) => {
-  const { title, html, publish = false } = req.body;
+  const { title, html, publish = false, heroImageUrl } = req.body;
   if (!title || !html) return res.status(400).json({ error: 'title and html are required' });
   try {
     const doc = await db.collection('launches').doc(req.params.id).get();
@@ -2596,6 +2597,7 @@ app.post('/api/analytics/:id/push-blog', requireAuth, async (req, res) => {
     const authHeader = { Authorization: `Basic ${token}`, 'Content-Type': 'application/json' };
 
     // Step 1: Import (always creates a draft)
+    console.log('[push-blog] heroImageUrl:', heroImageUrl || '(none)');
     const dRes = await fetch(
       `https://api.duda.co/api/sites/multiscreen/${siteName}/blog/posts/import`,
       {
@@ -2606,6 +2608,7 @@ app.post('/api/analytics/:id/push-blog', requireAuth, async (req, res) => {
           description: '',
           content: Buffer.from(html).toString('base64'),
           author: launch.account_name || 'Team',
+          ...(heroImageUrl ? { thumbnail: heroImageUrl } : {}),
         }),
       }
     );
@@ -2641,6 +2644,7 @@ app.post('/api/analytics/:id/push-blog', requireAuth, async (req, res) => {
       city: req.body.city || null,
       keyword: req.body.keyword || null,
       questionId: req.body.questionId || null,
+      heroImageUrl: req.body.heroImageUrl || null,
     });
     const excludeWrite = req.body.questionId
       ? launchRef.update({ blog_excluded_ids: FieldValue.arrayUnion(req.body.questionId) })
@@ -2673,7 +2677,7 @@ app.get('/api/analytics/:id/blog-history', requireAuth, async (req, res) => {
 
 // Save a generated post to Firestore without pushing to Duda (queued status)
 app.post('/api/analytics/:id/save-blog-draft', requireAuth, async (req, res) => {
-  const { title, html, industry, city, keyword, questionId } = req.body;
+  const { title, html, industry, city, keyword, questionId, heroImageUrl } = req.body;
   if (!title || !html) return res.status(400).json({ error: 'title and html required' });
   try {
     const ref = db.collection('launches').doc(req.params.id);
@@ -2687,8 +2691,20 @@ app.post('/api/analytics/:id/save-blog-draft', requireAuth, async (req, res) => 
       city: city || null,
       keyword: keyword || null,
       questionId: questionId || null,
+      heroImageUrl: heroImageUrl || null,
     });
     res.json({ success: true, id: doc.id });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Delete a blog draft record from Firestore (does NOT touch Duda)
+app.delete('/api/analytics/:siteId/blog-drafts/:draftId', requireAuth, async (req, res) => {
+  try {
+    await db.collection('launches').doc(req.params.siteId)
+      .collection('blog_drafts').doc(req.params.draftId).delete();
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -2711,6 +2727,7 @@ app.get('/api/analytics/:siteId/blog-drafts/:draftId', requireAuth, async (req, 
       keyword: data.keyword || null,
       questionId: data.questionId || null,
       pushedAt: data.pushedAt?.toDate?.()?.toISOString() || null,
+      heroImageUrl: data.heroImageUrl || null,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -2981,20 +2998,8 @@ Return ONLY the HTML body content (no <html>, <head>, <body> wrapper tags). Use 
     let post = raw.replace(/^```html?\n?/i, '').replace(/\n?```$/m, '').trim();
     if (!post) throw new Error('Gemini returned no content');
 
-    // Inject hero image after <h1> if Pexels returned a result
-    if (heroImage) {
-      const heroHtml = `<figure style="margin:1.25rem 0 1.75rem;border-radius:10px;overflow:hidden;line-height:0">` +
-        `<img src="${heroImage.url}" alt="${heroImage.alt.replace(/"/g, '&quot;')}" style="width:100%;height:auto;display:block">` +
-        `<figcaption style="font-size:.72rem;color:#888;padding:.3rem .5rem;line-height:1.4;background:#f9f9f9">` +
-        `Photo by <a href="${heroImage.photographerUrl}" target="_blank" rel="noopener" style="color:#888">${heroImage.photographer}</a> via Pexels` +
-        `</figcaption></figure>`;
-      const h1End = post.indexOf('</h1>');
-      if (h1End !== -1) {
-        post = post.slice(0, h1End + 5) + '\n' + heroHtml + post.slice(h1End + 5);
-      } else {
-        post = heroHtml + '\n' + post;
-      }
-    }
+    // heroImage.url is passed to Duda as the post thumbnail (featured image)
+    // Duda strips inline <img> tags from imported content, so we use the thumbnail field instead
 
     // Guarantee internal links are present — inject any that Gemini skipped
     if (cleanDomain) {
@@ -3039,7 +3044,7 @@ Return ONLY the HTML body content (no <html>, <head>, <body> wrapper tags). Use 
       } : {}),
     };
 
-    res.json({ post, jsonLd, metaDesc: jsonLdDesc });
+    res.json({ post, jsonLd, metaDesc: jsonLdDesc, heroImageUrl: heroImage?.url || null });
   } catch (err) {
     console.error('blog/post error:', err);
     res.status(500).json({ error: err.message });
