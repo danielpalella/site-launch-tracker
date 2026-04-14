@@ -6602,7 +6602,9 @@ function _buildBlogPostRow(post, compact = false) {
     ? `<img src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=16" width="13" height="13" style="border-radius:2px;flex-shrink:0" onerror="this.style.display='none'">`
     : '';
   const isPub = post.status === 'published';
-  const statusDot = `<span style="width:6px;height:6px;border-radius:50%;background:${isPub ? '#22c55e' : '#94a3b8'};flex-shrink:0;display:inline-block"></span>`;
+  const statusBadge = isPub
+    ? `<span style="font-size:.68rem;font-weight:600;color:#16a34a;background:#dcfce7;border:1px solid #bbf7d0;border-radius:4px;padding:.1rem .4rem;white-space:nowrap">Published</span>`
+    : `<span style="font-size:.68rem;font-weight:600;color:#64748b;background:var(--border);border:1px solid var(--border);border-radius:4px;padding:.1rem .4rem;white-space:nowrap">Draft</span>`;
   const dateStr = post.pushedAt ? new Date(post.pushedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
   const blogUrl = domain ? `https://${domain}/blog` : null;
   const viewLink = blogUrl
@@ -6617,7 +6619,7 @@ function _buildBlogPostRow(post, compact = false) {
       <div style="font-size:.78rem;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(post.title)}</div>
     </div>
     <div style="display:flex;align-items:center;gap:.5rem;flex-shrink:0">
-      ${statusDot}
+      ${statusBadge}
       <span style="font-size:.72rem;color:var(--text-muted);white-space:nowrap">${dateStr}</span>
       ${viewLink}
     </div>
