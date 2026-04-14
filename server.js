@@ -192,6 +192,12 @@ function formatLaunch(doc) {
 app.use(express.json());
 app.use((req, _res, next) => { if (req.method !== 'GET') console.log(`[req] ${req.method} ${req.path}`); next(); });
 // ── Auth (public) ──
+app.get('/api/pexels-test', async (req, res) => {
+  const q = req.query.q || 'HVAC air conditioning';
+  const img = await fetchPexelsImage(q);
+  res.json({ query: q, keySet: !!process.env.PEXELS_API_KEY, result: img });
+});
+
 app.get('/api/auth/me', requireAuth, (req, res) => {
   res.json({ email: req.userEmail || '' });
 });
@@ -1762,25 +1768,39 @@ async function getPlacesApiKey() {
   return placesKeyCache;
 }
 
+let pexelsKeyCache = null;
+async function getPexelsKey() {
+  if (pexelsKeyCache) return pexelsKeyCache;
+  if (process.env.PEXELS_API_KEY) { pexelsKeyCache = process.env.PEXELS_API_KEY; return pexelsKeyCache; }
+  const snap = await db.collection('config').doc('pexels_credentials').get();
+  if (!snap.exists || !snap.data().api_key) return null;
+  pexelsKeyCache = snap.data().api_key;
+  return pexelsKeyCache;
+}
+
 async function fetchPexelsImage(query) {
+  const debug = { query, step: 'start' };
   try {
-    const key = process.env.PEXELS_API_KEY;
-    if (!key) { console.log('[Pexels] No API key'); return null; }
+    const key = await getPexelsKey();
+    if (!key) { debug.step = 'no_key'; return { url: null, debug }; }
+    debug.step = 'fetching';
     const url = `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=5&orientation=landscape`;
-    console.log('[Pexels] Fetching:', url);
     const r = await fetch(url, { headers: { Authorization: key } });
-    if (!r.ok) { console.log('[Pexels] API error:', r.status); return null; }
+    debug.httpStatus = r.status;
+    if (!r.ok) { debug.step = 'http_error'; return { url: null, debug }; }
     const { photos } = await r.json();
-    if (!photos?.length) { console.log('[Pexels] No photos for query:', query); return null; }
+    debug.photoCount = photos?.length || 0;
+    if (!photos?.length) { debug.step = 'no_photos'; return { url: null, debug }; }
     const p = photos[0];
-    console.log('[Pexels] Got image:', p.src.large);
+    debug.step = 'success';
     return {
       url:             p.src.large,
       alt:             p.alt || query,
       photographer:    p.photographer,
       photographerUrl: p.photographer_url,
+      debug,
     };
-  } catch (e) { console.log('[Pexels] Error:', e.message); return null; }
+  } catch (e) { debug.step = 'exception'; debug.error = e.message; return { url: null, debug }; }
 }
 
 async function fetchPlaceRating(placeId) {
@@ -2369,6 +2389,7 @@ app.get('/api/analytics/recent-blog-posts', requireAuth, async (req, res) => {
         siteId,
         title: data.title || '',
         status: data.status || 'draft',
+        postId: data.postId || null,
         pushedAt: data.pushedAt?.toDate?.()?.toISOString() || null,
         industry: data.industry || siteMap[siteId]?.industry || null,
         city: data.city || null,
@@ -2978,11 +2999,11 @@ ${placeData?.reviews?.length ? `- A "Don't just take our word for it" <h2> secti
 
 Return ONLY the HTML body content (no <html>, <head>, <body> wrapper tags). Use only <h1>, <h2>, <p>, <a>, <blockquote> tags.`;
 
-    // Build Pexels search query: first 3 words of keyword (strips city) + industry
-    const pexelsQuery = [
-      ...(kwArray[0] ? kwArray[0].split(/\s+/).slice(0, 3) : []),
-      industry,
-    ].join(' ').trim();
+    // Build Pexels search query from topic title (more relevant than location-based keyword)
+    // Strip question words and city names; keep nouns related to the subject
+    const STOP = /\b(what|when|how|why|do|does|did|is|are|can|should|will|the|a|an|in|on|at|to|for|of|and|or|but|my|your|our|you|we|i|it|ok|ohio|texas|florida|california|georgia|michigan|arizona|colorado|nevada|city|town|county|near|local)\b/gi;
+    const topicWords = question.replace(/[?!.,]/g, '').replace(STOP, ' ').trim().split(/\s+/).filter(w => w.length > 2).slice(0, 3);
+    const pexelsQuery = [...topicWords, industry].join(' ').trim();
 
     const [gRes, heroImage] = await Promise.all([
       fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
@@ -3044,7 +3065,7 @@ Return ONLY the HTML body content (no <html>, <head>, <body> wrapper tags). Use 
       } : {}),
     };
 
-    res.json({ post, jsonLd, metaDesc: jsonLdDesc, heroImageUrl: heroImage?.url || null });
+    res.json({ post, jsonLd, metaDesc: jsonLdDesc, heroImageUrl: heroImage?.url || null, _pexelsDebug: heroImage?.debug || null });
   } catch (err) {
     console.error('blog/post error:', err);
     res.status(500).json({ error: err.message });

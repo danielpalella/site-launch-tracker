@@ -6567,15 +6567,19 @@ async function loadRecentBlogPostsCard() {
   if (!_recentBlogPosts) {
     try {
       const r = await fetch('/api/analytics/recent-blog-posts?limit=40');
-      if (!r.ok) throw new Error('fetch failed');
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const { posts } = await r.json();
-      _recentBlogPosts = posts;
+      _recentBlogPosts = posts || [];
     } catch(e) {
-      if (container) container.innerHTML = '<div class="ac-empty" style="padding:1.5rem">Failed to load blog posts.</div>';
+      container.innerHTML = `<div class="ac-empty" style="padding:1.5rem">Failed to load blog posts: ${e.message}</div>`;
       return;
     }
   }
-  renderBlogPostsCard(_recentBlogPosts);
+  try {
+    renderBlogPostsCard(_recentBlogPosts);
+  } catch(e) {
+    container.innerHTML = `<div class="ac-empty" style="padding:1.5rem">Render error: ${e.message}</div>`;
+  }
 }
 
 function renderBlogPostsCard(posts) {
@@ -6617,6 +6621,10 @@ function renderBlogPostsCard(posts) {
       ? `<span class="ov-blog-status ov-blog-status-pub">Published</span>`
       : `<span class="ov-blog-status ov-blog-status-draft">Draft</span>`;
     const dateStr = post.pushedAt ? timeAgo(new Date(post.pushedAt)) : '';
+    const blogUrl = domain ? `https://${domain}/blog` : null;
+    const viewLink = blogUrl
+      ? `<a href="${blogUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="font-size:.72rem;color:var(--text-muted);text-decoration:none;white-space:nowrap;flex-shrink:0" title="Open blog">View ↗</a>`
+      : '';
     const clickAttr = d ? `onclick="openAnalyticsModal('${esc(post.siteId)}')" style="cursor:pointer"` : '';
     return `<div class="ov-blog-row" ${clickAttr}>
       <div class="ov-blog-site">${fav}<div style="min-width:0"><div class="ov-blog-site-name">${esc(post.account_name)}</div><div class="ov-blog-domain">${esc(domain)}</div></div></div>
@@ -6624,7 +6632,7 @@ function renderBlogPostsCard(posts) {
         <div class="ov-blog-title">${esc(post.title)}</div>
         <div class="ov-blog-meta">${post.keyword ? `<span class="ov-blog-kw">${esc(post.keyword)}</span>` : ''}${post.city ? `<span class="ov-blog-city">${esc(post.city)}</span>` : ''}</div>
       </div>
-      <div class="ov-blog-right">${healthDot}${statusBadge}<span class="ov-blog-date">${dateStr}</span></div>
+      <div class="ov-blog-right">${healthDot}${statusBadge}<span class="ov-blog-date">${dateStr}</span>${viewLink}</div>
     </div>`;
   }).join('');
 }

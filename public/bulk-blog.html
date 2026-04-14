@@ -1191,7 +1191,8 @@ async function generateForSite(site) {
     if (!r.ok) throw new Error(data.error || 'Generation failed');
     const titleMatch = data.post.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
     const title = titleMatch ? titleMatch[1].replace(/<[^>]+>/g,'').trim() : state.topic.title;
-    state.posts[site.id] = { status: 'done', title, html: data.post, jsonLd: data.jsonLd || null, heroImageUrl: data.heroImageUrl || null, keyword, city };
+    if (data._pexelsDebug) console.log('[Pexels debug]', JSON.stringify(data._pexelsDebug));
+    state.posts[site.id] = { status: 'done', title, html: data.post, jsonLd: data.jsonLd || null, heroImageUrl: data.heroImageUrl || null, _pexelsDebug: data._pexelsDebug || null, keyword, city };
     clearInterval(phaseTimer);
     if (rowEl)  { rowEl.classList.remove('generating'); rowEl.classList.add('done'); }
     if (dotEl)  { dotEl.classList.remove('active'); dotEl.classList.add('done'); }
@@ -1299,7 +1300,7 @@ function buildReviewGrid() {
       <div class="bb-review-card-body" id="bb-rcb-${s.id}">
         ${post.heroImageUrl
           ? `<img class="bb-review-hero" src="${esc(post.heroImageUrl)}" alt="Hero image" loading="lazy">`
-          : `<div class="bb-review-hero-none">⚠ No hero image found — post will publish without a thumbnail</div>`}
+          : `<div class="bb-review-hero-none">⚠ No hero image — ${post._pexelsDebug ? `step: ${esc(post._pexelsDebug.step)}${post._pexelsDebug.error ? ', err: ' + esc(post._pexelsDebug.error) : ''}${post._pexelsDebug.httpStatus ? ', http: ' + post._pexelsDebug.httpStatus : ''}` : 'no debug info'}</div>`}
         <div class="bb-review-card-prose">${post.html}</div>
       </div>
     </div>`;
