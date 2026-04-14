@@ -372,9 +372,9 @@
         <!-- Insights Map Widget -->
         <div id="ac-map-panel" style="display:none;margin-bottom:.75rem">
           <div class="card" style="overflow:hidden;padding:0">
-            <div style="display:flex;align-items:center;gap:.5rem;padding:.6rem .85rem;border-bottom:1px solid var(--border);flex-wrap:wrap">
-              <div id="ac-map-chips" style="display:flex;gap:.35rem;flex-wrap:wrap;flex:1"></div>
-              <span id="ac-map-count" style="font-size:.75rem;color:var(--text-muted);white-space:nowrap"></span>
+            <div style="display:flex;align-items:center;gap:.5rem;padding:.45rem .85rem;border-bottom:1px solid var(--border)">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C7.6 2 4 5.6 4 10c0 6 8 14 8 14s8-8 8-14c0-4.4-3.6-8-8-8z"/><circle cx="12" cy="10" r="3"/></svg>
+              <span id="ac-map-count" style="font-size:.75rem;color:var(--text-muted)"></span>
             </div>
             <div id="ac-map-leaflet" style="height:360px;width:100%"></div>
           </div>
@@ -5231,6 +5231,7 @@ function applyAnalyticsFilters() {
     if (el) el.innerHTML = `<strong>${visible} Active Sites</strong>`;
   }
   sortAnalyticsCards();
+  if (document.getElementById('ac-map-panel')?.style.display !== 'none') renderInsightsMapMarkers();
 }
 
 function sortAnalyticsCards() {
@@ -8411,7 +8412,6 @@ function _mapIndustryColor(ind) { return _MAP_INDUSTRY_COLORS[ind] || _MAP_INDUS
 let _insightsMap = null;
 let _insightsMapMarkers = [];
 let _insightsMapData = null;
-let _insightsMapIndustryFilter = 'all';
 
 function toggleInsightsMap() {
   const panel = document.getElementById('ac-map-panel');
@@ -8453,23 +8453,6 @@ async function initInsightsMap() {
     subdomains: 'abcd', maxZoom: 19,
   }).addTo(_insightsMap);
 
-  // Build industry filter chips
-  const industries = [...new Set(_insightsMapData.map(s => s.industry))].sort();
-  const chipsEl = document.getElementById('ac-map-chips');
-  chipsEl.innerHTML = '';
-  [{ label: 'All industries', val: 'all' }, ...industries.map(i => ({ label: i, val: i }))].forEach(({ label, val }) => {
-    const chip = document.createElement('button');
-    chip.className = 'ac-map-chip' + (val === 'all' ? ' active' : '');
-    chip.textContent = label;
-    chip.onclick = () => {
-      _insightsMapIndustryFilter = val;
-      document.querySelectorAll('.ac-map-chip').forEach(c => c.classList.remove('active'));
-      chip.classList.add('active');
-      renderInsightsMapMarkers();
-    };
-    chipsEl.appendChild(chip);
-  });
-
   renderInsightsMapMarkers();
 }
 
@@ -8478,10 +8461,34 @@ function renderInsightsMapMarkers() {
   _insightsMapMarkers.forEach(m => m.remove());
   _insightsMapMarkers = [];
 
-  const filtered = _insightsMapData.filter(s =>
-    _insightsMapIndustryFilter === 'all' || s.industry === _insightsMapIndustryFilter
-  );
-  document.getElementById('ac-map-count').textContent = filtered.length + ' sites';
+  const search = (document.getElementById('analytics-search')?.value || '').toLowerCase().trim();
+
+  const filtered = _insightsMapData.filter(site => {
+    if (!site.lat || !site.lng) return false;
+    if (analyticsIndustry !== 'all' && site.industry !== analyticsIndustry) return false;
+    if (search && !site.account_name.toLowerCase().includes(search) && !(site.domain_name || '').toLowerCase().includes(search)) return false;
+    const d = analyticsData && analyticsData[site.id];
+    if (_tagFilter) {
+      if (!d || !Array.isArray(d.tags) || !d.tags.includes(_tagFilter)) return false;
+    }
+    if (analyticsHealthFilter && analyticsHealthFilter !== 'all') {
+      if (!d) return false;
+      const h = computeGscHealth(d);
+      const ok = analyticsHealthFilter === 'review'
+        ? ['review', 'attention', 'no-data'].includes(h.level)
+        : h.level === analyticsHealthFilter;
+      if (!ok) return false;
+    }
+    return true;
+  });
+
+  const total = _insightsMapData.length;
+  const mapped = _insightsMapData.filter(s => s.lat && s.lng).length;
+  const countEl = document.getElementById('ac-map-count');
+  if (countEl) {
+    countEl.textContent = filtered.length + ' sites shown'
+      + (mapped < total ? ` · ${total - mapped} have no location set` : '');
+  }
 
   filtered.forEach(site => {
     const color = _mapIndustryColor(site.industry);

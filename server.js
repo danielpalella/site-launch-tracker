@@ -256,16 +256,15 @@ app.get('/api/launches/map-data', requireAuth, async (req, res) => {
         }
       }
 
-      if (lat && lng) {
-        results.push({
-          id: doc.id,
-          account_name: d.account_name || '',
-          domain_name: d.domain_name || '',
-          industry: d.industry || 'Other',
-          place_city: d.place_city || '',
-          lat, lng,
-        });
-      }
+      results.push({
+        id: doc.id,
+        account_name: d.account_name || '',
+        domain_name: d.domain_name || '',
+        industry: d.industry || 'Other',
+        place_city: d.place_city || '',
+        lat: lat || null,
+        lng: lng || null,
+      });
     }));
 
     await Promise.all(updates);
