@@ -256,6 +256,25 @@ app.get('/api/launches/map-data', requireAuth, async (req, res) => {
         }
       }
 
+      // Nominatim fallback (free, no key) — covers SABs with place_city when Google geocoding is unavailable
+      if (!lat || !lng) {
+        const query = d.place_city || '';
+        if (query) {
+          try {
+            const r = await fetch(
+              `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=us&q=${encodeURIComponent(query)}`,
+              { headers: { 'User-Agent': 'RealWorkLabs-SiteLauncher/1.0 (websites@realworklabs.com)' } }
+            );
+            const hits = await r.json();
+            if (hits?.[0]) {
+              lat = parseFloat(hits[0].lat);
+              lng = parseFloat(hits[0].lon);
+              updates.push(doc.ref.update({ lat, lng }));
+            }
+          } catch {}
+        }
+      }
+
       results.push({
         id: doc.id,
         account_name: d.account_name || '',
