@@ -55,15 +55,6 @@
       </svg>
       <span class="nav-label">Blog</span>
     </a>
-    <!-- Map (Beta) -->
-    <a href="/map" class="nav-tab" title="Site Map (Beta)" style="position:relative">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M12 2C7.6 2 4 5.6 4 10c0 6 8 14 8 14s8-8 8-14c0-4.4-3.6-8-8-8z"/>
-        <circle cx="12" cy="10" r="3"/>
-      </svg>
-      <span class="nav-label">Map</span>
-      <span style="position:absolute;top:4px;right:4px;font-size:.5rem;font-weight:700;background:#7c3aed;color:white;padding:.05rem .25rem;border-radius:3px;line-height:1.4">β</span>
-    </a>
   </div>
 
   <div class="nav-right">
@@ -769,6 +760,7 @@
       <button class="asht-btn" onclick="switchAdminTab('analytics', this)">Analytics Cache</button>
       <button class="asht-btn" onclick="switchAdminTab('apiusage', this)">API Usage</button>
       <button class="asht-btn" onclick="switchAdminTab('errorlog', this)">Error Log</button>
+      <button class="asht-btn" onclick="switchAdminTab('tools', this)">Tools</button>
     </div>
     <div id="admin-tab-logs" class="admin-sheet-body">
       <div id="admin-loading" class="admin-loading-msg">Loading activity…</div>
@@ -807,6 +799,19 @@
         </div>
         <div id="admin-el-loading" class="admin-loading-msg">Loading…</div>
         <div id="admin-el-list" style="display:none"></div>
+      </div>
+    </div>
+    <div id="admin-tab-tools" class="admin-sheet-body" style="display:none">
+      <div class="admin-lh-wrap">
+        <p class="admin-lh-hint">Internal tools and experimental features.</p>
+        <a href="/map" target="_blank" style="display:flex;align-items:center;gap:.75rem;padding:.85rem 1rem;border:1px solid var(--border);border-radius:.6rem;text-decoration:none;color:var(--text);margin-top:.75rem;transition:background .15s" onmouseover="this.style.background='var(--row-bg)'" onmouseout="this.style.background=''">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C7.6 2 4 5.6 4 10c0 6 8 14 8 14s8-8 8-14c0-4.4-3.6-8-8-8z"/><circle cx="12" cy="10" r="3"/></svg>
+          <div>
+            <div style="font-size:.83rem;font-weight:600">Site Map <span style="font-size:.65rem;font-weight:700;background:#7c3aed22;color:#a78bfa;border:1px solid #7c3aed44;border-radius:4px;padding:.1rem .35rem;margin-left:.3rem">BETA</span></div>
+            <div style="font-size:.74rem;color:var(--text-muted);margin-top:.15rem">Interactive map of all launched sites with rocket markers</div>
+          </div>
+          <svg style="margin-left:auto;flex-shrink:0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"/></svg>
+        </a>
       </div>
     </div>
     <div id="admin-tab-lighthouse" class="admin-sheet-body" style="display:none">
@@ -2964,6 +2969,7 @@ function switchAdminTab(tab, btn) {
   document.getElementById('admin-tab-analytics').style.display  = tab === 'analytics'  ? 'flex' : 'none';
   document.getElementById('admin-tab-apiusage').style.display   = tab === 'apiusage'   ? 'flex' : 'none';
   document.getElementById('admin-tab-errorlog').style.display   = tab === 'errorlog'   ? 'flex' : 'none';
+  document.getElementById('admin-tab-tools').style.display      = tab === 'tools'      ? 'flex' : 'none';
   document.querySelectorAll('.asht-btn').forEach(b => b.classList.toggle('asht-active', b === btn));
   if (tab === 'analytics') loadAdminAnalyticsList();
   if (tab === 'apiusage')  loadAdminApiUsage();
