@@ -6651,9 +6651,9 @@ function renderBlogPostsCard(posts) {
     return;
   }
 
-  const preview = filtered.slice(0, 4);
+  const preview = filtered.slice(0, 8);
   container.innerHTML = preview.map(p => _buildBlogPostRow(p)).join('');
-  if (footer) footer.style.display = filtered.length > 4 ? '' : 'none';
+  if (footer) footer.style.display = filtered.length > 8 ? '' : 'none';
 }
 
 function openBlogPostsModal() {
