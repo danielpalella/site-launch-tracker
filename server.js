@@ -2627,7 +2627,10 @@ app.post('/api/analytics/:id/push-blog', requireAuth, async (req, res) => {
         body: JSON.stringify({
           title,
           description: '',
-          content: Buffer.from(html).toString('base64'),
+          content: Buffer.from(heroImageUrl
+            ? `<div style="width:100%;margin:0 0 2rem;border-radius:6px;overflow:hidden"><img src="${heroImageUrl}" alt="" style="width:100%;height:auto;display:block"></div>\n${html}`
+            : html
+          ).toString('base64'),
           author: launch.account_name || 'Team',
         }),
       }
