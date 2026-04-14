@@ -264,6 +264,9 @@
         <button class="ac-view-btn ac-view-active" id="ac-view-sites" onclick="switchAnalyticsView('sites')">Sites</button>
         <button class="ac-view-btn" id="ac-view-overview" onclick="switchAnalyticsView('overview')">Dashboard</button>
         <button class="ac-view-btn" id="ac-view-seo" onclick="switchAnalyticsView('seo')">Site Audit</button>
+        <button class="ac-view-btn ac-map-icon-btn" id="ac-map-toggle-btn" onclick="toggleInsightsMap()" title="Map View">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C7.6 2 4 5.6 4 10c0 6 8 14 8 14s8-8 8-14c0-4.4-3.6-8-8-8z"/><circle cx="12" cy="10" r="3"/></svg>
+        </button>
       </div>
       <div class="ac-toolbar-divider"></div>
       <div class="ac-filters-group" id="ac-filters-group">
@@ -366,6 +369,17 @@
       </div>
 
       <div class="ac-scroll-area">
+        <!-- Insights Map Widget -->
+        <div id="ac-map-panel" style="display:none;margin-bottom:.75rem">
+          <div class="card" style="overflow:hidden;padding:0">
+            <div style="display:flex;align-items:center;gap:.5rem;padding:.6rem .85rem;border-bottom:1px solid var(--border);flex-wrap:wrap">
+              <div id="ac-map-chips" style="display:flex;gap:.35rem;flex-wrap:wrap;flex:1"></div>
+              <span id="ac-map-count" style="font-size:.75rem;color:var(--text-muted);white-space:nowrap"></span>
+            </div>
+            <div id="ac-map-leaflet" style="height:360px;width:100%"></div>
+          </div>
+        </div>
+
         <!-- Industry summary bar (shown when industry filter active in sites view) -->
         <div id="ac-industry-summary" style="display:none;margin-bottom:.75rem"></div>
 
@@ -8376,6 +8390,137 @@ async function loadBlogHistory(id) {
   } catch (err) {
     listEl.innerHTML = `<div style="color:var(--danger,#ef4444);font-size:.825rem;padding:.4rem 0">${esc(err.message)}</div>`;
   }
+}
+
+// ── Insights Map Widget ──
+const _MAP_INDUSTRY_COLORS = {
+  'HVAC':             '#ef4444',
+  'Roofing':          '#f97316',
+  'Plumbing':         '#3b82f6',
+  'Electrical':       '#eab308',
+  'Landscaping':      '#22c55e',
+  'Cleaning Services':'#06b6d4',
+  'Restoration':      '#8b5cf6',
+  'Contracting':      '#84cc16',
+  'Flooring':         '#d946ef',
+  'Gutters':          '#64748b',
+  'Other':            '#6366f1',
+};
+function _mapIndustryColor(ind) { return _MAP_INDUSTRY_COLORS[ind] || _MAP_INDUSTRY_COLORS['Other']; }
+
+let _insightsMap = null;
+let _insightsMapMarkers = [];
+let _insightsMapData = null;
+let _insightsMapIndustryFilter = 'all';
+
+function toggleInsightsMap() {
+  const panel = document.getElementById('ac-map-panel');
+  const btn = document.getElementById('ac-map-toggle-btn');
+  const showing = panel.style.display !== 'none';
+  if (showing) {
+    panel.style.display = 'none';
+    btn.classList.remove('ac-view-active');
+  } else {
+    panel.style.display = '';
+    btn.classList.add('ac-view-active');
+    requestAnimationFrame(() => initInsightsMap());
+  }
+}
+
+async function initInsightsMap() {
+  if (_insightsMap) { _insightsMap.invalidateSize(); return; }
+
+  // Load Leaflet lazily on first open
+  if (!window.L) {
+    await new Promise((resolve, reject) => {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+      document.head.appendChild(link);
+      const s = document.createElement('script');
+      s.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+      s.onload = resolve; s.onerror = reject;
+      document.head.appendChild(s);
+    });
+  }
+
+  const data = await fetch('/api/launches/map-data').then(r => r.json());
+  _insightsMapData = data.sites || [];
+
+  _insightsMap = L.map('ac-map-leaflet', { zoomControl: true }).setView([38.5, -96], 4);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/">CARTO</a>',
+    subdomains: 'abcd', maxZoom: 19,
+  }).addTo(_insightsMap);
+
+  // Build industry filter chips
+  const industries = [...new Set(_insightsMapData.map(s => s.industry))].sort();
+  const chipsEl = document.getElementById('ac-map-chips');
+  chipsEl.innerHTML = '';
+  [{ label: 'All industries', val: 'all' }, ...industries.map(i => ({ label: i, val: i }))].forEach(({ label, val }) => {
+    const chip = document.createElement('button');
+    chip.className = 'ac-map-chip' + (val === 'all' ? ' active' : '');
+    chip.textContent = label;
+    chip.onclick = () => {
+      _insightsMapIndustryFilter = val;
+      document.querySelectorAll('.ac-map-chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      renderInsightsMapMarkers();
+    };
+    chipsEl.appendChild(chip);
+  });
+
+  renderInsightsMapMarkers();
+}
+
+function renderInsightsMapMarkers() {
+  if (!_insightsMap || !_insightsMapData) return;
+  _insightsMapMarkers.forEach(m => m.remove());
+  _insightsMapMarkers = [];
+
+  const filtered = _insightsMapData.filter(s =>
+    _insightsMapIndustryFilter === 'all' || s.industry === _insightsMapIndustryFilter
+  );
+  document.getElementById('ac-map-count').textContent = filtered.length + ' sites';
+
+  filtered.forEach(site => {
+    const color = _mapIndustryColor(site.industry);
+    const domain = (site.domain_name || '').replace(/^https?:\/\//, '').replace(/\/$/, '');
+    const faviconSrc = domain
+      ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=32`
+      : '/favicon.png';
+    const hasModal = !!(analyticsData && analyticsData[site.id]);
+
+    const icon = L.divIcon({
+      html: `<div style="position:relative;width:38px;height:48px;cursor:pointer;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.22))">
+        <svg width="38" height="48" viewBox="0 0 38 48" xmlns="http://www.w3.org/2000/svg">
+          <path d="M19 2C11 2 4 9 4 17C4 28 19 46 19 46S34 28 34 17C34 9 27 2 19 2z" fill="${color}" stroke="white" stroke-width="2"/>
+          <circle cx="19" cy="17" r="11" fill="white"/>
+        </svg>
+        <img src="${faviconSrc}" width="18" height="18" style="position:absolute;top:8px;left:10px;border-radius:3px;object-fit:contain;" draggable="false" onerror="this.src='/favicon.png'"/>
+      </div>`,
+      className: '', iconSize: [38, 48], iconAnchor: [19, 48], popupAnchor: [0, -50],
+    });
+
+    const popup = L.popup({ closeButton: false, maxWidth: 240 }).setContent(`
+      <div style="padding:.9rem 1rem;min-width:200px;font-family:-apple-system,sans-serif">
+        <div style="font-weight:700;font-size:.88rem;color:#0f172a;margin-bottom:.15rem">${esc(site.account_name)}</div>
+        ${domain ? `<div style="font-size:.74rem;color:#64748b;margin-bottom:.5rem">${esc(domain)}</div>` : ''}
+        <div style="display:flex;align-items:center;gap:.4rem;font-size:.75rem;color:#475569;margin-bottom:.3rem">
+          <div style="width:7px;height:7px;border-radius:50%;background:${color};flex-shrink:0"></div>${esc(site.industry)}
+        </div>
+        ${site.place_city ? `<div style="font-size:.75rem;color:#64748b;margin-bottom:.3rem">📍 ${esc(site.place_city)}</div>` : ''}
+        <div style="display:flex;align-items:center;gap:.85rem;margin-top:.65rem;flex-wrap:wrap">
+          ${domain ? `<a href="https://${domain}" target="_blank" rel="noopener" style="font-size:.75rem;font-weight:600;color:#6366f1;text-decoration:none">Visit site ↗</a>` : ''}
+          ${hasModal ? `<button onclick="_insightsMap.closePopup();openAnalyticsModal('${site.id}')" style="font-size:.75rem;font-weight:600;color:#0f172a;background:none;border:none;cursor:pointer;font-family:inherit;padding:0">View account →</button>` : ''}
+        </div>
+      </div>
+    `);
+
+    const marker = L.marker([site.lat, site.lng], { icon }).addTo(_insightsMap);
+    marker.bindPopup(popup);
+    _insightsMapMarkers.push(marker);
+  });
 }
 
 function toggleGshNrMore(btnEl) {
