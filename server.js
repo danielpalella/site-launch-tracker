@@ -3040,18 +3040,26 @@ Return ONLY the HTML body content (no <html>, <head>, <body> wrapper tags). Use 
     // heroImage.url is passed to Duda as the post thumbnail (featured image)
     // Duda strips inline <img> tags from imported content, so we use the thumbnail field instead
 
-    // Guarantee internal links are present — inject any that Gemini skipped
+    // Clean up internal links — remove standalone link paragraphs Gemini sometimes generates
+    // e.g. <p><a href="...">our services</a></p> with no surrounding text
     if (cleanDomain) {
+      post = post.replace(/<p>\s*<a\s+href="https?:\/\/[^"]*"[^>]*>[^<]+<\/a>\s*<\/p>/gi, (match) => {
+        // Keep if the <p> has meaningful text beyond just the link
+        const textContent = match.replace(/<[^>]+>/g, '').trim();
+        const linkText = (match.match(/>([^<]+)<\/a>/) || [])[1] || '';
+        return textContent === linkText ? '' : match; // remove if paragraph is ONLY the link
+      });
+
+      // Guarantee all three internal links are present somewhere in the post
       const internalLinks = [
         { url: `https://${cleanDomain}/services`,         anchor: 'our services' },
         { url: `https://${cleanDomain}/service-areas`,    anchor: 'our service areas' },
-        { url: `https://${cleanDomain}/customer-reviews`, anchor: 'our customer reviews' },
+        { url: `https://${cleanDomain}/customer-reviews`, anchor: 'customer reviews' },
       ];
       const missing = internalLinks.filter(l => !post.includes(l.url));
       if (missing.length > 0) {
         const linkStr = missing.map(l => `<a href="${l.url}">${l.anchor}</a>`).join(', ');
-        const inject = `<p>For more information, visit ${linkStr}.</p>`;
-        // Insert before last </p> close if possible, otherwise append
+        const inject = `<p>For more information about what we offer, visit ${linkStr}.</p>`;
         const lastP = post.lastIndexOf('</p>');
         post = lastP !== -1
           ? post.slice(0, lastP + 4) + '\n' + inject
