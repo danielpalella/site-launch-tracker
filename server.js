@@ -204,6 +204,76 @@ app.get('/api/auth/me', requireAuth, (req, res) => {
 
 app.get('/login', (_req, res) => res.sendFile(join(__dirname, 'public', 'login.html')));
 app.get('/', requireAuth, (_req, res) => res.sendFile(join(__dirname, 'public', 'index.html')));
+app.get('/map', requireAuth, (_req, res) => res.sendFile(join(__dirname, 'public', 'map.html')));
+
+// Return Maps API key to authenticated clients
+app.get('/api/config/maps-key', requireAuth, async (req, res) => {
+  const key = await getPlacesApiKey();
+  res.json({ key: key || null });
+});
+
+// Return all launched sites with lat/lng for the map view
+app.get('/api/launches/map-data', requireAuth, async (req, res) => {
+  try {
+    const snap = await db.collection('launches')
+      .where('status', '==', 'launched')
+      .get();
+    const key = await getPlacesApiKey();
+    const results = [];
+    const updates = [];
+
+    await Promise.all(snap.docs.map(async doc => {
+      const d = doc.data();
+      let lat = d.lat || null;
+      let lng = d.lng || null;
+
+      if ((!lat || !lng) && key) {
+        if (d.google_place_id) {
+          try {
+            const r = await fetch(
+              `https://maps.googleapis.com/maps/api/place/details/json?place_id=${encodeURIComponent(d.google_place_id)}&fields=geometry&key=${key}`
+            );
+            const j = await r.json();
+            if (j.result?.geometry?.location) {
+              lat = j.result.geometry.location.lat;
+              lng = j.result.geometry.location.lng;
+              updates.push(doc.ref.update({ lat, lng }));
+            }
+          } catch {}
+        }
+        if ((!lat || !lng) && d.place_city) {
+          try {
+            const r = await fetch(
+              `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(d.place_city + ', USA')}&key=${key}`
+            );
+            const j = await r.json();
+            if (j.results?.[0]?.geometry?.location) {
+              lat = j.results[0].geometry.location.lat;
+              lng = j.results[0].geometry.location.lng;
+              updates.push(doc.ref.update({ lat, lng }));
+            }
+          } catch {}
+        }
+      }
+
+      if (lat && lng) {
+        results.push({
+          id: doc.id,
+          account_name: d.account_name || '',
+          domain_name: d.domain_name || '',
+          industry: d.industry || 'Other',
+          place_city: d.place_city || '',
+          lat, lng,
+        });
+      }
+    }));
+
+    await Promise.all(updates);
+    res.json({ sites: results });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 app.use(express.static(join(__dirname, 'public')));
 

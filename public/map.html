@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Site Map · RealWork Labs</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box }
+  body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; height:100vh; display:flex; flex-direction:column; background:#0f172a }
+
+  #map-header {
+    display:flex; align-items:center; gap:1rem; padding:.85rem 1.4rem;
+    background:#0f172a; border-bottom:1px solid #1e293b; flex-shrink:0; z-index:10;
+  }
+  #map-header a {
+    color:#64748b; text-decoration:none; font-size:.82rem; display:flex; align-items:center; gap:.3rem;
+    transition:color .15s;
+  }
+  #map-header a:hover { color:#94a3b8 }
+  .map-title { display:flex; align-items:center; gap:.6rem }
+  .map-title-text { font-weight:700; font-size:.95rem; color:#f1f5f9 }
+  .beta-badge {
+    font-size:.62rem; font-weight:700; letter-spacing:.06em; padding:.15rem .45rem;
+    background:#7c3aed22; color:#a78bfa; border:1px solid #7c3aed44; border-radius:5px; text-transform:uppercase
+  }
+  .map-meta { margin-left:auto; display:flex; align-items:center; gap:1rem }
+  .map-count { font-size:.8rem; color:#64748b }
+
+  .legend { display:flex; gap:1rem; flex-wrap:wrap }
+  .legend-item { display:flex; align-items:center; gap:.35rem; font-size:.72rem; color:#94a3b8 }
+  .legend-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0 }
+
+  #map { flex:1; width:100% }
+
+  /* Info window override */
+  .gm-style .gm-style-iw-c { border-radius:10px!important; padding:0!important; box-shadow:0 8px 32px rgba(0,0,0,.25)!important }
+  .gm-style .gm-style-iw-d { overflow:hidden!important; padding:0!important }
+  .gm-style .gm-style-iw-tc::after { display:none }
+  .iw {
+    padding:1rem 1.1rem 1rem; min-width:200px; font-family:-apple-system,sans-serif;
+  }
+  .iw-name { font-weight:700; font-size:.88rem; color:#0f172a; margin-bottom:.25rem }
+  .iw-domain { font-size:.75rem; color:#64748b; margin-bottom:.5rem }
+  .iw-row { display:flex; align-items:center; gap:.4rem; font-size:.75rem; color:#475569; margin-bottom:.2rem }
+  .iw-dot { width:7px; height:7px; border-radius:50%; flex-shrink:0 }
+  .iw-link { display:block; margin-top:.65rem; font-size:.75rem; font-weight:600; color:#6366f1; text-decoration:none }
+  .iw-link:hover { text-decoration:underline }
+
+  #loading-overlay {
+    position:fixed; inset:0; z-index:100; background:#0f172a;
+    display:flex; align-items:center; justify-content:center; flex-direction:column; gap:.75rem;
+  }
+  .spinner { width:32px; height:32px; border:3px solid #1e293b; border-top-color:#6366f1; border-radius:50%; animation:spin .7s linear infinite }
+  @keyframes spin { to { transform:rotate(360deg) } }
+  .loading-text { font-size:.82rem; color:#64748b }
+</style>
+</head>
+<body>
+
+<div id="loading-overlay">
+  <div class="spinner"></div>
+  <div class="loading-text">Loading site map…</div>
+</div>
+
+<div id="map-header">
+  <a href="/dashboard">← Dashboard</a>
+  <div class="map-title">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 2L8 8H4l4 4-2 6 6-3 6 3-2-6 4-4h-4z"/>
+    </svg>
+    <span class="map-title-text">Site Map</span>
+    <span class="beta-badge">Beta</span>
+  </div>
+  <div class="map-meta">
+    <div class="legend" id="legend"></div>
+    <span class="map-count" id="site-count"></span>
+  </div>
+</div>
+
+<div id="map"></div>
+
+<script>
+const INDUSTRY_COLORS = {
+  'HVAC':             '#ef4444',
+  'Roofing':          '#f97316',
+  'Plumbing':         '#3b82f6',
+  'Electrical':       '#eab308',
+  'Landscaping':      '#22c55e',
+  'Cleaning Services':'#06b6d4',
+  'Restoration':      '#8b5cf6',
+  'Contracting':      '#84cc16',
+  'Flooring':         '#d946ef',
+  'Gutters':          '#64748b',
+  'Other':            '#6366f1',
+};
+
+function industryColor(ind) {
+  return INDUSTRY_COLORS[ind] || INDUSTRY_COLORS['Other'];
+}
+
+function rocketSVG(color) {
+  const c = color;
+  const dark = c; // use same color, white stroke separates
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="44" viewBox="0 0 36 44">
+    <!-- pin drop shadow -->
+    <ellipse cx="18" cy="42" rx="5" ry="2" fill="rgba(0,0,0,0.25)"/>
+    <!-- pin body -->
+    <path d="M18 1C10.3 1 4 7.3 4 15c0 10.2 14 28 14 28S32 25.2 32 15C32 7.3 25.7 1 18 1z" fill="${c}" stroke="white" stroke-width="1.5"/>
+    <!-- rocket body -->
+    <ellipse cx="18" cy="14" rx="5" ry="7" fill="white" opacity="0.92"/>
+    <!-- nose cone -->
+    <path d="M18 6 L23 12 L13 12 Z" fill="white" opacity="0.75"/>
+    <!-- window -->
+    <circle cx="18" cy="15" r="2.2" fill="${c}"/>
+    <circle cx="18" cy="15" r="1.1" fill="white" opacity="0.6"/>
+    <!-- fin left -->
+    <path d="M13 18 L10 23 L13 21 Z" fill="white" opacity="0.7"/>
+    <!-- fin right -->
+    <path d="M23 18 L26 23 L23 21 Z" fill="white" opacity="0.7"/>
+    <!-- flame -->
+    <ellipse cx="18" cy="23.5" rx="2.5" ry="3.5" fill="#f97316" opacity="0.9"/>
+    <ellipse cx="18" cy="25" rx="1.5" ry="2" fill="#fbbf24"/>
+  </svg>`;
+}
+
+function markerIcon(color) {
+  const svg = rocketSVG(color);
+  return {
+    url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg),
+    scaledSize: new google.maps.Size(36, 44),
+    anchor: new google.maps.Point(18, 43),
+  };
+}
+
+let map, openInfoWindow = null;
+
+async function initMap() {
+  const { sites } = await fetch('/api/launches/map-data').then(r => r.json());
+
+  map = new google.maps.Map(document.getElementById('map'), {
+    center: { lat: 38.5, lng: -96 },
+    zoom: 4,
+    mapTypeControl: false,
+    streetViewControl: false,
+    fullscreenControl: true,
+    styles: [
+      { featureType:'water', elementType:'geometry', stylers:[{color:'#1e293b'}] },
+      { featureType:'landscape', elementType:'geometry', stylers:[{color:'#0f172a'}] },
+      { featureType:'road', elementType:'geometry', stylers:[{color:'#1e293b'}] },
+      { featureType:'road', elementType:'geometry.stroke', stylers:[{color:'#334155'}] },
+      { featureType:'administrative', elementType:'geometry', stylers:[{color:'#334155'}] },
+      { featureType:'administrative.country', elementType:'labels.text.fill', stylers:[{color:'#64748b'}] },
+      { featureType:'administrative.province', elementType:'labels.text.fill', stylers:[{color:'#475569'}] },
+      { featureType:'administrative.locality', elementType:'labels.text.fill', stylers:[{color:'#94a3b8'}] },
+      { featureType:'poi', elementType:'all', stylers:[{visibility:'off'}] },
+      { featureType:'transit', elementType:'all', stylers:[{visibility:'off'}] },
+    ],
+  });
+
+  // Update header
+  document.getElementById('site-count').textContent = `${sites.length} sites on map`;
+
+  // Build legend from industries present
+  const industries = [...new Set(sites.map(s => s.industry))].sort();
+  const legend = document.getElementById('legend');
+  industries.forEach(ind => {
+    const el = document.createElement('div');
+    el.className = 'legend-item';
+    el.innerHTML = `<div class="legend-dot" style="background:${industryColor(ind)}"></div>${ind}`;
+    legend.appendChild(el);
+  });
+
+  // Place markers
+  sites.forEach(site => {
+    const color = industryColor(site.industry);
+    const marker = new google.maps.Marker({
+      position: { lat: site.lat, lng: site.lng },
+      map,
+      icon: markerIcon(color),
+      title: site.account_name,
+    });
+
+    const domain = (site.domain_name || '').replace(/^https?:\/\//,'').replace(/\/$/,'');
+    const infoContent = `<div class="iw">
+      <div class="iw-name">${site.account_name}</div>
+      ${domain ? `<div class="iw-domain">${domain}</div>` : ''}
+      <div class="iw-row"><div class="iw-dot" style="background:${color}"></div>${site.industry}</div>
+      ${site.place_city ? `<div class="iw-row">📍 ${site.place_city}</div>` : ''}
+      ${domain ? `<a class="iw-link" href="https://${domain}" target="_blank">Visit site ↗</a>` : ''}
+    </div>`;
+
+    const infoWindow = new google.maps.InfoWindow({ content: infoContent, disableAutoPan: false });
+
+    marker.addListener('click', () => {
+      if (openInfoWindow) openInfoWindow.close();
+      infoWindow.open(map, marker);
+      openInfoWindow = infoWindow;
+    });
+  });
+
+  document.getElementById('loading-overlay').style.display = 'none';
+}
+
+async function start() {
+  try {
+    const me = await fetch('/api/auth/me').then(r => r.json()).catch(() => null);
+    if (!me?.email) { window.location = '/login'; return; }
+
+    const { key } = await fetch('/api/config/maps-key').then(r => r.json());
+    if (!key) {
+      document.getElementById('loading-overlay').querySelector('.loading-text').textContent = 'Maps API key not configured. Add GOOGLE_PLACES_API_KEY to enable this view.';
+      return;
+    }
+
+    window.initMap = initMap;
+    const script = document.createElement('script');
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&callback=initMap`;
+    script.async = true;
+    document.head.appendChild(script);
+  } catch(e) {
+    document.getElementById('loading-overlay').querySelector('.loading-text').textContent = 'Error: ' + e.message;
+  }
+}
+
+start();
+</script>
+</body>
+</html>
