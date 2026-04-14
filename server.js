@@ -2629,7 +2629,6 @@ app.post('/api/analytics/:id/push-blog', requireAuth, async (req, res) => {
           description: '',
           content: Buffer.from(html).toString('base64'),
           author: launch.account_name || 'Team',
-          ...(heroImageUrl ? { thumbnail: heroImageUrl } : {}),
         }),
       }
     );
@@ -2639,6 +2638,22 @@ app.post('/api/analytics/:id/push-blog', requireAuth, async (req, res) => {
     }
     const post = await dRes.json();
     const postId = post.id || null;
+
+    // Step 1.5: Set thumbnail via PATCH if we have a hero image
+    if (postId && heroImageUrl) {
+      try {
+        await fetch(
+          `https://api.duda.co/api/sites/multiscreen/${siteName}/blog/posts/${postId}`,
+          {
+            method: 'PATCH',
+            headers: authHeader,
+            body: JSON.stringify({ thumbnail: heroImageUrl }),
+          }
+        );
+      } catch (e) {
+        console.warn('[push-blog] thumbnail PATCH failed:', e.message);
+      }
+    }
 
     // Step 2: Publish if requested
     if (publish && postId) {
