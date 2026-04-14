@@ -6620,7 +6620,7 @@ function renderBlogPostsCard(posts) {
     const statusBadge = post.status === 'published'
       ? `<span class="ov-blog-status ov-blog-status-pub">Published</span>`
       : `<span class="ov-blog-status ov-blog-status-draft">Draft</span>`;
-    const dateStr = post.pushedAt ? timeAgo(new Date(post.pushedAt)) : '';
+    const dateStr = post.pushedAt ? new Date(post.pushedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
     const blogUrl = domain ? `https://${domain}/blog` : null;
     const viewLink = blogUrl
       ? `<a href="${blogUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="font-size:.72rem;color:var(--text-muted);text-decoration:none;white-space:nowrap;flex-shrink:0" title="Open blog">View ↗</a>`
