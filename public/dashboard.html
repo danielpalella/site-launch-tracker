@@ -5092,6 +5092,20 @@ function renderAnalyticsOverview(industryFilter) {
           <span class="ov-section-badge" id="ov-blog-badge">—</span>
         </div>
         <div id="ov-blog-list"><div class="ac-overview-loading"><div class="ac-ov-spinner"></div><div>Loading…</div></div></div>
+        <div id="ov-blog-footer" style="display:none;padding:.5rem 1rem .75rem;border-top:1px solid var(--border)">
+          <button onclick="openBlogPostsModal()" style="font-size:.78rem;color:var(--text-muted);background:none;border:none;cursor:pointer;padding:0">View all →</button>
+        </div>
+      </div>
+
+      <!-- Blog Posts Modal -->
+      <div id="blog-posts-modal" style="display:none;position:fixed;inset:0;z-index:1200;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center" onclick="if(event.target===this)closeBlogPostsModal()">
+        <div style="background:var(--surface);border-radius:1rem;width:min(720px,95vw);max-height:80vh;display:flex;flex-direction:column;box-shadow:0 24px 64px rgba(0,0,0,.2)">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:1.1rem 1.4rem;border-bottom:1px solid var(--border);flex-shrink:0">
+            <span style="font-weight:700;font-size:.95rem">All Blog Posts</span>
+            <button onclick="closeBlogPostsModal()" style="background:none;border:none;font-size:1.25rem;cursor:pointer;color:var(--text-muted);line-height:1">×</button>
+          </div>
+          <div id="blog-posts-modal-list" style="overflow-y:auto;flex:1;padding:.5rem 0"></div>
+        </div>
       </div>
 
     </div>
@@ -6582,9 +6596,38 @@ async function loadRecentBlogPostsCard() {
   }
 }
 
+function _buildBlogPostRow(post, compact = false) {
+  const domain = (post.domain || '').replace(/^https?:\/\//, '').replace(/\/$/, '');
+  const fav = domain
+    ? `<img src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=16" width="13" height="13" style="border-radius:2px;flex-shrink:0" onerror="this.style.display='none'">`
+    : '';
+  const isPub = post.status === 'published';
+  const statusDot = `<span style="width:6px;height:6px;border-radius:50%;background:${isPub ? '#22c55e' : '#94a3b8'};flex-shrink:0;display:inline-block"></span>`;
+  const dateStr = post.pushedAt ? new Date(post.pushedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+  const blogUrl = domain ? `https://${domain}/blog` : null;
+  const viewLink = blogUrl
+    ? `<a href="${blogUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="font-size:.75rem;color:var(--text-muted);text-decoration:none;flex-shrink:0;opacity:.7" title="Open blog">↗</a>`
+    : '';
+  return `<div style="display:flex;align-items:center;gap:.65rem;padding:.6rem ${compact ? '1rem' : '1rem'};border-bottom:1px solid var(--border);cursor:default">
+    <div style="display:flex;align-items:center;gap:.4rem;width:120px;flex-shrink:0;min-width:0">
+      ${fav}
+      <span style="font-size:.75rem;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(post.account_name)}</span>
+    </div>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:.78rem;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(post.title)}</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:.5rem;flex-shrink:0">
+      ${statusDot}
+      <span style="font-size:.72rem;color:var(--text-muted);white-space:nowrap">${dateStr}</span>
+      ${viewLink}
+    </div>
+  </div>`;
+}
+
 function renderBlogPostsCard(posts) {
   const container = document.getElementById('ov-blog-list');
   const badge = document.getElementById('ov-blog-badge');
+  const footer = document.getElementById('ov-blog-footer');
   if (!container) return;
 
   const filtered = posts.filter(p => {
@@ -6604,37 +6647,31 @@ function renderBlogPostsCard(posts) {
 
   if (!filtered.length) {
     container.innerHTML = '<div class="ac-empty" style="padding:2rem">No blog posts found.</div>';
+    if (footer) footer.style.display = 'none';
     return;
   }
 
-  container.innerHTML = filtered.map(post => {
-    const domain = (post.domain || '').replace(/^https?:\/\//, '').replace(/\/$/, '');
-    const fav = domain
-      ? `<img src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=16" width="14" height="14" style="border-radius:2px;flex-shrink:0;margin-top:1px" onerror="this.style.display='none'">`
-      : '';
-    const d = analyticsData[post.siteId];
-    const health = d ? computeGscHealth(d) : null;
-    const healthDot = health
-      ? `<span style="width:7px;height:7px;border-radius:50%;background:${health.color};flex-shrink:0;display:inline-block" title="${health.label}"></span>`
-      : '';
-    const statusBadge = post.status === 'published'
-      ? `<span class="ov-blog-status ov-blog-status-pub">Published</span>`
-      : `<span class="ov-blog-status ov-blog-status-draft">Draft</span>`;
-    const dateStr = post.pushedAt ? new Date(post.pushedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
-    const blogUrl = domain ? `https://${domain}/blog` : null;
-    const viewLink = blogUrl
-      ? `<a href="${blogUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="font-size:.72rem;color:var(--text-muted);text-decoration:none;white-space:nowrap;flex-shrink:0" title="Open blog">View ↗</a>`
-      : '';
-    const clickAttr = d ? `onclick="openAnalyticsModal('${esc(post.siteId)}')" style="cursor:pointer"` : '';
-    return `<div class="ov-blog-row" ${clickAttr}>
-      <div class="ov-blog-site">${fav}<div style="min-width:0"><div class="ov-blog-site-name">${esc(post.account_name)}</div><div class="ov-blog-domain">${esc(domain)}</div></div></div>
-      <div class="ov-blog-content">
-        <div class="ov-blog-title">${esc(post.title)}</div>
-        <div class="ov-blog-meta">${post.keyword ? `<span class="ov-blog-kw">${esc(post.keyword)}</span>` : ''}${post.city ? `<span class="ov-blog-city">${esc(post.city)}</span>` : ''}</div>
-      </div>
-      <div class="ov-blog-right">${healthDot}${statusBadge}<span class="ov-blog-date">${dateStr}</span>${viewLink}</div>
-    </div>`;
-  }).join('');
+  const preview = filtered.slice(0, 4);
+  container.innerHTML = preview.map(p => _buildBlogPostRow(p)).join('');
+  if (footer) footer.style.display = filtered.length > 4 ? '' : 'none';
+}
+
+function openBlogPostsModal() {
+  const posts = _recentBlogPosts || [];
+  const modal = document.getElementById('blog-posts-modal');
+  const list = document.getElementById('blog-posts-modal-list');
+  if (!modal || !list) return;
+  list.innerHTML = posts.length
+    ? posts.map(p => _buildBlogPostRow(p)).join('')
+    : '<div class="ac-empty" style="padding:2rem">No posts.</div>';
+  modal.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function closeBlogPostsModal() {
+  const modal = document.getElementById('blog-posts-modal');
+  if (modal) modal.style.display = 'none';
+  document.body.style.overflow = '';
 }
 
 function filterAnalyticsTags(val) {
