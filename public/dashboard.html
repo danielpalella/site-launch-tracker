@@ -3505,6 +3505,7 @@ function switchAnalyticsView(view) {
   document.getElementById('ac-sort-wrap').style.display         = (view === 'seo' || view === 'overview' || view === 'impact') ? 'none' : '';
   document.getElementById('seo-toolbar-extras').style.display   = view === 'seo' ? 'flex' : 'none';
   document.getElementById('ac-toolbar-right').style.display     = view === 'seo' ? 'none' : 'flex';
+  document.getElementById('ac-timeframe-wrap').style.display    = view === 'impact' ? 'none' : '';
   // Exit cohort mode when switching to Dashboard — cohort doesn't apply to aggregates
   if (view === 'overview' && _cohortWindow) setCohortWindow(null, true);
   const _fp = document.getElementById('ac-filter-panel');
@@ -8549,13 +8550,25 @@ async function renderImpactView() {
   const el = document.getElementById('ac-impact');
   if (!el) return;
 
+  const metricBtn = (key, label) => {
+    const active = _impactSort === key;
+    return `<button onclick="_setImpactMetric('${key}')" style="font-size:.72rem;font-weight:${active?700:500};padding:.22rem .65rem;border-radius:.4rem;border:1px solid ${active?'#6366f1':'var(--border)'};background:${active?'#6366f108':'none'};color:${active?'#6366f1':'var(--text-muted)'};cursor:pointer">${label}</button>`;
+  };
+
   el.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;margin-bottom:.85rem">
       <div>
         <span style="font-size:.88rem;font-weight:700;color:var(--text)">Launch Impact</span>
-        <span style="font-size:.75rem;color:var(--text-muted);margin-left:.6rem">Click performance before vs after launch · same GSC window · data from Google Search Console</span>
+        <span style="font-size:.75rem;color:var(--text-muted);margin-left:.6rem">Before vs after launch · same GSC window · Google Search Console</span>
       </div>
-      <button onclick="_recalcImpact(this)" style="font-size:.72rem;color:var(--text-muted);background:none;border:1px solid var(--border);border-radius:.4rem;padding:.22rem .6rem;cursor:pointer;flex-shrink:0">↺ Recalculate</button>
+      <div style="display:flex;align-items:center;gap:.4rem;flex-shrink:0">
+        <span style="font-size:.68rem;color:var(--text-muted);margin-right:.15rem">Metric:</span>
+        ${metricBtn('clicks',      'Clicks')}
+        ${metricBtn('impressions', 'Impressions')}
+        ${metricBtn('rank',        'Avg Rank')}
+        <div style="width:1px;height:16px;background:var(--border);margin:0 .25rem"></div>
+        <button onclick="_recalcImpact(this)" style="font-size:.72rem;color:var(--text-muted);background:none;border:1px solid var(--border);border-radius:.4rem;padding:.22rem .6rem;cursor:pointer">↺ Recalculate</button>
+      </div>
     </div>
     <div id="impact-summary" style="display:flex;gap:.6rem;flex-wrap:wrap;margin-bottom:.85rem;align-items:center"></div>
     <div id="impact-rows" class="card" style="padding:0;overflow:hidden"></div>
@@ -8566,6 +8579,11 @@ async function renderImpactView() {
     _impactLoaded = true;
   }
   _renderImpactRows();
+}
+
+function _setImpactMetric(key) {
+  _impactSort = key;
+  renderImpactView(); // re-renders header (updates active pill) + rows
 }
 
 async function _recalcImpact(btn) {
@@ -8676,45 +8694,59 @@ function _renderImpactRows() {
   const entries = launched.map(r => {
     const impact = _impactData[r.id];
     if (!impact?.available) return { id: r.id, d: r, impact };
-    const clickPct  = _impactPct(impact.pre.totals.clicks, impact.post.totals.clicks);
-    const impPct    = _impactPct(impact.pre.totals.impressions, impact.post.totals.impressions);
-    const posDelta  = (impact.pre.totals.position != null && impact.post.totals.position != null)
+    const clickPct   = _impactPct(impact.pre.totals.clicks, impact.post.totals.clicks);
+    const impPct     = _impactPct(impact.pre.totals.impressions, impact.post.totals.impressions);
+    const posDelta   = (impact.pre.totals.position != null && impact.post.totals.position != null)
       ? Math.round((impact.pre.totals.position - impact.post.totals.position) * 10) / 10 : null;
     const clickDelta = impact.post.totals.clicks - impact.pre.totals.clicks;
-    return { id: r.id, d: r, impact, clickPct, impPct, posDelta, clickDelta };
+    const impDelta   = impact.post.totals.impressions - impact.pre.totals.impressions;
+    return { id: r.id, d: r, impact, clickPct, impPct, posDelta, clickDelta, impDelta };
   });
 
-  // Separate into groups.
-  // A "real baseline" requires at least 10 pre-launch clicks — anything less makes the
-  // % comparison statistically meaningless (e.g. 3 → 122 = +4067%).
+  // A "real baseline" requires at least 10 pre-launch clicks (data quality gate — always clicks-based).
   const withData    = entries.filter(e => e.impact?.available);
   const hasBaseline = withData.filter(e => e.impact.pre.totals.clicks >= 10);
   const noBaseline  = [
     ...withData.filter(e => e.impact.pre.totals.clicks < 10).sort((a,b) => (b.impact.post.totals.clicks??0) - (a.impact.post.totals.clicks??0)),
     ...entries.filter(e => !e.impact?.available),
   ];
-  const improving = hasBaseline.filter(e => (e.clickDelta ?? 0) >= 0).sort((a,b) => (b.clickDelta??0) - (a.clickDelta??0));
-  const declining = hasBaseline.filter(e => (e.clickDelta ?? 0) <  0).sort((a,b) => (a.clickDelta??0) - (b.clickDelta??0));
 
-  // Summary stats — only sites with a real baseline
-  const totalDelta = hasBaseline.reduce((s,e) => s + (e.clickDelta ?? 0), 0);
-  const sortedPcts = hasBaseline.map(e => e.clickPct).filter(p => p !== null).sort((a,b) => a-b);
-  const medianPct  = sortedPcts.length ? sortedPcts[Math.floor(sortedPcts.length / 2)] : null;
+  // Pick sort delta based on selected metric
+  const M = _impactSort; // 'clicks' | 'impressions' | 'rank'
+  const primaryDelta = e => M === 'rank' ? (e.posDelta ?? null) : M === 'impressions' ? (e.impDelta ?? 0) : (e.clickDelta ?? 0);
+  const isValidForMetric = e => M === 'rank' ? e.posDelta !== null : true;
+
+  const improving = hasBaseline.filter(e => isValidForMetric(e) && (primaryDelta(e) ?? 0) >= 0).sort((a,b) => (primaryDelta(b)??0) - (primaryDelta(a)??0));
+  const declining = hasBaseline.filter(e => isValidForMetric(e) && (primaryDelta(e) ?? 0) <  0).sort((a,b) => (primaryDelta(a)??0) - (primaryDelta(b)??0));
+
+  // Summary stats
+  const METRIC_LABELS = { clicks: 'clicks', impressions: 'impressions', rank: 'rank pts' };
+  const METRIC_UP     = { clicks: '↑ More clicks', impressions: '↑ More impressions', rank: '↑ Rank improving' };
+  const METRIC_DOWN   = { clicks: '↓ Fewer clicks', impressions: '↓ Fewer impressions', rank: '↓ Rank declining' };
+  const totalDelta = hasBaseline.filter(isValidForMetric).reduce((s,e) => s + (primaryDelta(e) ?? 0), 0);
+  const sortedPcts = M === 'rank'
+    ? [] // % doesn't apply to rank
+    : hasBaseline.map(e => M === 'impressions' ? e.impPct : e.clickPct).filter(p => p !== null).sort((a,b) => a-b);
+  const medianPct = sortedPcts.length ? sortedPcts[Math.floor(sortedPcts.length / 2)] : null;
 
   if (summaryEl) {
     const pill = (txt, color) => `<span style="font-size:.75rem;font-weight:600;color:${color};background:${color}18;border:1px solid ${color}33;border-radius:99px;padding:.2rem .7rem">${txt}</span>`;
     const statChip = (label, val, color) => `<span style="font-size:.75rem;color:var(--text-muted)">${label} <strong style="color:${color||'var(--text)'}">${val}</strong></span>`;
+    const netLabel  = M === 'rank' ? 'Median rank change:' : `Net ${METRIC_LABELS[M]}:`;
+    const netVal    = M === 'rank' && medianPct === null && sortedPcts.length === 0
+      ? (hasBaseline.filter(isValidForMetric).map(e=>e.posDelta).filter(v=>v!==null).sort((a,b)=>a-b)[Math.floor(improving.length/2)] ?? null)
+      : totalDelta;
     summaryEl.innerHTML = [
-      improving.length  ? pill(`↑ ${improving.length} improving`, '#22c55e') : '',
-      declining.length  ? pill(`↓ ${declining.length} declining`, '#ef4444') : '',
-      statChip('Net clicks:', `${totalDelta >= 0 ? '+' : ''}${fmtNum(totalDelta)}`, totalDelta >= 0 ? '#22c55e' : '#ef4444'),
+      improving.length ? pill(`↑ ${improving.length} ${METRIC_UP[M].replace('↑ ','')}`, '#22c55e') : '',
+      declining.length ? pill(`↓ ${declining.length} ${METRIC_DOWN[M].replace('↓ ','')}`, '#ef4444') : '',
+      netVal !== null ? statChip(netLabel, `${totalDelta >= 0 ? '+' : ''}${M === 'rank' ? totalDelta.toFixed(1) : fmtNum(totalDelta)} ${METRIC_LABELS[M]}`, totalDelta >= 0 ? '#22c55e' : '#ef4444') : '',
       medianPct !== null ? statChip('Median:', `${medianPct >= 0 ? '+' : ''}${medianPct}%`, medianPct >= 0 ? '#22c55e' : '#ef4444') : '',
       `<span style="font-size:.72rem;color:var(--text-muted);margin-left:auto">${launched.length} sites</span>`,
     ].filter(Boolean).join('');
   }
 
   // Row renderer
-  const renderRow = ({ id, d, impact, clickPct, impPct, posDelta, clickDelta }) => {
+  const renderRow = ({ id, d, impact, clickPct, impPct, posDelta, clickDelta, impDelta }) => {
     const domain  = (d.domain_name || '').replace(/^https?:\/\//, '').replace(/\/$/, '');
     const favicon = domain ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=32` : '/favicon.png';
     const favImg  = `<img src="${favicon}" class="impact-fav" onerror="this.src='/favicon.png'">`;
@@ -8774,8 +8806,16 @@ function _renderImpactRows() {
       </div>`;
     }
 
-    const color = isUp ? '#22c55e' : '#ef4444';
-    const icon  = isUp ? '↑' : '↓';
+    // Badge content driven by selected metric
+    const activeDelta = M === 'rank' ? posDelta : M === 'impressions' ? impDelta : clickDelta;
+    const activePct   = M === 'rank' ? null : M === 'impressions' ? impPct : clickPct;
+    const activeUnit  = METRIC_LABELS[M];
+    const activeIsUp  = (activeDelta ?? 0) >= 0;
+    const color = activeIsUp ? '#22c55e' : '#ef4444';
+    const icon  = activeIsUp ? '↑' : '↓';
+
+    // Show rank-rising hint only when in clicks/impressions view and rank improved despite fewer clicks
+    const showRankHint = M !== 'rank' && !isUp && posDelta !== null && posDelta >= 5;
 
     const secVal = (val, isGood) => {
       const c = val === null ? 'var(--text-muted)' : isGood ? '#22c55e' : '#ef4444';
@@ -8787,12 +8827,12 @@ function _renderImpactRows() {
       <div class="impact-meta">
         <div class="impact-name">${esc(d.account_name)}</div>
         <div class="impact-domain">${esc(domain)} · ${impact.windowWeeks}w · ${esc(impact.launchDate)}</div>
-        ${!isUp && posDelta !== null && posDelta >= 5 ? `<div class="impact-rank-rising">▲ Rank up ${posDelta} pts — clicks may lag</div>` : ''}
+        ${showRankHint ? `<div class="impact-rank-rising">▲ Rank up ${posDelta} pts — clicks may lag</div>` : ''}
       </div>
       <div class="impact-delta-badge" style="color:${color}">
-        <div class="impact-delta-primary">${icon} ${fmtNum(Math.abs(clickDelta ?? 0))}</div>
-        <div class="impact-delta-unit">clicks</div>
-        <div class="impact-delta-pct">${clickPct !== null ? (clickPct >= 0 ? '+' : '') + clickPct + '%' : '—'}</div>
+        <div class="impact-delta-primary">${activeDelta !== null ? icon + ' ' + (M === 'rank' ? Math.abs(activeDelta) + ' pts' : fmtNum(Math.abs(activeDelta))) : '—'}</div>
+        <div class="impact-delta-unit">${activeUnit}</div>
+        <div class="impact-delta-pct">${activePct !== null ? (activePct >= 0 ? '+' : '') + activePct + '%' : ''}</div>
       </div>
       <div class="impact-chart">
         ${_impactSparkline(impact.pre.weeks, impact.post.weeks, impact.windowWeeks, {start:impact.pre.startDate,end:impact.pre.endDate}, {start:impact.post.startDate,end:impact.post.endDate})}
@@ -8831,9 +8871,9 @@ function _renderImpactRows() {
 
   // Stitch together
   let html = '';
-  if (improving.length) html += section('improving', '↑ More clicks post-launch', improving.length, improving);
+  if (improving.length) html += section('improving', `${METRIC_UP[M]} post-launch`, improving.length, improving);
   if (improving.length && declining.length) html += '<div class="impact-section-sep"></div>';
-  if (declining.length) html += section('declining', '↓ Fewer clicks post-launch', declining.length, declining);
+  if (declining.length) html += section('declining', `${METRIC_DOWN[M]} post-launch`, declining.length, declining);
   if (noBaseline.length) {
     if (improving.length || declining.length) html += '<div class="impact-section-sep"></div>';
     html += section('nodata', 'No pre-launch baseline', noBaseline.length, noBaseline, true, 'impact-nodata-body');
