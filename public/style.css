@@ -2626,7 +2626,8 @@ tr.status-separator:first-child td { border-top: none; }
 .impact-meta { min-width: 0; }
 .impact-name { font-size: .82rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .impact-domain { font-size: .7rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: .05rem; }
-.impact-low-warn { font-size: .63rem; color: #f59e0b; margin-top: .15rem; }
+.impact-low-warn   { font-size: .63rem; color: #f59e0b; margin-top: .15rem; }
+.impact-rank-rising { font-size: .63rem; color: #22c55e; margin-top: .15rem; font-weight: 600; }
 
 /* Delta badge (LEFT of chart — primary KPI) */
 .impact-delta-badge { display: flex; flex-direction: column; align-items: flex-end; flex-shrink: 0; padding-right: .65rem; border-right: 2px solid var(--border); }
@@ -2634,8 +2635,13 @@ tr.status-separator:first-child td { border-top: none; }
 .impact-delta-unit    { font-size: .63rem; font-weight: 500; opacity: .65; margin-top: .05rem; }
 .impact-delta-pct     { font-size: .72rem; font-weight: 600; margin-top: .12rem; opacity: .8; }
 
-/* Chart column */
+/* Chart column — includes SVG + date labels below */
 .impact-chart { display: flex; align-items: center; min-width: 0; }
+.sparkline-wrap { display: flex; flex-direction: column; gap: 2px; }
+.sparkline-dates { display: flex; justify-content: space-between; padding: 0 2px; }
+.sparkline-date { font-size: .68rem; font-weight: 500; }
+.sparkline-date.pre  { color: #94a3b8; }
+.sparkline-date.post { color: #6366f1; }
 
 /* Secondary metrics (right of chart) */
 .impact-sec-metrics { display: flex; flex-direction: column; gap: .35rem; flex-shrink: 0; }
