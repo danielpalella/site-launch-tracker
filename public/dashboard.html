@@ -309,6 +309,16 @@
           <span id="seo-audit-all-label">Audit All Sites</span>
         </button>
       </div>
+      <div id="ac-impact-toolbar" style="display:none;align-items:center;gap:.35rem;flex:1">
+        <input id="ac-impact-search" type="search" placeholder="Search accounts…" oninput="_impactSearch(this.value)" class="ac-search" style="width:160px;margin-right:.15rem">
+        <div style="width:1px;height:14px;background:var(--border);margin:0 .1rem"></div>
+        <span style="font-size:.72rem;color:var(--text-muted);white-space:nowrap">Metric:</span>
+        <button id="ac-impact-m-clicks"      class="ac-impact-metric-btn ac-impact-metric-active" onclick="_setImpactMetric('clicks')">Clicks</button>
+        <button id="ac-impact-m-impressions" class="ac-impact-metric-btn"                          onclick="_setImpactMetric('impressions')">Impressions</button>
+        <button id="ac-impact-m-rank"        class="ac-impact-metric-btn"                          onclick="_setImpactMetric('rank')">Avg Rank</button>
+        <div style="width:1px;height:14px;background:var(--border);margin:0 .1rem"></div>
+        <button id="ac-impact-recalc-btn" onclick="_recalcImpact(document.getElementById('ac-impact-recalc-btn'))" class="ac-impact-recalc-btn">↺ Recalculate</button>
+      </div>
       <div class="ac-toolbar-right" id="ac-toolbar-right">
         <div id="ac-timeframe-wrap" class="ac-timeframe-wrap">
           <button class="ac-timeframe-btn" id="ac-timeframe-btn" onclick="toggleTimeframeDropdown(event)">
@@ -3506,6 +3516,7 @@ function switchAnalyticsView(view) {
   document.getElementById('seo-toolbar-extras').style.display   = view === 'seo' ? 'flex' : 'none';
   document.getElementById('ac-toolbar-right').style.display     = view === 'seo' ? 'none' : 'flex';
   document.getElementById('ac-timeframe-wrap').style.display    = view === 'impact' ? 'none' : '';
+  document.getElementById('ac-impact-toolbar').style.display    = view === 'impact' ? 'flex' : 'none';
   // Exit cohort mode when switching to Dashboard — cohort doesn't apply to aggregates
   if (view === 'overview' && _cohortWindow) setCohortWindow(null, true);
   const _fp = document.getElementById('ac-filter-panel');
@@ -8542,32 +8553,25 @@ function renderInsightsMapMarkers() {
 }
 
 // ── Launch Impact View ──
-let _impactData = {};      // id → impact result
-let _impactSort = 'clicks'; // 'clicks' | 'impressions' | 'position'
+let _impactData   = {};       // id → impact result
+let _impactSort   = 'clicks'; // 'clicks' | 'impressions' | 'rank'
+let _impactQuery  = '';       // search filter
 let _impactLoaded = false;
+
+function _impactSearch(val) {
+  _impactQuery = (val || '').toLowerCase().trim();
+  _renderImpactRows();
+}
 
 async function renderImpactView() {
   const el = document.getElementById('ac-impact');
   if (!el) return;
-
-  const metricBtn = (key, label) => {
-    const active = _impactSort === key;
-    return `<button onclick="_setImpactMetric('${key}')" style="font-size:.72rem;font-weight:${active?700:500};padding:.22rem .65rem;border-radius:.4rem;border:1px solid ${active?'#6366f1':'var(--border)'};background:${active?'#6366f108':'none'};color:${active?'#6366f1':'var(--text-muted)'};cursor:pointer">${label}</button>`;
-  };
 
   el.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;margin-bottom:.85rem">
       <div>
         <span style="font-size:.88rem;font-weight:700;color:var(--text)">Launch Impact</span>
         <span style="font-size:.75rem;color:var(--text-muted);margin-left:.6rem">Before vs after launch · same GSC window · Google Search Console</span>
-      </div>
-      <div style="display:flex;align-items:center;gap:.4rem;flex-shrink:0">
-        <span style="font-size:.68rem;color:var(--text-muted);margin-right:.15rem">Metric:</span>
-        ${metricBtn('clicks',      'Clicks')}
-        ${metricBtn('impressions', 'Impressions')}
-        ${metricBtn('rank',        'Avg Rank')}
-        <div style="width:1px;height:16px;background:var(--border);margin:0 .25rem"></div>
-        <button onclick="_recalcImpact(this)" style="font-size:.72rem;color:var(--text-muted);background:none;border:1px solid var(--border);border-radius:.4rem;padding:.22rem .6rem;cursor:pointer">↺ Recalculate</button>
       </div>
     </div>
     <div id="impact-summary" style="display:flex;gap:.6rem;flex-wrap:wrap;margin-bottom:.85rem;align-items:center"></div>
@@ -8583,7 +8587,12 @@ async function renderImpactView() {
 
 function _setImpactMetric(key) {
   _impactSort = key;
-  renderImpactView(); // re-renders header (updates active pill) + rows
+  // Update active pill in toolbar
+  ['clicks','impressions','rank'].forEach(k => {
+    const btn = document.getElementById(`ac-impact-m-${k}`);
+    if (btn) btn.classList.toggle('ac-impact-metric-active', k === key);
+  });
+  _renderImpactRows();
 }
 
 async function _recalcImpact(btn) {
@@ -8591,8 +8600,11 @@ async function _recalcImpact(btn) {
   try {
     await fetch('/api/analytics/clear-impact-cache', { method: 'POST' });
   } catch {}
-  _impactData = {};
+  _impactData   = {};
   _impactLoaded = false;
+  _impactQuery  = '';
+  const searchEl = document.getElementById('ac-impact-search');
+  if (searchEl) searchEl.value = '';
   if (btn) { btn.disabled = false; btn.textContent = '↺ Recalculate'; }
   await renderImpactView();
 }
@@ -8688,7 +8700,14 @@ function _renderImpactRows() {
   const summaryEl = document.getElementById('impact-summary');
   if (!rowsEl) return;
 
-  const launched = allLaunches.filter(r => r.status === 'launched');
+  const q = _impactQuery;
+  const launched = allLaunches.filter(r => {
+    if (r.status !== 'launched') return false;
+    if (!q) return true;
+    const name   = (r.account_name || '').toLowerCase();
+    const domain = (r.domain_name  || '').toLowerCase();
+    return name.includes(q) || domain.includes(q);
+  });
 
   // Build scored entries
   const entries = launched.map(r => {

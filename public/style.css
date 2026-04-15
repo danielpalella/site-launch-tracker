@@ -3291,6 +3291,32 @@ tr.status-separator:first-child td { border-top: none; }
   font-weight: 600;
   color: var(--primary);
 }
+
+/* Impact view toolbar */
+.ac-impact-metric-btn {
+  display: inline-flex; align-items: center;
+  padding: .25rem .65rem; height: 28px;
+  border: 1.5px solid var(--border); border-radius: 7px;
+  background: var(--bg); color: var(--text-muted);
+  font-size: .78rem; font-weight: 500; cursor: pointer;
+  font-family: inherit; white-space: nowrap;
+  transition: border-color .12s, color .12s, background .12s;
+}
+.ac-impact-metric-btn:hover { border-color: var(--text-muted); color: var(--text); }
+.ac-impact-metric-active {
+  border-color: #6366f1 !important; color: #6366f1 !important;
+  background: #6366f108 !important; font-weight: 700;
+}
+.ac-impact-recalc-btn {
+  display: inline-flex; align-items: center;
+  padding: .25rem .65rem; height: 28px;
+  border: 1.5px solid var(--border); border-radius: 7px;
+  background: var(--bg); color: var(--text-muted);
+  font-size: .78rem; font-weight: 500; cursor: pointer;
+  font-family: inherit; white-space: nowrap;
+  transition: border-color .12s, color .12s;
+}
+.ac-impact-recalc-btn:hover { border-color: var(--text-muted); color: var(--text); }
 .ac-tf-active::after {
   content: '';
   display: block;
