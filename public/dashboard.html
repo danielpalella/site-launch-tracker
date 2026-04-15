@@ -8718,7 +8718,7 @@ function _renderImpactRows() {
         <div class="impact-name">${esc(d.account_name)}</div>
         <div class="impact-domain">${esc(domain)} <span style="color:var(--text-muted);font-size:.68rem">· ${wks}w window</span></div>
       </div>
-      <div class="impact-chart" title="Weekly clicks: gray = pre-launch · indigo = post-launch">
+      <div class="impact-chart" title="GSC property: ${esc(impact.gscProperty||'?')}&#10;Pre:  ${esc(impact.pre.startDate)} → ${esc(impact.pre.endDate)}&#10;Post: ${esc(impact.post.startDate)} → ${esc(impact.post.endDate)}">
         ${_impactSparkline(impact.pre.weeks, impact.post.weeks)}
       </div>
       <div class="impact-metrics">
