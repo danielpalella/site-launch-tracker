@@ -8549,12 +8549,11 @@ async function renderImpactView() {
   const el = document.getElementById('ac-impact');
   if (!el) return;
 
-  // Show shell immediately
   el.innerHTML = `
     <div style="margin-bottom:.75rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem">
       <div>
         <span style="font-size:.82rem;font-weight:700;color:var(--text)">Launch Impact</span>
-        <span style="font-size:.75rem;color:var(--text-muted);margin-left:.5rem">GSC performance before vs after launch (same window, normalized)</span>
+        <span style="font-size:.75rem;color:var(--text-muted);margin-left:.5rem">GSC clicks before vs after launch — equal comparison window</span>
       </div>
       <div style="display:flex;align-items:center;gap:.5rem">
         <span style="font-size:.72rem;color:var(--text-muted)">Sort by:</span>
@@ -8577,16 +8576,16 @@ async function renderImpactView() {
 }
 
 async function _loadAllImpactData() {
-  const ids = Object.keys(analyticsData);
+  // Use allLaunches (full list) so we don't miss sites not yet in analyticsData cache
+  const ids = allLaunches.filter(r => r.status === 'launched').map(r => r.id);
   const rowsEl = document.getElementById('impact-rows');
   if (rowsEl) rowsEl.innerHTML = `<div style="padding:1.5rem;text-align:center;color:var(--text-muted);font-size:.82rem">Loading impact data… <span id="impact-load-prog">0</span> of ${ids.length}</div>`;
 
   let done = 0;
-  // Batch 5 at a time to avoid rate-limiting GSC API
   for (let i = 0; i < ids.length; i += 5) {
     const batch = ids.slice(i, i + 5);
     await Promise.allSettled(batch.map(async id => {
-      if (_impactData[id]) return; // already loaded
+      if (_impactData[id] !== undefined) return;
       try {
         const r = await fetch(`/api/analytics/${id}/gsc-impact`);
         _impactData[id] = r.ok ? await r.json() : { available: false, reason: 'fetch_error' };
@@ -8603,22 +8602,48 @@ function _impactPct(pre, post) {
   return Math.round((post - pre) / pre * 100);
 }
 
+// Inline SVG sparkline: pre-launch weeks in gray, post-launch weeks in indigo, dashed divider
+function _impactSparkline(preWeeks, postWeeks) {
+  const pre = preWeeks || [], post = postWeeks || [];
+  if (!pre.length && !post.length) return '';
+  const W = 230, H = 56, pad = 5;
+  const all = [...pre, ...post];
+  const maxC = Math.max(...all.map(w => w.clicks || 0), 1);
+  const n = all.length;
+  const xF = i => pad + (n <= 1 ? (W - 2*pad)/2 : i * (W - 2*pad) / (n - 1));
+  const yF = v => (H - pad - (v / maxC) * (H - 2*pad)).toFixed(1);
+  const pts = (arr, off) => arr.map((w,i) => `${xF(off+i).toFixed(1)},${yF(w.clicks||0)}`).join(' ');
+  const prePts = pts(pre, 0), postPts = pts(post, pre.length);
+  const preArea  = pre.length  ? `${xF(0).toFixed(1)},${H} ${prePts} ${xF(pre.length-1).toFixed(1)},${H}` : '';
+  const postArea = post.length ? `${xF(pre.length).toFixed(1)},${H} ${postPts} ${xF(n-1).toFixed(1)},${H}` : '';
+  const divX = (pre.length && post.length) ? ((xF(pre.length-1) + xF(pre.length)) / 2).toFixed(1) : null;
+  const lx = divX ? (parseFloat(divX)-5).toFixed(0) : xF(pre.length-1).toFixed(0);
+  const rx = divX ? (parseFloat(divX)+5).toFixed(0) : null;
+  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
+    ${preArea  ? `<polygon points="${preArea}"  fill="#94a3b822"/>` : ''}
+    ${postArea ? `<polygon points="${postArea}" fill="#6366f112"/>` : ''}
+    ${prePts  ? `<polyline points="${prePts}"  fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>` : ''}
+    ${postPts ? `<polyline points="${postPts}" fill="none" stroke="#6366f1" stroke-width="2"   stroke-linejoin="round" stroke-linecap="round"/>` : ''}
+    ${divX ? `<line x1="${divX}" y1="2" x2="${divX}" y2="${H}" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="3,2"/>` : ''}
+    ${pre.length  ? `<text x="${lx}" y="11" text-anchor="end"   font-size="7" fill="#94a3b8" font-family="-apple-system,sans-serif">pre-launch</text>` : ''}
+    ${post.length && rx ? `<text x="${rx}" y="11" text-anchor="start" font-size="7" fill="#6366f1" font-family="-apple-system,sans-serif">post-launch</text>` : ''}
+  </svg>`;
+}
+
 function _renderImpactRows() {
   const rowsEl = document.getElementById('impact-rows');
   const summaryEl = document.getElementById('impact-summary');
   if (!rowsEl) return;
 
-  const entries = Object.entries(analyticsData).map(([id, d]) => {
-    const impact = _impactData[id];
-    return { id, d, impact };
-  });
+  const launched = allLaunches.filter(r => r.status === 'launched');
+  const entries = launched.map(r => ({ id: r.id, d: r, impact: _impactData[r.id] }));
 
   // Score for sorting
   const scored = entries.map(({ id, d, impact }) => {
     if (!impact?.available) return { id, d, impact, score: null };
     const clickPct = _impactPct(impact.pre.totals.clicks, impact.post.totals.clicks);
     const impPct   = _impactPct(impact.pre.totals.impressions, impact.post.totals.impressions);
-    // Position: lower is better, so improvement = positive change = pre - post
+    // posDelta > 0 means position improved (lower rank number)
     const posDelta = impact.pre.totals.position != null && impact.post.totals.position != null
       ? Math.round((impact.pre.totals.position - impact.post.totals.position) * 10) / 10
       : null;
@@ -8650,16 +8675,26 @@ function _renderImpactRows() {
     ].filter(Boolean).join('');
   }
 
-  // Row HTML
+  // Color helpers — higher is always good for clicks/impressions; for position, posDelta > 0 = improved
+  const deltaColor = (pct) => pct === null ? 'var(--text-muted)' : pct > 0 ? '#22c55e' : pct < 0 ? '#ef4444' : 'var(--text-muted)';
+  const deltaStr   = (pct) => pct === null ? '—' : `${pct >= 0 ? '+' : ''}${pct}%`;
+
+  const metricCol = (label, preVal, postVal, pct) => `
+    <div class="impact-metric">
+      <div class="impact-metric-label">${label}</div>
+      <div class="impact-metric-vals">${esc(String(preVal))} <span style="color:var(--text-muted)">→</span> ${esc(String(postVal))}</div>
+      <div class="impact-metric-pct" style="color:${deltaColor(pct)}">${deltaStr(pct)}</div>
+    </div>`;
+
   const rows = scored.map(({ id, d, impact, clickPct, impPct, posDelta }) => {
-    const domain = d.domain || '';
+    const domain = (d.domain_name || '').replace(/^https?:\/\//, '').replace(/\/$/, '');
     const favicon = domain ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=32` : '/favicon.png';
 
-    if (!impact) {
+    if (impact === undefined) {
       return `<div class="impact-row" style="opacity:.5">
         <img src="${favicon}" class="impact-fav" onerror="this.src='/favicon.png'">
         <div class="impact-meta"><div class="impact-name">${esc(d.account_name)}</div><div class="impact-domain">${esc(domain)}</div></div>
-        <div class="impact-status" style="color:var(--text-muted);font-size:.75rem">Loading…</div>
+        <div class="impact-status">Loading…</div>
       </div>`;
     }
     if (!impact.available) {
@@ -8669,28 +8704,13 @@ function _renderImpactRows() {
       return `<div class="impact-row" style="opacity:.55">
         <img src="${favicon}" class="impact-fav" onerror="this.src='/favicon.png'">
         <div class="impact-meta"><div class="impact-name">${esc(d.account_name)}</div><div class="impact-domain">${esc(domain)}</div></div>
-        <div class="impact-status" style="color:var(--text-muted);font-size:.75rem">${esc(msg)}</div>
+        <div class="impact-status">${esc(msg)}</div>
       </div>`;
     }
 
-    const pre = impact.pre.totals;
-    const post = impact.post.totals;
-    const wks = impact.windowWeeks;
-
-    const metricCol = (label, preVal, postVal, pct, posIsGood) => {
-      const up = pct === null ? null : (posIsGood ? pct > 0 : pct < 0);
-      const pctColor = pct === null ? 'var(--text-muted)' : (up ? '#22c55e' : pct === 0 ? 'var(--text-muted)' : '#ef4444');
-      const pctStr = pct === null ? '—' : `${pct >= 0 ? '+' : ''}${pct}%`;
-      return `<div class="impact-metric">
-        <div class="impact-metric-label">${label}</div>
-        <div class="impact-metric-vals">${esc(String(preVal))} <span style="color:var(--text-muted);margin:0 .2rem">→</span> ${esc(String(postVal))}</div>
-        <div class="impact-metric-pct" style="color:${pctColor}">${pctStr}</div>
-      </div>`;
-    };
-
-    const overallPct = clickPct;
-    const overallColor = overallPct === null ? 'var(--text-muted)' : overallPct > 0 ? '#22c55e' : overallPct < 0 ? '#ef4444' : 'var(--text-muted)';
-    const overallIcon = overallPct === null ? '' : overallPct > 0 ? '↑' : overallPct < 0 ? '↓' : '→';
+    const pre = impact.pre.totals, post = impact.post.totals, wks = impact.windowWeeks;
+    const overallColor = clickPct === null ? 'var(--text-muted)' : clickPct > 0 ? '#22c55e' : clickPct < 0 ? '#ef4444' : 'var(--text-muted)';
+    const overallIcon  = clickPct === null ? '' : clickPct > 0 ? '↑' : clickPct < 0 ? '↓' : '→';
 
     return `<div class="impact-row" onclick="openAnalyticsModal('${esc(id)}')">
       <img src="${favicon}" class="impact-fav" onerror="this.src='/favicon.png'">
@@ -8698,20 +8718,22 @@ function _renderImpactRows() {
         <div class="impact-name">${esc(d.account_name)}</div>
         <div class="impact-domain">${esc(domain)} <span style="color:var(--text-muted);font-size:.68rem">· ${wks}w window</span></div>
       </div>
+      <div class="impact-chart" title="Weekly clicks: gray = pre-launch · indigo = post-launch">
+        ${_impactSparkline(impact.pre.weeks, impact.post.weeks)}
+      </div>
       <div class="impact-metrics">
-        ${metricCol('Clicks', fmtNum(pre.clicks), fmtNum(post.clicks), clickPct, false)}
-        ${metricCol('Impressions', fmtNum(pre.impressions), fmtNum(post.impressions), impPct, false)}
-        ${metricCol('CTR', (pre.ctr ?? 0) + '%', (post.ctr ?? 0) + '%', pre.ctr ? Math.round((post.ctr - pre.ctr) / pre.ctr * 100) : null, false)}
-        ${metricCol('Avg Position', pre.position ?? '—', post.position ?? '—', posDelta !== null ? Math.round(posDelta) : null, true)}
+        ${metricCol('Clicks', fmtNum(pre.clicks), fmtNum(post.clicks), clickPct)}
+        ${metricCol('Impressions', fmtNum(pre.impressions), fmtNum(post.impressions), impPct)}
+        ${metricCol('Avg Position', pre.position ?? '—', post.position ?? '—', posDelta)}
       </div>
       <div class="impact-badge" style="color:${overallColor};border-color:${overallColor}22;background:${overallColor}0d">
         <span style="font-size:1rem;line-height:1">${overallIcon}</span>
-        <span>${overallPct === null ? '—' : (overallPct >= 0 ? '+' : '') + overallPct + '%'}</span>
+        <span>${clickPct === null ? '—' : (clickPct >= 0 ? '+' : '') + clickPct + '%'}</span>
       </div>
     </div>`;
   });
 
-  rowsEl.innerHTML = rows.join('<div style="height:1px;background:var(--border)"></div>') || '<div style="padding:2rem;text-align:center;color:var(--text-muted);font-size:.82rem">No impact data loaded yet.</div>';
+  rowsEl.innerHTML = rows.join('<div style="height:1px;background:var(--border)"></div>') || '<div style="padding:2rem;text-align:center;color:var(--text-muted)">No impact data loaded yet.</div>';
 }
 
 function toggleGshNrMore(btnEl) {
