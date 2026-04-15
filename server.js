@@ -1740,7 +1740,9 @@ async function fetchGSCWindow(domain, startDate, endDate, token, forceSiteUrl = 
   let rows = [];
 
   if (forceSiteUrl) {
-    // Use the specified property directly — do not attempt other candidates
+    // Try the preferred property first (same as post-launch for apples-to-apples).
+    // If it returns no data for this window (e.g. site was non-www pre-launch but
+    // www post-launch), fall through and search all candidates so we don't miss data.
     siteUrl = forceSiteUrl;
     try {
       const data = await querySC(siteUrl, { startDate, endDate, dimensions: ['date'], rowLimit: 500 });
@@ -1749,7 +1751,13 @@ async function fetchGSCWindow(domain, startDate, endDate, token, forceSiteUrl = 
       console.warn(`[fetchGSCWindow] forced siteUrl ${siteUrl} failed: ${e.message}`);
       rows = [];
     }
-  } else {
+    // Fall back to full candidate search if forced property had no data
+    if (rows.length === 0) {
+      console.log(`[fetchGSCWindow] forced ${siteUrl} empty for ${startDate}→${endDate}, trying all candidates`);
+      forceSiteUrl = null; // allow fall-through to candidate loop below
+    }
+  }
+  if (!forceSiteUrl) {
     const siteUrlCandidates = [
       `sc-domain:${cleanDomain}`,
       `https://www.${cleanDomain}/`,
@@ -2659,10 +2667,13 @@ app.get('/api/analytics/:id/gsc-impact', requireAuth, async (req, res) => {
     const postData = await fetchGSCWindow(domain, postStart, postEnd, token);
     if (!postData.siteUrl) return res.json({ available: false, reason: 'no_gsc' });
 
-    // Step 2: query PRE-launch using the SAME siteUrl — ensures apples-to-apples comparison
+    // Step 2: query PRE-launch preferring the same property, but falling back to any candidate
+    // if the post-launch property has no pre-launch data (e.g. site switched www↔non-www at launch)
     const preData = await fetchGSCWindow(domain, preStart, preEnd, token, postData.siteUrl);
 
-    console.log(`[gsc-impact] ${domain} siteUrl=${postData.siteUrl} pre=${preStart}→${preEnd} clicks=${preData.totals.clicks} imps=${preData.totals.impressions} | post=${postStart}→${postEnd} clicks=${postData.totals.clicks} imps=${postData.totals.impressions}`);
+    const preProp  = preData.siteUrl  || '—';
+    const postProp = postData.siteUrl || '—';
+    console.log(`[gsc-impact] ${domain} pre_prop=${preProp} post_prop=${postProp} pre=${preStart}→${preEnd} clicks=${preData.totals.clicks} imps=${preData.totals.impressions} | post=${postStart}→${postEnd} clicks=${postData.totals.clicks} imps=${postData.totals.impressions}`);
 
     // If pre window has no impressions or no weekly data at all, we can't compare meaningfully
     if (preData.totals.impressions === 0 || preData.weeks.length === 0) {
@@ -2673,7 +2684,8 @@ app.get('/api/analytics/:id/gsc-impact', requireAuth, async (req, res) => {
       available: true,
       launchDate: isoDate(launchDate),
       windowWeeks,
-      gscProperty: postData.siteUrl,
+      gscProperty:    postData.siteUrl,
+      gscPropertyPre: preData.siteUrl !== postData.siteUrl ? preData.siteUrl : null, // only set when different
       pre:  { startDate: preStart,  endDate: preEnd,  ...preData  },
       post: { startDate: postStart, endDate: postEnd, ...postData },
       cachedAt: new Date().toISOString(),

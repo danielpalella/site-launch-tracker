@@ -8743,7 +8743,8 @@ function _renderImpactRows() {
     const pre = impact.pre.totals, post = impact.post.totals;
     const lowBase = pre.clicks < 10;
     const isUp    = (clickDelta ?? 0) >= 0;
-    const tooltip = `GSC: ${impact.gscProperty||'?'} · Launch: ${impact.launchDate}\nPre: ${impact.pre.startDate}→${impact.pre.endDate} (${pre.impressions} imps, ${pre.clicks} clicks)\nPost: ${impact.post.startDate}→${impact.post.endDate} (${post.impressions} imps, ${post.clicks} clicks)`;
+    const gscNote = impact.gscPropertyPre ? `GSC post: ${impact.gscProperty}\nGSC pre:  ${impact.gscPropertyPre} (different — www/non-www split)` : `GSC: ${impact.gscProperty||'?'}`;
+    const tooltip = `${gscNote} · Launch: ${impact.launchDate}\nPre: ${impact.pre.startDate}→${impact.pre.endDate} (${pre.impressions} imps, ${pre.clicks} clicks)\nPost: ${impact.post.startDate}→${impact.post.endDate} (${post.impressions} imps, ${post.clicks} clicks)`;
 
     // Low-baseline rows: site had no meaningful pre-launch search presence.
     // Show post-launch totals only — no directional comparison badge.
