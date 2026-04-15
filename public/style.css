@@ -2589,39 +2589,61 @@ tr.status-separator:first-child td { border-top: none; }
 .ac-map-chip.active { background: var(--primary); border-color: var(--primary); color: #fff; }
 
 /* ── Launch Impact View ── */
+
+/* Section headers (Improving / Declining / No Data) */
+.impact-section-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: .42rem 1rem;
+  font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .07em;
+  background: var(--bg); border-bottom: 1px solid var(--border);
+  border-left: 3px solid transparent;
+  user-select: none;
+}
+.impact-section-header.improving { color: #22c55e; border-left-color: #22c55e; background: #22c55e08; }
+.impact-section-header.declining { color: #ef4444; border-left-color: #ef4444; background: #ef444408; }
+.impact-section-header.nodata    { color: var(--text-muted); border-left-color: var(--border); cursor: pointer; }
+.impact-section-header .section-count { font-weight: 400; opacity: .75; }
+.impact-section-sep { height: 6px; background: var(--bg-muted, #f8fafc); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+
+/* Row grid: favicon | name | delta-badge | chart | secondary */
 .impact-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 28px minmax(160px, 200px) 100px minmax(220px, 1fr) 130px;
   align-items: center;
-  gap: 1rem;
-  padding: .65rem 1rem;
+  gap: .9rem;
+  padding: .6rem 1rem;
   cursor: pointer;
   transition: background .12s;
+  border-bottom: 1px solid var(--border);
 }
+.impact-row:last-child { border-bottom: none; }
 .impact-row:hover { background: var(--row-bg); }
-.impact-fav { width: 24px; height: 24px; border-radius: 4px; flex-shrink: 0; object-fit: contain; }
-.impact-meta { min-width: 148px; flex-shrink: 0; }
+.impact-row.impact-row--low { opacity: .6; }
+.impact-row.impact-row--unavail { cursor: default; opacity: .5; }
+
+.impact-fav { width: 26px; height: 26px; border-radius: 5px; object-fit: contain; }
+.impact-meta { min-width: 0; }
 .impact-name { font-size: .82rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.impact-domain { font-size: .72rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.impact-chart { flex-shrink: 0; display: flex; align-items: center; }
-.impact-metrics { display: flex; gap: 1.25rem; flex-shrink: 0; }
-.impact-metric { display: flex; flex-direction: column; gap: .1rem; min-width: 82px; }
-.impact-metric-label { font-size: .63rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); }
-.impact-metric-vals { font-size: .76rem; color: var(--text); white-space: nowrap; }
-.impact-metric-pct { font-size: .75rem; font-weight: 700; }
-.impact-badge {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  gap: .3rem;
-  font-size: .82rem;
-  font-weight: 700;
-  padding: .3rem .7rem;
-  border-radius: 99px;
-  border: 1px solid transparent;
-  min-width: 68px;
-  justify-content: center;
-}
-.impact-status { margin-left: auto; font-size: .75rem; color: var(--text-muted); }
+.impact-domain { font-size: .7rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: .05rem; }
+.impact-low-warn { font-size: .63rem; color: #f59e0b; margin-top: .15rem; }
+
+/* Delta badge (LEFT of chart — primary KPI) */
+.impact-delta-badge { display: flex; flex-direction: column; align-items: flex-end; flex-shrink: 0; padding-right: .65rem; border-right: 2px solid var(--border); }
+.impact-delta-primary { font-size: .92rem; font-weight: 800; line-height: 1.1; white-space: nowrap; }
+.impact-delta-unit    { font-size: .63rem; font-weight: 500; opacity: .65; margin-top: .05rem; }
+.impact-delta-pct     { font-size: .72rem; font-weight: 600; margin-top: .12rem; opacity: .8; }
+
+/* Chart column */
+.impact-chart { display: flex; align-items: center; min-width: 0; }
+
+/* Secondary metrics (right of chart) */
+.impact-sec-metrics { display: flex; flex-direction: column; gap: .35rem; flex-shrink: 0; }
+.impact-sec-metric { display: flex; flex-direction: column; gap: .05rem; }
+.impact-sec-label { font-size: .6rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); }
+.impact-sec-val   { font-size: .8rem; font-weight: 700; }
+
+/* Status rows (loading / no data) */
+.impact-status { grid-column: 3 / -1; font-size: .75rem; color: var(--text-muted); }
 
 /* Overview sizes naturally; outer view-analytics scrolls */
 #ac-overview { min-height: 0; }
