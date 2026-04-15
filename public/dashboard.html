@@ -8691,8 +8691,6 @@ function _impactSparkline(preWeeks, postWeeks, windowWeeks, preDates, postDates)
     ${prePts  ? `<polyline points="${prePts}"  fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>` : ''}
     ${postPts ? `<polyline points="${postPts}" fill="none" stroke="#6366f1" stroke-width="2"   stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>` : ''}
     <line x1="${divX}" y1="0" x2="${divX}" y2="${H}" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="3,2" vector-effect="non-scaling-stroke"/>
-    ${pre.length  ? `<text x="${(divX - divGap/2 - 3).toFixed(0)}" y="10" text-anchor="end"   font-size="7.5" fill="#94a3b8" font-family="-apple-system,sans-serif">pre-launch</text>`  : ''}
-    ${post.length ? `<text x="${(divX + divGap/2 + 3).toFixed(0)}" y="10" text-anchor="start" font-size="7.5" fill="#6366f1" font-family="-apple-system,sans-serif">post-launch</text>` : ''}
   </svg>`;
 
   return `<div class="sparkline-wrap">
@@ -8811,6 +8809,7 @@ function _renderImpactRows() {
 
     const pre = impact.pre.totals, post = impact.post.totals;
     const lowBase = pre.clicks < 10;
+    const launchFmt = (() => { try { const d = new Date(impact.launchDate + 'T12:00:00Z'); return d.toLocaleDateString('en-US',{month:'short',year:'2-digit',timeZone:'UTC'}); } catch { return impact.launchDate; } })();
     const isUp    = (clickDelta ?? 0) >= 0;
     const gscNote = impact.gscPropertyPre ? `GSC post: ${impact.gscProperty}\nGSC pre:  ${impact.gscPropertyPre} (different — www/non-www split)` : `GSC: ${impact.gscProperty||'?'}`;
     const tooltip = `${gscNote} · Launch: ${impact.launchDate}\nPre: ${impact.pre.startDate}→${impact.pre.endDate} (${pre.impressions} imps, ${pre.clicks} clicks)\nPost: ${impact.post.startDate}→${impact.post.endDate} (${post.impressions} imps, ${post.clicks} clicks)`;
@@ -8823,7 +8822,8 @@ function _renderImpactRows() {
         ${favImg}
         <div class="impact-meta">
           <div class="impact-name">${esc(d.account_name)}</div>
-          <div class="impact-domain">${esc(domain)} · ${impact.windowWeeks}w · ${esc(impact.launchDate)}</div>
+          <div class="impact-domain">${esc(domain)}</div>
+          <div class="impact-launch-date">Launched ${launchFmt} · ${impact.windowWeeks}w window</div>
           <div class="impact-low-warn">No pre-launch search presence</div>
         </div>
         <div class="impact-delta-badge" style="color:#8b5cf6">

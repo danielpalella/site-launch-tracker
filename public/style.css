@@ -2625,7 +2625,8 @@ tr.status-separator:first-child td { border-top: none; }
 .impact-fav { width: 26px; height: 26px; border-radius: 5px; object-fit: contain; }
 .impact-meta { min-width: 0; }
 .impact-name { font-size: .82rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.impact-domain { font-size: .7rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: .05rem; }
+.impact-domain      { font-size: .7rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: .05rem; }
+.impact-launch-date { font-size: .63rem; color: var(--text-muted); opacity: .7; margin-top: .06rem; white-space: nowrap; }
 .impact-low-warn   { font-size: .63rem; color: #f59e0b; margin-top: .15rem; }
 .impact-rank-rising { font-size: .63rem; color: #22c55e; margin-top: .15rem; font-weight: 600; }
 
