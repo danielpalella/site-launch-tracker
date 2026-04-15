@@ -8652,16 +8652,14 @@ function _impactSparkline(preWeeks, postWeeks, windowWeeks, preDates, postDates)
   </svg>`;
 }
 
-function _toggleImpactSection(bodyId, btnId) {
-  const body = document.getElementById(bodyId);
-  const btn  = document.getElementById(btnId);
+function toggleImpactNoData() {
+  const body = document.getElementById('impact-nodata-body');
+  const btn  = document.getElementById('impact-nodata-toggle');
   if (!body || !btn) return;
   const showing = body.style.display !== 'none';
   body.style.display = showing ? 'none' : '';
   btn.textContent = showing ? '▼' : '▲';
 }
-function toggleImpactNoData() { _toggleImpactSection('impact-nodata-body', 'impact-nodata-toggle'); }
-function toggleImpactNTS()    { _toggleImpactSection('impact-nts-body',    'impact-nts-toggle'); }
 
 function _renderImpactRows() {
   const rowsEl   = document.getElementById('impact-rows');
@@ -8682,14 +8680,17 @@ function _renderImpactRows() {
     return { id: r.id, d: r, impact, clickPct, impPct, posDelta, clickDelta };
   });
 
-  // Separate into groups
-  const withData     = entries.filter(e => e.impact?.available);
-  const noData       = entries.filter(e => !e.impact?.available);
-  // Low-baseline: pre impressions < 50 — can't make a meaningful before/after comparison
-  const hasBaseline  = withData.filter(e => e.impact.pre.totals.impressions >= 50);
-  const newToSearch  = withData.filter(e => e.impact.pre.totals.impressions <  50).sort((a,b) => (b.clickDelta??0) - (a.clickDelta??0));
-  const improving    = hasBaseline.filter(e => (e.clickDelta ?? 0) >= 0).sort((a,b) => (b.clickDelta??0) - (a.clickDelta??0));
-  const declining    = hasBaseline.filter(e => (e.clickDelta ?? 0) <  0).sort((a,b) => (a.clickDelta??0) - (b.clickDelta??0));
+  // Separate into groups.
+  // A "real baseline" requires at least 10 pre-launch clicks — anything less makes the
+  // % comparison statistically meaningless (e.g. 3 → 122 = +4067%).
+  const withData    = entries.filter(e => e.impact?.available);
+  const hasBaseline = withData.filter(e => e.impact.pre.totals.clicks >= 10);
+  const noBaseline  = [
+    ...withData.filter(e => e.impact.pre.totals.clicks < 10).sort((a,b) => (b.impact.post.totals.clicks??0) - (a.impact.post.totals.clicks??0)),
+    ...entries.filter(e => !e.impact?.available),
+  ];
+  const improving = hasBaseline.filter(e => (e.clickDelta ?? 0) >= 0).sort((a,b) => (b.clickDelta??0) - (a.clickDelta??0));
+  const declining = hasBaseline.filter(e => (e.clickDelta ?? 0) <  0).sort((a,b) => (a.clickDelta??0) - (b.clickDelta??0));
 
   // Summary stats — only sites with a real baseline
   const totalDelta = hasBaseline.reduce((s,e) => s + (e.clickDelta ?? 0), 0);
@@ -8700,12 +8701,11 @@ function _renderImpactRows() {
     const pill = (txt, color) => `<span style="font-size:.75rem;font-weight:600;color:${color};background:${color}18;border:1px solid ${color}33;border-radius:99px;padding:.2rem .7rem">${txt}</span>`;
     const statChip = (label, val, color) => `<span style="font-size:.75rem;color:var(--text-muted)">${label} <strong style="color:${color||'var(--text)'}">${val}</strong></span>`;
     summaryEl.innerHTML = [
-      improving.length   ? pill(`↑ ${improving.length} improving`,    '#22c55e') : '',
-      declining.length   ? pill(`↓ ${declining.length} declining`,    '#ef4444') : '',
-      newToSearch.length ? pill(`✦ ${newToSearch.length} new to search`, '#8b5cf6') : '',
+      improving.length  ? pill(`↑ ${improving.length} improving`, '#22c55e') : '',
+      declining.length  ? pill(`↓ ${declining.length} declining`, '#ef4444') : '',
       statChip('Net clicks:', `${totalDelta >= 0 ? '+' : ''}${fmtNum(totalDelta)}`, totalDelta >= 0 ? '#22c55e' : '#ef4444'),
       medianPct !== null ? statChip('Median:', `${medianPct >= 0 ? '+' : ''}${medianPct}%`, medianPct >= 0 ? '#22c55e' : '#ef4444') : '',
-      `<span style="font-size:.72rem;color:var(--text-muted);margin-left:auto">${withData.length} of ${launched.length} sites have GSC data</span>`,
+      `<span style="font-size:.72rem;color:var(--text-muted);margin-left:auto">${launched.length} sites</span>`,
     ].filter(Boolean).join('');
   }
 
@@ -8737,7 +8737,7 @@ function _renderImpactRows() {
     }
 
     const pre = impact.pre.totals, post = impact.post.totals;
-    const lowBase = pre.impressions < 50;
+    const lowBase = pre.clicks < 10;
     const isUp    = (clickDelta ?? 0) >= 0;
     const tooltip = `GSC: ${impact.gscProperty||'?'} · Launch: ${impact.launchDate}\nPre: ${impact.pre.startDate}→${impact.pre.endDate} (${pre.impressions} imps, ${pre.clicks} clicks)\nPost: ${impact.post.startDate}→${impact.post.endDate} (${post.impressions} imps, ${post.clicks} clicks)`;
 
@@ -8807,17 +8807,13 @@ function _renderImpactRows() {
   };
 
   // Section builder
-  const TOGGLE_FNS = { 'impact-nodata-body': 'toggleImpactNoData', 'impact-nts-body': 'toggleImpactNTS' };
-  const TOGGLE_IDS = { 'impact-nodata-body': 'impact-nodata-toggle', 'impact-nts-body': 'impact-nts-toggle' };
   const section = (cls, label, count, rows, collapsible = false, bodyId = '') => {
     if (!rows.length) return '';
     const rowHtml = rows.map(renderRow).join('');
     if (collapsible) {
-      const fn = TOGGLE_FNS[bodyId] || 'toggleImpactNoData';
-      const tid = TOGGLE_IDS[bodyId] || 'impact-nodata-toggle';
-      return `<div class="impact-section-header ${cls}" onclick="${fn}()" style="cursor:pointer">
+      return `<div class="impact-section-header ${cls}" onclick="toggleImpactNoData()" style="cursor:pointer">
           <span>${label}</span>
-          <span class="section-count">${count} sites <span id="${tid}">▼</span></span>
+          <span class="section-count">${count} sites <span id="impact-nodata-toggle">▼</span></span>
         </div>
         <div id="${bodyId}" style="display:none">${rowHtml}</div>`;
     }
@@ -8832,13 +8828,9 @@ function _renderImpactRows() {
   if (improving.length) html += section('improving', '↑ Improving', improving.length, improving);
   if (improving.length && declining.length) html += '<div class="impact-section-sep"></div>';
   if (declining.length) html += section('declining', '↓ Declining', declining.length, declining);
-  if (newToSearch.length) {
+  if (noBaseline.length) {
     if (improving.length || declining.length) html += '<div class="impact-section-sep"></div>';
-    html += section('new-to-search', '✦ New to Search', newToSearch.length, newToSearch, true, 'impact-nts-body');
-  }
-  if (noData.length) {
-    if (improving.length || declining.length || newToSearch.length) html += '<div class="impact-section-sep"></div>';
-    html += section('nodata', 'No pre-launch data available', noData.length, noData, true, 'impact-nodata-body');
+    html += section('nodata', 'No pre-launch baseline', noBaseline.length, noBaseline, true, 'impact-nodata-body');
   }
   rowsEl.innerHTML = html || '<div style="padding:2rem;text-align:center;color:var(--text-muted)">No impact data loaded yet.</div>';
 }
