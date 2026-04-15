@@ -8595,11 +8595,16 @@ function _setImpactMetric(key) {
   _renderImpactRows();
 }
 
+const IMPACT_SS_PREFIX = 'rwl_impact_v3_'; // bump version when cache format changes
+
+function _impactSSGet(id)       { try { const v = sessionStorage.getItem(IMPACT_SS_PREFIX + id); return v ? JSON.parse(v) : null; } catch { return null; } }
+function _impactSSSet(id, data) { try { sessionStorage.setItem(IMPACT_SS_PREFIX + id, JSON.stringify(data)); } catch {} }
+function _impactSSClear()       { try { Object.keys(sessionStorage).filter(k => k.startsWith(IMPACT_SS_PREFIX)).forEach(k => sessionStorage.removeItem(k)); } catch {} }
+
 async function _recalcImpact(btn) {
   if (btn) { btn.disabled = true; btn.textContent = 'Clearing…'; }
-  try {
-    await fetch('/api/analytics/clear-impact-cache', { method: 'POST' });
-  } catch {}
+  try { await fetch('/api/analytics/clear-impact-cache', { method: 'POST' }); } catch {}
+  _impactSSClear();          // clear browser session cache
   _impactData   = {};
   _impactLoaded = false;
   _impactQuery  = '';
@@ -8610,20 +8615,33 @@ async function _recalcImpact(btn) {
 }
 
 async function _loadAllImpactData() {
-  // Use allLaunches (full list) so we don't miss sites not yet in analyticsData cache
   const ids = allLaunches.filter(r => r.status === 'launched').map(r => r.id);
   const rowsEl = document.getElementById('impact-rows');
-  if (rowsEl) rowsEl.innerHTML = `<div style="padding:1.5rem;text-align:center;color:var(--text-muted);font-size:.82rem">Loading impact data… <span id="impact-load-prog">0</span> of ${ids.length}</div>`;
+
+  // First pass: load from sessionStorage (instant)
+  let fromCache = 0;
+  ids.forEach(id => {
+    if (_impactData[id] !== undefined) return;
+    const cached = _impactSSGet(id);
+    if (cached) { _impactData[id] = cached; fromCache++; }
+  });
+
+  const remaining = ids.filter(id => _impactData[id] === undefined);
+  if (remaining.length === 0) { return; } // all served from session cache
+
+  if (rowsEl) rowsEl.innerHTML = `<div style="padding:1.5rem;text-align:center;color:var(--text-muted);font-size:.82rem">Loading impact data… <span id="impact-load-prog">0</span> of ${remaining.length}${fromCache ? ` · ${fromCache} from cache` : ''}</div>`;
 
   let done = 0;
-  for (let i = 0; i < ids.length; i += 5) {
-    const batch = ids.slice(i, i + 5);
+  for (let i = 0; i < remaining.length; i += 5) {
+    const batch = remaining.slice(i, i + 5);
     await Promise.allSettled(batch.map(async id => {
-      if (_impactData[id] !== undefined) return;
       try {
-        // Always bypass Firestore cache to ensure fresh data with current siteUrl logic
-        const r = await fetch(`/api/analytics/${id}/gsc-impact?force=true`);
-        _impactData[id] = r.ok ? await r.json() : { available: false, reason: 'fetch_error' };
+        // No ?force=true — let server use its Firestore 24h cache
+        const r = await fetch(`/api/analytics/${id}/gsc-impact`);
+        const data = r.ok ? await r.json() : { available: false, reason: 'fetch_error' };
+        _impactData[id] = data;
+        // Only persist successful results to session cache
+        if (data.available) _impactSSSet(id, data);
       } catch { _impactData[id] = { available: false, reason: 'fetch_error' }; }
       done++;
       const prog = document.getElementById('impact-load-prog');
