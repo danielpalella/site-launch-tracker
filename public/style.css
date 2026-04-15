@@ -2599,9 +2599,10 @@ tr.status-separator:first-child td { border-top: none; }
   border-left: 3px solid transparent;
   user-select: none;
 }
-.impact-section-header.improving { color: #22c55e; border-left-color: #22c55e; background: #22c55e08; }
-.impact-section-header.declining { color: #ef4444; border-left-color: #ef4444; background: #ef444408; }
-.impact-section-header.nodata    { color: var(--text-muted); border-left-color: var(--border); cursor: pointer; }
+.impact-section-header.improving     { color: #22c55e; border-left-color: #22c55e; background: #22c55e08; }
+.impact-section-header.declining     { color: #ef4444; border-left-color: #ef4444; background: #ef444408; }
+.impact-section-header.new-to-search { color: #8b5cf6; border-left-color: #8b5cf6; background: #8b5cf608; cursor: pointer; }
+.impact-section-header.nodata        { color: var(--text-muted); border-left-color: var(--border); cursor: pointer; }
 .impact-section-header .section-count { font-weight: 400; opacity: .75; }
 .impact-section-sep { height: 6px; background: var(--bg-muted, #f8fafc); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
 

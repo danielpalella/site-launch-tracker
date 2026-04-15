@@ -8652,14 +8652,16 @@ function _impactSparkline(preWeeks, postWeeks, windowWeeks, preDates, postDates)
   </svg>`;
 }
 
-function toggleImpactNoData() {
-  const body = document.getElementById('impact-nodata-body');
-  const btn  = document.getElementById('impact-nodata-toggle');
+function _toggleImpactSection(bodyId, btnId) {
+  const body = document.getElementById(bodyId);
+  const btn  = document.getElementById(btnId);
   if (!body || !btn) return;
   const showing = body.style.display !== 'none';
   body.style.display = showing ? 'none' : '';
   btn.textContent = showing ? '▼' : '▲';
 }
+function toggleImpactNoData() { _toggleImpactSection('impact-nodata-body', 'impact-nodata-toggle'); }
+function toggleImpactNTS()    { _toggleImpactSection('impact-nts-body',    'impact-nts-toggle'); }
 
 function _renderImpactRows() {
   const rowsEl   = document.getElementById('impact-rows');
@@ -8680,26 +8682,30 @@ function _renderImpactRows() {
     return { id: r.id, d: r, impact, clickPct, impPct, posDelta, clickDelta };
   });
 
-  // Separate into groups — sort each group by absolute click delta
-  const withData   = entries.filter(e => e.impact?.available);
-  const noData     = entries.filter(e => !e.impact?.available);
-  const improving  = withData.filter(e => (e.clickDelta ?? 0) >= 0).sort((a,b) => (b.clickDelta??0) - (a.clickDelta??0));
-  const declining  = withData.filter(e => (e.clickDelta ?? 0) <  0).sort((a,b) => (a.clickDelta??0) - (b.clickDelta??0));
+  // Separate into groups
+  const withData     = entries.filter(e => e.impact?.available);
+  const noData       = entries.filter(e => !e.impact?.available);
+  // Low-baseline: pre impressions < 50 — can't make a meaningful before/after comparison
+  const hasBaseline  = withData.filter(e => e.impact.pre.totals.impressions >= 50);
+  const newToSearch  = withData.filter(e => e.impact.pre.totals.impressions <  50).sort((a,b) => (b.clickDelta??0) - (a.clickDelta??0));
+  const improving    = hasBaseline.filter(e => (e.clickDelta ?? 0) >= 0).sort((a,b) => (b.clickDelta??0) - (a.clickDelta??0));
+  const declining    = hasBaseline.filter(e => (e.clickDelta ?? 0) <  0).sort((a,b) => (a.clickDelta??0) - (b.clickDelta??0));
 
-  // Summary stats
-  const totalDelta = withData.reduce((s,e) => s + (e.clickDelta ?? 0), 0);
-  const sortedPcts = withData.map(e => e.clickPct).filter(p => p !== null).sort((a,b) => a-b);
+  // Summary stats — only sites with a real baseline
+  const totalDelta = hasBaseline.reduce((s,e) => s + (e.clickDelta ?? 0), 0);
+  const sortedPcts = hasBaseline.map(e => e.clickPct).filter(p => p !== null).sort((a,b) => a-b);
   const medianPct  = sortedPcts.length ? sortedPcts[Math.floor(sortedPcts.length / 2)] : null;
 
   if (summaryEl) {
     const pill = (txt, color) => `<span style="font-size:.75rem;font-weight:600;color:${color};background:${color}18;border:1px solid ${color}33;border-radius:99px;padding:.2rem .7rem">${txt}</span>`;
     const statChip = (label, val, color) => `<span style="font-size:.75rem;color:var(--text-muted)">${label} <strong style="color:${color||'var(--text)'}">${val}</strong></span>`;
     summaryEl.innerHTML = [
-      improving.length ? pill(`↑ ${improving.length} improving`, '#22c55e') : '',
-      declining.length ? pill(`↓ ${declining.length} declining`, '#ef4444') : '',
+      improving.length   ? pill(`↑ ${improving.length} improving`,    '#22c55e') : '',
+      declining.length   ? pill(`↓ ${declining.length} declining`,    '#ef4444') : '',
+      newToSearch.length ? pill(`✦ ${newToSearch.length} new to search`, '#8b5cf6') : '',
       statChip('Net clicks:', `${totalDelta >= 0 ? '+' : ''}${fmtNum(totalDelta)}`, totalDelta >= 0 ? '#22c55e' : '#ef4444'),
       medianPct !== null ? statChip('Median:', `${medianPct >= 0 ? '+' : ''}${medianPct}%`, medianPct >= 0 ? '#22c55e' : '#ef4444') : '',
-      `<span style="font-size:.72rem;color:var(--text-muted);margin-left:auto">${withData.length} of ${launched.length} sites have pre-launch data</span>`,
+      `<span style="font-size:.72rem;color:var(--text-muted);margin-left:auto">${withData.length} of ${launched.length} sites have GSC data</span>`,
     ].filter(Boolean).join('');
   }
 
@@ -8731,23 +8737,51 @@ function _renderImpactRows() {
     }
 
     const pre = impact.pre.totals, post = impact.post.totals;
-    const isUp       = (clickDelta ?? 0) >= 0;
-    const color      = isUp ? '#22c55e' : '#ef4444';
-    const icon       = isUp ? '↑' : '↓';
-    const lowBase    = pre.impressions < 50;
-    const tooltip    = `GSC: ${impact.gscProperty||'?'} · Launch: ${impact.launchDate}\nPre: ${impact.pre.startDate}→${impact.pre.endDate}\nPost: ${impact.post.startDate}→${impact.post.endDate}`;
+    const lowBase = pre.impressions < 50;
+    const isUp    = (clickDelta ?? 0) >= 0;
+    const tooltip = `GSC: ${impact.gscProperty||'?'} · Launch: ${impact.launchDate}\nPre: ${impact.pre.startDate}→${impact.pre.endDate} (${pre.impressions} imps, ${pre.clicks} clicks)\nPost: ${impact.post.startDate}→${impact.post.endDate} (${post.impressions} imps, ${post.clicks} clicks)`;
+
+    // Low-baseline rows: site had no meaningful pre-launch search presence.
+    // Show post-launch totals only — no directional comparison badge.
+    if (lowBase) {
+      const rankStr = post.position ? `Rank ${post.position.toFixed(0)}` : '—';
+      return `<div class="impact-row" onclick="openAnalyticsModal('${esc(id)}')" title="${esc(tooltip)}">
+        ${favImg}
+        <div class="impact-meta">
+          <div class="impact-name">${esc(d.account_name)}</div>
+          <div class="impact-domain">${esc(domain)} · ${impact.windowWeeks}w · ${esc(impact.launchDate)}</div>
+          <div class="impact-low-warn">No pre-launch search presence</div>
+        </div>
+        <div class="impact-delta-badge" style="color:#8b5cf6">
+          <div class="impact-delta-primary">${fmtNum(post.clicks)}</div>
+          <div class="impact-delta-unit">post-launch clicks</div>
+          <div class="impact-delta-pct">${fmtNum(post.impressions)} imps</div>
+        </div>
+        <div class="impact-chart">
+          ${_impactSparkline(impact.pre.weeks, impact.post.weeks, impact.windowWeeks, {start:impact.pre.startDate,end:impact.pre.endDate}, {start:impact.post.startDate,end:impact.post.endDate})}
+        </div>
+        <div class="impact-sec-metrics">
+          <div class="impact-sec-metric">
+            <div class="impact-sec-label">Avg Rank</div>
+            <div class="impact-sec-val" style="color:#8b5cf6">${rankStr}</div>
+          </div>
+        </div>
+      </div>`;
+    }
+
+    const color = isUp ? '#22c55e' : '#ef4444';
+    const icon  = isUp ? '↑' : '↓';
 
     const secVal = (val, isGood) => {
       const c = val === null ? 'var(--text-muted)' : isGood ? '#22c55e' : '#ef4444';
       return `<div class="impact-sec-val" style="color:${c}">${val !== null ? (val >= 0 ? '+' : '') + val + '%' : '—'}</div>`;
     };
 
-    return `<div class="impact-row${lowBase ? ' impact-row--low' : ''}" onclick="openAnalyticsModal('${esc(id)}')" title="${esc(tooltip)}">
+    return `<div class="impact-row" onclick="openAnalyticsModal('${esc(id)}')" title="${esc(tooltip)}">
       ${favImg}
       <div class="impact-meta">
         <div class="impact-name">${esc(d.account_name)}</div>
         <div class="impact-domain">${esc(domain)} · ${impact.windowWeeks}w · ${esc(impact.launchDate)}</div>
-        ${lowBase ? `<div class="impact-low-warn">⚠ low pre-launch baseline</div>` : ''}
       </div>
       <div class="impact-delta-badge" style="color:${color}">
         <div class="impact-delta-primary">${icon} ${fmtNum(Math.abs(clickDelta ?? 0))}</div>
@@ -8773,13 +8807,17 @@ function _renderImpactRows() {
   };
 
   // Section builder
+  const TOGGLE_FNS = { 'impact-nodata-body': 'toggleImpactNoData', 'impact-nts-body': 'toggleImpactNTS' };
+  const TOGGLE_IDS = { 'impact-nodata-body': 'impact-nodata-toggle', 'impact-nts-body': 'impact-nts-toggle' };
   const section = (cls, label, count, rows, collapsible = false, bodyId = '') => {
     if (!rows.length) return '';
     const rowHtml = rows.map(renderRow).join('');
     if (collapsible) {
-      return `<div class="impact-section-header ${cls}" onclick="toggleImpactNoData()" style="cursor:pointer">
+      const fn = TOGGLE_FNS[bodyId] || 'toggleImpactNoData';
+      const tid = TOGGLE_IDS[bodyId] || 'impact-nodata-toggle';
+      return `<div class="impact-section-header ${cls}" onclick="${fn}()" style="cursor:pointer">
           <span>${label}</span>
-          <span class="section-count">${count} sites <span id="impact-nodata-toggle">▼</span></span>
+          <span class="section-count">${count} sites <span id="${tid}">▼</span></span>
         </div>
         <div id="${bodyId}" style="display:none">${rowHtml}</div>`;
     }
@@ -8794,8 +8832,12 @@ function _renderImpactRows() {
   if (improving.length) html += section('improving', '↑ Improving', improving.length, improving);
   if (improving.length && declining.length) html += '<div class="impact-section-sep"></div>';
   if (declining.length) html += section('declining', '↓ Declining', declining.length, declining);
-  if (noData.length) {
+  if (newToSearch.length) {
     if (improving.length || declining.length) html += '<div class="impact-section-sep"></div>';
+    html += section('new-to-search', '✦ New to Search', newToSearch.length, newToSearch, true, 'impact-nts-body');
+  }
+  if (noData.length) {
+    if (improving.length || declining.length || newToSearch.length) html += '<div class="impact-section-sep"></div>';
     html += section('nodata', 'No pre-launch data available', noData.length, noData, true, 'impact-nodata-body');
   }
   rowsEl.innerHTML = html || '<div style="padding:2rem;text-align:center;color:var(--text-muted)">No impact data loaded yet.</div>';
