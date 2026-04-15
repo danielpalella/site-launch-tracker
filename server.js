@@ -2664,8 +2664,8 @@ app.get('/api/analytics/:id/gsc-impact', requireAuth, async (req, res) => {
 
     console.log(`[gsc-impact] ${domain} siteUrl=${postData.siteUrl} pre=${preStart}→${preEnd} clicks=${preData.totals.clicks} imps=${preData.totals.impressions} | post=${postStart}→${postEnd} clicks=${postData.totals.clicks} imps=${postData.totals.impressions}`);
 
-    // If pre window has no impressions at all, we can't compare meaningfully
-    if (preData.totals.impressions === 0) {
+    // If pre window has no impressions or no weekly data at all, we can't compare meaningfully
+    if (preData.totals.impressions === 0 || preData.weeks.length === 0) {
       return res.json({ available: false, reason: 'no_pre_data' });
     }
 

@@ -8615,31 +8615,34 @@ function _impactPct(pre, post) {
   return Math.round((post - pre) / pre * 100);
 }
 
-// Inline SVG sparkline: pre-launch weeks in gray, post-launch weeks in indigo, dashed divider
+// Inline SVG sparkline using IMPRESSIONS (always non-zero when data exists).
+// pre-launch weeks = gray, post-launch weeks = indigo, dashed divider at launch date.
 function _impactSparkline(preWeeks, postWeeks) {
   const pre = preWeeks || [], post = postWeeks || [];
   if (!pre.length && !post.length) return '';
   const W = 230, H = 56, pad = 5;
   const all = [...pre, ...post];
-  const maxC = Math.max(...all.map(w => w.clicks || 0), 1);
+  // Use impressions as the chart metric — always present when GSC has data
+  const maxV = Math.max(...all.map(w => w.impressions || 0), 1);
   const n = all.length;
   const xF = i => pad + (n <= 1 ? (W - 2*pad)/2 : i * (W - 2*pad) / (n - 1));
-  const yF = v => (H - pad - (v / maxC) * (H - 2*pad)).toFixed(1);
-  const pts = (arr, off) => arr.map((w,i) => `${xF(off+i).toFixed(1)},${yF(w.clicks||0)}`).join(' ');
+  const yF = v => (H - pad - (v / maxV) * (H - 2*pad)).toFixed(1);
+  const pts = (arr, off) => arr.map((w,i) => `${xF(off+i).toFixed(1)},${yF(w.impressions||0)}`).join(' ');
   const prePts = pts(pre, 0), postPts = pts(post, pre.length);
   const preArea  = pre.length  ? `${xF(0).toFixed(1)},${H} ${prePts} ${xF(pre.length-1).toFixed(1)},${H}` : '';
   const postArea = post.length ? `${xF(pre.length).toFixed(1)},${H} ${postPts} ${xF(n-1).toFixed(1)},${H}` : '';
   const divX = (pre.length && post.length) ? ((xF(pre.length-1) + xF(pre.length)) / 2).toFixed(1) : null;
-  const lx = divX ? (parseFloat(divX)-5).toFixed(0) : xF(pre.length-1).toFixed(0);
-  const rx = divX ? (parseFloat(divX)+5).toFixed(0) : null;
+  const lx = divX ? (parseFloat(divX)-5).toFixed(0) : (pre.length ? xF(pre.length-1).toFixed(0) : null);
+  const rx = divX ? (parseFloat(divX)+5).toFixed(0) : (post.length ? xF(0).toFixed(0) : null);
   return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
     ${preArea  ? `<polygon points="${preArea}"  fill="#94a3b822"/>` : ''}
     ${postArea ? `<polygon points="${postArea}" fill="#6366f112"/>` : ''}
     ${prePts  ? `<polyline points="${prePts}"  fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>` : ''}
     ${postPts ? `<polyline points="${postPts}" fill="none" stroke="#6366f1" stroke-width="2"   stroke-linejoin="round" stroke-linecap="round"/>` : ''}
     ${divX ? `<line x1="${divX}" y1="2" x2="${divX}" y2="${H}" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="3,2"/>` : ''}
-    ${pre.length  ? `<text x="${lx}" y="11" text-anchor="end"   font-size="7" fill="#94a3b8" font-family="-apple-system,sans-serif">pre-launch</text>` : ''}
+    ${pre.length && lx ? `<text x="${lx}" y="11" text-anchor="end"   font-size="7" fill="#94a3b8" font-family="-apple-system,sans-serif">pre-launch</text>` : ''}
     ${post.length && rx ? `<text x="${rx}" y="11" text-anchor="start" font-size="7" fill="#6366f1" font-family="-apple-system,sans-serif">post-launch</text>` : ''}
+    <text x="${W-pad}" y="${H-1}" text-anchor="end" font-size="6.5" fill="#cbd5e1" font-family="-apple-system,sans-serif">impressions</text>
   </svg>`;
 }
 
