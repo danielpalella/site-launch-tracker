@@ -2636,8 +2636,8 @@ tr.status-separator:first-child td { border-top: none; }
 .impact-delta-pct     { font-size: .72rem; font-weight: 600; margin-top: .12rem; opacity: .8; }
 
 /* Chart column — includes SVG + date labels below */
-.impact-chart { display: flex; align-items: center; min-width: 0; }
-.sparkline-wrap { display: flex; flex-direction: column; gap: 2px; }
+.impact-chart { display: flex; align-items: center; min-width: 0; width: 100%; }
+.sparkline-wrap { display: flex; flex-direction: column; gap: 2px; width: 100%; }
 .sparkline-dates { display: flex; justify-content: space-between; padding: 0 2px; }
 .sparkline-date { font-size: .68rem; font-weight: 500; }
 .sparkline-date.pre  { color: #94a3b8; }

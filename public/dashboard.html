@@ -8667,12 +8667,12 @@ function _impactSparkline(preWeeks, postWeeks, windowWeeks, preDates, postDates)
   const preLabel  = preDates  ? `${fmtD(preDates.start)} – ${fmtD(preDates.end)}`   : '';
   const postLabel = postDates ? `${fmtD(postDates.start)} – ${fmtD(postDates.end)}` : '';
 
-  const svg = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
+  const svg = `<svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
     ${preArea  ? `<polygon points="${preArea}"  fill="#94a3b822"/>` : ''}
     ${postArea ? `<polygon points="${postArea}" fill="#6366f112"/>` : ''}
-    ${prePts  ? `<polyline points="${prePts}"  fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>` : ''}
-    ${postPts ? `<polyline points="${postPts}" fill="none" stroke="#6366f1" stroke-width="2"   stroke-linejoin="round" stroke-linecap="round"/>` : ''}
-    <line x1="${divX}" y1="0" x2="${divX}" y2="${H}" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="3,2"/>
+    ${prePts  ? `<polyline points="${prePts}"  fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>` : ''}
+    ${postPts ? `<polyline points="${postPts}" fill="none" stroke="#6366f1" stroke-width="2"   stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>` : ''}
+    <line x1="${divX}" y1="0" x2="${divX}" y2="${H}" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="3,2" vector-effect="non-scaling-stroke"/>
     ${pre.length  ? `<text x="${(divX - divGap/2 - 3).toFixed(0)}" y="10" text-anchor="end"   font-size="7.5" fill="#94a3b8" font-family="-apple-system,sans-serif">pre-launch</text>`  : ''}
     ${post.length ? `<text x="${(divX + divGap/2 + 3).toFixed(0)}" y="10" text-anchor="start" font-size="7.5" fill="#6366f1" font-family="-apple-system,sans-serif">post-launch</text>` : ''}
   </svg>`;
