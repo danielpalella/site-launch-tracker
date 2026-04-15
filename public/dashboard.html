@@ -3494,9 +3494,11 @@ function switchAnalyticsView(view) {
   document.getElementById('ac-overview').style.display          = view === 'overview' ? '' : 'none';
   document.getElementById('ac-seo').style.display               = view === 'seo' ? '' : 'none';
   document.getElementById('analytics-search').style.display     = (view === 'sites' || view === 'seo') ? '' : 'none';
-  document.getElementById('ac-sort-wrap').style.display         = view === 'seo' ? 'none' : '';
+  document.getElementById('ac-sort-wrap').style.display         = (view === 'seo' || view === 'overview') ? 'none' : '';
   document.getElementById('seo-toolbar-extras').style.display   = view === 'seo' ? 'flex' : 'none';
   document.getElementById('ac-toolbar-right').style.display     = view === 'seo' ? 'none' : 'flex';
+  // Exit cohort mode when switching to Dashboard — cohort doesn't apply to aggregates
+  if (view === 'overview' && _cohortWindow) setCohortWindow(null, true);
   const _fp = document.getElementById('ac-filter-panel');
   if (_fp) _fp.style.display = (view === 'sites' || view === 'overview') ? '' : 'none';
   if (view === 'seo' && !_seoCacheLoaded) loadSeoCache();
@@ -4540,19 +4542,17 @@ function computeAggregate(entries, period) {
   };
   const weeklyGsc = {}, weeklyGa4 = {}, weeklyDuda = {};
 
-  const _cw = _cohortWindow ? _COHORT_WINDOWS[_cohortWindow] : null;
   for (const [, d] of entries) {
     const { gsc, ga4, duda } = d;
-    const gscT  = _cw ? cohortGscTotals(gsc, d.launchDate, _cw.dayStart, _cw.dayEnd)  : periodGscTotals(gsc, period);
-    const ga4T  = _cw ? cohortGa4Totals(ga4, d.launchDate, _cw.dayStart, _cw.dayEnd)  : periodGa4Totals(ga4, period);
-    const dudaT = _cw ? cohortDudaTotals(duda, d.launchDate, _cw.dayStart, _cw.dayEnd) : periodDudaTotals(duda, period);
+    const gscT  = periodGscTotals(gsc, period);
+    const ga4T  = periodGa4Totals(ga4, period);
+    const dudaT = periodDudaTotals(duda, period);
 
     if (gsc.available) {
       acc.gscClicks      += gscT.clicks      || 0;
       acc.gscImpressions += gscT.impressions || 0;
       acc.gscSites++;
-      const weeks = _cw ? _cohortWeekSlice(gsc.weeks, d.launchDate, _cw.dayStart, _cw.dayEnd)
-                        : (period === 'all' ? (gsc.weeks || []) : periodWeeks(gsc.weeks, period));
+      const weeks = period === 'all' ? (gsc.weeks || []) : periodWeeks(gsc.weeks, period);
       for (const w of weeks) { weeklyGsc[w.week] = (weeklyGsc[w.week] || 0) + (w.clicks || 0); }
     }
     if (ga4.available) {
@@ -4561,8 +4561,7 @@ function computeAggregate(entries, period) {
       acc.ga4NewUsers   += ga4T.newUsers        || 0;
       acc.ga4Engagement += ga4T.engagementRate  || 0;
       acc.ga4Sites++;
-      const weeks = _cw ? _cohortWeekSlice(ga4.weeks, d.launchDate, _cw.dayStart, _cw.dayEnd)
-                        : (period === 'all' ? (ga4.weeks || []) : periodWeeks(ga4.weeks, period));
+      const weeks = period === 'all' ? (ga4.weeks || []) : periodWeeks(ga4.weeks, period);
       for (const w of weeks) { weeklyGa4[w.week] = (weeklyGa4[w.week] || 0) + (w.sessions || 0); }
     }
     if (duda?.available) {
@@ -4571,8 +4570,7 @@ function computeAggregate(entries, period) {
       acc.dudaFormSubmits+= dudaT.formSubmits || 0;
       acc.dudaCallClicks += dudaT.callClicks  || 0;
       acc.dudaSites++;
-      const weeks = _cw ? _cohortWeekSlice(duda.weeks, d.launchDate, _cw.dayStart, _cw.dayEnd)
-                        : (period === 'all' ? (duda.weeks || []) : periodWeeks(duda.weeks, period));
+      const weeks = period === 'all' ? (duda.weeks || []) : periodWeeks(duda.weeks, period);
       for (const w of weeks) { weeklyDuda[w.week] = (weeklyDuda[w.week] || 0) + (w.visitors || 0); }
     }
   }
@@ -4647,18 +4645,11 @@ function computeGscHealth(d) {
 }
 
 function topBottomPerformers(entries, period, metric) {
-  const _cw = _cohortWindow ? _COHORT_WINDOWS[_cohortWindow] : null;
-  const _totals = (d) => _cw
-    ? { gscT: cohortGscTotals(d.gsc, d.launchDate, _cw.dayStart, _cw.dayEnd),
-        ga4T: cohortGa4Totals(d.ga4, d.launchDate, _cw.dayStart, _cw.dayEnd),
-        dudaT: cohortDudaTotals(d.duda, d.launchDate, _cw.dayStart, _cw.dayEnd) }
-    : { gscT: periodGscTotals(d.gsc, period),
-        ga4T: periodGa4Totals(d.ga4, period),
-        dudaT: periodDudaTotals(d.duda, period) };
-
   const scored = entries.map(([id, d]) => {
-    const { account_name, domain, daysSince } = d;
-    const { gscT, ga4T, dudaT } = _totals(d);
+    const { gsc, ga4, duda, account_name, domain, daysSince } = d;
+    const gscT  = periodGscTotals(gsc, period);
+    const ga4T  = periodGa4Totals(ga4, period);
+    const dudaT = periodDudaTotals(duda, period);
     const score = metric === 'clicks' ? (gscT.clicks || 0)
                 : metric === 'sessions' ? (ga4T.sessions || 0)
                 : (dudaT.visitors || 0);
@@ -4670,9 +4661,11 @@ function topBottomPerformers(entries, period, metric) {
     .filter(([, d]) => d.daysSince != null && d.daysSince >= 30)
     .map(([id, d]) => {
       const h = computeGscHealth(d);
-      const { gscT, ga4T, dudaT } = _totals(d);
+      const gscT  = periodGscTotals(d.gsc, period);
+      const ga4T  = periodGa4Totals(d.ga4, period);
+      const dudaT = periodDudaTotals(d.duda, period);
       return { id, account_name: d.account_name, domain: d.domain, health: h,
-               gscClicks: gscT?.clicks || 0, ga4Sessions: ga4T?.sessions || 0, dudaVisitors: dudaT?.visitors || 0 };
+               gscClicks: gscT.clicks || 0, ga4Sessions: ga4T.sessions || 0, dudaVisitors: dudaT.visitors || 0 };
     })
     .sort((a, b) => {
       // no-data sites go last; otherwise sort by score ascending (worst first)
@@ -5342,7 +5335,6 @@ function setCohortWindow(val, _skipRerender) {
   }
   if (!_skipRerender) {
     Object.entries(analyticsData).forEach(([id, d]) => renderAnalyticsCard(id, d));
-    if (analyticsView === 'overview') renderAnalyticsOverview(null);
     closeSortDrop?.();
   }
 }
