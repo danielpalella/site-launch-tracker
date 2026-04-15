@@ -1747,9 +1747,14 @@ async function fetchGSCWindow(domain, startDate, endDate, token) {
   for (const candidate of siteUrlCandidates) {
     try {
       const data = await querySC(candidate, { startDate, endDate, dimensions: ['date'], rowLimit: 500 });
-      rows = data.rows || [];
-      siteUrl = candidate;
-      break;
+      const candidateRows = data.rows || [];
+      if (candidateRows.length > 0) {
+        rows = candidateRows;
+        siteUrl = candidate;
+        break;
+      }
+      // 200 OK but no rows — keep trying other candidates
+      if (!siteUrl) siteUrl = candidate; // remember first valid property as fallback
     } catch { /* try next */ }
   }
   if (!siteUrl) return { weeks: [], totals: { clicks: 0, impressions: 0, ctr: 0, position: null } };
@@ -2591,14 +2596,16 @@ app.get('/api/analytics/:id/gsc-impact', requireAuth, async (req, res) => {
   try {
     const id = req.params.id;
 
-    // Check Firestore cache
+    // Check Firestore cache (skip with ?force=true)
     const cacheRef = db.collection('launches').doc(id).collection('gsc_impact_cache').doc('latest');
-    const cacheSnap = await cacheRef.get();
-    if (cacheSnap.exists) {
-      const cached = cacheSnap.data();
-      const cachedAt = cached.cachedAt ? new Date(cached.cachedAt) : null;
-      if (cachedAt && (Date.now() - cachedAt.getTime()) < 24 * 60 * 60 * 1000) {
-        return res.json(cached);
+    if (!req.query.force) {
+      const cacheSnap = await cacheRef.get();
+      if (cacheSnap.exists) {
+        const cached = cacheSnap.data();
+        const cachedAt = cached.cachedAt ? new Date(cached.cachedAt) : null;
+        if (cachedAt && (Date.now() - cachedAt.getTime()) < 24 * 60 * 60 * 1000 && cached.available) {
+          return res.json(cached);
+        }
       }
     }
 
@@ -2607,7 +2614,7 @@ app.get('/api/analytics/:id/gsc-impact', requireAuth, async (req, res) => {
     if (!docSnap.exists) return res.status(404).json({ error: 'not_found' });
     const d = docSnap.data();
 
-    const domain = (d.domain || '').replace(/^https?:\/\//, '').replace(/\/$/, '');
+    const domain = (d.domain_name || '').replace(/^https?:\/\//, '').replace(/\/$/, '');
     if (!domain) return res.json({ available: false, reason: 'no_domain' });
 
     const rawLaunchDate = d.analytics_start_date || d.status_changed_at || d.created_at;
@@ -2637,6 +2644,8 @@ app.get('/api/analytics/:id/gsc-impact', requireAuth, async (req, res) => {
       fetchGSCWindow(domain, preStart, preEnd, token),
       fetchGSCWindow(domain, postStart, postEnd, token),
     ]);
+
+    console.log(`[gsc-impact] ${domain} pre=${preStart}→${preEnd} clicks=${preData.totals.clicks} imps=${preData.totals.impressions} | post clicks=${postData.totals.clicks} imps=${postData.totals.impressions}`);
 
     // If pre window has no clicks/impressions, we can't compare meaningfully
     if (preData.totals.clicks === 0 && preData.totals.impressions === 0) {
