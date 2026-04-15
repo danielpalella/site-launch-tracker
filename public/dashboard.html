@@ -8609,23 +8609,21 @@ function _impactPct(pre, post) {
 
 // Inline SVG sparkline using IMPRESSIONS (always non-zero when data exists).
 // pre-launch weeks = gray, post-launch weeks = indigo, dashed divider at launch date.
-function _impactSparkline(preWeeks, postWeeks, windowWeeks) {
+function _impactSparkline(preWeeks, postWeeks, windowWeeks, preDates, postDates) {
   const pre = preWeeks || [], post = postWeeks || [];
   if (!pre.length && !post.length) return '';
 
-  const W = 300, H = 58, pad = 5, divGap = 6;
+  const W = 300, H = 68, chartH = 52, pad = 5, divGap = 6;
   // Pre always occupies left half, post always occupies right half.
-  // Both windows are the same duration so they get equal space regardless of
-  // how many non-zero weeks GSC returned for each period.
+  // Both windows are the same duration so they get equal space.
   const divX = W / 2;
-  const preRight  = divX - divGap / 2;   // pre section ends here
-  const postLeft  = divX + divGap / 2;   // post section starts here
+  const preRight  = divX - divGap / 2;
+  const postLeft  = divX + divGap / 2;
 
   const all = [...pre, ...post];
   const maxV = Math.max(...all.map(w => w.impressions || 0), 1);
-  const yF = v => (H - pad - (v / maxV) * (H - 2 * pad)).toFixed(1);
+  const yF = v => (chartH - pad - (v / maxV) * (chartH - 2 * pad)).toFixed(1);
 
-  // Map each section's points across its half of the chart
   const preX  = i => pre.length  <= 1 ? (pad + preRight) / 2
                                        : pad + i * (preRight - pad) / (pre.length - 1);
   const postX = i => post.length <= 1 ? (postLeft + W - pad) / 2
@@ -8633,19 +8631,24 @@ function _impactSparkline(preWeeks, postWeeks, windowWeeks) {
 
   const prePts  = pre.map((w,i)  => `${preX(i).toFixed(1)},${yF(w.impressions||0)}`).join(' ');
   const postPts = post.map((w,i) => `${postX(i).toFixed(1)},${yF(w.impressions||0)}`).join(' ');
+  const preArea  = pre.length  ? `${preX(0).toFixed(1)},${chartH} ${prePts} ${preX(pre.length-1).toFixed(1)},${chartH}`   : '';
+  const postArea = post.length ? `${postX(0).toFixed(1)},${chartH} ${postPts} ${postX(post.length-1).toFixed(1)},${chartH}` : '';
 
-  const preArea  = pre.length  ? `${preX(0).toFixed(1)},${H} ${prePts} ${preX(pre.length-1).toFixed(1)},${H}`   : '';
-  const postArea = post.length ? `${postX(0).toFixed(1)},${H} ${postPts} ${postX(post.length-1).toFixed(1)},${H}` : '';
+  // Format date as "Jan '25"
+  const fmtD = s => { if (!s) return ''; const d = new Date(s + 'T12:00:00Z'); return d.toLocaleDateString('en-US',{month:'short',year:'2-digit',timeZone:'UTC'}); };
+  const preLabel  = preDates  ? `${fmtD(preDates.start)} – ${fmtD(preDates.end)}`   : '';
+  const postLabel = postDates ? `${fmtD(postDates.start)} – ${fmtD(postDates.end)}` : '';
 
   return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
     ${preArea  ? `<polygon points="${preArea}"  fill="#94a3b822"/>` : ''}
     ${postArea ? `<polygon points="${postArea}" fill="#6366f112"/>` : ''}
     ${prePts  ? `<polyline points="${prePts}"  fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>` : ''}
     ${postPts ? `<polyline points="${postPts}" fill="none" stroke="#6366f1" stroke-width="2"   stroke-linejoin="round" stroke-linecap="round"/>` : ''}
-    <line x1="${divX}" y1="2" x2="${divX}" y2="${H}" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="3,2"/>
+    <line x1="${divX}" y1="2" x2="${divX}" y2="${chartH + 2}" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="3,2"/>
     ${pre.length  ? `<text x="${(divX - divGap/2 - 3).toFixed(0)}" y="11" text-anchor="end"   font-size="7" fill="#94a3b8" font-family="-apple-system,sans-serif">pre-launch</text>`  : ''}
     ${post.length ? `<text x="${(divX + divGap/2 + 3).toFixed(0)}" y="11" text-anchor="start" font-size="7" fill="#6366f1" font-family="-apple-system,sans-serif">post-launch</text>` : ''}
-    <text x="${W-pad}" y="${H-1}" text-anchor="end" font-size="6.5" fill="#cbd5e1" font-family="-apple-system,sans-serif">impressions</text>
+    ${preLabel  ? `<text x="${pad}" y="${H - 1}" text-anchor="start" font-size="6.5" fill="#94a3b8aa" font-family="-apple-system,sans-serif">${preLabel}</text>`   : ''}
+    ${postLabel ? `<text x="${W - pad}" y="${H - 1}" text-anchor="end" font-size="6.5" fill="#6366f1aa" font-family="-apple-system,sans-serif">${postLabel}</text>` : ''}
   </svg>`;
 }
 
@@ -8752,7 +8755,7 @@ function _renderImpactRows() {
         <div class="impact-delta-pct">${clickPct !== null ? (clickPct >= 0 ? '+' : '') + clickPct + '%' : '—'}</div>
       </div>
       <div class="impact-chart">
-        ${_impactSparkline(impact.pre.weeks, impact.post.weeks, impact.windowWeeks)}
+        ${_impactSparkline(impact.pre.weeks, impact.post.weeks, impact.windowWeeks, {start:impact.pre.startDate,end:impact.pre.endDate}, {start:impact.post.startDate,end:impact.post.endDate})}
       </div>
       <div class="impact-sec-metrics">
         <div class="impact-sec-metric">
