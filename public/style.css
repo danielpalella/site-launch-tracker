@@ -2396,7 +2396,6 @@ tr.status-separator:first-child td { border-top: none; }
   color: var(--text-muted);
   white-space: nowrap;
 }
-.ac-cache-age::before { content: '·'; margin-right: .3rem; }
 .ac-search {
   flex: 1;
   min-width: 160px;

@@ -256,7 +256,10 @@
           <h1>Site Analytics</h1>
           <p class="subtitle" id="analytics-subtitle" style="margin-bottom:0">GSC, GA4 &amp; Duda performance insights for all active sites.</p>
         </div>
-        <div id="analytics-connection-status" style="display:flex;align-items:center;gap:.6rem;font-size:.825rem"></div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:.25rem">
+          <div id="analytics-connection-status" style="display:flex;align-items:center;gap:.6rem;font-size:.825rem"></div>
+          <div id="ac-cache-age" class="ac-cache-age" style="display:none"></div>
+        </div>
       </div>
     <!-- Analytics toolbar -->
     <div class="ac-toolbar">
@@ -320,7 +323,6 @@
         <div class="ac-toolbar-divider"></div>
         <div class="ac-meta-group">
           <div id="ac-site-count" class="ac-site-count"></div>
-          <div id="ac-cache-age" class="ac-cache-age" style="display:none"></div>
         </div>
       </div>
     </div>
