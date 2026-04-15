@@ -2690,6 +2690,22 @@ app.get('/api/analytics/:id/gsc-impact', requireAuth, async (req, res) => {
   }
 });
 
+// Clear all gsc_impact_cache subcollection docs so impact data is re-fetched fresh
+app.post('/api/analytics/clear-impact-cache', requireAuth, async (req, res) => {
+  try {
+    const launches = await db.collection('launches').where('status', '==', 'launched').get();
+    const deletes = [];
+    for (const doc of launches.docs) {
+      const cacheDoc = db.collection('launches').doc(doc.id).collection('gsc_impact_cache').doc('latest');
+      deletes.push(cacheDoc.delete());
+    }
+    await Promise.all(deletes);
+    res.json({ cleared: deletes.length });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── Core Web Vitals — reads from stored Lighthouse audits ──
 app.get('/api/analytics/:id/cwv', requireAuth, async (req, res) => {
   try {

@@ -8553,9 +8553,10 @@ async function renderImpactView() {
     <div style="margin-bottom:.75rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem">
       <div>
         <span style="font-size:.82rem;font-weight:700;color:var(--text)">Launch Impact</span>
-        <span style="font-size:.75rem;color:var(--text-muted);margin-left:.5rem">GSC clicks before vs after launch — equal comparison window</span>
+        <span style="font-size:.75rem;color:var(--text-muted);margin-left:.5rem">GSC data pulled directly from Google Search Console — same window before vs after launch date</span>
       </div>
-      <div style="display:flex;align-items:center;gap:.5rem">
+      <div style="display:flex;align-items:center;gap:.75rem">
+        <button onclick="_recalcImpact(this)" style="font-size:.72rem;color:var(--text-muted);background:none;border:1px solid var(--border);border-radius:.4rem;padding:.2rem .55rem;cursor:pointer">↺ Recalculate</button>
         <span style="font-size:.72rem;color:var(--text-muted)">Sort by:</span>
         <select id="impact-sort-sel" onchange="_impactSort=this.value;_renderImpactRows()" style="font-size:.75rem;border:1px solid var(--border);border-radius:.4rem;padding:.2rem .4rem;background:var(--bg);color:var(--text);font-family:inherit;cursor:pointer">
           <option value="clicks">Clicks change</option>
@@ -8575,6 +8576,17 @@ async function renderImpactView() {
   _renderImpactRows();
 }
 
+async function _recalcImpact(btn) {
+  if (btn) { btn.disabled = true; btn.textContent = 'Clearing…'; }
+  try {
+    await fetch('/api/analytics/clear-impact-cache', { method: 'POST' });
+  } catch {}
+  _impactData = {};
+  _impactLoaded = false;
+  if (btn) { btn.disabled = false; btn.textContent = '↺ Recalculate'; }
+  await renderImpactView();
+}
+
 async function _loadAllImpactData() {
   // Use allLaunches (full list) so we don't miss sites not yet in analyticsData cache
   const ids = allLaunches.filter(r => r.status === 'launched').map(r => r.id);
@@ -8587,7 +8599,8 @@ async function _loadAllImpactData() {
     await Promise.allSettled(batch.map(async id => {
       if (_impactData[id] !== undefined) return;
       try {
-        const r = await fetch(`/api/analytics/${id}/gsc-impact`);
+        // Always bypass Firestore cache to ensure fresh data with current siteUrl logic
+        const r = await fetch(`/api/analytics/${id}/gsc-impact?force=true`);
         _impactData[id] = r.ok ? await r.json() : { available: false, reason: 'fetch_error' };
       } catch { _impactData[id] = { available: false, reason: 'fetch_error' }; }
       done++;
@@ -8711,14 +8724,18 @@ function _renderImpactRows() {
     const pre = impact.pre.totals, post = impact.post.totals, wks = impact.windowWeeks;
     const overallColor = clickPct === null ? 'var(--text-muted)' : clickPct > 0 ? '#22c55e' : clickPct < 0 ? '#ef4444' : 'var(--text-muted)';
     const overallIcon  = clickPct === null ? '' : clickPct > 0 ? '↑' : clickPct < 0 ? '↓' : '→';
+    const lowBaseline  = pre.impressions < 50; // warn when pre-launch data is very sparse
+    const clickDelta   = post.clicks - pre.clicks;
+    const tooltipTxt   = `GSC property: ${impact.gscProperty||'?'}\\nLaunch date used: ${impact.launchDate}\\nPre:  ${impact.pre.startDate} → ${impact.pre.endDate}\\nPost: ${impact.post.startDate} → ${impact.post.endDate}\\n\\nHover to verify against Google Search Console`;
 
     return `<div class="impact-row" onclick="openAnalyticsModal('${esc(id)}')">
       <img src="${favicon}" class="impact-fav" onerror="this.src='/favicon.png'">
       <div class="impact-meta">
         <div class="impact-name">${esc(d.account_name)}</div>
-        <div class="impact-domain">${esc(domain)} <span style="color:var(--text-muted);font-size:.68rem">· ${wks}w window</span></div>
+        <div class="impact-domain">${esc(domain)} <span style="color:var(--text-muted);font-size:.68rem">· ${wks}w window · launched ${esc(impact.launchDate)}</span></div>
+        ${lowBaseline ? `<div style="font-size:.65rem;color:#f59e0b;margin-top:.1rem">⚠ Low pre-launch baseline (${pre.impressions} impressions)</div>` : ''}
       </div>
-      <div class="impact-chart" title="GSC property: ${esc(impact.gscProperty||'?')}&#10;Pre:  ${esc(impact.pre.startDate)} → ${esc(impact.pre.endDate)}&#10;Post: ${esc(impact.post.startDate)} → ${esc(impact.post.endDate)}">
+      <div class="impact-chart" title="${esc(tooltipTxt)}">
         ${_impactSparkline(impact.pre.weeks, impact.post.weeks)}
       </div>
       <div class="impact-metrics">
@@ -8726,9 +8743,12 @@ function _renderImpactRows() {
         ${metricCol('Impressions', fmtNum(pre.impressions), fmtNum(post.impressions), impPct)}
         ${metricCol('Avg Position', pre.position ?? '—', post.position ?? '—', posDelta)}
       </div>
-      <div class="impact-badge" style="color:${overallColor};border-color:${overallColor}22;background:${overallColor}0d">
+      <div class="impact-badge" style="color:${overallColor};border-color:${overallColor}22;background:${overallColor}0d" title="${esc(tooltipTxt)}">
         <span style="font-size:1rem;line-height:1">${overallIcon}</span>
-        <span>${clickPct === null ? '—' : (clickPct >= 0 ? '+' : '') + clickPct + '%'}</span>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:.05rem">
+          <span>${clickPct === null ? '—' : (clickPct >= 0 ? '+' : '') + clickPct + '%'}</span>
+          <span style="font-size:.65rem;font-weight:400;opacity:.7">${clickDelta >= 0 ? '+' : ''}${clickDelta} clicks</span>
+        </div>
       </div>
     </div>`;
   });
