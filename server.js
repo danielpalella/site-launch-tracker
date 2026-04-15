@@ -1718,6 +1718,77 @@ async function fetchGSC(domain, launchDate, token) {
   };
 }
 
+async function fetchGSCWindow(domain, startDate, endDate, token) {
+  const cleanDomain = domain.replace(/^www\./, '');
+
+  async function querySC(siteUrl, body) {
+    incrApiStat('gsc');
+    const r = await fetch(
+      `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(siteUrl)}/searchAnalytics/query`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      }
+    );
+    if (!r.ok) throw new Error(`GSC ${r.status}`);
+    return r.json();
+  }
+
+  const siteUrlCandidates = [
+    `sc-domain:${cleanDomain}`,
+    `https://www.${cleanDomain}/`,
+    `https://${cleanDomain}/`,
+    `http://www.${cleanDomain}/`,
+    `http://${cleanDomain}/`,
+  ];
+  let siteUrl = null;
+  let rows = [];
+  for (const candidate of siteUrlCandidates) {
+    try {
+      const data = await querySC(candidate, { startDate, endDate, dimensions: ['date'], rowLimit: 500 });
+      rows = data.rows || [];
+      siteUrl = candidate;
+      break;
+    } catch { /* try next */ }
+  }
+  if (!siteUrl) return { weeks: [], totals: { clicks: 0, impressions: 0, ctr: 0, position: null } };
+
+  const weekMap = {};
+  let clicks = 0, impressions = 0, posWSum = 0, posWImps = 0;
+  for (const row of rows) {
+    const d = new Date(row.keys[0]);
+    d.setDate(d.getDate() - d.getDay());
+    const wk = isoDate(d);
+    if (!weekMap[wk]) weekMap[wk] = { clicks: 0, impressions: 0, posWSum: 0, posWImps: 0 };
+    weekMap[wk].clicks += row.clicks || 0;
+    weekMap[wk].impressions += row.impressions || 0;
+    clicks += row.clicks || 0;
+    impressions += row.impressions || 0;
+    const imp = row.impressions || 0;
+    const pos = row.position || 0;
+    if (pos && imp) { weekMap[wk].posWSum += pos * imp; weekMap[wk].posWImps += imp; posWSum += pos * imp; posWImps += imp; }
+  }
+  const weeks = Object.entries(weekMap)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([week, d]) => ({
+      week,
+      clicks: d.clicks,
+      impressions: d.impressions,
+      position: d.posWImps > 0 ? Math.round(d.posWSum / d.posWImps * 10) / 10 : null,
+    }));
+
+  return {
+    weeks,
+    totals: {
+      clicks,
+      impressions,
+      ctr: impressions > 0 ? Math.round(clicks / impressions * 10000) / 100 : 0,
+      position: posWImps > 0 ? Math.round(posWSum / posWImps * 10) / 10 : null,
+    },
+  };
+}
+
 async function fetchGA4(propertyId, launchDate, token) {
   const property = `properties/${propertyId}`;
   const startDate = isoDate(new Date(launchDate));
@@ -2512,6 +2583,83 @@ app.get('/api/analytics/:id', requireAuth, async (req, res) => {
     if (err.code === 'not_connected') return res.status(503).json({ error: 'not_connected' });
     logApiError('analytics', err.message || 'Failed to fetch analytics', { id: req.params.id });
     res.status(err.statusCode || 500).json({ error: err.message || 'Failed to fetch analytics' });
+  }
+});
+
+// ── Launch Impact — before vs after GSC comparison ──
+app.get('/api/analytics/:id/gsc-impact', requireAuth, async (req, res) => {
+  try {
+    const id = req.params.id;
+
+    // Check Firestore cache
+    const cacheRef = db.collection('launches').doc(id).collection('gsc_impact_cache').doc('latest');
+    const cacheSnap = await cacheRef.get();
+    if (cacheSnap.exists) {
+      const cached = cacheSnap.data();
+      const cachedAt = cached.cachedAt ? new Date(cached.cachedAt) : null;
+      if (cachedAt && (Date.now() - cachedAt.getTime()) < 24 * 60 * 60 * 1000) {
+        return res.json(cached);
+      }
+    }
+
+    // Load launch doc
+    const docSnap = await db.collection('launches').doc(id).get();
+    if (!docSnap.exists) return res.status(404).json({ error: 'not_found' });
+    const d = docSnap.data();
+
+    const domain = (d.domain || '').replace(/^https?:\/\//, '').replace(/\/$/, '');
+    if (!domain) return res.json({ available: false, reason: 'no_domain' });
+
+    const rawLaunchDate = d.analytics_start_date || d.status_changed_at || d.created_at;
+    if (!rawLaunchDate) return res.json({ available: false, reason: 'no_launch_date' });
+
+    const launchDate = new Date(rawLaunchDate.toDate ? rawLaunchDate.toDate() : rawLaunchDate);
+    const daysSince = Math.floor((Date.now() - launchDate.getTime()) / (1000 * 60 * 60 * 24));
+    const windowWeeks = Math.min(12, Math.floor(daysSince / 7));
+
+    if (windowWeeks < 4) {
+      return res.json({ available: false, reason: 'too_early', daysSince });
+    }
+
+    const token = await getAnalyticsAccessToken();
+
+    const preStartDate = new Date(launchDate); preStartDate.setDate(preStartDate.getDate() - windowWeeks * 7);
+    const preEndDate   = new Date(launchDate); preEndDate.setDate(preEndDate.getDate() - 1);
+    const postStartDate = new Date(launchDate);
+    const postEndDate   = new Date(launchDate); postEndDate.setDate(postEndDate.getDate() + windowWeeks * 7);
+
+    const preStart  = isoDate(preStartDate);
+    const preEnd    = isoDate(preEndDate);
+    const postStart = isoDate(postStartDate);
+    const postEnd   = isoDate(postEndDate);
+
+    const [preData, postData] = await Promise.all([
+      fetchGSCWindow(domain, preStart, preEnd, token),
+      fetchGSCWindow(domain, postStart, postEnd, token),
+    ]);
+
+    // If pre window has no clicks/impressions, we can't compare meaningfully
+    if (preData.totals.clicks === 0 && preData.totals.impressions === 0) {
+      return res.json({ available: false, reason: 'no_pre_data' });
+    }
+
+    const result = {
+      available: true,
+      launchDate: isoDate(launchDate),
+      windowWeeks,
+      pre:  { startDate: preStart,  endDate: preEnd,  ...preData  },
+      post: { startDate: postStart, endDate: postEnd, ...postData },
+      cachedAt: new Date().toISOString(),
+    };
+
+    // Cache fire-and-forget
+    cacheRef.set(result).catch(err => console.error('gsc-impact cache write error:', err.message));
+
+    res.json(result);
+  } catch (err) {
+    console.error('gsc-impact error:', err.message);
+    if (err.code === 'not_connected') return res.status(503).json({ error: 'not_connected' });
+    res.status(500).json({ error: err.message || 'Failed to fetch GSC impact' });
   }
 });
 

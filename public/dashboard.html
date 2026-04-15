@@ -267,6 +267,7 @@
         <button class="ac-view-btn ac-view-active" id="ac-view-sites" onclick="switchAnalyticsView('sites')">Sites</button>
         <button class="ac-view-btn" id="ac-view-overview" onclick="switchAnalyticsView('overview')">Dashboard</button>
         <button class="ac-view-btn" id="ac-view-seo" onclick="switchAnalyticsView('seo')">Site Audit</button>
+        <button class="ac-view-btn" id="ac-view-impact" onclick="switchAnalyticsView('impact')">Impact</button>
         <button class="ac-view-btn ac-map-icon-btn" id="ac-map-toggle-btn" onclick="toggleInsightsMap()" title="Map View">
           <svg width="13" height="14" viewBox="0 -1 24 27" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C7.6 2 4 5.6 4 10c0 6 8 14 8 14s8-8 8-14c0-4.4-3.6-8-8-8z"/><circle cx="12" cy="10" r="3"/></svg>
         </button>
@@ -381,6 +382,9 @@
             <div id="ac-map-leaflet" style="height:360px;width:100%"></div>
           </div>
         </div>
+
+        <!-- Launch Impact view -->
+        <div id="ac-impact" style="display:none"></div>
 
         <!-- Industry summary bar (shown when industry filter active in sites view) -->
         <div id="ac-industry-summary" style="display:none;margin-bottom:.75rem"></div>
@@ -3491,12 +3495,14 @@ function switchAnalyticsView(view) {
   document.getElementById('ac-view-sites').classList.toggle('ac-view-active', view === 'sites');
   document.getElementById('ac-view-overview').classList.toggle('ac-view-active', view === 'overview');
   document.getElementById('ac-view-seo').classList.toggle('ac-view-active', view === 'seo');
+  document.getElementById('ac-view-impact').classList.toggle('ac-view-active', view === 'impact');
   document.getElementById('ac-sites-panel').style.display       = view === 'sites' ? '' : 'none';
   document.getElementById('ac-industry-summary').style.display  = view === 'sites' && analyticsIndustry !== 'all' ? '' : 'none';
   document.getElementById('ac-overview').style.display          = view === 'overview' ? '' : 'none';
   document.getElementById('ac-seo').style.display               = view === 'seo' ? '' : 'none';
+  document.getElementById('ac-impact').style.display            = view === 'impact' ? '' : 'none';
   document.getElementById('analytics-search').style.display     = (view === 'sites' || view === 'seo') ? '' : 'none';
-  document.getElementById('ac-sort-wrap').style.display         = (view === 'seo' || view === 'overview') ? 'none' : '';
+  document.getElementById('ac-sort-wrap').style.display         = (view === 'seo' || view === 'overview' || view === 'impact') ? 'none' : '';
   document.getElementById('seo-toolbar-extras').style.display   = view === 'seo' ? 'flex' : 'none';
   document.getElementById('ac-toolbar-right').style.display     = view === 'seo' ? 'none' : 'flex';
   // Exit cohort mode when switching to Dashboard — cohort doesn't apply to aggregates
@@ -3508,6 +3514,7 @@ function switchAnalyticsView(view) {
   if (view === 'overview') { try { renderAnalyticsOverview(null); } catch(e) { console.error('Overview render error:', e); } }
   if (view === 'sites') applyAnalyticsFilters();
   if (view === 'seo') renderSeoView();
+  if (view === 'impact') renderImpactView();
 }
 
 function toggleOvSection(bodyId, btnEl) {
@@ -8531,6 +8538,180 @@ function renderInsightsMapMarkers() {
     marker.bindPopup(popup);
     _insightsMapMarkers.push(marker);
   });
+}
+
+// ── Launch Impact View ──
+let _impactData = {};      // id → impact result
+let _impactSort = 'clicks'; // 'clicks' | 'impressions' | 'position'
+let _impactLoaded = false;
+
+async function renderImpactView() {
+  const el = document.getElementById('ac-impact');
+  if (!el) return;
+
+  // Show shell immediately
+  el.innerHTML = `
+    <div style="margin-bottom:.75rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem">
+      <div>
+        <span style="font-size:.82rem;font-weight:700;color:var(--text)">Launch Impact</span>
+        <span style="font-size:.75rem;color:var(--text-muted);margin-left:.5rem">GSC performance before vs after launch (same window, normalized)</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:.5rem">
+        <span style="font-size:.72rem;color:var(--text-muted)">Sort by:</span>
+        <select id="impact-sort-sel" onchange="_impactSort=this.value;_renderImpactRows()" style="font-size:.75rem;border:1px solid var(--border);border-radius:.4rem;padding:.2rem .4rem;background:var(--bg);color:var(--text);font-family:inherit;cursor:pointer">
+          <option value="clicks">Clicks change</option>
+          <option value="impressions">Impressions change</option>
+          <option value="position">Position improvement</option>
+        </select>
+      </div>
+    </div>
+    <div id="impact-summary" style="display:flex;gap:.75rem;flex-wrap:wrap;margin-bottom:.75rem"></div>
+    <div id="impact-rows" class="card" style="padding:0;overflow:hidden"></div>
+  `;
+
+  if (!_impactLoaded) {
+    await _loadAllImpactData();
+    _impactLoaded = true;
+  }
+  _renderImpactRows();
+}
+
+async function _loadAllImpactData() {
+  const ids = Object.keys(analyticsData);
+  const rowsEl = document.getElementById('impact-rows');
+  if (rowsEl) rowsEl.innerHTML = `<div style="padding:1.5rem;text-align:center;color:var(--text-muted);font-size:.82rem">Loading impact data… <span id="impact-load-prog">0</span> of ${ids.length}</div>`;
+
+  let done = 0;
+  // Batch 5 at a time to avoid rate-limiting GSC API
+  for (let i = 0; i < ids.length; i += 5) {
+    const batch = ids.slice(i, i + 5);
+    await Promise.allSettled(batch.map(async id => {
+      if (_impactData[id]) return; // already loaded
+      try {
+        const r = await fetch(`/api/analytics/${id}/gsc-impact`);
+        _impactData[id] = r.ok ? await r.json() : { available: false, reason: 'fetch_error' };
+      } catch { _impactData[id] = { available: false, reason: 'fetch_error' }; }
+      done++;
+      const prog = document.getElementById('impact-load-prog');
+      if (prog) prog.textContent = done;
+    }));
+  }
+}
+
+function _impactPct(pre, post) {
+  if (!pre || pre === 0) return null;
+  return Math.round((post - pre) / pre * 100);
+}
+
+function _renderImpactRows() {
+  const rowsEl = document.getElementById('impact-rows');
+  const summaryEl = document.getElementById('impact-summary');
+  if (!rowsEl) return;
+
+  const entries = Object.entries(analyticsData).map(([id, d]) => {
+    const impact = _impactData[id];
+    return { id, d, impact };
+  });
+
+  // Score for sorting
+  const scored = entries.map(({ id, d, impact }) => {
+    if (!impact?.available) return { id, d, impact, score: null };
+    const clickPct = _impactPct(impact.pre.totals.clicks, impact.post.totals.clicks);
+    const impPct   = _impactPct(impact.pre.totals.impressions, impact.post.totals.impressions);
+    // Position: lower is better, so improvement = positive change = pre - post
+    const posDelta = impact.pre.totals.position != null && impact.post.totals.position != null
+      ? Math.round((impact.pre.totals.position - impact.post.totals.position) * 10) / 10
+      : null;
+    const score = _impactSort === 'clicks' ? (clickPct ?? -9999)
+                : _impactSort === 'impressions' ? (impPct ?? -9999)
+                : (posDelta ?? -9999);
+    return { id, d, impact, score, clickPct, impPct, posDelta };
+  }).sort((a, b) => {
+    if (a.score === null && b.score === null) return 0;
+    if (a.score === null) return 1;
+    if (b.score === null) return -1;
+    return b.score - a.score;
+  });
+
+  // Summary bar
+  const withData = scored.filter(s => s.impact?.available);
+  const improving = withData.filter(s => (s.clickPct ?? 0) > 0).length;
+  const declining = withData.filter(s => (s.clickPct ?? 0) < 0).length;
+  const avgClickPct = withData.length
+    ? Math.round(withData.reduce((s, e) => s + (e.clickPct ?? 0), 0) / withData.length)
+    : null;
+  if (summaryEl) {
+    const pill = (txt, color) => `<span style="font-size:.75rem;font-weight:600;color:${color};background:${color}18;border:1px solid ${color}33;border-radius:99px;padding:.18rem .65rem">${txt}</span>`;
+    summaryEl.innerHTML = [
+      withData.length ? pill(`${withData.length} sites with data`, '#6366f1') : '',
+      improving ? pill(`${improving} improving`, '#22c55e') : '',
+      declining ? pill(`${declining} declining`, '#ef4444') : '',
+      avgClickPct !== null ? pill(`Avg ${avgClickPct >= 0 ? '+' : ''}${avgClickPct}% clicks`, avgClickPct >= 0 ? '#22c55e' : '#ef4444') : '',
+    ].filter(Boolean).join('');
+  }
+
+  // Row HTML
+  const rows = scored.map(({ id, d, impact, clickPct, impPct, posDelta }) => {
+    const domain = d.domain || '';
+    const favicon = domain ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=32` : '/favicon.png';
+
+    if (!impact) {
+      return `<div class="impact-row" style="opacity:.5">
+        <img src="${favicon}" class="impact-fav" onerror="this.src='/favicon.png'">
+        <div class="impact-meta"><div class="impact-name">${esc(d.account_name)}</div><div class="impact-domain">${esc(domain)}</div></div>
+        <div class="impact-status" style="color:var(--text-muted);font-size:.75rem">Loading…</div>
+      </div>`;
+    }
+    if (!impact.available) {
+      const msg = impact.reason === 'too_early'
+        ? `Too early — ${impact.daysSince ?? '?'} days since launch`
+        : impact.reason === 'no_gsc' ? 'No GSC data' : 'No pre-launch data';
+      return `<div class="impact-row" style="opacity:.55">
+        <img src="${favicon}" class="impact-fav" onerror="this.src='/favicon.png'">
+        <div class="impact-meta"><div class="impact-name">${esc(d.account_name)}</div><div class="impact-domain">${esc(domain)}</div></div>
+        <div class="impact-status" style="color:var(--text-muted);font-size:.75rem">${esc(msg)}</div>
+      </div>`;
+    }
+
+    const pre = impact.pre.totals;
+    const post = impact.post.totals;
+    const wks = impact.windowWeeks;
+
+    const metricCol = (label, preVal, postVal, pct, posIsGood) => {
+      const up = pct === null ? null : (posIsGood ? pct > 0 : pct < 0);
+      const pctColor = pct === null ? 'var(--text-muted)' : (up ? '#22c55e' : pct === 0 ? 'var(--text-muted)' : '#ef4444');
+      const pctStr = pct === null ? '—' : `${pct >= 0 ? '+' : ''}${pct}%`;
+      return `<div class="impact-metric">
+        <div class="impact-metric-label">${label}</div>
+        <div class="impact-metric-vals">${esc(String(preVal))} <span style="color:var(--text-muted);margin:0 .2rem">→</span> ${esc(String(postVal))}</div>
+        <div class="impact-metric-pct" style="color:${pctColor}">${pctStr}</div>
+      </div>`;
+    };
+
+    const overallPct = clickPct;
+    const overallColor = overallPct === null ? 'var(--text-muted)' : overallPct > 0 ? '#22c55e' : overallPct < 0 ? '#ef4444' : 'var(--text-muted)';
+    const overallIcon = overallPct === null ? '' : overallPct > 0 ? '↑' : overallPct < 0 ? '↓' : '→';
+
+    return `<div class="impact-row" onclick="openAnalyticsModal('${esc(id)}')">
+      <img src="${favicon}" class="impact-fav" onerror="this.src='/favicon.png'">
+      <div class="impact-meta">
+        <div class="impact-name">${esc(d.account_name)}</div>
+        <div class="impact-domain">${esc(domain)} <span style="color:var(--text-muted);font-size:.68rem">· ${wks}w window</span></div>
+      </div>
+      <div class="impact-metrics">
+        ${metricCol('Clicks', fmtNum(pre.clicks), fmtNum(post.clicks), clickPct, false)}
+        ${metricCol('Impressions', fmtNum(pre.impressions), fmtNum(post.impressions), impPct, false)}
+        ${metricCol('CTR', (pre.ctr ?? 0) + '%', (post.ctr ?? 0) + '%', pre.ctr ? Math.round((post.ctr - pre.ctr) / pre.ctr * 100) : null, false)}
+        ${metricCol('Avg Position', pre.position ?? '—', post.position ?? '—', posDelta !== null ? Math.round(posDelta) : null, true)}
+      </div>
+      <div class="impact-badge" style="color:${overallColor};border-color:${overallColor}22;background:${overallColor}0d">
+        <span style="font-size:1rem;line-height:1">${overallIcon}</span>
+        <span>${overallPct === null ? '—' : (overallPct >= 0 ? '+' : '') + overallPct + '%'}</span>
+      </div>
+    </div>`;
+  });
+
+  rowsEl.innerHTML = rows.join('<div style="height:1px;background:var(--border)"></div>') || '<div style="padding:2rem;text-align:center;color:var(--text-muted);font-size:.82rem">No impact data loaded yet.</div>';
 }
 
 function toggleGshNrMore(btnEl) {

@@ -2588,6 +2588,40 @@ tr.status-separator:first-child td { border-top: none; }
 .ac-map-chip:hover { color: var(--text); border-color: var(--text-muted); }
 .ac-map-chip.active { background: var(--primary); border-color: var(--primary); color: #fff; }
 
+/* ── Launch Impact View ── */
+.impact-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: .75rem 1rem;
+  cursor: pointer;
+  transition: background .12s;
+}
+.impact-row:hover { background: var(--row-bg); }
+.impact-fav { width: 24px; height: 24px; border-radius: 4px; flex-shrink: 0; object-fit: contain; }
+.impact-meta { min-width: 160px; flex-shrink: 0; }
+.impact-name { font-size: .82rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.impact-domain { font-size: .72rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.impact-metrics { display: flex; gap: 1.5rem; flex: 1; flex-wrap: wrap; }
+.impact-metric { display: flex; flex-direction: column; gap: .1rem; min-width: 90px; }
+.impact-metric-label { font-size: .65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); }
+.impact-metric-vals { font-size: .78rem; color: var(--text); }
+.impact-metric-pct { font-size: .75rem; font-weight: 700; }
+.impact-badge {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: .3rem;
+  font-size: .82rem;
+  font-weight: 700;
+  padding: .3rem .7rem;
+  border-radius: 99px;
+  border: 1px solid transparent;
+  min-width: 70px;
+  justify-content: center;
+}
+.impact-status { margin-left: auto; }
+
 /* Overview sizes naturally; outer view-analytics scrolls */
 #ac-overview { min-height: 0; }
 
