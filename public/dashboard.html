@@ -310,7 +310,7 @@
         </button>
       </div>
       <div id="ac-impact-toolbar" style="display:none;align-items:center;gap:.35rem;flex:1">
-        <input id="ac-impact-search" type="search" placeholder="Search accounts…" oninput="_impactSearch(this.value)" class="ac-search" style="width:160px;margin-right:.15rem">
+        <input id="ac-impact-search" type="search" placeholder="Search accounts…" oninput="_impactSearch(this.value)" class="ac-search" style="flex:1;min-width:120px;max-width:320px;margin-right:.15rem">
         <div style="width:1px;height:14px;background:var(--border);margin:0 .1rem"></div>
         <span style="font-size:.72rem;color:var(--text-muted);white-space:nowrap">Metric:</span>
         <button id="ac-impact-m-clicks"      class="ac-impact-metric-btn ac-impact-metric-active" onclick="_setImpactMetric('clicks')">Clicks</button>
@@ -8809,7 +8809,6 @@ function _renderImpactRows() {
       declining.length ? pill(`↓ ${declining.length} ${METRIC_DOWN[M].replace('↓ ','')}`, '#ef4444') : '',
       netVal !== null ? statChip(netLabel, `${totalDelta >= 0 ? '+' : ''}${M === 'rank' ? totalDelta.toFixed(1) : fmtNum(totalDelta)} ${METRIC_LABELS[M]}`, totalDelta >= 0 ? '#22c55e' : '#ef4444') : '',
       medianPct !== null ? statChip('Median:', `${medianPct >= 0 ? '+' : ''}${medianPct}%`, medianPct >= 0 ? '#22c55e' : '#ef4444') : '',
-      `<span style="font-size:.72rem;color:var(--text-muted);margin-left:auto">${launched.length} sites</span>`,
     ].filter(Boolean).join('');
   }
 
