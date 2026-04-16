@@ -310,7 +310,7 @@
         </button>
       </div>
       <div id="ac-impact-toolbar" style="display:none;align-items:center;gap:.35rem;flex:1">
-        <input id="ac-impact-search" type="search" placeholder="Search accounts…" oninput="_impactSearch(this.value)" class="ac-search" style="flex:1;min-width:120px;max-width:320px;margin-right:.15rem">
+        <input id="ac-impact-search" type="search" placeholder="Search accounts…" oninput="_impactSearch(this.value)" class="ac-search" style="flex:1;min-width:120px;margin-right:.15rem">
         <div style="width:1px;height:14px;background:var(--border);margin:0 .1rem"></div>
         <span style="font-size:.72rem;color:var(--text-muted);white-space:nowrap">Metric:</span>
         <button id="ac-impact-m-clicks"      class="ac-impact-metric-btn ac-impact-metric-active" onclick="_setImpactMetric('clicks')">Clicks</button>
@@ -3513,6 +3513,7 @@ function switchAnalyticsView(view) {
   document.getElementById('ac-impact').style.display            = view === 'impact' ? '' : 'none';
   document.getElementById('analytics-search').style.display     = (view === 'sites' || view === 'seo') ? '' : 'none';
   document.getElementById('ac-sort-wrap').style.display         = (view === 'seo' || view === 'overview' || view === 'impact') ? 'none' : '';
+  document.getElementById('ac-filters-group').style.display     = view === 'impact' ? 'none' : '';
   document.getElementById('seo-toolbar-extras').style.display   = view === 'seo' ? 'flex' : 'none';
   document.getElementById('ac-toolbar-right').style.display     = view === 'seo' ? 'none' : 'flex';
   document.getElementById('ac-timeframe-wrap').style.display    = view === 'impact' ? 'none' : '';
