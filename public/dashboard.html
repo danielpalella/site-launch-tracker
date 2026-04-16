@@ -7017,13 +7017,33 @@ async function loadWidgetEvents(id) {
     const hcpCorrelations = (hcpLeads && data.formSubmitHourly?.length)
       ? computeCorrelations(hcpLeads, data.formSubmitHourly, tz)
       : null;
-    // Filter Duda forms to on/after the chatbot launch date (same cutoff as HCP leads)
-    const dudaSince = hcp.since || null;
+    // Filter Duda forms to on/after the chatbot launch date
+    // Prefer data.chatbotSince (analytics_start_date from Firestore), fall back to hcp.since
+    const dudaSince = data.chatbotSince || hcp.since || null;
     const dudaForms = (data.dudaForms || []).filter(s =>
       !dudaSince || !s.submitted_at || s.submitted_at >= dudaSince
     );
+
+    // Name-match Duda form subs to HCP leads so we can enrich with status/phone
+    function normName(n) { return (n || '').toLowerCase().replace(/[^a-z ]/g, '').trim(); }
+    function nameMatch(a, b) {
+      const na = normName(a), nb = normName(b);
+      if (!na || !nb) return false;
+      if (na === nb) return true;
+      const pa = na.split(' ').filter(Boolean), pb = nb.split(' ').filter(Boolean);
+      return pa.every(p => nb.includes(p)) || pb.every(p => na.includes(p));
+    }
     const dudaCorrelations = dudaForms.length
-      ? computeDudaCorrelations(dudaForms, data.widgetOpenHourly, tz)
+      ? computeDudaCorrelations(dudaForms, data.widgetOpenHourly, tz).map(c => {
+          const matched = (hcpLeads || []).find(l => nameMatch(l.name, c.lead.name));
+          if (matched) {
+            c.lead.phone  = c.lead.phone  || matched.phone;
+            c.lead.email  = c.lead.email  || matched.email;
+            c.lead.status = matched.status;
+            c.hcpMatch    = matched;
+          }
+          return c;
+        })
       : null;
 
     // Combined for attribution display
@@ -7115,12 +7135,14 @@ async function loadWidgetEvents(id) {
         low:    { icon: '~', color: '#f59e0b', label: 'Widget open — same day' },
         null:   { icon: '·', color: 'var(--text-muted)', label: 'No widget session on this date' },
       };
-      const rows = correlations.map(({ lead, source, confidence, gaEvent }, idx) => {
+      const rows = correlations.map(({ lead, source, confidence, gaEvent, hcpMatch }, idx) => {
         const CONF = source === 'duda' ? DUDA_CONF : HCP_CONF;
         const c = CONF[confidence] ?? CONF[null];
         const submitted = lead.submitted_at
           ? new Date(lead.submitted_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: tz })
           : '—';
+        const hcpMatchNote = (source === 'duda' && hcpMatch)
+          ? ` <span style="font-size:.62rem;color:#38bdf8;font-weight:500">· matched HCP: ${esc(hcpMatch.name)}</span>` : '';
         const sourceBadge = source === 'duda'
           ? `<span style="display:inline-flex;align-items:center;gap:.2rem;font-size:.62rem;font-weight:600;padding:.1rem .35rem;border-radius:.25rem;background:#f9731622;color:#f97316;border:1px solid #f9731633;margin-left:.35rem"><img src="https://www.google.com/s2/favicons?domain=duda.co&sz=16" width="10" height="10" style="border-radius:2px">Duda Form</span>`
           : `<span style="display:inline-flex;align-items:center;gap:.2rem;font-size:.62rem;font-weight:600;padding:.1rem .35rem;border-radius:.25rem;background:#0369a122;color:#38bdf8;border:1px solid #0369a133;margin-left:.35rem"><img src="/hcp-icon.ico" width="10" height="10" style="vertical-align:middle">HCP Webform</span>`;
@@ -7139,7 +7161,7 @@ async function loadWidgetEvents(id) {
               <span style="font-size:.9rem;font-weight:700;color:${c.color}">${c.icon}</span>
             </td>
             <td style="padding:.5rem .25rem .5rem 0">
-              <div style="font-size:.83rem;font-weight:600;color:var(--text)">${esc(lead.name || '—')}${sourceBadge}${hasDetail ? ' <span style="font-size:.65rem;color:var(--text-muted)">▾</span>' : ''}</div>
+              <div style="font-size:.83rem;font-weight:600;color:var(--text)">${esc(lead.name || '—')}${sourceBadge}${hcpMatchNote}${hasDetail ? ' <span style="font-size:.65rem;color:var(--text-muted)">▾</span>' : ''}</div>
               <div style="font-size:.75rem;color:var(--text-muted);margin-top:.1rem">${c.label}</div>
             </td>
             <td style="padding:.5rem .5rem;font-size:.78rem;color:var(--text-muted);white-space:nowrap">${esc(lead.phone || '—')}</td>
@@ -7193,6 +7215,18 @@ async function loadWidgetEvents(id) {
         <div id="hcp-key-status-${esc(id)}" style="font-size:.75rem;color:var(--text-muted);margin-top:.35rem"></div>
       </div>` : '';
 
+    const launchDateCurrent = data.chatbotSince || '';
+    const launchDateSetup = `
+      <div style="margin-top:1rem;padding:.75rem;background:var(--surface);border:1px solid var(--border);border-radius:.5rem">
+        <div style="font-size:.78rem;font-weight:600;color:var(--text);margin-bottom:.35rem">Widget Launch Date</div>
+        <div style="font-size:.78rem;color:var(--text-muted);margin-bottom:.5rem">Set the date the AI chatbot went live — used to filter form submissions in attribution.${launchDateCurrent ? ` Currently: <strong>${launchDateCurrent}</strong>` : ' <span style="color:#f59e0b">Not set — all form submissions are shown.</span>'}</div>
+        <div style="display:flex;gap:.5rem;align-items:center">
+          <input id="launch-date-input-${esc(id)}" type="date" value="${launchDateCurrent}" style="font-size:.82rem;padding:.35rem .55rem;border:1px solid var(--border);border-radius:.4rem;background:var(--bg);color:var(--text)">
+          <button onclick="saveWidgetLaunchDate('${esc(id)}')" style="font-size:.78rem;padding:.35rem .75rem;background:var(--primary);color:#fff;border:none;border-radius:.4rem;cursor:pointer">Save</button>
+        </div>
+        <div id="launch-date-status-${esc(id)}" style="font-size:.75rem;color:var(--text-muted);margin-top:.35rem"></div>
+      </div>`;
+
     body.innerHTML = `
       <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:.6rem;margin-bottom:1.1rem">
         ${kpis.map(({ label, val, tip, color }) => `
@@ -7224,7 +7258,8 @@ async function loadWidgetEvents(id) {
         </tr></thead>
         <tbody>${tableRows}</tbody>
       </table>
-      ${hcpSetup}`;
+      ${hcpSetup}
+      ${launchDateSetup}`;
 
     if (hasChart) {
       const canvas = document.getElementById(`acd-widget-chart-${id}`);
@@ -7271,6 +7306,28 @@ async function saveHcpApiKey(id) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ api_key: input.value.trim() }),
+    });
+    if (!r.ok) throw new Error((await r.json()).error);
+    status.style.color = 'var(--success, #22c55e)';
+    status.textContent = 'Saved! Reloading…';
+    delete _widgetEventsLoaded[id];
+    setTimeout(() => loadWidgetEvents(id), 800);
+  } catch (e) {
+    status.style.color = '#ef4444';
+    status.textContent = `Error: ${e.message}`;
+  }
+}
+
+async function saveWidgetLaunchDate(id) {
+  const input  = document.getElementById(`launch-date-input-${id}`);
+  const status = document.getElementById(`launch-date-status-${id}`);
+  if (!input?.value) return;
+  status.textContent = 'Saving…';
+  try {
+    const r = await fetch(`/api/launches/${id}/analytics-start-date`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date: input.value }),
     });
     if (!r.ok) throw new Error((await r.json()).error);
     status.style.color = 'var(--success, #22c55e)';

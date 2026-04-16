@@ -2261,6 +2261,7 @@ app.get('/api/launches/:id/widget-events', requireAuth, async (req, res) => {
       available: true,
       days,
       timezone: timezone || null,
+      chatbotSince: chatbotSince || null,
       events: (eventsRes.rows || []).map(r => ({
         name: r.dimensionValues[0].value,
         count: parseInt(r.metricValues[0].value),
@@ -2310,6 +2311,20 @@ app.post('/api/launches/:id/hcp-api-key', requireAuth, async (req, res) => {
     const doc = await ref.get();
     if (!doc.exists) return res.status(404).json({ error: 'Not found' });
     await ref.update({ hcp_api_key: api_key.trim() });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/launches/:id/analytics-start-date', requireAuth, async (req, res) => {
+  try {
+    const { date } = req.body;
+    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return res.status(400).json({ error: 'date required (YYYY-MM-DD)' });
+    const ref = db.collection('launches').doc(req.params.id);
+    const doc = await ref.get();
+    if (!doc.exists) return res.status(404).json({ error: 'Not found' });
+    await ref.update({ analytics_start_date: date });
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
