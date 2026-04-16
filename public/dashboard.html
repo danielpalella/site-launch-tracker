@@ -7065,12 +7065,23 @@ async function loadWidgetEvents(id) {
       ? Math.round(attributedCount / totalLeadCount * 100) : null;
     const summaryColor = attributedPct >= 75 ? '#22c55e' : attributedPct >= 40 ? '#f59e0b' : 'var(--text-muted)';
 
+    // Revenue from HCP invoices
+    const fmtDollar = n => n >= 1000 ? `$${(n/1000).toFixed(1)}k` : `$${Math.round(n)}`;
+    const allInvoices = hcpLeads ? hcpLeads.flatMap(l => l.invoices || []) : [];
+    const totalInvoiced  = allInvoices.reduce((s, i) => s + (i.total  || 0), 0);
+    const totalCollected = allInvoices.reduce((s, i) => s + (i.paid   || 0), 0);
+    const invoicesAvailable = hcp.invoicesAvailable && allInvoices.length > 0;
+
     const kpis = [
       { label: 'Widget Opens',    val: opens,    tip: 'Sessions where a visitor clicked the chat bubble and opened the widget.' },
       { label: 'Messages Sent',   val: messages, tip: 'Messages typed and sent by users to the AI chatbot.' },
       { label: '<img src="/hcp-icon.ico" style="width:11px;height:11px;vertical-align:middle;margin-right:.25rem;margin-bottom:1px">HCP Leads', val: hcpLeadCount !== null ? hcpLeadCount : '—', tip: 'Bookings submitted through HouseCallPro since the widget launched.' },
       { label: '<img src="https://www.google.com/s2/favicons?domain=duda.co&sz=16" width="11" height="11" style="vertical-align:middle;margin-right:.25rem;margin-bottom:1px;border-radius:2px">Duda Form Leads', val: dudaLeadCount !== null ? dudaLeadCount : (data.dudaForms ? '⚠ Set date' : '—'), tip: 'Submissions through the Duda contact form on the site since the chatbot launched. Requires widget launch date to be set below.', color: (data.dudaForms && !dudaSince) ? '#f59e0b' : null },
       { label: 'Attribution Rate', val: attributedPct !== null ? `${attributedPct}%` : '—', tip: 'Share of all leads (HCP + site form) that had a widget session on the same day.', color: attributedPct !== null ? summaryColor : null },
+      ...(invoicesAvailable ? [
+        { label: '<img src="/hcp-icon.ico" style="width:11px;height:11px;vertical-align:middle;margin-right:.25rem;margin-bottom:1px">Total Invoiced',  val: fmtDollar(totalInvoiced),  tip: 'Sum of all HCP invoice totals for leads since the widget launched.', color: '#22c55e' },
+        { label: '<img src="/hcp-icon.ico" style="width:11px;height:11px;vertical-align:middle;margin-right:.25rem;margin-bottom:1px">Total Collected', val: fmtDollar(totalCollected), tip: 'Sum of all payments collected across HCP invoices.', color: '#22c55e' },
+      ] : []),
     ];
 
     // --- Interaction detail (chip/button breakdown by label) ---
@@ -7168,9 +7179,20 @@ async function loadWidgetEvents(id) {
             <td style="padding:.5rem .5rem;font-size:.78rem;white-space:nowrap">
               <span style="color:${statusColor};font-weight:500">${esc(statusText)}</span>
             </td>
+            ${invoicesAvailable ? (() => {
+              const invs = lead.invoices || [];
+              if (!invs.length) return `<td style="padding:.5rem .5rem;font-size:.78rem;color:var(--text-muted);text-align:right">—</td>`;
+              const topInv = invs[0];
+              const invColor = topInv.status === 'paid' ? '#22c55e' : topInv.status?.includes('past') ? '#ef4444' : '#f59e0b';
+              const invLabel = topInv.status === 'paid' ? 'Paid' : topInv.status === 'due' ? 'Due' : (topInv.status || '').replace(/_/g,' ');
+              return `<td style="padding:.5rem .5rem;text-align:right;white-space:nowrap">
+                <div style="font-size:.83rem;font-weight:700;color:var(--text)">$${topInv.total.toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0})}</div>
+                <div style="font-size:.68rem;color:${invColor};font-weight:600">${invLabel}</div>
+              </td>`;
+            })() : ''}
             <td style="padding:.5rem .5rem;font-size:.78rem;color:var(--text-muted);text-align:right;white-space:nowrap">${submitted}</td>
           </tr>
-          ${hasDetail ? `<tr id="${detailId}" style="display:none;border-bottom:1px solid var(--border)"><td colspan="5" style="padding:.4rem .5rem .65rem 2.5rem;font-size:.77rem;line-height:1.6;color:var(--text)">${detailParts.join('<br>')}</td></tr>` : ''}`;
+          ${hasDetail ? `<tr id="${detailId}" style="display:none;border-bottom:1px solid var(--border)"><td colspan="${5 + (invoicesAvailable ? 1 : 0)}" style="padding:.4rem .5rem .65rem 2.5rem;font-size:.77rem;line-height:1.6;color:var(--text)">${detailParts.join('<br>')}</td></tr>` : ''}`;
       }).join('');
 
       const sinceLine = hcp.since ? `Since ${fmtAnalyticsDate(hcp.since)}` : '';
@@ -7192,6 +7214,7 @@ async function loadWidgetEvents(id) {
               <th style="font-size:.7rem;color:var(--text-muted);font-weight:600;text-align:left;padding:.3rem .5rem" colspan="2">Lead</th>
               <th style="font-size:.7rem;color:var(--text-muted);font-weight:600;text-align:left;padding:.3rem .5rem">Phone</th>
               <th style="font-size:.7rem;color:var(--text-muted);font-weight:600;text-align:left;padding:.3rem .5rem">Status / Source</th>
+              ${invoicesAvailable ? `<th style="font-size:.7rem;color:var(--text-muted);font-weight:600;text-align:right;padding:.3rem .5rem">Invoice</th>` : ''}
               <th style="font-size:.7rem;color:var(--text-muted);font-weight:600;text-align:right;padding:.3rem .5rem">Submitted</th>
             </tr></thead>
             <tbody>${rows}</tbody>
@@ -7228,7 +7251,7 @@ async function loadWidgetEvents(id) {
       </div>`;
 
     body.innerHTML = `
-      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:.6rem;margin-bottom:1.1rem">
+      <div style="display:grid;grid-template-columns:repeat(${kpis.length},1fr);gap:.6rem;margin-bottom:1.1rem">
         ${kpis.map(({ label, val, tip, color }) => `
           <div style="background:var(--surface);border:1px solid var(--border);border-radius:.5rem;padding:.55rem .75rem">
             <div style="font-size:.7rem;color:var(--text-muted);margin-bottom:.15rem;display:flex;align-items:center;gap:.2rem">${label}${tip ? `<span class="ac-tip" data-tip="${tip.replace(/"/g, '&quot;')}" style="margin-left:.15rem;flex-shrink:0">?</span>` : ''}</div>

@@ -2356,31 +2356,74 @@ app.get('/api/launches/:id/hcp-leads', requireAuth, async (req, res) => {
     if (!doc.exists) return res.status(404).json({ error: 'Not found' });
     const { hcp_api_key, analytics_start_date, launch_date } = doc.data();
     if (!hcp_api_key) return res.json({ available: false, reason: 'No HCP API key configured' });
-    // Filter leads to only those on/after the widget launch date
     const sinceDate = analytics_start_date || launch_date || null;
-    const r = await fetch('https://api.housecallpro.com/leads?page_size=100', {
-      headers: { Authorization: `Token ${hcp_api_key}`, 'Content-Type': 'application/json' },
-    });
-    if (!r.ok) return res.status(r.status).json({ error: `HCP API error: ${r.status}` });
-    const data = await r.json();
-    const leads = (data.leads || [])
+    const hcpHeaders = { Authorization: `Token ${hcp_api_key}`, 'Content-Type': 'application/json' };
+
+    // Fetch leads and invoices in parallel
+    const [leadsRes, invoicesRes] = await Promise.all([
+      fetch('https://api.housecallpro.com/leads?page_size=100', { headers: hcpHeaders }),
+      fetch('https://api.housecallpro.com/v1/invoices?page_size=200&sort_by=created_at&sort_direction=desc', { headers: hcpHeaders })
+        .catch(() => null),
+    ]);
+
+    if (!leadsRes.ok) return res.status(leadsRes.status).json({ error: `HCP API error: ${leadsRes.status}` });
+    const leadsData = await leadsRes.json();
+
+    // Build customer_id → invoices map (best effort — ignore if v1 auth fails)
+    let invoicesByCustomer = {};
+    let invoicesAvailable = false;
+    if (invoicesRes?.ok) {
+      try {
+        const invData = await invoicesRes.json();
+        const invList = invData.invoices || invData.results || invData || [];
+        if (Array.isArray(invList)) {
+          invoicesAvailable = true;
+          for (const inv of invList) {
+            const cid = inv.customer_id || inv.customer?.id;
+            if (!cid) continue;
+            if (!invoicesByCustomer[cid]) invoicesByCustomer[cid] = [];
+            invoicesByCustomer[cid].push({
+              id:          inv.id,
+              number:      inv.invoice_number || inv.number || null,
+              status:      inv.status || null,
+              total:       parseFloat(inv.total ?? inv.amount ?? 0),
+              paid:        parseFloat(inv.paid_amount ?? 0),
+              balance_due: parseFloat(inv.balance_due ?? inv.due ?? 0),
+              created_at:  inv.created_at || null,
+            });
+          }
+          console.log(`[hcp-leads] invoices loaded: ${invList.length} total, ${Object.keys(invoicesByCustomer).length} customers with invoices`);
+        }
+      } catch (e) { console.warn('[hcp-leads] invoice parse error:', e.message); }
+    } else {
+      console.log('[hcp-leads] v1/invoices status:', invoicesRes?.status, '— invoices not available');
+    }
+
+    const leads = (leadsData.leads || [])
       .filter(l => {
         if (!sinceDate || !l.customer?.created_at) return true;
         return l.customer.created_at >= sinceDate;
       })
-      .map(l => ({
-        id: l.id,
-        number: l.number,
-        name: `${l.customer?.first_name || ''} ${l.customer?.last_name || ''}`.trim(),
-        phone: l.customer?.mobile_number || l.customer?.home_number || null,
-        email: l.customer?.email || null,
-        lead_source: l.lead_source,
-        status: l.pipeline_status || l.status,
-        submitted_at: l.customer?.created_at || null,
-        description: l.description || l.notes || null,
-        address: [l.customer?.street, l.customer?.city, l.customer?.state].filter(Boolean).join(', ') || null,
-      }));
-    res.json({ available: true, total: leads.length, since: sinceDate, leads });
+      .map(l => {
+        const customerId = l.customer?.id || null;
+        const invoices = customerId ? (invoicesByCustomer[customerId] || []) : [];
+        return {
+          id:           l.id,
+          customer_id:  customerId,
+          number:       l.number,
+          name:         `${l.customer?.first_name || ''} ${l.customer?.last_name || ''}`.trim(),
+          phone:        l.customer?.mobile_number || l.customer?.home_number || null,
+          email:        l.customer?.email || null,
+          lead_source:  l.lead_source,
+          status:       l.pipeline_status || l.status,
+          submitted_at: l.customer?.created_at || null,
+          description:  l.description || l.notes || null,
+          address:      [l.customer?.street, l.customer?.city, l.customer?.state].filter(Boolean).join(', ') || null,
+          invoices,
+        };
+      });
+
+    res.json({ available: true, total: leads.length, since: sinceDate, invoicesAvailable, leads });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
