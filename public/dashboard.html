@@ -7017,12 +7017,12 @@ async function loadWidgetEvents(id) {
     const hcpCorrelations = (hcpLeads && data.formSubmitHourly?.length)
       ? computeCorrelations(hcpLeads, data.formSubmitHourly, tz)
       : null;
-    // Filter Duda forms to on/after the chatbot launch date
-    // Prefer data.chatbotSince (analytics_start_date from Firestore), fall back to hcp.since
-    const dudaSince = data.chatbotSince || hcp.since || null;
-    const dudaForms = (data.dudaForms || []).filter(s =>
-      !dudaSince || !s.submitted_at || s.submitted_at >= dudaSince
-    );
+    // Filter Duda forms to on/after the chatbot launch date.
+    // Require chatbotSince to be set — if not, show no Duda forms (user must set the date).
+    const dudaSince = data.chatbotSince || null;
+    const dudaForms = dudaSince
+      ? (data.dudaForms || []).filter(s => !s.submitted_at || s.submitted_at >= dudaSince)
+      : [];
 
     // Name-match Duda form subs to HCP leads so we can enrich with status/phone
     function normName(n) { return (n || '').toLowerCase().replace(/[^a-z ]/g, '').trim(); }
@@ -7058,7 +7058,7 @@ async function loadWidgetEvents(id) {
     const correlations = allCorrelations.length ? allCorrelations : null;
 
     const hcpLeadCount     = hcpLeads ? hcpLeads.length : null;
-    const dudaLeadCount    = data.dudaForms ? dudaForms.length : null;
+    const dudaLeadCount    = data.dudaForms ? (dudaSince ? dudaForms.length : null) : null;
     const totalLeadCount   = (hcpLeadCount || 0) + (dudaLeadCount || 0) || null;
     const attributedCount  = correlations ? correlations.filter(c => c.confidence).length : null;
     const attributedPct    = (attributedCount !== null && totalLeadCount)
@@ -7069,7 +7069,7 @@ async function loadWidgetEvents(id) {
       { label: 'Widget Opens',    val: opens,    tip: 'Sessions where a visitor clicked the chat bubble and opened the widget.' },
       { label: 'Messages Sent',   val: messages, tip: 'Messages typed and sent by users to the AI chatbot.' },
       { label: '<img src="/hcp-icon.ico" style="width:11px;height:11px;vertical-align:middle;margin-right:.25rem;margin-bottom:1px">HCP Leads', val: hcpLeadCount !== null ? hcpLeadCount : '—', tip: 'Bookings submitted through HouseCallPro since the widget launched.' },
-      { label: '<img src="https://www.google.com/s2/favicons?domain=duda.co&sz=16" width="11" height="11" style="vertical-align:middle;margin-right:.25rem;margin-bottom:1px;border-radius:2px">Duda Form Leads', val: dudaLeadCount !== null ? dudaLeadCount : '—', tip: 'Submissions through the Duda contact form on the site since the chatbot launched.' },
+      { label: '<img src="https://www.google.com/s2/favicons?domain=duda.co&sz=16" width="11" height="11" style="vertical-align:middle;margin-right:.25rem;margin-bottom:1px;border-radius:2px">Duda Form Leads', val: dudaLeadCount !== null ? dudaLeadCount : (data.dudaForms ? '⚠ Set date' : '—'), tip: 'Submissions through the Duda contact form on the site since the chatbot launched. Requires widget launch date to be set below.', color: (data.dudaForms && !dudaSince) ? '#f59e0b' : null },
       { label: 'Attribution Rate', val: attributedPct !== null ? `${attributedPct}%` : '—', tip: 'Share of all leads (HCP + site form) that had a widget session on the same day.', color: attributedPct !== null ? summaryColor : null },
     ];
 

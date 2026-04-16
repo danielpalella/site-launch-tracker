@@ -2186,16 +2186,25 @@ app.get('/api/launches/:id/widget-events', requireAuth, async (req, res) => {
         if (!r.ok) return null;
         const raw  = await r.json();
         const subs = Array.isArray(raw) ? raw : (raw.results || []);
+        if (subs.length) console.log('[widget-events] Duda form sample:', JSON.stringify(subs[0]).slice(0, 500));
         return subs
-          .map(s => ({
-            id:           s.id || null,
-            name:         s.name || [s.first_name, s.last_name].filter(Boolean).join(' ') || null,
-            email:        s.email || null,
-            phone:        s.phone || s.phone_number || null,
-            form_name:    s.form_name || s.form_title || null,
-            message:      s.message || s.notes || null,
-            submitted_at: s.date || s.created_at || null,
-          }))
+          .map(s => {
+            // Duda stores form field values in s.message.fields as [{name,value}] pairs
+            const fields = s.message?.fields || [];
+            const field = (...keys) => {
+              const f = fields.find(f => keys.some(k => (f.name || '').toLowerCase().includes(k.toLowerCase())));
+              return f?.value || null;
+            };
+            return {
+              id:           s.id || null,
+              name:         field('name', 'full name', 'contact') || s.name || [s.first_name, s.last_name].filter(Boolean).join(' ') || null,
+              email:        field('email') || s.email || null,
+              phone:        field('phone', 'mobile', 'cell', 'telephone', 'number') || s.phone || s.phone_number || null,
+              form_name:    s.form_title || s.form_name || null,
+              message:      field('message', 'note', 'comment', 'how can', 'service', 'help', 'describe') || (typeof s.message === 'string' ? s.message : null) || null,
+              submitted_at: s.date || s.created_at || null,
+            };
+          })
           // Only include submissions on/after the AI chatbot launch date
           .filter(s => !chatbotSince || !s.submitted_at || s.submitted_at >= chatbotSince);
       } catch (e) {
