@@ -2152,7 +2152,7 @@ app.get('/api/launches/:id/widget-events', requireAuth, async (req, res) => {
     const token = await getAnalyticsAccessToken();
     const doc = await db.collection('launches').doc(req.params.id).get();
     if (!doc.exists) return res.status(404).json({ error: 'Not found' });
-    const domain = doc.data().domain_name;
+    const { domain_name: domain, duda_site_name: dudaSiteName } = doc.data();
     const info = await getGa4PropertyInfo(domain, token);
     if (!info) return res.json({ available: false, reason: 'No GA4 property found for this domain' });
     const { id: propertyId, tz: timezone } = info;
@@ -2172,6 +2172,33 @@ app.get('/api/launches/:id/widget-events', requireAuth, async (req, res) => {
     }).then(r => r.json());
 
     const formSubmitFilter = { filter: { fieldName: 'eventName', stringFilter: { matchType: 'EXACT', value: 'widget_form_submit' } } };
+
+    // Fetch Duda form submissions in parallel with GA4 queries
+    const dudaFormsPromise = (async () => {
+      if (!dudaSiteName) return null;
+      try {
+        const creds = await getDudaCredentials();
+        const auth  = Buffer.from(`${creds.api_user}:${creds.api_pass}`).toString('base64');
+        const r = await fetch(`https://api.duda.co/api/sites/multiscreen/get-forms/${dudaSiteName}`, {
+          headers: { Authorization: `Basic ${auth}`, 'Content-Type': 'application/json' },
+        });
+        if (!r.ok) return null;
+        const raw  = await r.json();
+        const subs = Array.isArray(raw) ? raw : (raw.results || []);
+        return subs.map(s => ({
+          id:           s.id || null,
+          name:         s.name || [s.first_name, s.last_name].filter(Boolean).join(' ') || null,
+          email:        s.email || null,
+          phone:        s.phone || s.phone_number || null,
+          form_name:    s.form_name || s.form_title || null,
+          message:      s.message || s.notes || null,
+          submitted_at: s.date || s.created_at || null,
+        }));
+      } catch (e) {
+        console.error('[widget-events] Duda forms error:', e.message);
+        return null;
+      }
+    })();
 
     const [eventsRes, trendRes, formDatesRes, formHourlyRes, interactionRes] = await Promise.all([
       ga4Post({
@@ -2248,6 +2275,8 @@ app.get('/api/launches/:id/widget-events', requireAuth, async (req, res) => {
           label: r.dimensionValues[1].value,
           count: parseInt(r.metricValues[0].value),
         })),
+      // Duda native site form submissions (resolved in parallel above)
+      dudaForms: await dudaFormsPromise,
     });
   } catch (err) {
     if (err.code === 'not_connected') return res.json({ available: false, reason: 'Analytics not connected' });
