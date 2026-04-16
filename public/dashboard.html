@@ -8655,8 +8655,8 @@ function _impactPct(pre, post) {
   return Math.round((post - pre) / pre * 100);
 }
 
-// Inline SVG sparkline using IMPRESSIONS (always non-zero when data exists).
-// pre-launch weeks = gray, post-launch weeks = indigo, dashed divider at launch date.
+// Inline SVG sparkline. Metric-aware: shows clicks, impressions, or rank depending on _impactSort.
+// pre-launch weeks = gray, post-launch weeks = indigo, dashed divider at midpoint.
 function _impactSparkline(preWeeks, postWeeks, windowWeeks, preDates, postDates) {
   const pre = preWeeks || [], post = postWeeks || [];
   if (!pre.length && !post.length) return '';
@@ -8666,8 +8666,41 @@ function _impactSparkline(preWeeks, postWeeks, windowWeeks, preDates, postDates)
   const preRight = divX - divGap / 2;
   const postLeft = divX + divGap / 2;
 
+  // Pick value getter based on active metric
+  const metric = _impactSort; // 'clicks' | 'impressions' | 'rank'
+  const getV = w => metric === 'clicks' ? (w.clicks || 0) : metric === 'rank' ? (w.position || null) : (w.impressions || 0);
+
   const all = [...pre, ...post];
-  const maxV = Math.max(...all.map(w => w.impressions || 0), 1);
+  const vals = all.map(getV).filter(v => v !== null);
+
+  if (metric === 'rank') {
+    // Rank: lower position = better. Invert y so rank 1 is at top.
+    const minR = Math.min(...vals, 1);
+    const maxR = Math.max(...vals, minR + 1);
+    const yF = v => v === null ? null : (pad + (v - minR) / (maxR - minR) * (H - 2 * pad)).toFixed(1);
+    const preX  = i => pre.length  <= 1 ? (pad + preRight) / 2 : pad + i * (preRight - pad) / (pre.length - 1);
+    const postX = i => post.length <= 1 ? (postLeft + W - pad) / 2 : postLeft + i * (W - pad - postLeft) / (post.length - 1);
+    // For rank, use polyline only (no area fill — inverted fill looks wrong)
+    const ptsOf = (arr, xFn) => arr.map((w,i) => { const v = getV(w); return v !== null ? `${xFn(i).toFixed(1)},${yF(v)}` : null; }).filter(Boolean).join(' ');
+    const prePts  = ptsOf(pre,  preX);
+    const postPts = ptsOf(post, postX);
+    const fmtD = s => { if (!s) return ''; const d = new Date(s + 'T12:00:00Z'); return d.toLocaleDateString('en-US',{month:'short',year:'2-digit',timeZone:'UTC'}); };
+    const preLabel  = preDates  ? `${fmtD(preDates.start)} – ${fmtD(preDates.end)}`   : '';
+    const postLabel = postDates ? `${fmtD(postDates.start)} – ${fmtD(postDates.end)}` : '';
+    return `<div class="sparkline-wrap">
+      <svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+        ${prePts  ? `<polyline points="${prePts}"  fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>` : ''}
+        ${postPts ? `<polyline points="${postPts}" fill="none" stroke="#6366f1" stroke-width="2"   stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>` : ''}
+        <line x1="${divX}" y1="0" x2="${divX}" y2="${H}" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="3,2" vector-effect="non-scaling-stroke"/>
+      </svg>
+      <div class="sparkline-dates">
+        <span class="sparkline-date pre">${preLabel}</span>
+        <span class="sparkline-date post">${postLabel}</span>
+      </div>
+    </div>`;
+  }
+
+  const maxV = Math.max(...vals, 1);
   const yF = v => (H - pad - (v / maxV) * (H - 2 * pad)).toFixed(1);
 
   const preX  = i => pre.length  <= 1 ? (pad + preRight) / 2
@@ -8675,10 +8708,10 @@ function _impactSparkline(preWeeks, postWeeks, windowWeeks, preDates, postDates)
   const postX = i => post.length <= 1 ? (postLeft + W - pad) / 2
                                        : postLeft + i * (W - pad - postLeft) / (post.length - 1);
 
-  const prePts  = pre.map((w,i)  => `${preX(i).toFixed(1)},${yF(w.impressions||0)}`).join(' ');
-  const postPts = post.map((w,i) => `${postX(i).toFixed(1)},${yF(w.impressions||0)}`).join(' ');
-  const preArea  = pre.length  ? `${preX(0).toFixed(1)},${H} ${prePts} ${preX(pre.length-1).toFixed(1)},${H}`   : '';
-  const postArea = post.length ? `${postX(0).toFixed(1)},${H} ${postPts} ${postX(post.length-1).toFixed(1)},${H}` : '';
+  const prePts  = pre.map((w,i)  => `${preX(i).toFixed(1)},${yF(getV(w))}`).join(' ');
+  const postPts = post.map((w,i) => `${postX(i).toFixed(1)},${yF(getV(w))}`).join(' ');
+  const preArea  = pre.length  && prePts  ? `${preX(0).toFixed(1)},${H} ${prePts} ${preX(pre.length-1).toFixed(1)},${H}`   : '';
+  const postArea = post.length && postPts ? `${postX(0).toFixed(1)},${H} ${postPts} ${postX(post.length-1).toFixed(1)},${H}` : '';
 
   // Format date as "Jan '25"
   const fmtD = s => { if (!s) return ''; const d = new Date(s + 'T12:00:00Z'); return d.toLocaleDateString('en-US',{month:'short',year:'2-digit',timeZone:'UTC'}); };
