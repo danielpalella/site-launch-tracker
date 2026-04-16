@@ -2186,22 +2186,32 @@ app.get('/api/launches/:id/widget-events', requireAuth, async (req, res) => {
         if (!r.ok) return null;
         const raw  = await r.json();
         const subs = Array.isArray(raw) ? raw : (raw.results || []);
-        if (subs.length) console.log('[widget-events] Duda form sample:', JSON.stringify(subs[0]).slice(0, 500));
+        if (subs.length) console.log('[widget-events] Duda form sample:', JSON.stringify(subs[0]).slice(0, 800));
         return subs
           .map(s => {
-            // Duda stores form field values in s.message.fields as [{name,value}] pairs
-            const fields = s.message?.fields || [];
+            // Duda stores form values in s.message as either:
+            //   a flat object { "Name": "John", "Phone": "555..." } (most common)
+            //   or an array of { name, value } pairs
+            const msg = s.message || {};
+            let fieldMap = {};
+            if (Array.isArray(msg)) {
+              msg.forEach(f => { if (f.name) fieldMap[f.name.toLowerCase()] = f.value; });
+            } else if (Array.isArray(msg.fields)) {
+              msg.fields.forEach(f => { if (f.name) fieldMap[f.name.toLowerCase()] = f.value; });
+            } else if (typeof msg === 'object') {
+              Object.entries(msg).forEach(([k, v]) => { fieldMap[k.toLowerCase()] = v; });
+            }
             const field = (...keys) => {
-              const f = fields.find(f => keys.some(k => (f.name || '').toLowerCase().includes(k.toLowerCase())));
-              return f?.value || null;
+              const k = Object.keys(fieldMap).find(fk => keys.some(k => fk.includes(k)));
+              return (k && typeof fieldMap[k] === 'string') ? fieldMap[k] || null : null;
             };
             return {
               id:           s.id || null,
-              name:         field('name', 'full name', 'contact') || s.name || [s.first_name, s.last_name].filter(Boolean).join(' ') || null,
+              name:         field('name', 'full name', 'contact name', 'your name') || s.name || [s.first_name, s.last_name].filter(Boolean).join(' ') || null,
               email:        field('email') || s.email || null,
               phone:        field('phone', 'mobile', 'cell', 'telephone', 'number') || s.phone || s.phone_number || null,
               form_name:    s.form_title || s.form_name || null,
-              message:      field('message', 'note', 'comment', 'how can', 'service', 'help', 'describe') || (typeof s.message === 'string' ? s.message : null) || null,
+              message:      field('message', 'note', 'comment', 'how can', 'service', 'help', 'describe', 'question') || null,
               submitted_at: s.date || s.created_at || null,
             };
           })
