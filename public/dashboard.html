@@ -7017,8 +7017,13 @@ async function loadWidgetEvents(id) {
     const hcpCorrelations = (hcpLeads && data.formSubmitHourly?.length)
       ? computeCorrelations(hcpLeads, data.formSubmitHourly, tz)
       : null;
-    const dudaCorrelations = (data.dudaForms?.length)
-      ? computeDudaCorrelations(data.dudaForms, data.widgetOpenHourly, tz)
+    // Filter Duda forms to on/after the chatbot launch date (same cutoff as HCP leads)
+    const dudaSince = hcp.since || null;
+    const dudaForms = (data.dudaForms || []).filter(s =>
+      !dudaSince || !s.submitted_at || s.submitted_at >= dudaSince
+    );
+    const dudaCorrelations = dudaForms.length
+      ? computeDudaCorrelations(dudaForms, data.widgetOpenHourly, tz)
       : null;
 
     // Combined for attribution display
@@ -7033,7 +7038,7 @@ async function loadWidgetEvents(id) {
     const correlations = allCorrelations.length ? allCorrelations : null;
 
     const hcpLeadCount     = hcpLeads ? hcpLeads.length : null;
-    const dudaLeadCount    = data.dudaForms ? data.dudaForms.length : null;
+    const dudaLeadCount    = data.dudaForms ? dudaForms.length : null;
     const totalLeadCount   = (hcpLeadCount || 0) + (dudaLeadCount || 0) || null;
     const attributedCount  = correlations ? correlations.filter(c => c.confidence).length : null;
     const attributedPct    = (attributedCount !== null && totalLeadCount)
@@ -7118,7 +7123,7 @@ async function loadWidgetEvents(id) {
           : '—';
         const sourceBadge = source === 'duda'
           ? `<span style="display:inline-flex;align-items:center;gap:.2rem;font-size:.62rem;font-weight:600;padding:.1rem .35rem;border-radius:.25rem;background:#f9731622;color:#f97316;border:1px solid #f9731633;margin-left:.35rem"><img src="https://www.google.com/s2/favicons?domain=duda.co&sz=16" width="10" height="10" style="border-radius:2px">Duda Form</span>`
-          : `<span style="font-size:.62rem;font-weight:600;padding:.1rem .35rem;border-radius:.25rem;background:#0369a122;color:#38bdf8;border:1px solid #0369a133;margin-left:.35rem">HCP</span>`;
+          : `<span style="display:inline-flex;align-items:center;gap:.2rem;font-size:.62rem;font-weight:600;padding:.1rem .35rem;border-radius:.25rem;background:#0369a122;color:#38bdf8;border:1px solid #0369a133;margin-left:.35rem"><img src="/hcp-icon.ico" width="10" height="10" style="vertical-align:middle">HCP Webform</span>`;
         const statusText = lead.status || (source === 'duda' ? lead.lead_source || 'Duda Form' : '—');
         const statusColor = lead.status === 'New Lead' ? '#f59e0b' : lead.status === 'Assigned' ? '#22c55e' : 'var(--text-muted)';
         const detailId = `lead-detail-${esc(id)}-${idx}`;
