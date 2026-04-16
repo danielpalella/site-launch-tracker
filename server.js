@@ -2152,7 +2152,8 @@ app.get('/api/launches/:id/widget-events', requireAuth, async (req, res) => {
     const token = await getAnalyticsAccessToken();
     const doc = await db.collection('launches').doc(req.params.id).get();
     if (!doc.exists) return res.status(404).json({ error: 'Not found' });
-    const { domain_name: domain, duda_site_name: dudaSiteName } = doc.data();
+    const { domain_name: domain, duda_site_name: dudaSiteName, analytics_start_date, launch_date } = doc.data();
+    const chatbotSince = analytics_start_date || launch_date || null;
     const info = await getGa4PropertyInfo(domain, token);
     if (!info) return res.json({ available: false, reason: 'No GA4 property found for this domain' });
     const { id: propertyId, tz: timezone } = info;
@@ -2185,22 +2186,25 @@ app.get('/api/launches/:id/widget-events', requireAuth, async (req, res) => {
         if (!r.ok) return null;
         const raw  = await r.json();
         const subs = Array.isArray(raw) ? raw : (raw.results || []);
-        return subs.map(s => ({
-          id:           s.id || null,
-          name:         s.name || [s.first_name, s.last_name].filter(Boolean).join(' ') || null,
-          email:        s.email || null,
-          phone:        s.phone || s.phone_number || null,
-          form_name:    s.form_name || s.form_title || null,
-          message:      s.message || s.notes || null,
-          submitted_at: s.date || s.created_at || null,
-        }));
+        return subs
+          .map(s => ({
+            id:           s.id || null,
+            name:         s.name || [s.first_name, s.last_name].filter(Boolean).join(' ') || null,
+            email:        s.email || null,
+            phone:        s.phone || s.phone_number || null,
+            form_name:    s.form_name || s.form_title || null,
+            message:      s.message || s.notes || null,
+            submitted_at: s.date || s.created_at || null,
+          }))
+          // Only include submissions on/after the AI chatbot launch date
+          .filter(s => !chatbotSince || !s.submitted_at || s.submitted_at >= chatbotSince);
       } catch (e) {
         console.error('[widget-events] Duda forms error:', e.message);
         return null;
       }
     })();
 
-    const [eventsRes, trendRes, formDatesRes, formHourlyRes, interactionRes] = await Promise.all([
+    const [eventsRes, trendRes, formDatesRes, formHourlyRes, widgetOpenHourlyRes, interactionRes] = await Promise.all([
       ga4Post({
         dateRanges: [{ startDate: `${days}daysAgo`, endDate: 'today' }],
         dimensions: [{ name: 'eventName' }],
@@ -2228,6 +2232,14 @@ app.get('/api/launches/:id/widget-events', requireAuth, async (req, res) => {
         dimensions: [{ name: 'date' }, { name: 'hour' }],
         metrics: [{ name: 'eventCount' }],
         dimensionFilter: formSubmitFilter,
+        orderBys: [{ dimension: { dimensionName: 'date' }, desc: true }],
+      }),
+      // Hourly widget_open breakdown — for Duda form closed-loop correlation
+      ga4Post({
+        dateRanges: [{ startDate: '90daysAgo', endDate: 'today' }],
+        dimensions: [{ name: 'date' }, { name: 'hour' }],
+        metrics: [{ name: 'eventCount' }],
+        dimensionFilter: { filter: { fieldName: 'eventName', stringFilter: { matchType: 'EXACT', value: 'widget_open' } } },
         orderBys: [{ dimension: { dimensionName: 'date' }, desc: true }],
       }),
       // Chip / button click breakdown by label
@@ -2265,6 +2277,12 @@ app.get('/api/launches/:id/widget-events', requireAuth, async (req, res) => {
       formSubmitHourly: (formHourlyRes.rows || []).map(r => ({
         date: r.dimensionValues[0].value,
         hour: r.dimensionValues[1].value,
+        count: parseInt(r.metricValues[0].value),
+      })),
+      // Hourly widget_open breakdown for Duda closed-loop correlation
+      widgetOpenHourly: (widgetOpenHourlyRes.rows || []).map(r => ({
+        date:  r.dimensionValues[0].value,
+        hour:  r.dimensionValues[1].value,
         count: parseInt(r.metricValues[0].value),
       })),
       // Chip/button clicks broken down by which label was clicked

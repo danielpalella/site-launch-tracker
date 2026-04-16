@@ -6934,9 +6934,9 @@ function computeCorrelations(hcpLeads, formSubmitHourly, tz) {
   });
 }
 
-// Match Duda form submissions against daily widget_open events.
-// Returns array of { lead, source:'duda', confidence: 'high'|null, gaEvent }
-function computeDudaCorrelations(dudaSubs, dailyOpens, tz) {
+// Match Duda form submissions against hourly widget_open events.
+// Returns array of { lead, source:'duda', confidence: 'high'|'medium'|'low'|null, gaEvent }
+function computeDudaCorrelations(dudaSubs, widgetOpenHourly, tz) {
   return (dudaSubs || []).map(sub => {
     const lead = {
       name:         sub.name,
@@ -6948,9 +6948,17 @@ function computeDudaCorrelations(dudaSubs, dailyOpens, tz) {
       submitted_at: sub.submitted_at,
     };
     if (!sub.submitted_at) return { lead, source: 'duda', confidence: null, gaEvent: null };
-    const { dateStr } = utcToLocalDateHour(new Date(sub.submitted_at), tz || 'UTC');
-    const sameDay = (dailyOpens || []).find(e => e.date === dateStr && e.count > 0);
-    if (sameDay) return { lead, source: 'duda', confidence: 'high', gaEvent: sameDay };
+    const { dateStr, hour } = utcToLocalDateHour(new Date(sub.submitted_at), tz || 'UTC');
+
+    const exact    = (widgetOpenHourly || []).find(e => e.date === dateStr && parseInt(e.hour) === hour);
+    if (exact) return { lead, source: 'duda', confidence: 'high', gaEvent: exact };
+
+    const adjacent = (widgetOpenHourly || []).find(e => e.date === dateStr && Math.abs(parseInt(e.hour) - hour) === 1);
+    if (adjacent) return { lead, source: 'duda', confidence: 'medium', gaEvent: adjacent };
+
+    const sameDay  = (widgetOpenHourly || []).find(e => e.date === dateStr);
+    if (sameDay) return { lead, source: 'duda', confidence: 'low', gaEvent: sameDay };
+
     return { lead, source: 'duda', confidence: null, gaEvent: null };
   });
 }
@@ -7010,7 +7018,7 @@ async function loadWidgetEvents(id) {
       ? computeCorrelations(hcpLeads, data.formSubmitHourly, tz)
       : null;
     const dudaCorrelations = (data.dudaForms?.length)
-      ? computeDudaCorrelations(data.dudaForms, data.dailyOpens, tz)
+      ? computeDudaCorrelations(data.dudaForms, data.widgetOpenHourly, tz)
       : null;
 
     // Combined for attribution display
@@ -7036,7 +7044,7 @@ async function loadWidgetEvents(id) {
       { label: 'Widget Opens',    val: opens,    tip: 'Sessions where a visitor clicked the chat bubble and opened the widget.' },
       { label: 'Messages Sent',   val: messages, tip: 'Messages typed and sent by users to the AI chatbot.' },
       { label: '<img src="/hcp-icon.ico" style="width:11px;height:11px;vertical-align:middle;margin-right:.25rem;margin-bottom:1px">HCP Leads', val: hcpLeadCount !== null ? hcpLeadCount : '—', tip: 'Bookings submitted through HouseCallPro since the widget launched.' },
-      { label: 'Site Form Leads', val: dudaLeadCount !== null ? dudaLeadCount : '—', tip: 'Submissions through the Duda contact form on the site.' },
+      { label: '<img src="https://www.google.com/s2/favicons?domain=duda.co&sz=16" width="11" height="11" style="vertical-align:middle;margin-right:.25rem;margin-bottom:1px;border-radius:2px">Duda Form Leads', val: dudaLeadCount !== null ? dudaLeadCount : '—', tip: 'Submissions through the Duda contact form on the site since the chatbot launched.' },
       { label: 'Attribution Rate', val: attributedPct !== null ? `${attributedPct}%` : '—', tip: 'Share of all leads (HCP + site form) that had a widget session on the same day.', color: attributedPct !== null ? summaryColor : null },
     ];
 
@@ -7091,13 +7099,15 @@ async function loadWidgetEvents(id) {
     let closedLoopSection = '';
     if (correlations) {
       const HCP_CONF = {
-        high:   { icon: '✓', color: '#22c55e', label: 'Widget form shown — same hour' },
-        medium: { icon: '~', color: '#f59e0b', label: 'Widget form shown — 1 hr apart' },
-        low:    { icon: '~', color: '#f59e0b', label: 'Widget form shown — same day' },
+        high:   { icon: '✓', color: '#22c55e', label: 'Widget open — same hour' },
+        medium: { icon: '~', color: '#f59e0b', label: 'Widget open — 1 hr apart' },
+        low:    { icon: '~', color: '#f59e0b', label: 'Widget open — same day' },
         null:   { icon: '·', color: 'var(--text-muted)', label: 'No widget session on this date' },
       };
       const DUDA_CONF = {
-        high:   { icon: '✓', color: '#22c55e', label: 'Widget was open — same day' },
+        high:   { icon: '✓', color: '#22c55e', label: 'Widget open — same hour' },
+        medium: { icon: '~', color: '#f59e0b', label: 'Widget open — 1 hr apart' },
+        low:    { icon: '~', color: '#f59e0b', label: 'Widget open — same day' },
         null:   { icon: '·', color: 'var(--text-muted)', label: 'No widget session on this date' },
       };
       const rows = correlations.map(({ lead, source, confidence, gaEvent }, idx) => {
@@ -7107,7 +7117,7 @@ async function loadWidgetEvents(id) {
           ? new Date(lead.submitted_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: tz })
           : '—';
         const sourceBadge = source === 'duda'
-          ? `<span style="font-size:.62rem;font-weight:600;padding:.1rem .35rem;border-radius:.25rem;background:#7c3aed22;color:#a78bfa;border:1px solid #7c3aed33;margin-left:.35rem">Site Form</span>`
+          ? `<span style="display:inline-flex;align-items:center;gap:.2rem;font-size:.62rem;font-weight:600;padding:.1rem .35rem;border-radius:.25rem;background:#f9731622;color:#f97316;border:1px solid #f9731633;margin-left:.35rem"><img src="https://www.google.com/s2/favicons?domain=duda.co&sz=16" width="10" height="10" style="border-radius:2px">Duda Form</span>`
           : `<span style="font-size:.62rem;font-weight:600;padding:.1rem .35rem;border-radius:.25rem;background:#0369a122;color:#38bdf8;border:1px solid #0369a133;margin-left:.35rem">HCP</span>`;
         const statusText = lead.status || (source === 'duda' ? lead.lead_source || 'Duda Form' : '—');
         const statusColor = lead.status === 'New Lead' ? '#f59e0b' : lead.status === 'Assigned' ? '#22c55e' : 'var(--text-muted)';
@@ -7139,7 +7149,7 @@ async function loadWidgetEvents(id) {
       const sinceLine = hcp.since ? `Since ${fmtAnalyticsDate(hcp.since)}` : '';
       const leadSummaryParts = [];
       if (hcpLeadCount) leadSummaryParts.push(`${hcpLeadCount} <img src="/hcp-icon.ico" style="width:11px;height:11px;vertical-align:middle;margin-right:.1rem;margin-bottom:1px">HCP`);
-      if (dudaLeadCount) leadSummaryParts.push(`${dudaLeadCount} site form`);
+      if (dudaLeadCount) leadSummaryParts.push(`${dudaLeadCount} Duda form`);
       const leadSummary = leadSummaryParts.length ? `${attributedCount} of ${totalLeadCount} leads matched a widget session (${leadSummaryParts.join(' + ')})` : '';
       closedLoopSection = `
         <div style="margin-bottom:1.2rem;padding:.85rem;background:var(--surface);border:1px solid var(--border);border-radius:.6rem">
