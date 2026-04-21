@@ -3351,14 +3351,26 @@ app.post('/api/blog/questions', requireAuth, async (req, res) => {
       }
     }
 
-    // Layer 3: Gemini text generation (last resort)
+    // Layer 3: Gemini text generation (last resort) — with seasonal awareness
     if (questions.length < 5) {
       const location = city ? ` in ${city}` : '';
       const geminiKey = await getGeminiKey();
+      const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+      const currentMonth = monthNames[new Date().getMonth()];
+      const SEASONAL_HINTS = {
+        hvac:        { 'January':'furnace emergency tips, heating costs','February':'indoor air quality, humidifiers','March':'spring AC prep','April':'AC tune-up, filter replacement','May':'pre-summer AC check','June':'emergency AC, energy efficiency','July':'AC troubleshooting, thermostats','August':'air quality','September':'fall HVAC prep, furnace','October':'furnace tune-up, heat pumps','November':'heating emergency, thermostats','December':'holiday heating tips' },
+        roofing:     { 'January':'ice dam prevention','February':'winter inspection, attic insulation','March':'spring inspection, gutters','April':'storm damage prep','May':'storm damage, hail season','June':'summer heat, flat roof','July':'emergency leak repair','August':'end of hail season','September':'fall inspection, pre-winter','October':'winter prep, moss treatment','November':'pre-winter gutter cleaning','December':'ice dam prevention, warranty' },
+        plumbing:    { 'January':'frozen pipe emergency','February':'water heater maintenance','March':'spring inspection','April':'outdoor faucets','May':'sump pump check','June':'summer plumbing tips','July':'water conservation','August':'back-to-school plumbing','September':'fall prep','October':'winterize pipes','November':'outdoor faucet shutoff','December':'holiday plumbing tips' },
+        electrical:  { 'January':'winter electrical safety','February':'electrical panel check','March':'spring electrical inspection','April':'outdoor lighting','May':'pre-summer AC electrical load','June':'summer energy efficiency','July':'surge protection','August':'back-to-school wiring','September':'generator prep, storm prep','October':'fall electrical safety','November':'holiday lighting safety','December':'holiday lighting, generator' },
+        restoration: { 'January':'winter pipe burst damage','February':'ice dam water damage','March':'spring flood prep','April':'flood prep, water damage','May':'hurricane season prep','June':'storm damage restoration','July':'mold after flooding','August':'humidity and mold','September':'fall storm prep','October':'winter pipe burst prevention','November':'pre-winter prep','December':'holiday fire safety' },
+      };
+      const seasonalHint = SEASONAL_HINTS[industry.toLowerCase()]?.[currentMonth] || '';
+      const seasonalLine = seasonalHint ? `\nIt is currently ${currentMonth}. Weight 3-4 of the questions toward seasonal topics relevant right now: ${seasonalHint}.` : `\nIt is currently ${currentMonth}. Include 2-3 seasonally relevant questions for this time of year.`;
       const prompt = `You are simulating Reddit posts from homeowners${location} asking questions about ${industry}.
-Generate exactly 10 realistic questions a homeowner might post on r/HomeImprovement or r/DIY.
+Generate exactly 10 realistic questions a homeowner might post on r/HomeImprovement or r/DIY.${seasonalLine}
+Mix question types: 2-3 problem/symptom questions, 1-2 cost questions, 1-2 seasonal/maintenance questions, 1 emergency question, and 1-2 general "how do I choose" or trust questions.
 Return ONLY a valid JSON array with no markdown, no code fences, no explanation. Each item must have:
-{"id": "q1", "title": "short question headline under 80 chars", "detail": "1-2 sentence context from homeowner perspective", "upvotes": 42}
+{"id": "q1", "title": "short question headline under 80 chars", "detail": "1-2 sentence context from homeowner perspective", "upvotes": 42, "suggestedType": "symptom|cost|seasonal|emergency|trust"}
 ids must be q1 through q10. upvotes should be realistic numbers between 12 and 847.`;
       const gRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
         method: 'POST',
@@ -3383,12 +3395,72 @@ ids must be q1 through q10. upvotes should be realistic numbers between 12 and 8
 
 app.post('/api/blog/post', requireAuth, async (req, res) => {
   try {
-    const { industry, city: cityParam, question, detail, keywords, bizName, domain, wordCount, placeId } = req.body;
+    const { industry, city: cityParam, question, detail, keywords, bizName, domain, wordCount, placeId, contentType: rawContentType } = req.body;
     const kwArray = Array.isArray(keywords) ? keywords.filter(Boolean) : (keywords ? [keywords] : []);
     if (!industry || !question) return res.status(400).json({ error: 'industry and question are required' });
-    const words = Math.min(Math.max(parseInt(wordCount) || 600, 400), 1200);
     const cleanDomain = domain ? domain.replace(/^https?:\/\//, '').replace(/\/$/, '') : null;
     const geminiKey = await getGeminiKey();
+
+    // ── Content type definitions ──
+    const CONTENT_TYPES = {
+      symptom: {
+        label: 'Problem / Symptom',
+        wordRange: [800, 1200], defaultWords: 800,
+        structure: `- Open with a 1-2 sentence direct answer to the symptom/problem question
+- 3-4 <h2> sections phrased as questions (e.g. "What Causes [Symptom]?", "Is [Symptom] Dangerous?", "How Much Does It Cost to Fix [Symptom]?")
+- Immediately after each question-format <h2>, write a single direct-answer sentence BEFORE any elaboration — this is critical for AI Overview citations
+- Include a mid-post CTA after the first major section (e.g. "Not sure what's causing this? Call [bizName] for a free diagnosis")`,
+        ctaStyle: 'Not sure what is wrong? Our technicians diagnose for free — call [bizName] today',
+      },
+      cost: {
+        label: 'Cost / Buying Guide',
+        wordRange: [1000, 1500], defaultWords: 1000,
+        structure: `- Open with a clear average cost range in the FIRST paragraph (e.g. "Most homeowners pay between $X and $Y"). NEVER write "costs vary" without a specific dollar range
+- 3-4 <h2> sections phrased as questions (e.g. "How Much Does [Service] Cost?", "What Factors Affect [Service] Cost?", "Is It Worth Repairing or Replacing?")
+- Immediately after each question-format <h2>, write a single direct-answer sentence BEFORE any elaboration
+- Include a cost breakdown: what drives cost up or down (size, material, labor, location)
+- If relevant, include a repair vs replace comparison
+- Include a mid-post CTA after the cost breakdown (e.g. "Want an exact quote? [bizName] offers free estimates — no obligation")`,
+        ctaStyle: 'Get a free estimate from [bizName] — no obligation',
+      },
+      seasonal: {
+        label: 'Seasonal Prep / Maintenance',
+        wordRange: [800, 1200], defaultWords: 800,
+        structure: `- Open with a timely hook referencing the current season and why this maintenance matters NOW
+- 3-4 <h2> sections phrased as questions (e.g. "When Should You Schedule [Service]?", "What Does a [Season] [Service] Include?", "How Much Does [Service] Cost?")
+- Immediately after each question-format <h2>, write a single direct-answer sentence BEFORE any elaboration
+- Use numbered lists for step-by-step checklists
+- Reference the local climate when discussing seasonal patterns
+- Include a mid-post CTA (e.g. "Schedule your [season] tune-up with [bizName] before spots fill up")`,
+        ctaStyle: 'Schedule your tune-up with [bizName] before spots fill up',
+      },
+      emergency: {
+        label: 'Emergency / Urgent Action',
+        wordRange: [500, 800], defaultWords: 600,
+        structure: `- Open with a 2-3 step "do this right now" summary at the VERY TOP — formatted as a numbered list
+- Keep paragraphs extremely short (2-3 sentences max) — the reader is in crisis
+- 2-3 <h2> sections phrased as questions (e.g. "What Should You Do Right Now?", "How Dangerous Is [Problem]?", "What Will a Professional Do When They Arrive?")
+- Immediately after each question-format <h2>, write a single direct-answer sentence BEFORE any elaboration — voice search pulls this verbatim
+- Briefly explain the risk if they delay
+- Describe what the professional will do when they arrive
+- Include a PROMINENT mid-post CTA with phone mention (e.g. "Call [bizName] now — we answer 24/7")`,
+        ctaStyle: 'Call [bizName] now — we answer 24/7',
+      },
+      trust: {
+        label: 'Trust / Authority',
+        wordRange: [1000, 2000], defaultWords: 1200,
+        structure: `- Frame as a process walkthrough, scam awareness guide, or industry explainer
+- 3-4 <h2> sections phrased as questions (e.g. "What Should You Expect During [Service]?", "How Do You Spot a Dishonest [Trade] Contractor?", "What Questions Should You Ask Before Hiring?")
+- Immediately after each question-format <h2>, write a single direct-answer sentence BEFORE any elaboration
+- Position the business as transparent and trustworthy — show expertise through specifics, not claims
+- Include a mid-post CTA (e.g. "Want to see how [bizName] handles this? Check out our customer reviews")`,
+        ctaStyle: 'See why homeowners trust [bizName] — read our customer reviews',
+      },
+    };
+
+    const contentType = CONTENT_TYPES[rawContentType] ? rawContentType : 'symptom';
+    const ct = CONTENT_TYPES[contentType];
+    const words = Math.min(Math.max(parseInt(wordCount) || ct.defaultWords, ct.wordRange[0]), ct.wordRange[1]);
 
     // Fetch Google place data (rating + city) if a Place ID is provided
     const placeData = placeId ? await fetchPlaceRating(placeId) : null;
@@ -3396,10 +3468,10 @@ app.post('/api/blog/post', requireAuth, async (req, res) => {
     const location = city ? ` in ${city}` : '';
 
     const keywordLine = kwArray.length
-      ? `\nTarget SEO keywords: ${kwArray.map(k => `"${k}"`).join(', ')} — weave these naturally throughout the post. Include "${kwArray[0]}" in the <h1> and at least one <h2>.\n`
+      ? `\nTarget SEO keywords: ${kwArray.map(k => `"${k}"`).join(', ')} — weave these naturally throughout the post (max 3 mentions of the primary keyword). Include "${kwArray[0]}" in the <h1> and at least one <h2>.\n`
       : '';
     const bizLine = bizName
-      ? `\nBusiness: "${bizName}"${cleanDomain ? ` (${cleanDomain})` : ''} — use this exact name in the CTA paragraph, never write "[Your Company Name]".\n`
+      ? `\nBusiness: "${bizName}"${cleanDomain ? ` (${cleanDomain})` : ''} — use this exact name in CTA paragraphs, never write "[Your Company Name]".\n`
       : '';
     const cityLine = city
       ? `\nService area: "${city}" — mention this city/region naturally in the <h1>, the intro paragraph, and the CTA to improve local SEO.\n`
@@ -3417,20 +3489,39 @@ ${placeData.reviews.map(rv => `- [${rv.rating} stars] ${rv.name}: "${rv.text}"`)
 - <a href="https://${cleanDomain}/service-areas">our service areas</a>
 - <a href="https://${cleanDomain}/customer-reviews">customer reviews</a>\n`
       : '';
+    const tldrLine = words >= 1000
+      ? `\n- After the intro paragraph, include a <div class="key-takeaway" style="background:#f0f9ff;border-left:4px solid #0284c7;padding:1rem 1.25rem;border-radius:0 8px 8px 0;margin:1.25rem 0"><strong>Key Takeaway:</strong> [1-2 sentence summary answering the main question]</div>\n`
+      : '';
 
-    const prompt = `Write a professional contractor blog post answering this homeowner question about ${industry}${location}.
+    const prompt = `You are a local SEO and AEO (Answer Engine Optimization) content writer for home service contractors. Write a ${ct.label} blog post about ${industry}${location}.
+
+Content type: ${ct.label}
 
 Question: "${question}"
 Context: ${detail || '(no additional context)'}
 ${keywordLine}${bizLine}${cityLine}${reviewsLine}${customerReviewsLine}${internalLinksLine}
-Write an SEO-optimized blog post in clean HTML. Include:
-- A compelling <h1> title — rewrite the source question into an SEO-friendly blog title (e.g. not "Which one of yall did this?" but "5 Signs Your Roof Was Damaged in a Storm")${kwArray.length ? ` Include the target keyword.` : ''}${city ? ` Include "${city}".` : ''}
-- A brief intro paragraph (2-3 sentences)
-- Three <h2> sections with practical advice
-${placeData?.reviews?.length ? `- A "Don't just take our word for it" <h2> section using the provided customer reviews (blockquote each one)\n` : ''}- A "When to Call a Professional" section with a clear CTA that mentions the business by name${placeData?.rating ? `, their Google rating, and links to their reviews page` : ''}
+Write an SEO-optimized blog post in clean HTML. Structure:
+- A compelling <h1> title under 60 characters — rewrite the source question into an SEO-friendly blog title (e.g. not "Which one of yall did this?" but "5 Signs Your Roof Was Damaged in a Storm")${kwArray.length ? ` Include the target keyword.` : ''}${city ? ` Include "${city}".` : ''}
+- A brief intro paragraph (2-3 sentences) that directly addresses the question within the first 150 words
+${tldrLine}${ct.structure}
+${placeData?.reviews?.length ? `- A "Don't just take our word for it" <h2> section using the provided customer reviews (blockquote each one)\n` : ''}- A closing CTA section that mentions the business by name${placeData?.rating ? `, their Google rating, and links to their reviews page` : ''}
+- A <h2>Frequently Asked Questions</h2> section near the end (before the closing CTA) with 3-5 Q&As. Each Q&A should use: <h3>[Question]</h3> followed by <p>[2-3 sentence answer]</p>. Use questions homeowners actually search — not questions you wish they'd ask.
 - Total length: approximately ${words} words
 
-Return ONLY the HTML body content (no <html>, <head>, <body> wrapper tags). Use only <h1>, <h2>, <p>, <a>, <blockquote> tags.`;
+ALSO generate a meta description on its own line at the very end, wrapped in <!-- META: [your 140-155 character meta description with keyword and a soft CTA like "Learn what to expect" or "Get a free estimate today"] -->
+
+RULES — DO NOT VIOLATE:
+- Every <h2> MUST be phrased as a question (e.g. "What Causes...?" not "Common Causes of...")
+- Immediately after each <h2> question, the FIRST sentence must directly answer it — do not bury the answer
+- No paragraph longer than 4 sentences
+- Do NOT open with "When it comes to..." or "As a homeowner..." or any generic filler
+- Do NOT write "costs vary depending on many factors" without giving a specific dollar range
+- Do NOT repeat the target keyword more than 3 times in the body
+- Do NOT use "click here" or "learn more" as anchor text — use descriptive service names
+- Use <strong> to bold key terms where a skimmer would want to land — not randomly
+- Use numbered lists for step-by-step processes, bulleted lists for tips and warning signs
+
+Return ONLY the HTML body content (no <html>, <head>, <body> wrapper tags). Use only <h1>, <h2>, <h3>, <p>, <a>, <ul>, <ol>, <li>, <strong>, <blockquote>, <div> tags.`;
 
     // Build Pexels search query from topic title (more relevant than location-based keyword)
     // Strip question words and city names; keep nouns related to the subject
@@ -3452,17 +3543,17 @@ Return ONLY the HTML body content (no <html>, <head>, <body> wrapper tags). Use 
     let post = raw.replace(/^```html?\n?/i, '').replace(/\n?```$/m, '').trim();
     if (!post) throw new Error('Gemini returned no content');
 
-    // heroImage.url is passed to Duda as the post thumbnail (featured image)
-    // Duda strips inline <img> tags from imported content, so we use the thumbnail field instead
+    // Extract meta description from <!-- META: ... --> comment before stripping it
+    const metaMatch = post.match(/<!--\s*META:\s*([\s\S]*?)\s*-->/i);
+    const craftedMetaDesc = metaMatch ? metaMatch[1].trim().slice(0, 155) : null;
+    post = post.replace(/<!--\s*META:[\s\S]*?-->/gi, '').trim();
 
     // Clean up internal links — remove standalone link paragraphs Gemini sometimes generates
-    // e.g. <p><a href="...">our services</a></p> with no surrounding text
     if (cleanDomain) {
       post = post.replace(/<p>\s*<a\s+href="https?:\/\/[^"]*"[^>]*>[^<]+<\/a>\s*<\/p>/gi, (match) => {
-        // Keep if the <p> has meaningful text beyond just the link
         const textContent = match.replace(/<[^>]+>/g, '').trim();
         const linkText = (match.match(/>([^<]+)<\/a>/) || [])[1] || '';
-        return textContent === linkText ? '' : match; // remove if paragraph is ONLY the link
+        return textContent === linkText ? '' : match;
       });
 
       // Guarantee all three internal links are present somewhere in the post
@@ -3482,16 +3573,19 @@ Return ONLY the HTML body content (no <html>, <head>, <body> wrapper tags). Use 
       }
     }
 
-    // Build BlogPosting JSON-LD
+    // ── Extract data for schema and quality checks ──
     const h1Match     = post.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
     const pMatch      = post.match(/<p[^>]*>([\s\S]*?)<\/p>/i);
     const jsonLdTitle = h1Match ? h1Match[1].replace(/<[^>]+>/g, '').trim() : question;
-    const jsonLdDesc  = pMatch  ? pMatch[1].replace(/<[^>]+>/g, '').trim().slice(0, 160) : '';
+    const fallbackDesc = pMatch ? pMatch[1].replace(/<[^>]+>/g, '').trim().slice(0, 160) : '';
+    const metaDesc = craftedMetaDesc || fallbackDesc;
+
+    // ── Build BlogPosting JSON-LD ──
     const jsonLd = {
       '@context': 'https://schema.org',
       '@type': 'BlogPosting',
       headline: jsonLdTitle,
-      ...(jsonLdDesc ? { description: jsonLdDesc } : {}),
+      ...(metaDesc ? { description: metaDesc } : {}),
       datePublished: new Date().toISOString().slice(0, 10),
       author:    { '@type': 'Organization', name: bizName || industry },
       publisher: { '@type': 'Organization', name: bizName || industry },
@@ -3506,7 +3600,60 @@ Return ONLY the HTML body content (no <html>, <head>, <body> wrapper tags). Use 
       } : {}),
     };
 
-    res.json({ post, jsonLd, metaDesc: jsonLdDesc, heroImageUrl: heroImage?.url || null, _pexelsDebug: heroImage?.debug || null });
+    // ── Build FAQPage JSON-LD from FAQ section ──
+    const faqItems = [];
+    const faqRegex = /<h3[^>]*>([\s\S]*?)<\/h3>\s*<p[^>]*>([\s\S]*?)<\/p>/gi;
+    let faqMatch;
+    while ((faqMatch = faqRegex.exec(post)) !== null) {
+      const qText = faqMatch[1].replace(/<[^>]+>/g, '').trim();
+      const aText = faqMatch[2].replace(/<[^>]+>/g, '').trim();
+      if (qText && aText) faqItems.push({ question: qText, answer: aText });
+    }
+    const faqJsonLd = faqItems.length >= 2 ? {
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: faqItems.map(f => ({
+        '@type': 'Question',
+        name: f.question,
+        acceptedAnswer: { '@type': 'Answer', text: f.answer },
+      })),
+    } : null;
+
+    // ── Quality score — check post against strategy checklist ──
+    const qualityFlags = [];
+    const h1Text = jsonLdTitle;
+    if (h1Text.length > 60) qualityFlags.push({ rule: 'title_length', msg: `Title is ${h1Text.length} chars (target: under 60)` });
+    const questionH2s = (post.match(/<h2[^>]*>[^<]*\?[^<]*<\/h2>/gi) || []).length;
+    if (questionH2s < 2) qualityFlags.push({ rule: 'question_h2s', msg: `Only ${questionH2s} question-format H2s (target: 2+)` });
+    if (faqItems.length < 3) qualityFlags.push({ rule: 'faq_count', msg: `Only ${faqItems.length} FAQ items (target: 3-5)` });
+    const hasInternalLink = cleanDomain ? post.includes(cleanDomain) : true;
+    if (!hasInternalLink) qualityFlags.push({ rule: 'internal_links', msg: 'No internal links to service pages' });
+    if (metaDesc.length < 130 || metaDesc.length > 160) qualityFlags.push({ rule: 'meta_length', msg: `Meta description is ${metaDesc.length} chars (target: 140-155)` });
+    // Check for long paragraphs (>4 sentences)
+    const paragraphs = post.match(/<p[^>]*>([\s\S]*?)<\/p>/gi) || [];
+    const longParas = paragraphs.filter(p => {
+      const text = p.replace(/<[^>]+>/g, '').trim();
+      const sentences = text.split(/[.!?]+\s/).filter(s => s.trim().length > 5);
+      return sentences.length > 4;
+    }).length;
+    if (longParas > 0) qualityFlags.push({ rule: 'para_length', msg: `${longParas} paragraph(s) exceed 4 sentences` });
+    // Count CTAs (look for CTA-like patterns)
+    const ctaCount = (post.match(/call\s+(us|[\w]+)\s+(now|today)|free\s+estimate|schedule\s+(a|your)|contact\s+(us|[\w]+)|get\s+a\s+free|book\s+(a|your)/gi) || []).length;
+    if (ctaCount < 2) qualityFlags.push({ rule: 'cta_count', msg: `Only ${ctaCount} CTA(s) detected (target: 2+)` });
+
+    const qualityScore = Math.max(0, 100 - (qualityFlags.length * 15));
+
+    res.json({
+      post,
+      jsonLd,
+      faqJsonLd,
+      metaDesc,
+      heroImageUrl: heroImage?.url || null,
+      contentType,
+      qualityScore,
+      qualityFlags,
+      _pexelsDebug: heroImage?.debug || null,
+    });
   } catch (err) {
     console.error('blog/post error:', err);
     res.status(500).json({ error: err.message });

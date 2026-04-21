@@ -6416,16 +6416,24 @@ function renderAnalyticsModalBody(id, data, forms) {
             <div class="blog-ready-title">Ready to generate</div>
             <div class="blog-ready-status" id="blog-ready-status-${id}">Select a post above to get started</div>
             <div class="blog-ready-features">
-              <span class="blog-ready-feat blog-ready-feat-green">BlogPosting schema included</span>
-              <span class="blog-ready-feat blog-ready-feat-blue">SEO title rewrite</span>
+              <span class="blog-ready-feat blog-ready-feat-green">BlogPosting + FAQ schema</span>
+              <span class="blog-ready-feat blog-ready-feat-blue">AEO-optimized H2s</span>
               <span class="blog-ready-feat blog-ready-feat-blue">Meta description</span>
+              <span class="blog-ready-feat blog-ready-feat-green">Quality score</span>
             </div>
           </div>
           <div class="blog-ready-right">
+            <select id="blog-content-type-${id}" class="blog-ready-words" title="Content type">
+              <option value="symptom" selected>Problem / Symptom</option>
+              <option value="cost">Cost / Buying Guide</option>
+              <option value="seasonal">Seasonal / Maintenance</option>
+              <option value="emergency">Emergency / Urgent</option>
+              <option value="trust">Trust / Authority</option>
+            </select>
             <select id="blog-word-count-${id}" class="blog-ready-words">
-              <option value="400">~400 words</option>
               <option value="600" selected>~600 words</option>
               <option value="800">~800 words</option>
+              <option value="1000">~1000 words</option>
               <option value="1200">~1200 words</option>
             </select>
             <button id="blog-generate-btn-${id}" class="blog-generate-btn" onclick="generateBlogPost('${esc(id)}')" disabled>Generate blog post</button>
@@ -8261,6 +8269,13 @@ function selectBlogQuestion(id, q, btnEl) {
     btnEl.textContent = 'Selected';
     btnEl.classList.add('blog-q-use-selected');
     document.getElementById('bq-' + id + '-' + q.id)?.classList.add('blog-q-card-active');
+    // Auto-set content type from AI suggestion if available
+    if (q.suggestedType) {
+      const ctSel = document.getElementById('blog-content-type-' + id);
+      if (ctSel && ctSel.querySelector(`option[value="${q.suggestedType}"]`)) {
+        ctSel.value = q.suggestedType;
+      }
+    }
   }
   updateReadyPanel(id);
 }
@@ -8418,8 +8433,9 @@ async function generateBlogPost(id) {
   const city     = document.getElementById('blog-city-' + id)?.value.trim() || '';
   const question = _blogSelectedQ[id];
   if (!question) return;
-  const keywords  = [...(_blogKeywords[id] || new Set())];
-  const wordCount = document.getElementById('blog-word-count-' + id)?.value || 600;
+  const keywords     = [...(_blogKeywords[id] || new Set())];
+  const wordCount    = document.getElementById('blog-word-count-' + id)?.value || 600;
+  const contentType  = document.getElementById('blog-content-type-' + id)?.value || 'symptom';
 
   document.querySelectorAll('#blog-q-grid-' + id + ' .blog-q-card').forEach(c => {
     if (c.id !== 'bq-' + id + '-' + question.id) c.classList.remove('blog-q-card-active');
@@ -8445,19 +8461,36 @@ async function generateBlogPost(id) {
   pa.style.display = '';
   pa.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
+  // Remove previous quality badge if any
+  const oldQBadge = document.getElementById('blog-quality-badge-' + id);
+  if (oldQBadge) oldQBadge.remove();
+
   delete _blogPosts[id];
   try {
     const res = await fetch('/api/blog/post', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ industry, city, question: question.title, detail: question.detail, keywords, bizName: analyticsData[id]?.account_name || null, domain: analyticsData[id]?.domain_name || null, wordCount, placeId: analyticsData[id]?.google_place_id || null }),
+      body: JSON.stringify({ industry, city, question: question.title, detail: question.detail, keywords, bizName: analyticsData[id]?.account_name || null, domain: analyticsData[id]?.domain_name || null, wordCount, placeId: analyticsData[id]?.google_place_id || null, contentType }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Failed');
     const titleMatch = data.post.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
     const title = titleMatch ? titleMatch[1].replace(/<[^>]+>/g, '').trim() : question.title;
-    _blogPosts[id] = { title, html: data.post, jsonLd: data.jsonLd || null, industry, city, questionId: question.id };
+    _blogPosts[id] = { title, html: data.post, jsonLd: data.jsonLd || null, faqJsonLd: data.faqJsonLd || null, metaDesc: data.metaDesc || '', industry, city, questionId: question.id, heroImageUrl: data.heroImageUrl || null, contentType: data.contentType || contentType };
     content.innerHTML = data.post;
+
+    // Show quality score badge
+    const qs = data.qualityScore ?? 100;
+    const qColor = qs >= 85 ? '#16a34a' : qs >= 55 ? '#d97706' : '#ef4444';
+    const qLabel = qs >= 85 ? 'Strong' : qs >= 55 ? 'Needs review' : 'Weak';
+    const flagsHtml = (data.qualityFlags || []).map(f => '<div style="font-size:.7rem;color:var(--text-muted);margin-top:.15rem">• ' + esc(f.msg) + '</div>').join('');
+    const qBadge = document.createElement('span');
+    qBadge.id = 'blog-quality-badge-' + id;
+    qBadge.title = (data.qualityFlags || []).map(f => f.msg).join('\n') || 'All checks passed';
+    qBadge.style.cssText = 'display:inline-flex;align-items:center;gap:.3rem;font-size:.72rem;font-weight:700;border-radius:20px;padding:.2rem .65rem;cursor:help;background:' + qColor + '18;color:' + qColor;
+    qBadge.innerHTML = 'Quality: ' + qs + '/100 — ' + qLabel;
+    label.parentNode.insertBefore(qBadge, badge);
+
     // Mark all active keyword chips as injected
     keywords.forEach(kw => {
       document.querySelectorAll('#blog-kw-section-' + id + ' .blog-kw-chip').forEach(c => {
@@ -8489,10 +8522,11 @@ async function pushBlogToDuda(id, publish) {
   otherBtn.disabled = true;
   btn.textContent = publish ? 'Publishing…' : 'Saving…';
   try {
-    // Prepend JSON-LD schema block if available
-    const htmlWithSchema = post.jsonLd
-      ? `<script type="application/ld+json">\n${JSON.stringify(post.jsonLd, null, 2)}\n<\/script>\n` + post.html
-      : post.html;
+    // Prepend JSON-LD schema blocks (BlogPosting + FAQ) if available
+    let schemaBlocks = '';
+    if (post.jsonLd) schemaBlocks += `<script type="application/ld+json">\n${JSON.stringify(post.jsonLd, null, 2)}\n<\/script>\n`;
+    if (post.faqJsonLd) schemaBlocks += `<script type="application/ld+json">\n${JSON.stringify(post.faqJsonLd, null, 2)}\n<\/script>\n`;
+    const htmlWithSchema = schemaBlocks + post.html;
     const res = await fetch(`/api/analytics/${id}/push-blog`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
