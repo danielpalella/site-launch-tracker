@@ -6038,7 +6038,7 @@ function renderAnalyticsModalBody(id, data, forms) {
           + '<span class="acd-opp-stat">' + ctr.toFixed(1) + '% CTR</span>'
           + '<span class="acd-opp-clicks">' + (q.clicks || 0) + ' clk</span>'
           + '<span class="kw-pos kw-pos-amber">#' + pos + '</span>'
-          + '<button class="opp-blog-btn" id="' + kwId + '" onclick="generateBlogDraft(\'' + esc(id) + '\',\'' + esc(q.query) + '\',this)" title="Generate a draft blog post targeting this keyword">✍ Draft</button>'
+          + ''
           + '</div>'
           + (hint ? '<div class="acd-opp-hint">💡 ' + hint + '</div>' : '')
           + '</div>';
@@ -8196,28 +8196,6 @@ function toggleGshGroup(bodyId, header) {
   const isCollapsed = body.classList.toggle('collapsed');
   const chevron = header.querySelector('.gsh-group-chevron');
   if (chevron) chevron.classList.toggle('rot', isCollapsed);
-}
-
-async function generateBlogDraft(id, keyword, btnEl) {
-  btnEl.disabled = true;
-  btnEl.textContent = '…';
-  try {
-    const res = await fetch(`/api/analytics/${id}/generate-blog`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ keyword }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Failed');
-    btnEl.textContent = '✓ Saved';
-    btnEl.style.color = '#22c55e';
-    btnEl.style.borderColor = '#22c55e';
-    showToast(`Draft saved to Duda: "${data.title}"`, 'success');
-  } catch (err) {
-    btnEl.disabled = false;
-    btnEl.textContent = '✍ Draft';
-    showToast(err.message, 'error');
-  }
 }
 
 // ── Blog Generator (modal-scoped) ────────────────────────────────────
