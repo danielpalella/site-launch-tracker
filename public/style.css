@@ -336,8 +336,7 @@ input.error, select.error { border-color: var(--s-awaiting); }
 /* Search input — visible inner border so it reads as an input */
 .toolbar input {
   min-width: 160px;
-  max-width: 380px;
-  flex: 0 0 380px;
+  flex: 1 1 380px;
   font-size: .82rem;
   padding: .42rem .75rem;
   border: 1.5px solid var(--border);
