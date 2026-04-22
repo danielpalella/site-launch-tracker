@@ -5318,7 +5318,7 @@ function renderAnalyticsOverview(industryFilter) {
     if (datasets.length > 1) scales.y1 = { position: 'right', ticks: { color: textC, font: { size: 10 }, maxTicksLimit: 5 }, grid: { display: false }, border: { display: false } };
     overviewChart = new Chart(document.getElementById('ov-chart-canvas'), {
       type: 'line',
-      data: { labels: allWeeks.map(w => new Date(w).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })), datasets },
+      data: { labels: allWeeks.map(w => new Date(w + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })), datasets },
       options: {
         responsive: true, maintainAspectRatio: false, animation: { duration: 300 },
         plugins: {
@@ -6635,7 +6635,7 @@ function renderAnalyticsModalBody(id, data, forms) {
     if (datasets.length > 1) scales.y1 = { position: 'right', ticks: { color: textC, font: { size: 10 }, maxTicksLimit: 5 }, grid: { display: false }, border: { display: false } };
     window._acdChart = new Chart(document.getElementById('acd-canvas'), {
       type: 'line',
-      data: { labels: allWks.map(w => new Date(w).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })), datasets },
+      data: { labels: allWks.map(w => new Date(w + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })), datasets },
       options: {
         responsive: true, maintainAspectRatio: false, animation: { duration: 200 },
         plugins: {
@@ -7851,7 +7851,7 @@ function renderAnalyticsCard(id, data) {
     if (datasets.length > 1) scales.y1 = { position: 'right', ticks: { color: textC, font: { size: 9 }, maxTicksLimit: 4 }, grid: { display: false }, border: { display: false } };
     analyticsCharts[id] = new Chart(document.getElementById(`ac-chart-${id}`), {
       type: 'line',
-      data: { labels: allWeeks.map(w => new Date(w).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })), datasets },
+      data: { labels: allWeeks.map(w => new Date(w + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })), datasets },
       options: {
         responsive: true, maintainAspectRatio: false, animation: { duration: 250 },
         plugins: {
