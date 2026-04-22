@@ -3545,7 +3545,7 @@ Return ONLY the HTML body content (no <html>, <head>, <body> wrapper tags). Use 
       fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.7, maxOutputTokens: 8192 } }),
       }),
       fetchPexelsImage(pexelsQuery),
     ]);
