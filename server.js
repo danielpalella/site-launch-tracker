@@ -1527,7 +1527,7 @@ async function getAnalyticsAccessToken() {
   const snap = await db.collection('config').doc('analytics_oauth').get();
   if (!snap.exists) throw Object.assign(new Error('not_connected'), { code: 'not_connected' });
   const { refresh_token } = snap.data();
-  const r = await fetch('https://oauth2.googleapis.com/token', {
+  const r = await fetchWithRetry('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
@@ -1538,7 +1538,7 @@ async function getAnalyticsAccessToken() {
     }),
   });
   const data = await r.json();
-  if (!data.access_token) throw new Error('Failed to refresh analytics token');
+  if (!data.access_token) throw new Error(data.error_description || data.error || 'Failed to refresh analytics token');
   _analyticsToken = { access_token: data.access_token, expires_at: Date.now() + (data.expires_in || 3600) * 1000 };
   return _analyticsToken.access_token;
 }
@@ -1679,6 +1679,24 @@ async function getGa4PropertyInfo(domain, token) {
 
 function isoDate(d) { return d.toISOString().slice(0, 10); }
 
+// Retry wrapper for external API calls — retries once on transient errors (429, 500-503, network)
+async function fetchWithRetry(url, opts = {}, { retries = 1, delay = 2000 } = {}) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const r = await fetch(url, { signal: AbortSignal.timeout(15_000), ...opts });
+      if (r.ok || attempt === retries) return r;
+      if ([429, 500, 502, 503].includes(r.status)) {
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+      return r; // non-retryable HTTP error (401, 403, 404, etc.)
+    } catch (err) {
+      if (attempt === retries) throw err;
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+}
+
 function computePctChange(weeks, key) {
   if (weeks.length < 4) return null;
   const n = Math.min(4, Math.floor(weeks.length / 2));
@@ -1695,7 +1713,7 @@ async function fetchGSC(domain, launchDate, token) {
 
   async function querySC(siteUrl, body) {
     incrApiStat('gsc');
-    const r = await fetch(
+    const r = await fetchWithRetry(
       `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(siteUrl)}/searchAnalytics/query`,
       {
         method: 'POST',
@@ -1723,7 +1741,7 @@ async function fetchGSC(domain, launchDate, token) {
       rows = data.rows || [];
       siteUrl = candidate;
       break;
-    } catch { /* try next */ }
+    } catch { /* try next candidate */ }
   }
   if (!siteUrl) return { available: false };
 
@@ -1789,7 +1807,7 @@ async function fetchGSCWindow(domain, startDate, endDate, token, forceSiteUrl = 
 
   async function querySC(siteUrl, body) {
     incrApiStat('gsc');
-    const r = await fetch(
+    const r = await fetchWithRetry(
       `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(siteUrl)}/searchAnalytics/query`,
       {
         method: 'POST',
@@ -1891,7 +1909,7 @@ async function fetchGA4(propertyId, launchDate, token) {
 
   async function runReport(body) {
     incrApiStat('ga4');
-    const r = await fetch(
+    const r = await fetchWithRetry(
       `https://analyticsdata.googleapis.com/v1beta/${property}:runReport`,
       {
         method: 'POST',
@@ -2145,8 +2163,8 @@ async function fetchDuda(siteName, launchDate) {
   incrApiStat('duda'); // traffic
   incrApiStat('duda'); // activities
   const [trafficRes, activityRes] = await Promise.all([
-    fetch(`${base}/analytics/site/${siteName}${dateParams}&result=traffic`,     { headers }),
-    fetch(`${base}/analytics/site/${siteName}${dateParams}&result=activities`,  { headers }),
+    fetchWithRetry(`${base}/analytics/site/${siteName}${dateParams}&result=traffic`,     { headers }),
+    fetchWithRetry(`${base}/analytics/site/${siteName}${dateParams}&result=activities`,  { headers }),
   ]);
 
   if (!trafficRes.ok) {
@@ -2576,7 +2594,7 @@ async function fetchAndCacheAnalytics(id, { force = false } = {}) {
     try {
       const dudaCreds = await getDudaCredentials();
       const dudaAuth  = Buffer.from(`${dudaCreds.api_user}:${dudaCreds.api_pass}`).toString('base64');
-      const fRes = await fetch(`https://api.duda.co/api/sites/multiscreen/get-forms/${launch.duda_site_name}`, {
+      const fRes = await fetchWithRetry(`https://api.duda.co/api/sites/multiscreen/get-forms/${launch.duda_site_name}`, {
         headers: { Authorization: `Basic ${dudaAuth}`, 'Content-Type': 'application/json' },
       });
       if (fRes.ok) {
