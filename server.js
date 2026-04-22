@@ -3551,9 +3551,17 @@ Return ONLY the HTML body content (no <html>, <head>, <body> wrapper tags). Use 
     ]);
     const gData = await gRes.json();
     if (!gRes.ok) throw new Error(gData.error?.message || 'Gemini error');
-    const raw = gData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const candidate = gData.candidates?.[0];
+    const raw = candidate?.content?.parts?.[0]?.text || '';
     let post = raw.replace(/^```html?\n?/i, '').replace(/\n?```$/m, '').trim();
-    if (!post) throw new Error('Gemini returned no content');
+    if (!post) throw new Error(gData.error?.message || gData.promptFeedback?.blockReason || 'Gemini returned no content');
+
+    // Detect truncation — Gemini sets finishReason to MAX_TOKENS when it runs out
+    const finishReason = candidate?.finishReason || '';
+    const wasTruncated = finishReason === 'MAX_TOKENS';
+
+    // Detect empty headings (H2/H3 followed by another heading or end-of-string, with no paragraph between)
+    const emptyHeadings = (post.match(/<h[23][^>]*>[^<]*<\/h[23]>\s*(?=<h[23]|<\/div>|$)/gi) || []).length;
 
     // Extract meta description from <!-- META: ... --> comment before stripping it
     const metaMatch = post.match(/<!--\s*META:\s*([\s\S]*?)\s*-->/i);
@@ -3652,8 +3660,12 @@ Return ONLY the HTML body content (no <html>, <head>, <body> wrapper tags). Use 
     // Count CTAs (look for CTA-like patterns)
     const ctaCount = (post.match(/call\s+(us|[\w]+)\s+(now|today)|free\s+estimate|schedule\s+(a|your)|contact\s+(us|[\w]+)|get\s+a\s+free|book\s+(a|your)/gi) || []).length;
     if (ctaCount < 2) qualityFlags.push({ rule: 'cta_count', msg: `Only ${ctaCount} CTA(s) detected (target: 2+)` });
+    // Truncation detection
+    if (wasTruncated) qualityFlags.push({ rule: 'truncated', msg: 'Post was truncated by Gemini token limit — content is incomplete' });
+    if (emptyHeadings >= 2) qualityFlags.push({ rule: 'empty_headings', msg: `${emptyHeadings} heading(s) have no content beneath them — likely truncated` });
 
     const qualityScore = Math.max(0, 100 - (qualityFlags.length * 15));
+    const isTruncated = wasTruncated || emptyHeadings >= 2;
 
     res.json({
       post,
@@ -3664,6 +3676,7 @@ Return ONLY the HTML body content (no <html>, <head>, <body> wrapper tags). Use 
       contentType,
       qualityScore,
       qualityFlags,
+      isTruncated,
       _pexelsDebug: heroImage?.debug || null,
     });
   } catch (err) {

@@ -8467,6 +8467,14 @@ async function generateBlogPost(id) {
     qBadge.innerHTML = 'Quality: ' + qs + '/100 — ' + qLabel;
     label.parentNode.insertBefore(qBadge, badge);
 
+    // Show truncation warning if post is incomplete
+    if (data.isTruncated) {
+      const warn = document.createElement('div');
+      warn.style.cssText = 'background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:.6rem 1rem;margin-bottom:.75rem;font-size:.8rem;color:#991b1b;display:flex;align-items:center;gap:.5rem';
+      warn.innerHTML = '<strong>Truncated</strong> — This post was cut short by the AI. Headings are missing content. Re-generate before publishing.';
+      content.parentNode.insertBefore(warn, content);
+    }
+
     // Mark all active keyword chips as injected
     keywords.forEach(kw => {
       document.querySelectorAll('#blog-kw-section-' + id + ' .blog-kw-chip').forEach(c => {
@@ -8476,7 +8484,10 @@ async function generateBlogPost(id) {
     const site = analyticsData[id];
     if (site && site.duda_site_name) {
       if (draftBtn)   draftBtn.style.display = '';
-      if (publishBtn) publishBtn.style.display = '';
+      if (publishBtn) {
+        publishBtn.style.display = '';
+        if (data.isTruncated) { publishBtn.disabled = true; publishBtn.title = 'Post is truncated — re-generate first'; }
+      }
     }
     if (editBtn) editBtn.style.display = '';
     copyBtn.style.display = '';

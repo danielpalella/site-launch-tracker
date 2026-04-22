@@ -1201,11 +1201,11 @@ async function generateForSite(site) {
     const titleMatch = data.post.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
     const title = titleMatch ? titleMatch[1].replace(/<[^>]+>/g,'').trim() : state.topic.title;
     if (data._pexelsDebug) console.log('[Pexels debug]', JSON.stringify(data._pexelsDebug));
-    state.posts[site.id] = { status: 'done', title, html: data.post, jsonLd: data.jsonLd || null, faqJsonLd: data.faqJsonLd || null, heroImageUrl: data.heroImageUrl || null, qualityScore: data.qualityScore ?? null, qualityFlags: data.qualityFlags || [], contentType: data.contentType || 'symptom', _pexelsDebug: data._pexelsDebug || null, keyword, city };
+    state.posts[site.id] = { status: 'done', title, html: data.post, jsonLd: data.jsonLd || null, faqJsonLd: data.faqJsonLd || null, heroImageUrl: data.heroImageUrl || null, qualityScore: data.qualityScore ?? null, qualityFlags: data.qualityFlags || [], contentType: data.contentType || 'symptom', isTruncated: data.isTruncated || false, _pexelsDebug: data._pexelsDebug || null, keyword, city };
     clearInterval(phaseTimer);
-    if (rowEl)  { rowEl.classList.remove('generating'); rowEl.classList.add('done'); }
-    if (dotEl)  { dotEl.classList.remove('active'); dotEl.classList.add('done'); }
-    if (statusEl) { statusEl.className = 'bb-gen-status done'; statusEl.textContent = '✓ Done'; }
+    if (rowEl)  { rowEl.classList.remove('generating'); rowEl.classList.add(data.isTruncated ? 'error' : 'done'); }
+    if (dotEl)  { dotEl.classList.remove('active'); dotEl.classList.add(data.isTruncated ? 'error' : 'done'); }
+    if (statusEl) { statusEl.className = 'bb-gen-status ' + (data.isTruncated ? 'error' : 'done'); statusEl.textContent = data.isTruncated ? '⚠ Truncated' : '✓ Done'; }
     // Reveal the actual blog title under the site name
     const titleEl = document.getElementById(`bb-gen-title-${site.id}`);
     if (titleEl) { titleEl.textContent = `"${title}"`; titleEl.style.display = ''; }
@@ -1306,10 +1306,11 @@ function buildReviewGrid() {
           <button class="bb-btn bb-btn-ghost bb-btn-sm" onclick="toggleReviewBody('${s.id}')">Preview</button>
           ${!isActioned && !isQueued ? `<button class="bb-btn bb-btn-outline bb-btn-sm" onclick="queueOne('${s.id}')">Save for later</button>` : ''}
           <button class="bb-btn bb-btn-outline bb-btn-sm" onclick="pushOne('${s.id}', false)" ${disableAction ? 'disabled' : ''}>Draft</button>
-          <button class="bb-btn bb-btn-primary bb-btn-sm" onclick="pushOne('${s.id}', true)" ${disableAction ? 'disabled' : ''}>Publish</button>
+          <button class="bb-btn bb-btn-primary bb-btn-sm" onclick="pushOne('${s.id}', true)" ${disableAction || post.isTruncated ? 'disabled' : ''} ${post.isTruncated ? 'title="Post is truncated — re-generate first"' : ''}>Publish</button>
         </div>
       </div>
       <div class="bb-review-card-body" id="bb-rcb-${s.id}">
+        ${post.isTruncated ? '<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;padding:.5rem .75rem;margin-bottom:.75rem;font-size:.75rem;color:#991b1b"><strong>Truncated</strong> — This post was cut short. Headings are missing content. Do not publish.</div>' : ''}
         ${post.heroImageUrl
           ? `<img class="bb-review-hero" src="${esc(post.heroImageUrl)}" alt="Hero image" loading="lazy">`
           : `<div class="bb-review-hero-none">⚠ No hero image — ${post._pexelsDebug ? `step: ${esc(post._pexelsDebug.step)}${post._pexelsDebug.error ? ', err: ' + esc(post._pexelsDebug.error) : ''}${post._pexelsDebug.httpStatus ? ', http: ' + post._pexelsDebug.httpStatus : ''}` : 'no debug info'}</div>`}
