@@ -121,8 +121,6 @@
             <div class="fp-group-label">Owner</div>
             <div class="fp-chips">
               <button class="fp-chip fp-chip-active" data-filter="owner" data-value="all" onclick="setFilter('owner','all',this)">All</button>
-              <button class="fp-chip" data-filter="owner" data-value="Daniel" onclick="setFilter('owner','Daniel',this)">Daniel</button>
-              <button class="fp-chip" data-filter="owner" data-value="Thierry" onclick="setFilter('owner','Thierry',this)">Thierry</button>
             </div>
           </div>
           <div class="fp-group">
@@ -595,8 +593,6 @@
             <label for="modal-owner">Owner</label>
             <select id="modal-owner">
               <option value="">— Unassigned —</option>
-              <option value="Daniel">Daniel</option>
-              <option value="Thierry">Thierry</option>
             </select>
           </div>
           <div class="crm-field">
@@ -733,8 +729,6 @@
           <label for="er-modal-owner">Owner</label>
           <select id="er-modal-owner">
             <option value="">— Unassigned —</option>
-            <option value="Daniel">Daniel</option>
-            <option value="Thierry">Thierry</option>
           </select>
         </div>
       </div>
@@ -767,8 +761,6 @@
 
 <div id="claim-popup" class="claim-popup">
   <div class="claim-popup-title">Assign to…</div>
-  <button class="claim-option" onclick="assignOwner('Daniel')">Daniel</button>
-  <button class="claim-option" onclick="assignOwner('Thierry')">Thierry</button>
 </div>
 
 <!-- ── Admin Panel (right-side sheet) ── -->
@@ -790,7 +782,7 @@
       <button class="asht-btn" onclick="switchAdminTab('analytics', this)">Analytics Cache</button>
       <button class="asht-btn" onclick="switchAdminTab('apiusage', this)">API Usage</button>
       <button class="asht-btn" onclick="switchAdminTab('errorlog', this)">Error Log</button>
-      <button class="asht-btn" onclick="switchAdminTab('tools', this)">Tools</button>
+      <button class="asht-btn" onclick="switchAdminTab('users', this)">Users</button>
     </div>
     <div id="admin-tab-logs" class="admin-sheet-body">
       <div id="admin-loading" class="admin-loading-msg">Loading activity…</div>
@@ -831,17 +823,14 @@
         <div id="admin-el-list" style="display:none"></div>
       </div>
     </div>
-    <div id="admin-tab-tools" class="admin-sheet-body" style="display:none">
+    <div id="admin-tab-users" class="admin-sheet-body" style="display:none">
       <div class="admin-lh-wrap">
-        <p class="admin-lh-hint">Internal tools and experimental features.</p>
-        <a href="/map" target="_blank" style="display:flex;align-items:center;gap:.75rem;padding:.85rem 1rem;border:1px solid var(--border);border-radius:.6rem;text-decoration:none;color:var(--text);margin-top:.75rem;transition:background .15s" onmouseover="this.style.background='var(--row-bg)'" onmouseout="this.style.background=''">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C7.6 2 4 5.6 4 10c0 6 8 14 8 14s8-8 8-14c0-4.4-3.6-8-8-8z"/><circle cx="12" cy="10" r="3"/></svg>
-          <div>
-            <div style="font-size:.83rem;font-weight:600">Site Map <span style="font-size:.65rem;font-weight:700;background:#7c3aed22;color:#a78bfa;border:1px solid #7c3aed44;border-radius:4px;padding:.1rem .35rem;margin-left:.3rem">BETA</span></div>
-            <div style="font-size:.74rem;color:var(--text-muted);margin-top:.15rem">Interactive map of all launched sites with rocket markers</div>
-          </div>
-          <svg style="margin-left:auto;flex-shrink:0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"/></svg>
-        </a>
+        <p class="admin-lh-hint">Manage team members who can be assigned as owners on launches and edit requests. Deactivating a member removes them from assignment dropdowns but preserves their history.</p>
+        <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.85rem">
+          <input type="text" id="admin-user-name" class="admin-search-input" placeholder="New member name…" style="flex:1;margin-bottom:0" onkeydown="if(event.key==='Enter')addTeamMember()">
+          <button class="admin-lh-run-btn" style="margin-top:0;white-space:nowrap" onclick="addTeamMember()">Add Member</button>
+        </div>
+        <div id="admin-user-list"></div>
       </div>
     </div>
     <div id="admin-tab-lighthouse" class="admin-sheet-body" style="display:none">
@@ -926,7 +915,7 @@ function toggleChartStatus(status) {
 const GROUP_KEYS = {
   department: ['Sales', 'Retention', 'Customer Success', 'CS-Renewal', 'Other'],
   industry:   ['Roofing', 'Plumbing', 'Electrical', 'HVAC', 'Landscaping', 'Contracting', 'Restoration', 'Solar', 'Flooring', 'Gutters', 'Windows/Glass', 'Cleaning Services'],
-  owner:      ['Daniel', 'Thierry', 'Unassigned'],
+  owner:      ['Unassigned'],  // populated dynamically by loadTeamMembers()
 };
 let viewMode   = 'table';
 let groupByDim = 'department';
@@ -1701,7 +1690,13 @@ function openEdit(id) {
   document.getElementById('modal-contact_name').value = r.contact_name || '';
   document.getElementById('modal-email').value        = r.email || '';
   document.getElementById('modal-phone').value        = r.phone || '';
-  document.getElementById('modal-owner').value        = r.owner || '';
+  // Ensure current owner appears in dropdown even if deactivated
+  const _moSel = document.getElementById('modal-owner');
+  if (r.owner && !_activeMembers.includes(r.owner)) {
+    const opt = document.createElement('option'); opt.value = r.owner; opt.textContent = r.owner + ' (inactive)';
+    _moSel.appendChild(opt);
+  }
+  _moSel.value = r.owner || '';
   document.getElementById('modal-status').value       = r.status;
   document.getElementById('modal-notes').value          = r.notes || '';
   document.getElementById('modal-duda-site-name').value = r.duda_site_name || '';
@@ -2497,7 +2492,12 @@ function openEditRequest(id) {
     `${esc(r.first_name)} ${esc(r.last_name)}&ensp;·&ensp;<a href="mailto:${esc(r.email)}" style="color:var(--primary);text-decoration:none" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${esc(r.email)}</a>&ensp;·&ensp;${esc(r.phone)}`;
   document.getElementById('er-modal-submitted').textContent = `Submitted ${formatDate(r.created_at)}`;
   document.getElementById('er-modal-status').value          = r.status;
-  document.getElementById('er-modal-owner').value           = r.owner || '';
+  const _erSel = document.getElementById('er-modal-owner');
+  if (r.owner && !_activeMembers.includes(r.owner)) {
+    const opt = document.createElement('option'); opt.value = r.owner; opt.textContent = r.owner + ' (inactive)';
+    _erSel.appendChild(opt);
+  }
+  _erSel.value = r.owner || '';
   document.getElementById('er-modal-notes').value           = r.notes || '';
   document.getElementById('er-modal-archive').textContent   = r.archived ? 'Unarchive' : 'Archive';
   updateErStatusBadge(r.status);
@@ -2999,12 +2999,140 @@ function switchAdminTab(tab, btn) {
   document.getElementById('admin-tab-analytics').style.display  = tab === 'analytics'  ? 'flex' : 'none';
   document.getElementById('admin-tab-apiusage').style.display   = tab === 'apiusage'   ? 'flex' : 'none';
   document.getElementById('admin-tab-errorlog').style.display   = tab === 'errorlog'   ? 'flex' : 'none';
-  document.getElementById('admin-tab-tools').style.display      = tab === 'tools'      ? 'flex' : 'none';
+  document.getElementById('admin-tab-users').style.display      = tab === 'users'      ? 'flex' : 'none';
   document.querySelectorAll('.asht-btn').forEach(b => b.classList.toggle('asht-active', b === btn));
   if (tab === 'analytics') loadAdminAnalyticsList();
   if (tab === 'apiusage')  loadAdminApiUsage();
   if (tab === 'errorlog')  loadAdminErrorLogs();
+  if (tab === 'users')     loadTeamMembers();
 }
+
+// ── Team Members (dynamic owner list) ──
+let _teamMembers = []; // all members (active + inactive)
+let _activeMembers = []; // only active names
+
+async function loadTeamMembers() {
+  try {
+    const res = await fetch('/api/team-members');
+    const data = await res.json();
+    _teamMembers = data.members || [];
+    _activeMembers = _teamMembers.filter(m => m.active).map(m => m.name);
+    renderTeamMemberList();
+    refreshOwnerUI();
+  } catch (err) {
+    console.error('loadTeamMembers error:', err);
+  }
+}
+
+function renderTeamMemberList() {
+  const list = document.getElementById('admin-user-list');
+  if (!list) return;
+  if (!_teamMembers.length) {
+    list.innerHTML = '<div style="font-size:.8rem;color:var(--text-muted);padding:.5rem 0">No team members yet.</div>';
+    return;
+  }
+  list.innerHTML = _teamMembers.map(m => {
+    const active = m.active;
+    const badge = active
+      ? '<span style="font-size:.65rem;font-weight:700;background:#16a34a18;color:#16a34a;border-radius:10px;padding:.1rem .4rem">Active</span>'
+      : '<span style="font-size:.65rem;font-weight:700;background:#ef444418;color:#ef4444;border-radius:10px;padding:.1rem .4rem">Inactive</span>';
+    const btnLabel = active ? 'Deactivate' : 'Reactivate';
+    const btnColor = active ? '#ef4444' : '#16a34a';
+    return `<div style="display:flex;align-items:center;gap:.6rem;padding:.6rem .75rem;border:1px solid var(--border);border-radius:.5rem;margin-bottom:.4rem">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${active ? 'var(--text)' : 'var(--text-muted)'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      <span style="font-size:.83rem;font-weight:600;flex:1;${active ? '' : 'color:var(--text-muted);text-decoration:line-through'}">${esc(m.name)}</span>
+      ${badge}
+      <button onclick="toggleTeamMember('${esc(m.name)}', ${!active})" style="font-size:.7rem;font-weight:600;padding:.2rem .5rem;border:1px solid ${btnColor}44;border-radius:5px;background:${btnColor}12;color:${btnColor};cursor:pointer;font-family:inherit">${btnLabel}</button>
+    </div>`;
+  }).join('');
+}
+
+async function addTeamMember() {
+  const input = document.getElementById('admin-user-name');
+  const name = input.value.trim();
+  if (!name) return;
+  input.disabled = true;
+  try {
+    const res = await fetch('/api/team-members', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    });
+    const data = await res.json();
+    if (!res.ok) { showToast(data.error || 'Failed', 'error'); return; }
+    _teamMembers = data.members;
+    _activeMembers = _teamMembers.filter(m => m.active).map(m => m.name);
+    renderTeamMemberList();
+    refreshOwnerUI();
+    input.value = '';
+    showToast(data.reactivated ? `Reactivated ${name}` : `Added ${name}`, 'success');
+  } catch (err) {
+    showToast(err.message, 'error');
+  } finally {
+    input.disabled = false;
+    input.focus();
+  }
+}
+
+async function toggleTeamMember(name, active) {
+  try {
+    const res = await fetch(`/api/team-members/${encodeURIComponent(name)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ active }),
+    });
+    const data = await res.json();
+    if (!res.ok) { showToast(data.error || 'Failed', 'error'); return; }
+    _teamMembers = data.members;
+    _activeMembers = _teamMembers.filter(m => m.active).map(m => m.name);
+    renderTeamMemberList();
+    refreshOwnerUI();
+    showToast(`${name} ${active ? 'reactivated' : 'deactivated'}`, 'success');
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+function refreshOwnerUI() {
+  // Update owner filter chips in pipeline
+  const chipWrap = document.querySelector('.fp-group:has([data-filter="owner"]) .fp-chips');
+  if (chipWrap) {
+    const current = chipWrap.querySelector('.fp-chip-active')?.dataset?.value || 'all';
+    chipWrap.innerHTML = '<button class="fp-chip' + (current === 'all' ? ' fp-chip-active' : '') + '" data-filter="owner" data-value="all" onclick="setFilter(\'owner\',\'all\',this)">All</button>'
+      + _activeMembers.map(n => '<button class="fp-chip' + (current === n ? ' fp-chip-active' : '') + '" data-filter="owner" data-value="' + esc(n) + '" onclick="setFilter(\'owner\',\'' + esc(n) + '\',this)">' + esc(n) + '</button>').join('');
+  }
+
+  // Update owner select in launch modal
+  const modalOwner = document.getElementById('modal-owner');
+  if (modalOwner) {
+    const val = modalOwner.value;
+    modalOwner.innerHTML = '<option value="">— Unassigned —</option>' + _activeMembers.map(n => '<option value="' + esc(n) + '">' + esc(n) + '</option>').join('');
+    modalOwner.value = val; // preserve current selection
+  }
+
+  // Update owner select in edit request modal
+  const erModalOwner = document.getElementById('er-modal-owner');
+  if (erModalOwner) {
+    const val = erModalOwner.value;
+    erModalOwner.innerHTML = '<option value="">— Unassigned —</option>' + _activeMembers.map(n => '<option value="' + esc(n) + '">' + esc(n) + '</option>').join('');
+    erModalOwner.value = val;
+  }
+
+  // Update claim popup
+  const claimPopup = document.getElementById('claim-popup');
+  if (claimPopup) {
+    claimPopup.innerHTML = '<div class="claim-popup-title">Assign to…</div>'
+      + _activeMembers.map(n => '<button class="claim-option" onclick="assignOwner(\'' + esc(n) + '\')">' + esc(n) + '</button>').join('');
+  }
+
+  // Update GROUP_KEYS for chart view
+  if (typeof GROUP_KEYS !== 'undefined') {
+    GROUP_KEYS.owner = [..._activeMembers, 'Unassigned'];
+  }
+}
+
+// Load team members on page load so owner dropdowns are populated
+loadTeamMembers();
 
 let _adminAcLoaded = false;
 async function loadAdminAnalyticsList() {

@@ -212,6 +212,66 @@ app.get('/api/config/maps-key', requireAuth, async (req, res) => {
   res.json({ key: key || null });
 });
 
+// ── Team Members (active users available for owner assignment) ──
+app.get('/api/team-members', requireAuth, async (req, res) => {
+  try {
+    const doc = await db.collection('config').doc('team_members').get();
+    const members = doc.exists ? (doc.data().members || []) : [
+      { name: 'Daniel', active: true, addedAt: new Date().toISOString() },
+      { name: 'Thierry', active: true, addedAt: new Date().toISOString() },
+    ];
+    // Seed if missing
+    if (!doc.exists) await db.collection('config').doc('team_members').set({ members });
+    res.json({ members });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/team-members', requireAuth, async (req, res) => {
+  try {
+    const { name } = req.body;
+    if (!name || typeof name !== 'string' || !name.trim()) return res.status(400).json({ error: 'name is required' });
+    const trimmed = name.trim();
+    const doc = await db.collection('config').doc('team_members').get();
+    const members = doc.exists ? (doc.data().members || []) : [];
+    // Check for duplicate (case-insensitive)
+    if (members.some(m => m.name.toLowerCase() === trimmed.toLowerCase())) {
+      // If they exist but are inactive, reactivate them
+      const existing = members.find(m => m.name.toLowerCase() === trimmed.toLowerCase());
+      if (!existing.active) {
+        existing.active = true;
+        await db.collection('config').doc('team_members').set({ members });
+        return res.json({ ok: true, reactivated: true, members });
+      }
+      return res.status(409).json({ error: 'Member already exists' });
+    }
+    members.push({ name: trimmed, active: true, addedAt: new Date().toISOString() });
+    await db.collection('config').doc('team_members').set({ members });
+    res.json({ ok: true, members });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.patch('/api/team-members/:name', requireAuth, async (req, res) => {
+  try {
+    const targetName = decodeURIComponent(req.params.name);
+    const { active } = req.body;
+    if (typeof active !== 'boolean') return res.status(400).json({ error: 'active (boolean) is required' });
+    const doc = await db.collection('config').doc('team_members').get();
+    const members = doc.exists ? (doc.data().members || []) : [];
+    const member = members.find(m => m.name === targetName);
+    if (!member) return res.status(404).json({ error: 'Member not found' });
+    member.active = active;
+    if (!active) member.deactivatedAt = new Date().toISOString();
+    await db.collection('config').doc('team_members').set({ members });
+    res.json({ ok: true, members });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Return all launched sites with lat/lng for the map view
 app.get('/api/launches/map-data', requireAuth, async (req, res) => {
   try {
