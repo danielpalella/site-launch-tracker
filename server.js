@@ -1670,12 +1670,17 @@ async function fetchGSC(domain, launchDate, token) {
   const topData = await querySC(siteUrl, { startDate, endDate, dimensions: ['query'], rowLimit: 25 })
     .catch(() => ({ rows: [] }));
 
+  // Helper: bucket a date string into its Sun-start week key using UTC to avoid timezone shift
+  function utcWeekStart(dateStr) {
+    const d = new Date(dateStr + 'T00:00:00Z');
+    d.setUTCDate(d.getUTCDate() - d.getUTCDay()); // roll back to Sunday in UTC
+    return d.toISOString().slice(0, 10);
+  }
+
   const weekMap = {};
   let clicks = 0, impressions = 0, posWSum = 0, posWImps = 0;
   for (const row of rows) {
-    const d = new Date(row.keys[0]);
-    d.setDate(d.getDate() - d.getDay());
-    const wk = isoDate(d);
+    const wk = utcWeekStart(row.keys[0]);
     if (!weekMap[wk]) weekMap[wk] = { clicks: 0, impressions: 0, posWSum: 0, posWImps: 0 };
     weekMap[wk].clicks += row.clicks || 0;
     weekMap[wk].impressions += row.impressions || 0;
@@ -1781,12 +1786,15 @@ async function fetchGSCWindow(domain, startDate, endDate, token, forceSiteUrl = 
 
   if (!siteUrl) return { weeks: [], totals: { clicks: 0, impressions: 0, ctr: 0, position: null }, siteUrl: null };
 
+  function utcWeekStartW(dateStr) {
+    const d = new Date(dateStr + 'T00:00:00Z');
+    d.setUTCDate(d.getUTCDate() - d.getUTCDay());
+    return d.toISOString().slice(0, 10);
+  }
   const weekMap = {};
   let clicks = 0, impressions = 0, posWSum = 0, posWImps = 0;
   for (const row of rows) {
-    const d = new Date(row.keys[0]);
-    d.setDate(d.getDate() - d.getDay());
-    const wk = isoDate(d);
+    const wk = utcWeekStartW(row.keys[0]);
     if (!weekMap[wk]) weekMap[wk] = { clicks: 0, impressions: 0, posWSum: 0, posWImps: 0 };
     weekMap[wk].clicks += row.clicks || 0;
     weekMap[wk].impressions += row.impressions || 0;
@@ -1881,13 +1889,17 @@ async function fetchGA4(propertyId, launchDate, token) {
     }),
   ]);
 
+  function utcWeekStartGA4(yyyymmdd) {
+    const ds = `${yyyymmdd.slice(0,4)}-${yyyymmdd.slice(4,6)}-${yyyymmdd.slice(6,8)}`;
+    const d = new Date(ds + 'T00:00:00Z');
+    d.setUTCDate(d.getUTCDate() - d.getUTCDay());
+    return d.toISOString().slice(0, 10);
+  }
   const weekMap = {};
   let sessions = 0, users = 0, newUsers = 0, engSum = 0, engCount = 0;
   for (const row of dailyData.rows || []) {
     const raw = row.dimensionValues[0].value;
-    const d = new Date(`${raw.slice(0,4)}-${raw.slice(4,6)}-${raw.slice(6,8)}`);
-    d.setDate(d.getDate() - d.getDay());
-    const wk = isoDate(d);
+    const wk = utcWeekStartGA4(raw);
     const [s, u, n, e] = row.metricValues.map(m => parseFloat(m.value) || 0);
     if (!weekMap[wk]) weekMap[wk] = { sessions: 0, users: 0, newUsers: 0, engSum: 0, engCount: 0 };
     weekMap[wk].sessions += s;
