@@ -4488,6 +4488,107 @@ app.put('/api/onboarding/sessions/:id/answer', requireAuth, async (req, res) => 
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// AI conversation turn — evaluates the contractor's answer and decides next action
+app.post('/api/onboarding/chat', requireAuth, async (req, res) => {
+  try {
+    const { question, answer, followups, sectionName, clientName, conversationContext } = req.body;
+    if (!question || !answer) return res.status(400).json({ error: 'question and answer required' });
+
+    const geminiKey = await getGeminiKey();
+    const followupList = (followups || []).map((f, i) => `${i + 1}. "${f}"`).join('\n');
+    const contextLine = conversationContext ? `\nRecent conversation context:\n${conversationContext}\n` : '';
+
+    const prompt = `You are a friendly, professional interviewer onboarding a home services contractor named "${clientName || 'the contractor'}" for their new website. You are currently in the "${sectionName || ''}" section of the interview.
+
+You just asked: "${question}"
+They answered: "${answer}"
+${contextLine}
+Available follow-up prompts you can choose from:
+${followupList || '(none)'}
+
+Evaluate their answer and decide what to do next. Return ONLY valid JSON with no markdown:
+
+If the answer is substantive and complete enough to move on:
+{"action":"next","message":"A brief, warm 1-sentence acknowledgment of what they said, then a natural transition like 'Great, let me ask about...' Do NOT include the next question — just the transition."}
+
+If the answer is too short, vague, or you need more detail — pick a follow-up:
+{"action":"followup","message":"A natural, conversational way to ask for more detail. Incorporate the follow-up prompt naturally — don't read it verbatim. Keep it to 1-2 sentences. Be encouraging, not interrogating."}
+
+If the answer is confusing or doesn't address the question:
+{"action":"clarify","message":"A gentle, friendly request to rephrase. 1 sentence max."}
+
+Rules:
+- Be warm and conversational, like a real person — not robotic
+- Reference specific things they said in your response
+- Keep responses short (1-3 sentences max)
+- If they said "skip" or "I don't know" or similar → always return action "next"
+- Only ask ONE follow-up per turn — never stack multiple questions
+- Return ONLY the JSON object, nothing else`;
+
+    const gRes = await fetchWithRetry(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.7, maxOutputTokens: 512 } }),
+      }
+    );
+    const gData = await gRes.json();
+    const raw = gData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const cleaned = raw.replace(/^```json?\s*/i, '').replace(/```\s*$/, '').trim();
+
+    let result;
+    try { result = JSON.parse(cleaned); } catch {
+      // Fallback — move on if we can't parse
+      result = { action: 'next', message: 'Got it, thanks! Let me move on to the next question.' };
+    }
+    res.json(result);
+  } catch (err) {
+    console.error('onboarding chat error:', err);
+    res.json({ action: 'next', message: 'Thanks for that. Let\'s keep going.' });
+  }
+});
+
+// AI generates a natural way to ask the next question
+app.post('/api/onboarding/ask', requireAuth, async (req, res) => {
+  try {
+    const { question, sectionName, clientName, isFirstQuestion, previousContext } = req.body;
+    if (!question) return res.status(400).json({ error: 'question required' });
+
+    const geminiKey = await getGeminiKey();
+    const contextLine = previousContext ? `\nWhat we've covered so far:\n${previousContext}\n` : '';
+
+    const prompt = `You are a friendly, professional interviewer onboarding a home services contractor named "${clientName || 'the contractor'}" for their new website.
+${isFirstQuestion ? `This is the very first question of the interview. Start with a warm, brief welcome (1 sentence) before asking.` : `You are in the "${sectionName}" section.`}
+${contextLine}
+Ask this interview question in a natural, conversational way:
+"${question}"
+
+Rules:
+- Be warm and human — not robotic or formal
+- Keep it to 1-3 sentences
+- Ask the question naturally, don't just repeat it verbatim
+- If transitioning to a new section, briefly introduce what this section covers (1 sentence)
+- Return ONLY the conversational question text, no JSON, no quotes, no markdown`;
+
+    const gRes = await fetchWithRetry(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.8, maxOutputTokens: 256 } }),
+      }
+    );
+    const gData = await gRes.json();
+    const raw = gData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const text = raw.replace(/^["']|["']$/g, '').trim();
+    res.json({ message: text || question });
+  } catch (err) {
+    console.error('onboarding ask error:', err);
+    res.json({ message: req.body.question }); // fallback to raw question
+  }
+});
+
 app.post('/api/onboarding/sessions/:id/extract', requireAuth, async (req, res) => {
   try {
     const doc = await db.collection('onboarding_interviews').doc(req.params.id).get();
