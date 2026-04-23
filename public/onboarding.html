@@ -238,7 +238,15 @@
         <div class="ob-chat-progress" id="ob-chat-progress">Question 1 of 27 · Origin Story</div>
         <div class="ob-chat-pbar"><div class="ob-chat-pbar-fill" id="ob-chat-pbar-fill"></div></div>
       </div>
+      <button class="ob-chat-end-btn" id="ob-copy-join-btn" onclick="copyJoinLink()" style="display:none" title="Copy link for contractor to join">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
+        Share Join Link
+      </button>
       <button class="ob-chat-end-btn" onclick="finishEarly()">Finish Early</button>
+    </div>
+    <div id="ob-contractor-bar" style="display:none;padding:.4rem .75rem;background:#16a34a12;border:1px solid #16a34a33;border-radius:6px;margin-bottom:0;font-size:.75rem;color:#16a34a;font-weight:600;display:none;align-items:center;gap:.4rem;flex-shrink:0">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/></svg>
+      <span id="ob-contractor-status">Contractor voice connected</span>
     </div>
     <div class="ob-messages" id="ob-messages"></div>
     <div class="ob-input-bar" style="flex-wrap:wrap">
@@ -321,6 +329,9 @@ let selectedClientId = null;
 let selectedClient = null;
 let inputLocked = false;
 let searchTimer = null;
+let joinToken = null;
+let contractorPollTimer = null;
+let lastTranscriptCount = 0;
 const esc = s => { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
 
 // ── Auth ──
@@ -343,6 +354,7 @@ function showView(id) {
   });
   // Toggle chat-active class on page container for layout
   document.querySelector('.ob-page').classList.toggle('ob-chat-active', id === 'ob-chat');
+  if (id !== 'ob-chat') stopContractorPolling();
   if (id === 'ob-landing') { loadExistingSessions(); loadRecentClients(); }
 }
 
@@ -521,6 +533,7 @@ async function startInterview() {
     const data = await r.json();
     if (!r.ok) throw new Error(data.error);
     sessionId = data.id;
+    joinToken = data.join_token || null;
     currentQ = 0;
     answers = {};
     skipped = [];
@@ -529,12 +542,14 @@ async function startInterview() {
     document.getElementById('ob-messages').innerHTML = '';
     document.getElementById('ob-chat-client').textContent = clientName;
     updateProgress();
+    showJoinLink();
     showView('ob-chat');
     sessionStorage.setItem('ob-session', JSON.stringify({ id: sessionId }));
+    startContractorPolling();
     // AI asks the first question
     await askCurrentQuestion(true);
   } catch (err) { alert(err.message); }
-  finally { input.disabled = false; }
+  finally { btn.disabled = false; }
 }
 
 // ── Resume ──
@@ -548,6 +563,7 @@ async function resumeSession(id) {
     answers = data.answers || {};
     skipped = data.skipped || [];
     clientName = data.client_name || 'Untitled';
+    joinToken = data.join_token || null;
     awaitingFollowup = false;
     followupAnswer = '';
 
@@ -561,8 +577,10 @@ async function resumeSession(id) {
     document.getElementById('ob-messages').innerHTML = '';
     document.getElementById('ob-chat-client').textContent = clientName;
     updateProgress();
+    showJoinLink();
     showView('ob-chat');
     sessionStorage.setItem('ob-session', JSON.stringify({ id: sessionId }));
+    startContractorPolling();
 
     // Replay answered questions as a summary, then ask current
     if (currentQ > 0) {
@@ -834,6 +852,67 @@ function copyProfile() {
     btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Copied!';
     setTimeout(() => { btn.innerHTML = orig; }, 2000);
   });
+}
+
+// ── Join link & contractor polling ──
+function showJoinLink() {
+  if (!joinToken) return;
+  document.getElementById('ob-copy-join-btn').style.display = '';
+}
+
+function copyJoinLink() {
+  if (!sessionId || !joinToken) return;
+  const url = `${window.location.origin}/join/${sessionId}/${joinToken}`;
+  navigator.clipboard.writeText(url).then(() => {
+    const btn = document.getElementById('ob-copy-join-btn');
+    btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Copied!';
+    btn.style.color = '#16a34a';
+    btn.style.borderColor = '#16a34a';
+    setTimeout(() => {
+      btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg> Share Join Link';
+      btn.style.color = '';
+      btn.style.borderColor = '';
+    }, 3000);
+  });
+}
+
+function startContractorPolling() {
+  stopContractorPolling();
+  lastTranscriptCount = 0;
+  contractorPollTimer = setInterval(async () => {
+    if (!sessionId) return;
+    try {
+      const r = await fetch(`/api/onboarding/sessions/${sessionId}`);
+      if (!r.ok) return;
+      const data = await r.json();
+      const chunks = data.transcript_chunks || [];
+      // Show contractor connection indicator
+      const hasContractor = chunks.some(c => c.source === 'contractor');
+      const bar = document.getElementById('ob-contractor-bar');
+      if (hasContractor && bar) bar.style.display = 'flex';
+
+      // Show new contractor transcript chunks as messages
+      if (chunks.length > lastTranscriptCount) {
+        const newChunks = chunks.slice(lastTranscriptCount);
+        for (const chunk of newChunks) {
+          if (chunk.source === 'contractor') {
+            addMessage('user', chunk.text);
+          }
+        }
+        lastTranscriptCount = chunks.length;
+      }
+
+      // Show interim typing
+      if (data.contractor_interim) {
+        const status = document.getElementById('ob-contractor-status');
+        if (status) status.textContent = 'Contractor speaking...';
+      }
+    } catch {}
+  }, 3000);
+}
+
+function stopContractorPolling() {
+  if (contractorPollTimer) { clearInterval(contractorPollTimer); contractorPollTimer = null; }
 }
 
 // ── Input helpers ──

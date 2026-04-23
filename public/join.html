@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Interview · RealWork Labs</title>
+<link rel="icon" href="/favicon.png" type="image/png" />
+<style>
+:root { --primary: #1259FF; --bg: #f1f5f9; --surface: #fff; --text: #0f172a; --text-muted: #64748b; --border: #e2e8f0 }
+* { margin: 0; padding: 0; box-sizing: border-box }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column }
+
+.j-header { background: var(--surface); border-bottom: 1px solid var(--border); padding: .75rem 1.25rem; display: flex; align-items: center; gap: .75rem; flex-shrink: 0 }
+.j-logo { height: 24px }
+.j-header-sep { width: 1px; height: 20px; background: var(--border) }
+.j-header-title { font-size: .82rem; font-weight: 600; color: var(--text-muted) }
+
+.j-main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 1.5rem 1.25rem; max-width: 520px; margin: 0 auto; width: 100% }
+
+/* Loading / Error */
+.j-loading { text-align: center; color: var(--text-muted); font-size: .9rem }
+.j-error { text-align: center; color: #ef4444; font-size: .9rem; padding: 2rem }
+
+/* Interview active state */
+.j-interview { display: none; width: 100%; flex: 1; flex-direction: column }
+.j-client { font-size: 1.1rem; font-weight: 700; color: var(--text); text-align: center; margin-bottom: .25rem }
+.j-progress-label { font-size: .75rem; color: var(--text-muted); text-align: center; margin-bottom: .5rem }
+.j-progress-bar { height: 3px; background: var(--border); border-radius: 3px; overflow: hidden; margin-bottom: 1.5rem }
+.j-progress-fill { height: 100%; background: var(--primary); border-radius: 3px; transition: width .4s ease }
+
+.j-section-tag { font-size: .65rem; font-weight: 700; color: var(--primary); text-transform: uppercase; letter-spacing: .6px; text-align: center; margin-bottom: .35rem }
+.j-question { font-size: 1.05rem; font-weight: 600; color: var(--text); text-align: center; line-height: 1.45; margin-bottom: 1.5rem; min-height: 2.5rem }
+
+/* Transcript area */
+.j-transcript-wrap { flex: 1; width: 100%; min-height: 100px; margin-bottom: 1rem }
+.j-transcript-label { font-size: .7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .4px; margin-bottom: .4rem }
+.j-transcript { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: .85rem 1rem; min-height: 80px; max-height: 200px; overflow-y: auto; font-size: .88rem; line-height: 1.55; color: var(--text) }
+.j-transcript:empty::before { content: 'Your words will appear here as you speak...'; color: var(--text-muted); font-style: italic }
+.j-transcript .j-interim { color: var(--text-muted) }
+
+/* Mic button */
+.j-mic-wrap { display: flex; flex-direction: column; align-items: center; gap: .5rem; padding: 1rem 0 }
+.j-mic-btn { width: 72px; height: 72px; border-radius: 50%; border: 3px solid var(--border); background: var(--surface); color: var(--text-muted); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all .2s; -webkit-tap-highlight-color: transparent }
+.j-mic-btn:hover { border-color: var(--primary); color: var(--primary) }
+.j-mic-btn.active { border-color: #ef4444; background: #ef4444; color: #fff; animation: j-pulse 1.5s ease-in-out infinite }
+@keyframes j-pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,.4) } 50% { box-shadow: 0 0 0 16px rgba(239,68,68,0) } }
+.j-mic-label { font-size: .8rem; font-weight: 600; color: var(--text-muted); transition: color .15s }
+.j-mic-label.active { color: #ef4444 }
+.j-mic-unsupported { font-size: .82rem; color: #d97706; text-align: center; padding: 1rem; background: #fef9c3; border-radius: 8px; margin: 1rem 0 }
+
+/* Completed state */
+.j-complete { display: none; text-align: center; width: 100% }
+.j-complete-icon { width: 64px; height: 64px; border-radius: 50%; background: #16a34a18; color: #16a34a; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem }
+.j-complete-title { font-size: 1.2rem; font-weight: 700; color: var(--text); margin-bottom: .4rem }
+.j-complete-sub { font-size: .88rem; color: var(--text-muted); line-height: 1.5 }
+
+@media (max-width: 480px) {
+  .j-question { font-size: .95rem }
+  .j-mic-btn { width: 64px; height: 64px }
+}
+</style>
+</head>
+<body>
+
+<div class="j-header">
+  <img src="/logo.svg" alt="RealWork Labs" class="j-logo">
+  <div class="j-header-sep"></div>
+  <div class="j-header-title">Onboarding Interview</div>
+</div>
+
+<div class="j-main">
+  <!-- Loading -->
+  <div class="j-loading" id="j-loading">Connecting to interview...</div>
+
+  <!-- Error -->
+  <div class="j-error" id="j-error" style="display:none"></div>
+
+  <!-- Active interview -->
+  <div class="j-interview" id="j-interview">
+    <div class="j-client" id="j-client"></div>
+    <div class="j-progress-label" id="j-progress-label"></div>
+    <div class="j-progress-bar"><div class="j-progress-fill" id="j-progress-fill"></div></div>
+
+    <div class="j-section-tag" id="j-section-tag"></div>
+    <div class="j-question" id="j-question"></div>
+
+    <div class="j-transcript-wrap">
+      <div class="j-transcript-label">Your answer</div>
+      <div class="j-transcript" id="j-transcript"></div>
+    </div>
+
+    <div class="j-mic-wrap">
+      <button class="j-mic-btn" id="j-mic-btn" onclick="toggleMic()">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+      </button>
+      <div class="j-mic-label" id="j-mic-label">Tap to speak</div>
+    </div>
+  </div>
+
+  <!-- Completed -->
+  <div class="j-complete" id="j-complete">
+    <div class="j-complete-icon">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+    </div>
+    <div class="j-complete-title">Interview Complete</div>
+    <div class="j-complete-sub">Thank you! Your answers have been recorded and your profile is being processed. You can close this page now.</div>
+  </div>
+</div>
+
+<script>
+// Parse session ID and token from URL: /join/:sessionId/:token
+const pathParts = window.location.pathname.split('/').filter(Boolean);
+const sessionId = pathParts[1] || null;
+const joinToken = pathParts[2] || null;
+
+let isListening = false;
+let recognition = null;
+let pollTimer = null;
+let lastQuestionIndex = -1;
+let currentTranscriptText = '';
+
+// ── Init ──
+(async () => {
+  if (!sessionId || !joinToken) {
+    showError('Invalid interview link.');
+    return;
+  }
+  try {
+    const r = await fetch(`/api/join/${sessionId}/${joinToken}`);
+    const data = await r.json();
+    if (!r.ok) { showError(data.error || 'This link is invalid or has expired.'); return; }
+
+    if (!data.active || data.status === 'extracted') {
+      showComplete();
+      return;
+    }
+
+    document.getElementById('j-client').textContent = data.client_name || 'Interview';
+    updateQuestion(data);
+    document.getElementById('j-loading').style.display = 'none';
+    document.getElementById('j-interview').style.display = 'flex';
+
+    initSpeech();
+    startPolling();
+  } catch (err) {
+    showError('Failed to connect. Please check your link and try again.');
+  }
+})();
+
+function showError(msg) {
+  document.getElementById('j-loading').style.display = 'none';
+  const el = document.getElementById('j-error');
+  el.textContent = msg;
+  el.style.display = '';
+}
+
+function showComplete() {
+  document.getElementById('j-loading').style.display = 'none';
+  document.getElementById('j-interview').style.display = 'none';
+  document.getElementById('j-complete').style.display = '';
+  stopPolling();
+  stopMic();
+}
+
+function updateQuestion(data) {
+  if (data.current_question !== lastQuestionIndex) {
+    lastQuestionIndex = data.current_question;
+    document.getElementById('j-section-tag').textContent = data.current_section || '';
+    document.getElementById('j-question').textContent = data.current_question_label || '';
+    document.getElementById('j-progress-label').textContent = `Question ${data.current_question + 1} of ${data.total_questions}`;
+    document.getElementById('j-progress-fill').style.width = data.progress + '%';
+    // Clear transcript for new question
+    currentTranscriptText = '';
+    document.getElementById('j-transcript').innerHTML = '';
+  }
+}
+
+// ── Polling ──
+function startPolling() {
+  pollTimer = setInterval(async () => {
+    try {
+      const r = await fetch(`/api/join/${sessionId}/${joinToken}/state`);
+      if (!r.ok) return;
+      const data = await r.json();
+      if (!data.active || data.status === 'extracted') {
+        showComplete();
+        return;
+      }
+      updateQuestion(data);
+    } catch {}
+  }, 2500);
+}
+
+function stopPolling() {
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+}
+
+// ── Speech Recognition ──
+function initSpeech() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) {
+    document.getElementById('j-mic-btn').style.display = 'none';
+    document.getElementById('j-mic-label').innerHTML = '<div class="j-mic-unsupported">Voice input is not supported in this browser. Please use Chrome on desktop or Android.</div>';
+    return;
+  }
+  recognition = new SR();
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  recognition.lang = 'en-US';
+
+  recognition.onstart = () => {
+    isListening = true;
+    document.getElementById('j-mic-btn').classList.add('active');
+    document.getElementById('j-mic-label').textContent = 'Listening... tap to stop';
+    document.getElementById('j-mic-label').classList.add('active');
+  };
+
+  recognition.onend = () => {
+    isListening = false;
+    document.getElementById('j-mic-btn').classList.remove('active');
+    document.getElementById('j-mic-label').textContent = 'Tap to speak';
+    document.getElementById('j-mic-label').classList.remove('active');
+  };
+
+  recognition.onresult = (event) => {
+    let final = '';
+    let interim = '';
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const t = event.results[i][0].transcript;
+      if (event.results[i].isFinal) {
+        final += t;
+      } else {
+        interim += t;
+      }
+    }
+
+    // Accumulate final text
+    if (final) {
+      currentTranscriptText += (currentTranscriptText ? ' ' : '') + final.trim();
+      // Send final chunk to server
+      sendTranscript(final.trim(), false);
+    }
+
+    // Render transcript with interim
+    const el = document.getElementById('j-transcript');
+    el.innerHTML = esc(currentTranscriptText) + (interim ? ' <span class="j-interim">' + esc(interim) + '</span>' : '');
+    el.scrollTop = el.scrollHeight;
+
+    // Send interim for live preview on rep's side
+    if (interim) sendTranscript(currentTranscriptText + ' ' + interim, true);
+  };
+
+  recognition.onerror = (event) => {
+    if (event.error === 'not-allowed') {
+      document.getElementById('j-mic-label').textContent = 'Mic access denied — check browser settings';
+    }
+  };
+}
+
+function toggleMic() {
+  if (!recognition) return;
+  if (isListening) { stopMic(); } else { startMic(); }
+}
+
+function startMic() {
+  if (!recognition || isListening) return;
+  try { recognition.start(); } catch {}
+}
+
+function stopMic() {
+  if (!recognition || !isListening) return;
+  try { recognition.stop(); } catch {}
+}
+
+// ── Send transcript to server ──
+let sendQueue = Promise.resolve();
+function sendTranscript(text, interim) {
+  sendQueue = sendQueue.then(async () => {
+    try {
+      await fetch(`/api/join/${sessionId}/${joinToken}/transcript`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, interim }),
+      });
+    } catch {}
+  });
+}
+
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+</script>
+</body>
+</html>

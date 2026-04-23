@@ -4473,6 +4473,7 @@ app.get('/api/onboarding/clients', requireAuth, async (req, res) => {
 app.post('/api/onboarding/sessions', requireAuth, async (req, res) => {
   try {
     const { clientName, clientId } = req.body;
+    const joinToken = randomUUID();
     const doc = await db.collection('onboarding_interviews').add({
       created_by: req.userEmail,
       created_at: FieldValue.serverTimestamp(),
@@ -4485,8 +4486,11 @@ app.post('/api/onboarding/sessions', requireAuth, async (req, res) => {
       answers: {},
       skipped: [],
       extracted_profile: null,
+      join_token: joinToken,
+      join_token_active: true,
+      transcript_chunks: [],
     });
-    res.json({ id: doc.id, status: 'in_progress', current_question: 0 });
+    res.json({ id: doc.id, status: 'in_progress', current_question: 0, join_token: joinToken });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -4698,7 +4702,17 @@ Return ONLY valid JSON with no markdown fencing, no commentary. Use this schema:
       extracted_profile: profile,
       completed_at: FieldValue.serverTimestamp(),
       updated_at: FieldValue.serverTimestamp(),
+      join_token_active: false,
     });
+
+    // Save profile to the launch/account doc regardless of status
+    const sessionData = doc.data();
+    if (sessionData.client_id) {
+      await db.collection('launches').doc(sessionData.client_id).update({
+        onboarding_profile: profile,
+        onboarding_completed_at: FieldValue.serverTimestamp(),
+      }).catch(e => console.error('Failed to save profile to launch doc:', e.message));
+    }
 
     res.json({ profile });
   } catch (err) {
@@ -4706,6 +4720,104 @@ Return ONLY valid JSON with no markdown fencing, no commentary. Use this schema:
     res.status(500).json({ error: err.message });
   }
 });
+
+// ── Onboarding Join (contractor-facing, no auth) ──
+const ONBOARDING_QUESTIONS = [
+  { id:'origin_1', section:'Origin Story', label:'How did you get started in this trade?' },
+  { id:'origin_2', section:'Origin Story', label:'How long have you been in business?' },
+  { id:'origin_3', section:'Origin Story', label:'What makes you most proud about your company?' },
+  { id:'origin_4', section:'Origin Story', label:'Is there a family or personal story connected to the business?' },
+  { id:'services_1', section:'Services', label:'What are your core services?' },
+  { id:'services_2', section:'Services', label:'Which service generates the most revenue?' },
+  { id:'services_3', section:'Services', label:'Are there services you want to promote more on the website?' },
+  { id:'services_4', section:'Services', label:'Do you offer emergency or after-hours service?' },
+  { id:'diff_1', section:'Differentiation', label:'What makes you different from your competitors?' },
+  { id:'diff_2', section:'Differentiation', label:'What do customers compliment you on most?' },
+  { id:'diff_3', section:'Differentiation', label:'Do you have any unique processes, warranties, or guarantees?' },
+  { id:'diff_4', section:'Differentiation', label:'Describe your ideal customer.' },
+  { id:'area_1', section:'Service Area', label:'What cities, counties, or zip codes do you serve?' },
+  { id:'area_2', section:'Service Area', label:'Where do you get the most jobs from?' },
+  { id:'area_3', section:'Service Area', label:'Are there areas you want to expand into?' },
+  { id:'area_4', section:'Service Area', label:'How far will you travel for a job?' },
+  { id:'voice_1', section:'Brand Voice', label:'How would you describe your company\'s personality?' },
+  { id:'voice_2', section:'Brand Voice', label:'What tone do you use with customers?' },
+  { id:'voice_3', section:'Brand Voice', label:'Are there words or phrases you always use — or want to avoid?' },
+  { id:'voice_4', section:'Brand Voice', label:'If your company were a person, how would they talk?' },
+  { id:'cred_1', section:'Credentials', label:'What licenses and certifications do you hold?' },
+  { id:'cred_2', section:'Credentials', label:'Are you insured and bonded?' },
+  { id:'cred_3', section:'Credentials', label:'Do you belong to any trade associations or organizations?' },
+  { id:'cred_4', section:'Credentials', label:'Any awards, recognitions, or notable achievements?' },
+  { id:'goals_1', section:'Goals', label:'What are your top goals for the new website?' },
+  { id:'goals_2', section:'Goals', label:'What does success look like 6 months from now?' },
+  { id:'goals_3', section:'Goals', label:'Is there anything else we should know about your business?' },
+];
+
+async function validateJoinToken(sessionId, token) {
+  const doc = await db.collection('onboarding_interviews').doc(sessionId).get();
+  if (!doc.exists) return null;
+  const d = doc.data();
+  if (d.join_token !== token) return null;
+  return { doc, data: d };
+}
+
+app.get('/api/join/:sessionId/:token', async (req, res) => {
+  try {
+    const result = await validateJoinToken(req.params.sessionId, req.params.token);
+    if (!result) return res.status(403).json({ error: 'Invalid or expired link' });
+    const d = result.data;
+    const q = ONBOARDING_QUESTIONS[d.current_question] || null;
+    res.json({
+      client_name: d.client_name,
+      status: d.status,
+      active: d.join_token_active !== false,
+      current_question: d.current_question || 0,
+      current_question_label: q?.label || null,
+      current_section: q?.section || null,
+      total_questions: ONBOARDING_QUESTIONS.length,
+    });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/join/:sessionId/:token/state', async (req, res) => {
+  try {
+    const result = await validateJoinToken(req.params.sessionId, req.params.token);
+    if (!result) return res.status(403).json({ error: 'Invalid' });
+    const d = result.data;
+    const q = ONBOARDING_QUESTIONS[d.current_question] || null;
+    res.json({
+      status: d.status,
+      active: d.join_token_active !== false,
+      current_question: d.current_question || 0,
+      current_question_label: q?.label || null,
+      current_section: q?.section || null,
+      total_questions: ONBOARDING_QUESTIONS.length,
+      progress: Math.round(((d.current_question || 0) / ONBOARDING_QUESTIONS.length) * 100),
+    });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/join/:sessionId/:token/transcript', async (req, res) => {
+  try {
+    const result = await validateJoinToken(req.params.sessionId, req.params.token);
+    if (!result) return res.status(403).json({ error: 'Invalid' });
+    if (!result.data.join_token_active) return res.status(410).json({ error: 'Interview completed' });
+    const { text, interim } = req.body;
+    if (!text) return res.status(400).json({ error: 'text required' });
+
+    const ref = db.collection('onboarding_interviews').doc(req.params.sessionId);
+    if (interim) {
+      await ref.update({ contractor_interim: text });
+    } else {
+      await ref.update({
+        transcript_chunks: FieldValue.arrayUnion({ text, ts: new Date().toISOString(), source: 'contractor', questionIndex: result.data.current_question || 0 }),
+        contractor_interim: '',
+      });
+    }
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/join/:sessionId/:token', (req, res) => res.sendFile(join(__dirname, 'public', 'join.html')));
 
 // ── Pages ──
 app.get('/edit-request', (_req, res) => res.sendFile(join(__dirname, 'public', 'edit-request.html')));
