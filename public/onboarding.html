@@ -257,7 +257,11 @@
         </button>
       </div>
       <button class="ob-skip-btn" id="ob-skip-btn" onclick="skipQuestion()">Skip</button>
-      <button class="ob-send-btn" id="ob-send-btn" onclick="sendAnswer()">
+      <button class="ob-next-btn" id="ob-next-btn" onclick="submitContractorAnswer()" title="Submit contractor's voice answer and move on" style="height:42px;padding:0 1rem;border:none;border-radius:10px;background:#16a34a;color:#fff;font-size:.78rem;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0;display:flex;align-items:center;gap:.35rem;transition:opacity .15s">
+        Next
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+      <button class="ob-send-btn" id="ob-send-btn" onclick="sendAnswer()" title="Send typed answer">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
       </button>
       <div class="ob-mic-status" id="ob-mic-status">Listening... speak now</div>
@@ -636,6 +640,7 @@ function setInputLocked(locked) {
   document.getElementById('ob-input').disabled = locked;
   document.getElementById('ob-send-btn').disabled = locked;
   document.getElementById('ob-skip-btn').disabled = locked;
+  document.getElementById('ob-next-btn').disabled = locked;
 }
 
 // ── AI asks the current question ──
@@ -852,6 +857,37 @@ function copyProfile() {
     btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Copied!';
     setTimeout(() => { btn.innerHTML = orig; }, 2000);
   });
+}
+
+// ── Submit contractor's voice answer (Next button) ──
+async function submitContractorAnswer() {
+  if (inputLocked) return;
+  // Collect answer from: typed input OR contractor transcript chunks OR rep mic
+  const typedText = document.getElementById('ob-input').value.trim();
+  let contractorText = '';
+  // Gather contractor chunks for the current question from polling
+  try {
+    const r = await fetch(`/api/onboarding/sessions/${sessionId}`);
+    if (r.ok) {
+      const data = await r.json();
+      const chunks = (data.transcript_chunks || []).filter(c => c.source === 'contractor' && c.questionIndex === currentQ);
+      contractorText = chunks.map(c => c.text).join(' ').trim();
+    }
+  } catch {}
+
+  const answer = typedText || contractorText;
+  if (!answer) {
+    // Nothing to submit — flash the next button
+    const btn = document.getElementById('ob-next-btn');
+    btn.style.background = '#d97706';
+    btn.textContent = 'No answer yet';
+    setTimeout(() => { btn.style.background = '#16a34a'; btn.innerHTML = 'Next <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>'; }, 1500);
+    return;
+  }
+
+  // Put the answer in the input and send it through the normal flow
+  document.getElementById('ob-input').value = answer;
+  await sendAnswer();
 }
 
 // ── Join link & contractor polling ──
