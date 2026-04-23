@@ -124,6 +124,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
       </div>
       <div class="j-mic-text listening" id="j-mic-text">Listening...</div>
     </div>
+    <button id="j-skip-btn" onclick="skipQuestion()" style="background:none;border:none;color:var(--text-muted);font-size:.78rem;cursor:pointer;font-family:inherit;padding:.3rem .5rem;text-decoration:underline;text-underline-offset:2px;flex-shrink:0">Skip this question</button>
 
     <!-- Text fallback (Safari / no mic) -->
     <div class="j-text-input-wrap" id="j-text-fallback">
@@ -350,6 +351,18 @@ function sendTypedAnswer() {
   // Show in transcript area for confirmation
   const el = document.getElementById('j-transcript');
   if (el) { el.style.display = ''; el.textContent = text; }
+}
+
+// ── Skip question ──
+async function skipQuestion() {
+  const btn = document.getElementById('j-skip-btn');
+  btn.disabled = true;
+  btn.textContent = 'Skipping...';
+  try {
+    await fetch(`/api/join/${sessionId}/${joinToken}/skip`, { method: 'POST' });
+  } catch {}
+  btn.disabled = false;
+  btn.textContent = 'Skip this question';
 }
 
 function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }

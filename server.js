@@ -4821,6 +4821,19 @@ app.post('/api/join/:sessionId/:token/transcript', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+app.post('/api/join/:sessionId/:token/skip', async (req, res) => {
+  try {
+    const result = await validateJoinToken(req.params.sessionId, req.params.token);
+    if (!result) return res.status(403).json({ error: 'Invalid' });
+    if (!result.data.join_token_active) return res.status(410).json({ error: 'Interview completed' });
+    const ref = db.collection('onboarding_interviews').doc(req.params.sessionId);
+    await ref.update({
+      transcript_chunks: FieldValue.arrayUnion({ text: '(skipped by contractor)', ts: new Date().toISOString(), source: 'contractor', questionIndex: result.data.current_question || 0, skipped: true }),
+    });
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 app.get('/join/:sessionId/:token', (req, res) => res.sendFile(join(__dirname, 'public', 'join.html')));
 
 // ── Pages ──
