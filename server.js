@@ -4442,6 +4442,7 @@ app.post('/api/bulk-blog/push-batch', requireAuth, async (req, res) => {
 // ── Pages ──
 app.get('/edit-request', (_req, res) => res.sendFile(join(__dirname, 'public', 'edit-request.html')));
 app.get('/bulk-blog', requireAuth, (_req, res) => res.sendFile(join(__dirname, 'public', 'bulk-blog.html')));
+app.get('/onboarding', requireAuth, (_req, res) => res.sendFile(join(__dirname, 'public', 'onboarding.html')));
 app.get('/dashboard', requireAuth, (_req, res) => res.sendFile(join(__dirname, 'public', 'dashboard.html')));
 
 app.listen(PORT, () => {

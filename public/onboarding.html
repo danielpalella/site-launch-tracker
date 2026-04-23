@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Onboarding Interview · RealWork Labs</title>
+<link rel="icon" href="/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/style.css">
+<style>
+.ob-page { max-width: 720px; margin: 0 auto; padding: 3rem 1.25rem 4rem }
+.ob-back { display: inline-flex; align-items: center; gap: .4rem; font-size: .8rem; color: var(--text-muted); text-decoration: none; margin-bottom: 1.5rem; transition: color .15s }
+.ob-back:hover { color: var(--text) }
+.ob-badge { display: inline-block; font-size: .6rem; font-weight: 700; background: #7c3aed33; color: #a78bfa; border-radius: 4px; padding: .15rem .4rem; margin-left: .4rem; vertical-align: middle }
+.ob-title { font-size: 1.75rem; font-weight: 800; color: var(--text); letter-spacing: -.4px; margin-bottom: .5rem }
+.ob-sub { font-size: .95rem; color: var(--text-muted); line-height: 1.6; margin-bottom: 2rem }
+.ob-section { margin-bottom: 2rem }
+.ob-section-title { font-size: 1rem; font-weight: 700; color: var(--text); margin-bottom: .6rem; display: flex; align-items: center; gap: .5rem }
+.ob-section-num { width: 28px; height: 28px; border-radius: 50%; background: var(--primary); color: #fff; display: flex; align-items: center; justify-content: center; font-size: .72rem; font-weight: 700; flex-shrink: 0 }
+.ob-section p { font-size: .85rem; color: var(--text-muted); line-height: 1.55; margin: 0 0 .4rem }
+.ob-card { border: 1px solid var(--border); border-radius: 10px; padding: 1.25rem 1.5rem; background: var(--surface); margin-bottom: 1.5rem }
+.ob-card-title { font-size: .9rem; font-weight: 700; color: var(--text); margin-bottom: .4rem }
+.ob-card p { font-size: .82rem; color: var(--text-muted); line-height: 1.5; margin: 0 }
+.ob-start-btn { display: inline-flex; align-items: center; gap: .5rem; padding: .7rem 1.5rem; background: var(--primary); color: #fff; border: none; border-radius: 8px; font-size: .9rem; font-weight: 700; cursor: not-allowed; opacity: .5; font-family: inherit; margin-top: 1rem }
+.ob-coming { font-size: .75rem; color: var(--text-muted); margin-top: .5rem }
+.ob-sections-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; margin-top: .75rem }
+.ob-section-chip { font-size: .78rem; font-weight: 600; padding: .45rem .75rem; border: 1px solid var(--border); border-radius: 6px; color: var(--text); background: var(--surface); display: flex; align-items: center; gap: .4rem }
+.ob-section-chip svg { flex-shrink: 0; color: var(--text-muted) }
+@media (max-width: 600px) { .ob-sections-grid { grid-template-columns: 1fr } }
+</style>
+</head>
+<body class="dashboard-page">
+
+<nav>
+  <a class="nav-brand" href="/"><img src="/logo.svg" alt="RealWork Labs" class="nav-logo" /></a>
+  <div class="nav-tabs">
+    <a href="/" class="nav-tab" title="Intake">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>
+      <span class="nav-label">Intake</span>
+    </a>
+    <a href="/dashboard" class="nav-tab" title="Pipeline">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+      <span class="nav-label">Pipeline</span>
+    </a>
+    <a href="/bulk-blog" class="nav-tab" title="Blog">
+      <svg width="20" height="20" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor">
+        <path d="M58 6C42 1 18 12 13 33c-2 8 0 15 6 20" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M58 6C51 20 43 29 28 36c-7 3.5-12 7-17 17" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M11 53 Q8 59 9 64" stroke-width="4.5" stroke-linecap="round" fill="none"/>
+        <path d="M9 64 Q16 61 22 65" stroke-width="4" stroke-linecap="round" fill="none"/>
+      </svg>
+      <span class="nav-label">Blog</span>
+    </a>
+    <a href="/onboarding" class="nav-tab nav-tab-active" title="Onboarding">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      <span class="nav-label">Onboarding</span>
+    </a>
+  </div>
+  <div class="nav-right">
+    <span id="nav-user-email" class="nav-user-email"></span>
+    <button class="btn btn-ghost" style="padding:.3rem .9rem;font-size:.8rem" onclick="location.href='/auth/logout'">Sign Out</button>
+  </div>
+</nav>
+
+<div class="ob-page">
+  <a href="/bulk-blog" class="ob-back">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+    Back to Blog Generator
+  </a>
+
+  <h1 class="ob-title">AI Onboarding Interview <span class="ob-badge">BETA</span></h1>
+  <p class="ob-sub">A conversational AI interview that replaces static intake forms for new website clients. Sit with a contractor, run the interview, and get a structured client profile that feeds every downstream deliverable: website copy, city pages, blog content, SEO metadata, and brand voice.</p>
+
+  <div class="ob-card">
+    <div class="ob-card-title">How it works</div>
+    <p>The AI asks 27 questions across 7 sections. It listens to the contractor's answers, asks intelligent follow-ups when needed, and extracts structured data automatically. The complete interview takes about 40-50 minutes and produces a JSON profile that every other RealWork tool can consume.</p>
+  </div>
+
+  <div style="font-size:.88rem;font-weight:700;color:var(--text);margin-bottom:.65rem">Interview sections</div>
+  <div class="ob-sections-grid">
+    <div class="ob-section-chip">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l2 2"/></svg>
+      Origin Story
+    </div>
+    <div class="ob-section-chip">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
+      Services
+    </div>
+    <div class="ob-section-chip">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+      Differentiation
+    </div>
+    <div class="ob-section-chip">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+      Service Area
+    </div>
+    <div class="ob-section-chip">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+      Brand Voice
+    </div>
+    <div class="ob-section-chip">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/></svg>
+      Credentials
+    </div>
+    <div class="ob-section-chip">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      Goals
+    </div>
+  </div>
+
+  <button class="ob-start-btn" disabled>
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+    Start Interview
+  </button>
+  <div class="ob-coming">Coming soon — interview runner is under development.</div>
+</div>
+
+</body>
+</html>
