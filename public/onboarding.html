@@ -99,9 +99,17 @@
 
 /* Input bar */
 .ob-input-bar { display: flex; gap: .5rem; padding: .75rem 0 .5rem; border-top: 1px solid var(--border); flex-shrink: 0; align-items: flex-end }
-.ob-input { flex: 1; padding: .65rem .9rem; border: 1px solid var(--border); border-radius: 10px; font-size: .85rem; font-family: inherit; color: var(--text); background: var(--surface); resize: none; max-height: 120px; line-height: 1.5; min-height: 42px }
+.ob-input-wrap { flex: 1; position: relative }
+.ob-input { width: 100%; padding: .65rem 2.5rem .65rem .9rem; border: 1px solid var(--border); border-radius: 10px; font-size: .85rem; font-family: inherit; color: var(--text); background: var(--surface); resize: none; max-height: 120px; line-height: 1.5; min-height: 42px; box-sizing: border-box }
 .ob-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(18,89,255,.1) }
 .ob-input::placeholder { color: var(--text-muted) }
+.ob-input.ob-listening { border-color: #ef4444; box-shadow: 0 0 0 3px rgba(239,68,68,.15) }
+.ob-mic-btn { position: absolute; right: .5rem; top: 50%; transform: translateY(-50%); width: 30px; height: 30px; border: none; border-radius: 50%; background: none; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all .15s }
+.ob-mic-btn:hover { color: var(--text); background: var(--border) }
+.ob-mic-btn.ob-mic-active { color: #fff; background: #ef4444; animation: ob-mic-pulse 1.5s ease-in-out infinite }
+@keyframes ob-mic-pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,.4) } 50% { box-shadow: 0 0 0 8px rgba(239,68,68,0) } }
+.ob-mic-status { display: none; font-size: .68rem; color: #ef4444; font-weight: 600; text-align: center; padding: .2rem 0; flex-shrink: 0; width: 100% }
+.ob-mic-status.active { display: block }
 .ob-send-btn { width: 42px; height: 42px; border: none; border-radius: 10px; background: var(--primary); color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: opacity .15s }
 .ob-send-btn:hover { opacity: .9 }
 .ob-send-btn:disabled { opacity: .35; cursor: not-allowed }
@@ -233,12 +241,18 @@
       <button class="ob-chat-end-btn" onclick="finishEarly()">Finish Early</button>
     </div>
     <div class="ob-messages" id="ob-messages"></div>
-    <div class="ob-input-bar">
-      <textarea class="ob-input" id="ob-input" placeholder="Type the contractor's answer..." rows="1" onkeydown="handleInputKey(event)" oninput="autoGrow(this)"></textarea>
+    <div class="ob-input-bar" style="flex-wrap:wrap">
+      <div class="ob-input-wrap">
+        <textarea class="ob-input" id="ob-input" placeholder="Type or tap the mic to speak..." rows="1" onkeydown="handleInputKey(event)" oninput="autoGrow(this)"></textarea>
+        <button class="ob-mic-btn" id="ob-mic-btn" onclick="toggleVoiceInput()" title="Voice input">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+        </button>
+      </div>
       <button class="ob-skip-btn" id="ob-skip-btn" onclick="skipQuestion()">Skip</button>
       <button class="ob-send-btn" id="ob-send-btn" onclick="sendAnswer()">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
       </button>
+      <div class="ob-mic-status" id="ob-mic-status">Listening... speak now</div>
     </div>
   </div>
 
@@ -830,6 +844,110 @@ function autoGrow(el) {
   el.style.height = 'auto';
   el.style.height = Math.min(el.scrollHeight, 120) + 'px';
 }
+
+// ── Voice Input (Web Speech API) ──
+let recognition = null;
+let isListening = false;
+
+function initSpeechRecognition() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) {
+    // Hide mic button if not supported
+    const btn = document.getElementById('ob-mic-btn');
+    if (btn) btn.style.display = 'none';
+    return;
+  }
+  recognition = new SR();
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  recognition.lang = 'en-US';
+
+  let finalTranscript = '';
+
+  recognition.onstart = () => {
+    isListening = true;
+    document.getElementById('ob-mic-btn').classList.add('ob-mic-active');
+    document.getElementById('ob-input').classList.add('ob-listening');
+    document.getElementById('ob-mic-status').classList.add('active');
+    document.getElementById('ob-input').placeholder = 'Listening...';
+  };
+
+  recognition.onend = () => {
+    isListening = false;
+    document.getElementById('ob-mic-btn').classList.remove('ob-mic-active');
+    document.getElementById('ob-input').classList.remove('ob-listening');
+    document.getElementById('ob-mic-status').classList.remove('active');
+    document.getElementById('ob-input').placeholder = 'Type or tap the mic to speak...';
+  };
+
+  recognition.onresult = (event) => {
+    const input = document.getElementById('ob-input');
+    // Get the text that was in the input before voice started
+    const prefix = input.dataset.preVoiceText || '';
+    let interim = '';
+    finalTranscript = '';
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const t = event.results[i][0].transcript;
+      if (event.results[i].isFinal) {
+        finalTranscript += t;
+      } else {
+        interim += t;
+      }
+    }
+    // Append to whatever was already in the input
+    const existingFinal = input.dataset.voiceFinal || '';
+    const newFinal = existingFinal + finalTranscript;
+    input.dataset.voiceFinal = newFinal;
+    input.value = (prefix ? prefix + ' ' : '') + newFinal + interim;
+    autoGrow(input);
+  };
+
+  recognition.onerror = (event) => {
+    console.warn('Speech recognition error:', event.error);
+    if (event.error === 'not-allowed') {
+      alert('Microphone access was denied. Please allow microphone access in your browser settings.');
+    }
+    stopVoiceInput();
+  };
+}
+
+function toggleVoiceInput() {
+  if (!recognition) initSpeechRecognition();
+  if (!recognition) return; // not supported
+  if (isListening) {
+    stopVoiceInput();
+  } else {
+    startVoiceInput();
+  }
+}
+
+function startVoiceInput() {
+  if (!recognition || isListening) return;
+  const input = document.getElementById('ob-input');
+  // Save existing text so we can append voice to it
+  input.dataset.preVoiceText = input.value.trim();
+  input.dataset.voiceFinal = '';
+  try {
+    recognition.start();
+  } catch (e) {
+    console.warn('Speech start error:', e);
+  }
+}
+
+function stopVoiceInput() {
+  if (!recognition || !isListening) return;
+  try { recognition.stop(); } catch {}
+}
+
+// Stop voice when sending an answer
+const _origSendAnswer = sendAnswer;
+sendAnswer = function() {
+  stopVoiceInput();
+  return _origSendAnswer();
+};
+
+// Initialize on load
+initSpeechRecognition();
 </script>
 </body>
 </html>
