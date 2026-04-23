@@ -336,6 +336,7 @@ let searchTimer = null;
 let joinToken = null;
 let contractorPollTimer = null;
 let lastTranscriptCount = 0;
+let _skipNextUserMessage = false;
 const esc = s => { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
 
 // ── Auth ──
@@ -703,7 +704,11 @@ async function sendAnswer() {
   const text = input.value.trim();
   if (!text) return;
 
-  addMessage('user', text);
+  if (_skipNextUserMessage) {
+    _skipNextUserMessage = false;
+  } else {
+    addMessage('user', text);
+  }
   input.value = '';
   input.style.height = '';
   autoGrow(input);
@@ -891,7 +896,6 @@ async function submitContractorAnswer() {
 
   const answer = typedText || contractorText;
   if (!answer) {
-    // Nothing to submit — flash the next button
     const btn = document.getElementById('ob-next-btn');
     btn.style.background = '#d97706';
     btn.textContent = 'No answer yet';
@@ -899,7 +903,11 @@ async function submitContractorAnswer() {
     return;
   }
 
-  // Put the answer in the input and send it through the normal flow
+  // If using contractor voice text (already shown as individual chunks),
+  // skip the duplicate user message display and go straight to AI evaluation
+  if (!typedText && contractorText) {
+    _skipNextUserMessage = true;
+  }
   document.getElementById('ob-input').value = answer;
   await sendAnswer();
 }

@@ -250,14 +250,31 @@ function initAndStartMic() {
       if (event.results[i].isFinal) final += t;
       else interim += t;
     }
-    if (final) {
-      currentTranscriptText += (currentTranscriptText ? ' ' : '') + final.trim();
-      sendTranscript(final.trim(), false);
-    }
     const el = document.getElementById('j-transcript');
-    el.innerHTML = esc(currentTranscriptText) + (interim ? ' <span class="j-interim">' + esc(interim) + '</span>' : '');
-    el.scrollTop = el.scrollHeight;
-    if (interim) sendTranscript(currentTranscriptText + ' ' + interim, true);
+    if (final) {
+      const trimmed = final.trim();
+      // Add as a new line/segment in the transcript display
+      const seg = document.createElement('div');
+      seg.style.cssText = 'padding:.3rem 0;border-bottom:1px solid var(--border)';
+      seg.textContent = trimmed;
+      // Remove interim element if present
+      const interimEl = el.querySelector('.j-interim-line');
+      if (interimEl) interimEl.remove();
+      el.appendChild(seg);
+      el.scrollTop = el.scrollHeight;
+      sendTranscript(trimmed, false);
+    }
+    if (interim) {
+      let interimEl = el.querySelector('.j-interim-line');
+      if (!interimEl) {
+        interimEl = document.createElement('div');
+        interimEl.className = 'j-interim-line';
+        interimEl.style.cssText = 'padding:.3rem 0;color:var(--text-muted);font-style:italic';
+        el.appendChild(interimEl);
+      }
+      interimEl.textContent = interim;
+      el.scrollTop = el.scrollHeight;
+    }
   };
 
   recognition.onerror = (event) => {
@@ -281,7 +298,6 @@ function updateState(data) {
   if (data.current_question !== lastQuestionIndex || (data.current_ai_message && data.current_ai_message !== lastAiMessage)) {
     if (data.current_question !== lastQuestionIndex) {
       // New question — clear transcript
-      currentTranscriptText = '';
       document.getElementById('j-transcript').innerHTML = '';
       lastQuestionIndex = data.current_question;
     }
