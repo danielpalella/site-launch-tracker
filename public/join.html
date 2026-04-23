@@ -63,7 +63,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .j-text-send { margin-top: .4rem; width: 100%; padding: .55rem; border: none; border-radius: 8px; background: var(--primary); color: #fff; font-size: .85rem; font-weight: 700; cursor: pointer; font-family: inherit }
 
 /* Permission prompt */
-.j-perm { display: none; text-align: center; padding: 1.5rem 1rem }
+.j-perm { text-align: center; padding: 1.5rem 1rem }
 .j-perm-title { font-size: 1rem; font-weight: 700; margin-bottom: .5rem }
 .j-perm-sub { font-size: .85rem; color: var(--text-muted); margin-bottom: 1rem; line-height: 1.5 }
 .j-perm-btn { padding: .6rem 1.5rem; border: none; border-radius: 8px; background: var(--primary); color: #fff; font-size: .9rem; font-weight: 700; cursor: pointer; font-family: inherit }
@@ -94,7 +94,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
   <div class="j-error" id="j-error" style="display:none"></div>
 
   <!-- Mic permission prompt -->
-  <div class="j-perm" id="j-perm">
+  <div class="j-perm" id="j-perm" style="display:none">
     <div class="j-perm-title">Ready to start</div>
     <div class="j-perm-sub">Your interviewer will ask you questions about your business. Just speak naturally — your answers will be transcribed automatically.</div>
     <button class="j-perm-btn" onclick="requestMicAndStart()">Enable Microphone</button>
@@ -173,7 +173,7 @@ let hasSpeechSupport = false;
 
     if (hasSpeechSupport) {
       // Show permission prompt first
-      document.getElementById('j-perm').style.display = '';
+      document.getElementById('j-perm').style.display = 'block';
     } else {
       // No speech support — go straight to text mode
       showInterviewWithTextFallback();
@@ -185,14 +185,14 @@ function showError(msg) {
   document.getElementById('j-loading').style.display = 'none';
   const el = document.getElementById('j-error');
   el.textContent = msg;
-  el.style.display = '';
+  el.style.display = 'block';
 }
 
 function showComplete() {
   document.getElementById('j-loading').style.display = 'none';
   document.getElementById('j-perm').style.display = 'none';
   document.getElementById('j-interview').style.display = 'none';
-  document.getElementById('j-complete').style.display = '';
+  document.getElementById('j-complete').style.display = 'block';
   stopPolling();
   stopMic();
 }
@@ -201,13 +201,13 @@ function showInterviewWithTextFallback() {
   document.getElementById('j-perm').style.display = 'none';
   document.getElementById('j-interview').style.display = 'flex';
   document.getElementById('j-mic-bar').style.display = 'none';
-  document.getElementById('j-text-fallback').style.display = '';
+  document.getElementById('j-text-fallback').style.display = 'block';
   document.getElementById('j-transcript').style.display = 'none';
   startPolling();
 }
 
 // ── Mic permission + start ──
-async function requestMicAndStart() {
+function requestMicAndStart() {
   document.getElementById('j-perm').style.display = 'none';
   document.getElementById('j-interview').style.display = 'flex';
   startPolling();

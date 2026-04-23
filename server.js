@@ -4774,7 +4774,9 @@ app.get('/api/join/:sessionId/:token', async (req, res) => {
       current_question: d.current_question || 0,
       current_question_label: q?.label || null,
       current_section: q?.section || null,
+      current_ai_message: d.current_ai_message || null,
       total_questions: ONBOARDING_QUESTIONS.length,
+      progress: Math.round(((d.current_question || 0) / ONBOARDING_QUESTIONS.length) * 100),
     });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
