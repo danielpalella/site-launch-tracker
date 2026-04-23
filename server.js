@@ -4449,14 +4449,37 @@ app.get('/api/onboarding/sessions', requireAuth, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// Lightweight client search for onboarding picker (returns minimal fields)
+app.get('/api/onboarding/clients', requireAuth, async (req, res) => {
+  try {
+    const { search } = req.query;
+    const snapshot = await db.collection('launches').orderBy('created_at', 'desc').get();
+    let clients = snapshot.docs
+      .map(d => { const data = d.data(); return { id: d.id, account_name: data.account_name || '', contact_name: data.contact_name || '', email: data.email || '', domain_name: data.domain_name || '', industry: data.industry || '', status: data.status || '', phone: data.phone || '' }; })
+      .filter(c => !['decommissioned'].includes(c.status));
+    if (search) {
+      const term = search.toLowerCase();
+      clients = clients.filter(c =>
+        c.account_name.toLowerCase().includes(term) ||
+        c.contact_name.toLowerCase().includes(term) ||
+        c.email.toLowerCase().includes(term) ||
+        c.domain_name.toLowerCase().includes(term)
+      );
+    }
+    res.json(clients.slice(0, 30));
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 app.post('/api/onboarding/sessions', requireAuth, async (req, res) => {
   try {
-    const { clientName } = req.body;
+    const { clientName, clientId } = req.body;
     const doc = await db.collection('onboarding_interviews').add({
       created_by: req.userEmail,
       created_at: FieldValue.serverTimestamp(),
       updated_at: FieldValue.serverTimestamp(),
       client_name: clientName || 'Untitled',
+      client_id: clientId || null,
+      mode: 'ai_led',
       status: 'in_progress',
       current_question: 0,
       answers: {},
