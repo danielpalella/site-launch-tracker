@@ -4553,16 +4553,17 @@ Rules:
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.7, maxOutputTokens: 512 } }),
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.7, maxOutputTokens: 1024, thinkingConfig: { thinkingBudget: 0 } } }),
       }
     );
     const gData = await gRes.json();
-    const raw = gData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    // Grab the last text part (skips thinking part if present)
+    const parts = gData.candidates?.[0]?.content?.parts || [];
+    const raw = (parts.filter(p => p.text).pop()?.text || '').trim();
     const cleaned = raw.replace(/^```json?\s*/i, '').replace(/```\s*$/, '').trim();
 
     let result;
     try { result = JSON.parse(cleaned); } catch {
-      // Fallback — move on if we can't parse
       result = { action: 'next', message: 'Got it, thanks! Let me move on to the next question.' };
     }
     res.json(result);
@@ -4599,11 +4600,13 @@ Rules:
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.8, maxOutputTokens: 256 } }),
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.8, maxOutputTokens: 1024, thinkingConfig: { thinkingBudget: 0 } } }),
       }
     );
     const gData = await gRes.json();
-    const raw = gData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    // Grab the last text part (skips thinking part if present)
+    const parts = gData.candidates?.[0]?.content?.parts || [];
+    const raw = (parts.filter(p => p.text).pop()?.text || '').trim();
     const text = raw.replace(/^["']|["']$/g, '').trim();
     res.json({ message: text || question });
   } catch (err) {
