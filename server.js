@@ -4439,6 +4439,147 @@ app.post('/api/bulk-blog/push-batch', requireAuth, async (req, res) => {
   res.json({ results });
 });
 
+// ── Onboarding Interview ──
+app.get('/api/onboarding/sessions', requireAuth, async (req, res) => {
+  try {
+    const snap = await db.collection('onboarding_interviews')
+      .where('created_by', '==', req.userEmail)
+      .orderBy('created_at', 'desc').limit(20).get();
+    res.json(snap.docs.map(d => ({ id: d.id, ...d.data(), created_at: d.data().created_at?.toDate?.()?.toISOString() || null, updated_at: d.data().updated_at?.toDate?.()?.toISOString() || null })));
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/onboarding/sessions', requireAuth, async (req, res) => {
+  try {
+    const { clientName } = req.body;
+    const doc = await db.collection('onboarding_interviews').add({
+      created_by: req.userEmail,
+      created_at: FieldValue.serverTimestamp(),
+      updated_at: FieldValue.serverTimestamp(),
+      client_name: clientName || 'Untitled',
+      status: 'in_progress',
+      current_question: 0,
+      answers: {},
+      skipped: [],
+      extracted_profile: null,
+    });
+    res.json({ id: doc.id, status: 'in_progress', current_question: 0 });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/onboarding/sessions/:id', requireAuth, async (req, res) => {
+  try {
+    const doc = await db.collection('onboarding_interviews').doc(req.params.id).get();
+    if (!doc.exists) return res.status(404).json({ error: 'Not found' });
+    const d = doc.data();
+    res.json({ id: doc.id, ...d, created_at: d.created_at?.toDate?.()?.toISOString() || null, updated_at: d.updated_at?.toDate?.()?.toISOString() || null });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/api/onboarding/sessions/:id/answer', requireAuth, async (req, res) => {
+  try {
+    const { questionId, answer, currentQuestion, skipped } = req.body;
+    const ref = db.collection('onboarding_interviews').doc(req.params.id);
+    const updates = { updated_at: FieldValue.serverTimestamp(), current_question: currentQuestion };
+    if (questionId && answer !== undefined) updates[`answers.${questionId}`] = answer;
+    if (skipped) updates.skipped = skipped;
+    await ref.update(updates);
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/onboarding/sessions/:id/extract', requireAuth, async (req, res) => {
+  try {
+    const doc = await db.collection('onboarding_interviews').doc(req.params.id).get();
+    if (!doc.exists) return res.status(404).json({ error: 'Not found' });
+    const { answers, client_name } = doc.data();
+    const { questions } = req.body; // array of { id, label, answer }
+    if (!questions || !questions.length) return res.status(400).json({ error: 'questions array required' });
+
+    const geminiKey = await getGeminiKey();
+    const qaPairs = questions.map(q => `Q: ${q.label}\nA: ${q.answer || '(skipped)'}`).join('\n\n');
+
+    const prompt = `You are a structured data extractor for a home services contractor onboarding interview.
+Below are questions and the contractor's answers. Extract a structured JSON profile.
+Business/client name: "${client_name || 'Unknown'}"
+
+${qaPairs}
+
+Return ONLY valid JSON with no markdown fencing, no commentary. Use this schema:
+{
+  "business_name": "string or null",
+  "owner_name": "string or null",
+  "origin_story": "2-3 sentence narrative summarizing their founding story",
+  "years_in_business": number or null,
+  "pride_points": ["what they're most proud of"],
+  "family_connection": "string or null",
+  "services": {
+    "core": ["list of core services"],
+    "top_revenue": "highest revenue service",
+    "promote_more": ["services they want to push"],
+    "emergency_available": true/false or null
+  },
+  "differentiation": {
+    "unique_selling_points": ["what sets them apart"],
+    "customer_compliments": ["what customers say"],
+    "guarantees": ["any guarantees or unique processes"],
+    "ideal_customer": "description of ideal customer"
+  },
+  "service_area": {
+    "cities": ["cities/areas served"],
+    "primary_markets": ["where most jobs come from"],
+    "growth_targets": ["areas they want to expand into"],
+    "max_travel_radius": "how far they'll travel"
+  },
+  "brand_voice": {
+    "personality": "company personality description",
+    "tone": "formal/casual/friendly etc",
+    "preferred_phrases": ["phrases they use"],
+    "avoid_phrases": ["phrases to avoid"],
+    "voice_description": "how the brand would talk as a person"
+  },
+  "credentials": {
+    "licenses": ["licenses held"],
+    "insured": true/false,
+    "bonded": true/false,
+    "associations": ["trade associations"],
+    "awards": ["awards or recognitions"]
+  },
+  "goals": {
+    "website_goals": ["goals for the new website"],
+    "six_month_success": "what success looks like",
+    "additional_notes": "anything else mentioned"
+  }
+}`;
+
+    const gRes = await fetchWithRetry(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.2, maxOutputTokens: 4096 } }),
+      }
+    );
+    const gData = await gRes.json();
+    const raw = gData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const cleaned = raw.replace(/^```json?\s*/i, '').replace(/```\s*$/, '').trim();
+    let profile;
+    try { profile = JSON.parse(cleaned); } catch { return res.status(502).json({ error: 'Gemini returned invalid JSON', raw: cleaned.slice(0, 500) }); }
+
+    await db.collection('onboarding_interviews').doc(req.params.id).update({
+      status: 'extracted',
+      extracted_profile: profile,
+      completed_at: FieldValue.serverTimestamp(),
+      updated_at: FieldValue.serverTimestamp(),
+    });
+
+    res.json({ profile });
+  } catch (err) {
+    console.error('onboarding extract error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── Pages ──
 app.get('/edit-request', (_req, res) => res.sendFile(join(__dirname, 'public', 'edit-request.html')));
 app.get('/bulk-blog', requireAuth, (_req, res) => res.sendFile(join(__dirname, 'public', 'bulk-blog.html')));

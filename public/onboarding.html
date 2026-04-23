@@ -7,25 +7,82 @@
 <link rel="icon" href="/favicon.png" type="image/png" />
 <link rel="stylesheet" href="/style.css">
 <style>
-.ob-page { max-width: 720px; margin: 0 auto; padding: 3rem 1.25rem 4rem }
-.ob-back { display: inline-flex; align-items: center; gap: .4rem; font-size: .8rem; color: var(--text-muted); text-decoration: none; margin-bottom: 1.5rem; transition: color .15s }
-.ob-back:hover { color: var(--text) }
+.ob-page { max-width: 780px; margin: 0 auto; padding: 2.5rem 1.25rem 4rem }
+
+/* Landing */
 .ob-badge { display: inline-block; font-size: .6rem; font-weight: 700; background: #7c3aed33; color: #a78bfa; border-radius: 4px; padding: .15rem .4rem; margin-left: .4rem; vertical-align: middle }
 .ob-title { font-size: 1.75rem; font-weight: 800; color: var(--text); letter-spacing: -.4px; margin-bottom: .5rem }
-.ob-sub { font-size: .95rem; color: var(--text-muted); line-height: 1.6; margin-bottom: 2rem }
-.ob-section { margin-bottom: 2rem }
-.ob-section-title { font-size: 1rem; font-weight: 700; color: var(--text); margin-bottom: .6rem; display: flex; align-items: center; gap: .5rem }
-.ob-section-num { width: 28px; height: 28px; border-radius: 50%; background: var(--primary); color: #fff; display: flex; align-items: center; justify-content: center; font-size: .72rem; font-weight: 700; flex-shrink: 0 }
-.ob-section p { font-size: .85rem; color: var(--text-muted); line-height: 1.55; margin: 0 0 .4rem }
-.ob-card { border: 1px solid var(--border); border-radius: 10px; padding: 1.25rem 1.5rem; background: var(--surface); margin-bottom: 1.5rem }
-.ob-card-title { font-size: .9rem; font-weight: 700; color: var(--text); margin-bottom: .4rem }
+.ob-sub { font-size: .92rem; color: var(--text-muted); line-height: 1.6; margin-bottom: 1.75rem }
+.ob-card { border: 1px solid var(--border); border-radius: 10px; padding: 1.15rem 1.35rem; background: var(--surface); margin-bottom: 1rem }
+.ob-card-title { font-size: .88rem; font-weight: 700; color: var(--text); margin-bottom: .35rem }
 .ob-card p { font-size: .82rem; color: var(--text-muted); line-height: 1.5; margin: 0 }
-.ob-start-btn { display: inline-flex; align-items: center; gap: .5rem; padding: .7rem 1.5rem; background: var(--primary); color: #fff; border: none; border-radius: 8px; font-size: .9rem; font-weight: 700; cursor: not-allowed; opacity: .5; font-family: inherit; margin-top: 1rem }
-.ob-coming { font-size: .75rem; color: var(--text-muted); margin-top: .5rem }
-.ob-sections-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; margin-top: .75rem }
-.ob-section-chip { font-size: .78rem; font-weight: 600; padding: .45rem .75rem; border: 1px solid var(--border); border-radius: 6px; color: var(--text); background: var(--surface); display: flex; align-items: center; gap: .4rem }
+.ob-sections-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; margin: .75rem 0 1.5rem }
+.ob-section-chip { font-size: .78rem; font-weight: 600; padding: .4rem .7rem; border: 1px solid var(--border); border-radius: 6px; color: var(--text); background: var(--surface); display: flex; align-items: center; gap: .4rem }
 .ob-section-chip svg { flex-shrink: 0; color: var(--text-muted) }
-@media (max-width: 600px) { .ob-sections-grid { grid-template-columns: 1fr } }
+.ob-start-wrap { display: flex; align-items: center; gap: 1rem; margin-top: 1rem; flex-wrap: wrap }
+.ob-start-btn { display: inline-flex; align-items: center; gap: .5rem; padding: .65rem 1.4rem; background: var(--primary); color: #fff; border: none; border-radius: 8px; font-size: .88rem; font-weight: 700; cursor: pointer; font-family: inherit; transition: opacity .15s }
+.ob-start-btn:hover { opacity: .9 }
+.ob-start-btn:disabled { opacity: .5; cursor: not-allowed }
+.ob-name-input { padding: .55rem .85rem; border: 1px solid var(--border); border-radius: 8px; font-size: .85rem; font-family: inherit; color: var(--text); background: var(--surface); width: 220px }
+.ob-name-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(18,89,255,.1) }
+
+/* Previous sessions */
+.ob-sessions { margin-top: 2rem }
+.ob-sessions-title { font-size: .82rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: .5rem }
+.ob-session-row { display: flex; align-items: center; gap: .75rem; padding: .55rem .85rem; border: 1px solid var(--border); border-radius: 8px; margin-bottom: .35rem; cursor: pointer; transition: border-color .15s }
+.ob-session-row:hover { border-color: var(--primary) }
+.ob-session-name { font-size: .82rem; font-weight: 600; color: var(--text); flex: 1 }
+.ob-session-status { font-size: .68rem; font-weight: 700; border-radius: 10px; padding: .15rem .5rem }
+.ob-session-date { font-size: .72rem; color: var(--text-muted) }
+
+/* Interview runner */
+.ob-interview { display: none }
+.ob-progress-bar { height: 4px; background: var(--border); border-radius: 4px; margin-bottom: .5rem; overflow: hidden }
+.ob-progress-fill { height: 100%; background: var(--primary); border-radius: 4px; transition: width .3s ease }
+.ob-progress-label { font-size: .78rem; color: var(--text-muted); margin-bottom: 1.5rem; display: flex; justify-content: space-between }
+.ob-section-tag { font-size: .68rem; font-weight: 700; color: var(--primary); text-transform: uppercase; letter-spacing: .5px; margin-bottom: .5rem }
+.ob-q-label { font-size: 1.2rem; font-weight: 700; color: var(--text); line-height: 1.4; margin-bottom: .4rem }
+.ob-q-help { font-size: .82rem; color: var(--text-muted); margin-bottom: 1.25rem }
+.ob-textarea { width: 100%; min-height: 140px; padding: .85rem 1rem; border: 1px solid var(--border); border-radius: 10px; font-size: .88rem; font-family: inherit; color: var(--text); background: var(--surface); resize: vertical; line-height: 1.55; box-sizing: border-box }
+.ob-textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(18,89,255,.1) }
+.ob-textarea::placeholder { color: var(--text-muted) }
+.ob-nav-btns { display: flex; justify-content: space-between; align-items: center; margin-top: 1.25rem; gap: .75rem }
+.ob-btn-ghost { padding: .5rem 1rem; border: 1px solid var(--border); border-radius: 8px; background: none; color: var(--text); font-size: .82rem; font-weight: 600; cursor: pointer; font-family: inherit; transition: border-color .15s }
+.ob-btn-ghost:hover { border-color: var(--text-muted) }
+.ob-btn-primary { padding: .5rem 1.2rem; border: none; border-radius: 8px; background: var(--primary); color: #fff; font-size: .82rem; font-weight: 700; cursor: pointer; font-family: inherit; transition: opacity .15s }
+.ob-btn-primary:hover { opacity: .9 }
+.ob-btn-primary:disabled { opacity: .5; cursor: not-allowed }
+.ob-btn-skip { background: none; border: none; color: var(--text-muted); font-size: .78rem; cursor: pointer; font-family: inherit; padding: .3rem .5rem; text-decoration: underline; text-underline-offset: 2px }
+.ob-btn-skip:hover { color: var(--text) }
+.ob-saving { font-size: .72rem; color: var(--text-muted); display: none; align-items: center; gap: .3rem }
+
+/* Extracting overlay */
+.ob-extracting { display: none; text-align: center; padding: 3rem 1rem }
+.ob-extracting-title { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: .5rem }
+.ob-extracting-sub { font-size: .85rem; color: var(--text-muted) }
+.ob-spinner { width: 36px; height: 36px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin .7s linear infinite; margin: 0 auto 1rem }
+@keyframes spin { to { transform: rotate(360deg) } }
+
+/* Results */
+.ob-results { display: none }
+.ob-results-title { font-size: 1.3rem; font-weight: 800; color: var(--text); margin-bottom: .4rem }
+.ob-results-sub { font-size: .85rem; color: var(--text-muted); margin-bottom: 1.5rem }
+.ob-result-section { border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.25rem; margin-bottom: .75rem; background: var(--surface) }
+.ob-result-section-title { font-size: .85rem; font-weight: 700; color: var(--primary); text-transform: uppercase; letter-spacing: .4px; margin-bottom: .6rem }
+.ob-result-field { margin-bottom: .5rem }
+.ob-result-field-label { font-size: .72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .3px }
+.ob-result-field-value { font-size: .83rem; color: var(--text); line-height: 1.45; margin-top: .1rem }
+.ob-result-list { list-style: none; padding: 0; margin: .15rem 0 0 }
+.ob-result-list li { font-size: .82rem; color: var(--text); padding: .15rem 0; padding-left: .75rem; position: relative }
+.ob-result-list li::before { content: ''; position: absolute; left: 0; top: .55rem; width: 4px; height: 4px; border-radius: 50%; background: var(--text-muted) }
+.ob-copy-btn { display: inline-flex; align-items: center; gap: .4rem; padding: .45rem .9rem; border: 1px solid var(--border); border-radius: 6px; background: none; color: var(--text); font-size: .78rem; font-weight: 600; cursor: pointer; font-family: inherit; margin-top: 1rem }
+.ob-copy-btn:hover { border-color: var(--text-muted) }
+
+@media (max-width: 600px) {
+  .ob-sections-grid { grid-template-columns: 1fr }
+  .ob-start-wrap { flex-direction: column; align-items: stretch }
+  .ob-name-input { width: 100% }
+}
 </style>
 </head>
 <body class="dashboard-page">
@@ -62,57 +119,438 @@
 </nav>
 
 <div class="ob-page">
-  <a href="/bulk-blog" class="ob-back">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-    Back to Blog Generator
-  </a>
 
-  <h1 class="ob-title">AI Onboarding Interview <span class="ob-badge">BETA</span></h1>
-  <p class="ob-sub">A conversational AI interview that replaces static intake forms for new website clients. Sit with a contractor, run the interview, and get a structured client profile that feeds every downstream deliverable: website copy, city pages, blog content, SEO metadata, and brand voice.</p>
+  <!-- ═══ Landing ═══ -->
+  <div id="ob-landing">
+    <h1 class="ob-title">AI Onboarding Interview <span class="ob-badge">BETA</span></h1>
+    <p class="ob-sub">Run a conversational interview with a new contractor client. The AI asks 27 questions, listens to their answers, and produces a structured profile for website copy, SEO, and blog content.</p>
 
-  <div class="ob-card">
-    <div class="ob-card-title">How it works</div>
-    <p>The AI asks 27 questions across 7 sections. It listens to the contractor's answers, asks intelligent follow-ups when needed, and extracts structured data automatically. The complete interview takes about 40-50 minutes and produces a JSON profile that every other RealWork tool can consume.</p>
-  </div>
+    <div class="ob-card">
+      <div class="ob-card-title">How it works</div>
+      <p>Answer each question in the contractor's own words. At the end, AI extracts structured data — services, service areas, brand voice, credentials, and more — into a profile that feeds every downstream deliverable.</p>
+    </div>
 
-  <div style="font-size:.88rem;font-weight:700;color:var(--text);margin-bottom:.65rem">Interview sections</div>
-  <div class="ob-sections-grid">
-    <div class="ob-section-chip">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l2 2"/></svg>
-      Origin Story
+    <div style="font-size:.82rem;font-weight:700;color:var(--text);margin-bottom:.4rem">7 Sections · 27 Questions · ~40 min</div>
+    <div class="ob-sections-grid">
+      <div class="ob-section-chip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l2 2"/></svg> Origin Story</div>
+      <div class="ob-section-chip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg> Services</div>
+      <div class="ob-section-chip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg> Differentiation</div>
+      <div class="ob-section-chip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg> Service Area</div>
+      <div class="ob-section-chip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg> Brand Voice</div>
+      <div class="ob-section-chip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/></svg> Credentials</div>
+      <div class="ob-section-chip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Goals</div>
     </div>
-    <div class="ob-section-chip">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
-      Services
+
+    <div class="ob-start-wrap">
+      <input type="text" id="ob-client-name" class="ob-name-input" placeholder="Client / business name" onkeydown="if(event.key==='Enter')startInterview()">
+      <button class="ob-start-btn" onclick="startInterview()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Start Interview
+      </button>
     </div>
-    <div class="ob-section-chip">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-      Differentiation
-    </div>
-    <div class="ob-section-chip">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
-      Service Area
-    </div>
-    <div class="ob-section-chip">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-      Brand Voice
-    </div>
-    <div class="ob-section-chip">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/></svg>
-      Credentials
-    </div>
-    <div class="ob-section-chip">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-      Goals
+
+    <div id="ob-prev-sessions" class="ob-sessions" style="display:none">
+      <div class="ob-sessions-title">Previous Interviews</div>
+      <div id="ob-sessions-list"></div>
     </div>
   </div>
 
-  <button class="ob-start-btn" disabled>
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-    Start Interview
-  </button>
-  <div class="ob-coming">Coming soon — interview runner is under development.</div>
+  <!-- ═══ Interview Runner ═══ -->
+  <div id="ob-interview" class="ob-interview">
+    <div class="ob-progress-bar"><div class="ob-progress-fill" id="ob-progress-fill"></div></div>
+    <div class="ob-progress-label">
+      <span id="ob-progress-text">Question 1 of 27</span>
+      <span id="ob-section-name"></span>
+    </div>
+    <div class="ob-section-tag" id="ob-section-tag"></div>
+    <div class="ob-q-label" id="ob-q-label"></div>
+    <div class="ob-q-help" id="ob-q-help"></div>
+    <textarea class="ob-textarea" id="ob-answer" placeholder="Type the contractor's answer here..."></textarea>
+    <div class="ob-nav-btns">
+      <div style="display:flex;gap:.5rem;align-items:center">
+        <button class="ob-btn-ghost" id="ob-back-btn" onclick="goBack()">Back</button>
+        <span class="ob-saving" id="ob-saving-indicator">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+          Saving...
+        </span>
+      </div>
+      <div style="display:flex;gap:.5rem;align-items:center">
+        <button class="ob-btn-skip" onclick="skipQuestion()">Skip</button>
+        <button class="ob-btn-primary" id="ob-next-btn" onclick="saveAndNext()">Next</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Extracting ═══ -->
+  <div id="ob-extracting" class="ob-extracting">
+    <div class="ob-spinner"></div>
+    <div class="ob-extracting-title">Extracting client profile...</div>
+    <div class="ob-extracting-sub">AI is analyzing all 27 answers and building a structured profile. This takes about 15 seconds.</div>
+  </div>
+
+  <!-- ═══ Results ═══ -->
+  <div id="ob-results" class="ob-results">
+    <div class="ob-results-title">Client Profile Extracted</div>
+    <div class="ob-results-sub" id="ob-results-sub"></div>
+    <div id="ob-results-content"></div>
+    <div style="display:flex;gap:.5rem;margin-top:1rem">
+      <button class="ob-copy-btn" onclick="copyProfile()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+        Copy JSON
+      </button>
+      <button class="ob-copy-btn" onclick="showView('ob-landing')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+        Back to Interviews
+      </button>
+    </div>
+  </div>
 </div>
 
+<script>
+// ── Interview Script (27 questions, 7 sections) ──
+const SECTIONS = ['Origin Story','Services','Differentiation','Service Area','Brand Voice','Credentials','Goals'];
+const QUESTIONS = [
+  // Origin Story (4)
+  { id:'origin_1', section:'Origin Story', sectionIdx:0, label:'How did you get started in this trade?', help:'Tell us the founding story — when, why, and what motivated you to start this business.' },
+  { id:'origin_2', section:'Origin Story', sectionIdx:0, label:'How long have you been in business?', help:'Exact years, or approximate is fine.' },
+  { id:'origin_3', section:'Origin Story', sectionIdx:0, label:'What makes you most proud about your company?', help:'Think about milestones, achievements, or moments that stand out.' },
+  { id:'origin_4', section:'Origin Story', sectionIdx:0, label:'Is there a family or personal story connected to the business?', help:'Did you learn the trade from a parent? Is it a family-run operation? Anything personal that makes the story real.' },
+  // Services (4)
+  { id:'services_1', section:'Services', sectionIdx:1, label:'What are your core services?', help:'List everything you offer — installations, repairs, maintenance, inspections, etc.' },
+  { id:'services_2', section:'Services', sectionIdx:1, label:'Which service generates the most revenue?', help:'What do you do the most of? What are you best known for?' },
+  { id:'services_3', section:'Services', sectionIdx:1, label:'Are there services you want to promote more on the website?', help:'Maybe a higher-margin service or something you want to grow into.' },
+  { id:'services_4', section:'Services', sectionIdx:1, label:'Do you offer emergency or after-hours service?', help:'24/7 availability, weekend service, same-day response, etc.' },
+  // Differentiation (4)
+  { id:'diff_1', section:'Differentiation', sectionIdx:2, label:'What makes you different from your competitors?', help:'Think about what you do that other companies in your area don\'t. Why should a homeowner pick you?' },
+  { id:'diff_2', section:'Differentiation', sectionIdx:2, label:'What do customers compliment you on most?', help:'Read your Google reviews — what words come up again and again?' },
+  { id:'diff_3', section:'Differentiation', sectionIdx:2, label:'Do you have any unique processes, warranties, or guarantees?', help:'Satisfaction guarantees, extended warranties, specific installation methods, brands you exclusively use, etc.' },
+  { id:'diff_4', section:'Differentiation', sectionIdx:2, label:'Describe your ideal customer.', help:'Homeowner vs. commercial? New construction vs. existing homes? What kind of job do you love doing?' },
+  // Service Area (4)
+  { id:'area_1', section:'Service Area', sectionIdx:3, label:'What cities, counties, or zip codes do you serve?', help:'List your full service area — even areas you serve occasionally.' },
+  { id:'area_2', section:'Service Area', sectionIdx:3, label:'Where do you get the most jobs from?', help:'Your top 3-5 cities or neighborhoods.' },
+  { id:'area_3', section:'Service Area', sectionIdx:3, label:'Are there areas you want to expand into?', help:'New markets you\'re targeting or areas where you want more visibility.' },
+  { id:'area_4', section:'Service Area', sectionIdx:3, label:'How far will you travel for a job?', help:'Maximum radius in miles, or the farthest city you\'d drive to.' },
+  // Brand Voice (4)
+  { id:'voice_1', section:'Brand Voice', sectionIdx:4, label:'How would you describe your company\'s personality?', help:'Professional and polished? Down-to-earth and friendly? No-nonsense? Family-oriented?' },
+  { id:'voice_2', section:'Brand Voice', sectionIdx:4, label:'What tone do you use with customers?', help:'Formal, casual, friendly, authoritative? How do you talk on the phone or in person?' },
+  { id:'voice_3', section:'Brand Voice', sectionIdx:4, label:'Are there words or phrases you always use — or want to avoid?', help:'Taglines, phrases your team uses, or industry jargon you want to keep out of the website.' },
+  { id:'voice_4', section:'Brand Voice', sectionIdx:4, label:'If your company were a person, how would they talk?', help:'Imagine your brand as a human having a conversation with a homeowner. What would they sound like?' },
+  // Credentials (4)
+  { id:'cred_1', section:'Credentials', sectionIdx:5, label:'What licenses and certifications do you hold?', help:'State licenses, EPA certifications, manufacturer certifications (e.g. Owens Corning, Lennox), NATE, etc.' },
+  { id:'cred_2', section:'Credentials', sectionIdx:5, label:'Are you insured and bonded?', help:'General liability, workers comp, surety bond — anything relevant.' },
+  { id:'cred_3', section:'Credentials', sectionIdx:5, label:'Do you belong to any trade associations or organizations?', help:'BBB, Chamber of Commerce, ACCA, PHCC, NRCA, local trade groups, etc.' },
+  { id:'cred_4', section:'Credentials', sectionIdx:5, label:'Any awards, recognitions, or notable achievements?', help:'Best of awards, Google rating milestones, community involvement, media features, etc.' },
+  // Goals (3)
+  { id:'goals_1', section:'Goals', sectionIdx:6, label:'What are your top goals for the new website?', help:'More leads? Better SEO ranking? Professional appearance? Showcase reviews? Be specific.' },
+  { id:'goals_2', section:'Goals', sectionIdx:6, label:'What does success look like 6 months from now?', help:'How will you know the website is working? More calls? Higher-quality leads? Ranking for specific keywords?' },
+  { id:'goals_3', section:'Goals', sectionIdx:6, label:'Is there anything else we should know about your business?', help:'Anything we didn\'t cover — upcoming changes, seasonal patterns, special situations, pet peeves about your current site, etc.' },
+];
+
+// ── State ──
+let sessionId = null;
+let currentQ = 0;
+let answers = {};
+let skipped = [];
+let extractedProfile = null;
+const esc = s => { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
+
+// ── Auth ──
+(async () => {
+  try {
+    const r = await fetch('/api/auth/me');
+    if (!r.ok) { location.href = '/login'; return; }
+    const { email } = await r.json();
+    document.getElementById('nav-user-email').textContent = email;
+  } catch { location.href = '/login'; return; }
+  loadExistingSessions();
+  // Check for in-progress session in sessionStorage
+  const saved = sessionStorage.getItem('ob-session');
+  if (saved) {
+    try {
+      const s = JSON.parse(saved);
+      if (s.id) resumeSession(s.id);
+    } catch {}
+  }
+})();
+
+// ── View management ──
+function showView(id) {
+  ['ob-landing','ob-interview','ob-extracting','ob-results'].forEach(v => {
+    document.getElementById(v).style.display = v === id ? (id === 'ob-interview' ? 'block' : (id === 'ob-landing' ? 'block' : '')) : 'none';
+  });
+  if (id === 'ob-interview') document.getElementById(id).style.display = 'block';
+  if (id === 'ob-extracting') document.getElementById(id).style.display = 'block';
+  if (id === 'ob-results') document.getElementById(id).style.display = 'block';
+  if (id === 'ob-landing') { loadExistingSessions(); }
+}
+
+// ── Load previous sessions ──
+async function loadExistingSessions() {
+  try {
+    const r = await fetch('/api/onboarding/sessions');
+    const sessions = await r.json();
+    const wrap = document.getElementById('ob-prev-sessions');
+    const list = document.getElementById('ob-sessions-list');
+    if (!sessions.length) { wrap.style.display = 'none'; return; }
+    wrap.style.display = '';
+    list.innerHTML = sessions.map(s => {
+      const statusColor = s.status === 'extracted' ? '#16a34a' : '#d97706';
+      const statusLabel = s.status === 'extracted' ? 'Complete' : `In Progress (${s.current_question || 0}/27)`;
+      const date = s.created_at ? new Date(s.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+      return `<div class="ob-session-row" onclick="resumeSession('${s.id}')">
+        <span class="ob-session-name">${esc(s.client_name || 'Untitled')}</span>
+        <span class="ob-session-status" style="background:${statusColor}18;color:${statusColor}">${statusLabel}</span>
+        <span class="ob-session-date">${date}</span>
+      </div>`;
+    }).join('');
+  } catch {}
+}
+
+// ── Start new interview ──
+async function startInterview() {
+  const nameInput = document.getElementById('ob-client-name');
+  const clientName = nameInput.value.trim() || 'Untitled';
+  nameInput.disabled = true;
+  try {
+    const r = await fetch('/api/onboarding/sessions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clientName }),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'Failed to create session');
+    sessionId = data.id;
+    currentQ = 0;
+    answers = {};
+    skipped = [];
+    sessionStorage.setItem('ob-session', JSON.stringify({ id: sessionId }));
+    showView('ob-interview');
+    renderQuestion();
+  } catch (err) {
+    alert(err.message);
+  } finally {
+    nameInput.disabled = false;
+  }
+}
+
+// ── Resume session ──
+async function resumeSession(id) {
+  try {
+    const r = await fetch(`/api/onboarding/sessions/${id}`);
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'Failed');
+    sessionId = id;
+    currentQ = data.current_question || 0;
+    answers = data.answers || {};
+    skipped = data.skipped || [];
+    sessionStorage.setItem('ob-session', JSON.stringify({ id: sessionId }));
+    if (data.status === 'extracted' && data.extracted_profile) {
+      extractedProfile = data.extracted_profile;
+      renderResults(extractedProfile, data.client_name);
+      showView('ob-results');
+    } else {
+      showView('ob-interview');
+      renderQuestion();
+    }
+  } catch (err) { alert(err.message); }
+}
+
+// ── Render current question ──
+function renderQuestion() {
+  const q = QUESTIONS[currentQ];
+  if (!q) return;
+  document.getElementById('ob-progress-fill').style.width = ((currentQ / QUESTIONS.length) * 100) + '%';
+  document.getElementById('ob-progress-text').textContent = `Question ${currentQ + 1} of ${QUESTIONS.length}`;
+  document.getElementById('ob-section-name').textContent = q.section;
+  document.getElementById('ob-section-tag').textContent = q.section;
+  document.getElementById('ob-q-label').textContent = q.label;
+  document.getElementById('ob-q-help').textContent = q.help || '';
+  document.getElementById('ob-answer').value = answers[q.id] || '';
+  document.getElementById('ob-back-btn').style.display = currentQ > 0 ? '' : 'none';
+  const nextBtn = document.getElementById('ob-next-btn');
+  nextBtn.textContent = currentQ === QUESTIONS.length - 1 ? 'Finish & Extract' : 'Next';
+  // Focus textarea
+  setTimeout(() => document.getElementById('ob-answer').focus(), 100);
+}
+
+// ── Save answer and advance ──
+async function saveAndNext() {
+  const q = QUESTIONS[currentQ];
+  const answer = document.getElementById('ob-answer').value.trim();
+  answers[q.id] = answer;
+
+  // Show saving indicator
+  const saving = document.getElementById('ob-saving-indicator');
+  saving.style.display = 'flex';
+
+  try {
+    await fetch(`/api/onboarding/sessions/${sessionId}/answer`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ questionId: q.id, answer, currentQuestion: currentQ + 1, skipped }),
+    });
+  } catch {} // continue even if save fails — we have it in memory
+
+  saving.style.display = 'none';
+
+  if (currentQ < QUESTIONS.length - 1) {
+    currentQ++;
+    renderQuestion();
+  } else {
+    // Last question — run extraction
+    await runExtraction();
+  }
+}
+
+// ── Skip question ──
+async function skipQuestion() {
+  const q = QUESTIONS[currentQ];
+  if (!skipped.includes(q.id)) skipped.push(q.id);
+  answers[q.id] = '';
+
+  try {
+    await fetch(`/api/onboarding/sessions/${sessionId}/answer`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ questionId: q.id, answer: '', currentQuestion: currentQ + 1, skipped }),
+    });
+  } catch {}
+
+  if (currentQ < QUESTIONS.length - 1) {
+    currentQ++;
+    renderQuestion();
+  } else {
+    await runExtraction();
+  }
+}
+
+// ── Go back ──
+function goBack() {
+  // Save current answer in memory before going back
+  const q = QUESTIONS[currentQ];
+  answers[q.id] = document.getElementById('ob-answer').value.trim();
+  if (currentQ > 0) {
+    currentQ--;
+    renderQuestion();
+  }
+}
+
+// ── Run Gemini extraction ──
+async function runExtraction() {
+  showView('ob-extracting');
+  try {
+    const questionsPayload = QUESTIONS.map(q => ({
+      id: q.id,
+      label: q.label,
+      section: q.section,
+      answer: answers[q.id] || '(skipped)',
+    }));
+    const r = await fetch(`/api/onboarding/sessions/${sessionId}/extract`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ questions: questionsPayload }),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'Extraction failed');
+    extractedProfile = data.profile;
+    const sessionData = await (await fetch(`/api/onboarding/sessions/${sessionId}`)).json();
+    renderResults(extractedProfile, sessionData.client_name);
+    showView('ob-results');
+    sessionStorage.removeItem('ob-session');
+  } catch (err) {
+    alert('Extraction failed: ' + err.message + '\n\nYour answers are saved. You can retry from the main page.');
+    showView('ob-landing');
+  }
+}
+
+// ── Render results ──
+function renderResults(profile, clientName) {
+  document.getElementById('ob-results-sub').textContent = clientName ? `Profile for ${clientName}` : '';
+  const content = document.getElementById('ob-results-content');
+
+  function renderField(label, value) {
+    if (value == null || value === '') return '';
+    if (typeof value === 'boolean') value = value ? 'Yes' : 'No';
+    return `<div class="ob-result-field"><div class="ob-result-field-label">${esc(label)}</div><div class="ob-result-field-value">${esc(String(value))}</div></div>`;
+  }
+  function renderList(label, arr) {
+    if (!arr || !arr.length) return '';
+    return `<div class="ob-result-field"><div class="ob-result-field-label">${esc(label)}</div><ul class="ob-result-list">${arr.map(v => `<li>${esc(String(v))}</li>`).join('')}</ul></div>`;
+  }
+  function section(title, html) {
+    if (!html.trim()) return '';
+    return `<div class="ob-result-section"><div class="ob-result-section-title">${esc(title)}</div>${html}</div>`;
+  }
+
+  const p = profile;
+  let html = '';
+  html += section('Overview',
+    renderField('Business Name', p.business_name) +
+    renderField('Owner', p.owner_name) +
+    renderField('Years in Business', p.years_in_business) +
+    renderField('Origin Story', p.origin_story) +
+    renderField('Family Connection', p.family_connection) +
+    renderList('Pride Points', p.pride_points)
+  );
+  html += section('Services',
+    renderList('Core Services', p.services?.core) +
+    renderField('Top Revenue Service', p.services?.top_revenue) +
+    renderList('Promote More', p.services?.promote_more) +
+    renderField('Emergency Service', p.services?.emergency_available)
+  );
+  html += section('Differentiation',
+    renderList('Unique Selling Points', p.differentiation?.unique_selling_points) +
+    renderList('Customer Compliments', p.differentiation?.customer_compliments) +
+    renderList('Guarantees', p.differentiation?.guarantees) +
+    renderField('Ideal Customer', p.differentiation?.ideal_customer)
+  );
+  html += section('Service Area',
+    renderList('Cities Served', p.service_area?.cities) +
+    renderList('Primary Markets', p.service_area?.primary_markets) +
+    renderList('Growth Targets', p.service_area?.growth_targets) +
+    renderField('Max Travel Radius', p.service_area?.max_travel_radius)
+  );
+  html += section('Brand Voice',
+    renderField('Personality', p.brand_voice?.personality) +
+    renderField('Tone', p.brand_voice?.tone) +
+    renderList('Preferred Phrases', p.brand_voice?.preferred_phrases) +
+    renderList('Avoid Phrases', p.brand_voice?.avoid_phrases) +
+    renderField('Voice Description', p.brand_voice?.voice_description)
+  );
+  html += section('Credentials',
+    renderList('Licenses', p.credentials?.licenses) +
+    renderField('Insured', p.credentials?.insured) +
+    renderField('Bonded', p.credentials?.bonded) +
+    renderList('Associations', p.credentials?.associations) +
+    renderList('Awards', p.credentials?.awards)
+  );
+  html += section('Goals',
+    renderList('Website Goals', p.goals?.website_goals) +
+    renderField('6-Month Success', p.goals?.six_month_success) +
+    renderField('Additional Notes', p.goals?.additional_notes)
+  );
+  content.innerHTML = html;
+}
+
+// ── Copy JSON ──
+function copyProfile() {
+  if (!extractedProfile) return;
+  navigator.clipboard.writeText(JSON.stringify(extractedProfile, null, 2)).then(() => {
+    const btn = document.querySelector('.ob-copy-btn');
+    const orig = btn.innerHTML;
+    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Copied!';
+    btn.style.color = '#16a34a';
+    btn.style.borderColor = '#16a34a';
+    setTimeout(() => { btn.innerHTML = orig; btn.style.color = ''; btn.style.borderColor = ''; }, 2000);
+  });
+}
+
+// Keyboard shortcut: Ctrl+Enter to advance
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && document.getElementById('ob-interview').style.display !== 'none') {
+    saveAndNext();
+  }
+});
+</script>
 </body>
 </html>
