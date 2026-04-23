@@ -681,10 +681,13 @@ async function askCurrentQuestion(isFirst) {
     });
     const data = await r.json();
     hideTyping();
-    addMessage('ai', data.message || q.label);
+    const msg = data.message || q.label;
+    addMessage('ai', msg);
+    syncAiMessage(msg);
   } catch {
     hideTyping();
     addMessage('ai', q.label);
+    syncAiMessage(q.label);
   }
 
   followupAnswer = '';
@@ -732,6 +735,7 @@ async function sendAnswer() {
     if (data.action === 'followup' || data.action === 'clarify') {
       // AI wants more info — show follow-up and wait for another answer
       addMessage('ai', data.message);
+      syncAiMessage(data.message);
       awaitingFollowup = true;
       setInputLocked(false);
       document.getElementById('ob-input').focus();
@@ -857,6 +861,16 @@ function copyProfile() {
     btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Copied!';
     setTimeout(() => { btn.innerHTML = orig; }, 2000);
   });
+}
+
+// ── Sync AI message to Firestore for the join page to see ──
+function syncAiMessage(message) {
+  if (!sessionId) return;
+  fetch(`/api/onboarding/sessions/${sessionId}/answer`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ questionId: null, answer: undefined, currentQuestion: currentQ, aiMessage: message }),
+  }).catch(() => {});
 }
 
 // ── Submit contractor's voice answer (Next button) ──

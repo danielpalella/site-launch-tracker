@@ -4505,11 +4505,12 @@ app.get('/api/onboarding/sessions/:id', requireAuth, async (req, res) => {
 
 app.put('/api/onboarding/sessions/:id/answer', requireAuth, async (req, res) => {
   try {
-    const { questionId, answer, currentQuestion, skipped } = req.body;
+    const { questionId, answer, currentQuestion, skipped, aiMessage } = req.body;
     const ref = db.collection('onboarding_interviews').doc(req.params.id);
     const updates = { updated_at: FieldValue.serverTimestamp(), current_question: currentQuestion };
     if (questionId && answer !== undefined) updates[`answers.${questionId}`] = answer;
     if (skipped) updates.skipped = skipped;
+    if (aiMessage !== undefined) updates.current_ai_message = aiMessage;
     await ref.update(updates);
     res.json({ ok: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -4790,6 +4791,7 @@ app.get('/api/join/:sessionId/:token/state', async (req, res) => {
       current_question: d.current_question || 0,
       current_question_label: q?.label || null,
       current_section: q?.section || null,
+      current_ai_message: d.current_ai_message || null,
       total_questions: ONBOARDING_QUESTIONS.length,
       progress: Math.round(((d.current_question || 0) / ONBOARDING_QUESTIONS.length) * 100),
     });
