@@ -344,6 +344,9 @@ let joinToken = null;
 let contractorPollTimer = null;
 let lastTranscriptCount = 0;
 let _skipNextUserMessage = false;
+let _contractorEventSource = null;
+const _prefetchedQuestions = new Map();
+let _localTranscriptChunks = [];
 const esc = s => { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
 
 // ── Auth ──
@@ -366,7 +369,7 @@ function showView(id) {
   });
   // Toggle chat-active class on page container for layout
   document.querySelector('.ob-page').classList.toggle('ob-chat-active', id === 'ob-chat');
-  if (id !== 'ob-chat') stopContractorPolling();
+  if (id !== 'ob-chat') { stopContractorSSE(); stopContractorPolling(); }
   if (id === 'ob-landing') { loadExistingSessions(); loadRecentClients(); }
 }
 
@@ -659,13 +662,15 @@ async function startInterview() {
     skipped = [];
     awaitingFollowup = false;
     followupAnswer = '';
+    _localTranscriptChunks = [];
+    _prefetchedQuestions.clear();
     document.getElementById('ob-messages').innerHTML = '';
     document.getElementById('ob-chat-client').textContent = clientName;
     updateProgress();
     showJoinLink();
     showView('ob-chat');
     localStorage.setItem('ob-session', JSON.stringify({ id: sessionId }));
-    startContractorPolling();
+    startContractorSSE();
     // AI asks the first question
     await askCurrentQuestion(true);
   } catch (err) { alert(err.message); }
@@ -686,6 +691,8 @@ async function resumeSession(id) {
     joinToken = data.join_token || null;
     awaitingFollowup = false;
     followupAnswer = '';
+    _localTranscriptChunks = data.transcript_chunks || [];
+    _prefetchedQuestions.clear();
 
     if (data.status === 'extracted' && data.extracted_profile) {
       extractedProfile = data.extracted_profile;
@@ -706,7 +713,7 @@ async function resumeSession(id) {
     showJoinLink();
     showView('ob-chat');
     localStorage.setItem('ob-session', JSON.stringify({ id: sessionId }));
-    startContractorPolling();
+    startContractorSSE();
 
     // Replay answered questions as a summary, then ask current
     if (currentQ > 0) {
@@ -764,24 +771,14 @@ function setInputLocked(locked) {
   document.getElementById('ob-next-btn').disabled = locked;
 }
 
-// ── AI asks the current question ──
-async function askCurrentQuestion(isFirst) {
-  const q = QUESTIONS[currentQ];
-  if (!q) return;
-
-  // Clear any previous section summary from Firestore so the join page moves on
-  if (sessionId) {
-    fetch(`/api/onboarding/sessions/${sessionId}/clear-summary`, { method: 'POST' }).catch(err => console.warn('clear-summary failed:', err));
-  }
-
-  // Show section divider if entering a new section
-  const prevSection = currentQ > 0 ? QUESTIONS[currentQ - 1].section : null;
-  if (q.section !== prevSection) {
-    addMessage('section', q.section);
-  }
-
-  setInputLocked(true);
-  showTyping();
+// ── Pre-fetch next question (Optimization 2) ──
+function prefetchNextQuestion(nextIndex) {
+  if (nextIndex >= QUESTIONS.length) return;
+  const nextQ = QUESTIONS[nextIndex];
+  if (!nextQ) return;
+  // Don't prefetch across section boundaries (context changes with section summaries)
+  const curQ = QUESTIONS[nextIndex - 1];
+  if (curQ && curQ.section !== nextQ.section) return;
 
   // Build context from recent answers
   let prevContext = '';
@@ -793,19 +790,71 @@ async function askCurrentQuestion(isFirst) {
     }).filter(Boolean).join('\n');
   }
 
+  const promise = fetch('/api/onboarding/ask', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      question: nextQ.label,
+      sectionName: nextQ.section,
+      clientName,
+      isFirstQuestion: false,
+      previousContext: prevContext,
+    }),
+  }).then(r => r.json()).catch(() => null);
+
+  _prefetchedQuestions.set(nextIndex, promise);
+}
+
+// ── AI asks the current question ──
+async function askCurrentQuestion(isFirst) {
+  const q = QUESTIONS[currentQ];
+  if (!q) return;
+
+  // Show section divider if entering a new section
+  const prevSection = currentQ > 0 ? QUESTIONS[currentQ - 1].section : null;
+  const isNewSection = q.section !== prevSection;
+  if (isNewSection) {
+    addMessage('section', q.section);
+    // Clear prefetch cache at section boundaries (context changes)
+    _prefetchedQuestions.clear();
+  }
+
+  setInputLocked(true);
+  showTyping();
+
+  // Check if we have a prefetched result for this question
+  const prefetched = _prefetchedQuestions.get(currentQ);
+  _prefetchedQuestions.delete(currentQ);
+
   try {
-    const r = await fetch('/api/onboarding/ask', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        question: q.label,
-        sectionName: q.section,
-        clientName,
-        isFirstQuestion: isFirst,
-        previousContext: prevContext,
-      }),
-    });
-    const data = await r.json();
+    let data;
+    if (prefetched) {
+      data = await prefetched;
+    }
+    if (!data) {
+      // Build context from recent answers
+      let prevContext = '';
+      const answered = Object.entries(answers).slice(-3);
+      if (answered.length) {
+        prevContext = answered.map(([id, a]) => {
+          const qObj = QUESTIONS.find(qq => qq.id === id);
+          return qObj ? `Q: ${qObj.label}\nA: ${a || '(skipped)'}` : '';
+        }).filter(Boolean).join('\n');
+      }
+
+      const r = await fetch('/api/onboarding/ask', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          question: q.label,
+          sectionName: q.section,
+          clientName,
+          isFirstQuestion: isFirst,
+          previousContext: prevContext,
+        }),
+      });
+      data = await r.json();
+    }
     hideTyping();
     const msg = data.message || q.label;
     addMessage('ai', msg);
@@ -821,6 +870,9 @@ async function askCurrentQuestion(isFirst) {
   awaitingFollowup = false;
   setInputLocked(false);
   document.getElementById('ob-input').focus();
+
+  // Pre-fetch the next question in the background
+  prefetchNextQuestion(currentQ + 1);
 }
 
 // ── Send user answer ──
@@ -1102,25 +1154,19 @@ function syncAiMessage(message) {
   fetch(`/api/onboarding/sessions/${sessionId}/answer`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ questionId: null, answer: undefined, currentQuestion: currentQ, aiMessage: message }),
+    body: JSON.stringify({ questionId: null, answer: undefined, currentQuestion: currentQ, aiMessage: message, clearSummary: true }),
   }).catch(err => console.warn('syncAiMessage failed:', err));
 }
 
 // ── Submit contractor's voice answer (Next button) ──
 async function submitContractorAnswer() {
   if (inputLocked) return;
-  // Collect answer from: typed input OR contractor transcript chunks OR rep mic
+  // Collect answer from: typed input OR contractor transcript chunks (from local accumulator) OR rep mic
   const typedText = document.getElementById('ob-input').value.trim();
   let contractorText = '';
-  // Gather contractor chunks for the current question from polling
-  try {
-    const r = await fetch(`/api/onboarding/sessions/${sessionId}`);
-    if (r.ok) {
-      const data = await r.json();
-      const chunks = (data.transcript_chunks || []).filter(c => c.source === 'contractor' && c.questionIndex === currentQ);
-      contractorText = chunks.map(c => c.text).join(' ').trim();
-    }
-  } catch (err) { console.warn('Failed to fetch contractor transcript:', err); }
+  // Read from local transcript accumulator instead of fetching from Firestore
+  const chunks = _localTranscriptChunks.filter(c => c.source === 'contractor' && c.questionIndex === currentQ);
+  contractorText = chunks.map(c => c.text).join(' ').trim();
 
   const answer = typedText || contractorText;
   if (!answer) {
@@ -1164,9 +1210,56 @@ function copyJoinLink() {
   });
 }
 
+function startContractorSSE() {
+  stopContractorSSE();
+  stopContractorPolling();
+  if (!sessionId) return;
+
+  try {
+    _contractorEventSource = new EventSource(`/api/onboarding/sessions/${sessionId}/stream`);
+
+    _contractorEventSource.addEventListener('state', e => {
+      try {
+        const data = JSON.parse(e.data);
+        // Seed local transcript accumulator from initial state
+        const chunks = data.transcript_chunks || [];
+        _localTranscriptChunks = chunks;
+        lastTranscriptCount = chunks.length;
+        const hasContractor = chunks.some(c => c.source === 'contractor');
+        const bar = document.getElementById('ob-contractor-bar');
+        if (hasContractor && bar) bar.style.display = 'flex';
+      } catch {}
+    });
+
+    _contractorEventSource.addEventListener('transcript', e => {
+      try {
+        const chunk = JSON.parse(e.data);
+        _localTranscriptChunks.push(chunk);
+        lastTranscriptCount = _localTranscriptChunks.length;
+        if (chunk.source === 'contractor') {
+          addMessage('user', chunk.text);
+          const bar = document.getElementById('ob-contractor-bar');
+          if (bar) bar.style.display = 'flex';
+        }
+      } catch {}
+    });
+
+    _contractorEventSource.onerror = () => {
+      if (_contractorEventSource) { _contractorEventSource.close(); _contractorEventSource = null; }
+      startContractorPolling();
+    };
+  } catch {
+    startContractorPolling();
+  }
+}
+
+function stopContractorSSE() {
+  if (_contractorEventSource) { _contractorEventSource.close(); _contractorEventSource = null; }
+}
+
 function startContractorPolling() {
   stopContractorPolling();
-  lastTranscriptCount = 0;
+  lastTranscriptCount = _localTranscriptChunks.length;
   contractorPollTimer = setInterval(async () => {
     if (!sessionId) return;
     try {
@@ -1174,6 +1267,7 @@ function startContractorPolling() {
       if (!r.ok) return;
       const data = await r.json();
       const chunks = data.transcript_chunks || [];
+      _localTranscriptChunks = chunks;
       // Show contractor connection indicator
       const hasContractor = chunks.some(c => c.source === 'contractor');
       const bar = document.getElementById('ob-contractor-bar');

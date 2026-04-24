@@ -136,7 +136,7 @@ let lastSummarySectionIndex = -1;
 
     hideLoading();
     updateState(data);
-    startPolling();
+    startSSE();
   } catch { showError('Failed to connect. Please check your link and try again.'); }
 })();
 
@@ -174,7 +174,7 @@ function showView(view) {
     inEl.classList.add('fade-in');
   }, lastView ? 420 : 0);
 
-  if (view === 'complete') stopPolling();
+  if (view === 'complete') { stopSSE(); stopPolling(); }
   lastView = view;
 }
 
@@ -271,7 +271,51 @@ function updateState(data) {
   }
 }
 
-// ── Polling ──
+// ── SSE ──
+let eventSource = null;
+
+function startSSE() {
+  if (eventSource) { eventSource.close(); eventSource = null; }
+  try {
+    eventSource = new EventSource(`/api/join/${sessionId}/${joinToken}/stream`);
+
+    eventSource.addEventListener('state', e => {
+      try { updateState(JSON.parse(e.data)); } catch {}
+    });
+
+    eventSource.addEventListener('question_change', e => {
+      try { updateState(JSON.parse(e.data)); } catch {}
+    });
+
+    eventSource.addEventListener('summary', e => {
+      try {
+        const ss = JSON.parse(e.data);
+        updateState({ section_summary: ss, active: true, status: 'in_progress' });
+      } catch {}
+    });
+
+    eventSource.addEventListener('summary_cleared', () => {
+      lastSummarySectionIndex = -1;
+    });
+
+    eventSource.addEventListener('complete', () => {
+      showView('complete');
+    });
+
+    eventSource.onerror = () => {
+      if (eventSource) { eventSource.close(); eventSource = null; }
+      startPolling();
+    };
+  } catch {
+    startPolling();
+  }
+}
+
+function stopSSE() {
+  if (eventSource) { eventSource.close(); eventSource = null; }
+}
+
+// ── Polling (fallback) ──
 function startPolling() {
   pollTimer = setInterval(async () => {
     try {

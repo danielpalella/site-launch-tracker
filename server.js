@@ -4442,6 +4442,28 @@ app.post('/api/bulk-blog/push-batch', requireAuth, async (req, res) => {
 });
 
 // ── Onboarding Interview ──
+
+// ── SSE infrastructure for live interview updates ──
+const sseClients = new Map(); // Map<sessionId, Set<res>>
+
+function addSseClient(sessionId, res) {
+  if (!sseClients.has(sessionId)) sseClients.set(sessionId, new Set());
+  sseClients.get(sessionId).add(res);
+}
+
+function removeSseClient(sessionId, res) {
+  const set = sseClients.get(sessionId);
+  if (set) { set.delete(res); if (set.size === 0) sseClients.delete(sessionId); }
+}
+
+function emitSseEvent(sessionId, eventType, data) {
+  const set = sseClients.get(sessionId);
+  if (!set || set.size === 0) return;
+  const payload = `event: ${eventType}\ndata: ${JSON.stringify(data)}\n\n`;
+  for (const res of set) {
+    try { res.write(payload); } catch { /* client gone */ }
+  }
+}
 app.get('/api/onboarding/sessions', requireAuth, async (req, res) => {
   try {
     // Fetch all and filter/sort in JS to avoid requiring a Firestore composite index
@@ -4665,8 +4687,23 @@ app.put('/api/onboarding/sessions/:id/answer', requireAuth, async (req, res) => 
     if (questionId && answer !== undefined) updates[`answers.${questionId}`] = answer;
     if (skipped) updates.skipped = skipped;
     if (aiMessage !== undefined) updates.current_ai_message = aiMessage;
+    if (req.body.clearSummary) updates.section_summary = null;
     await ref.update(updates);
     res.json({ ok: true });
+
+    // Emit SSE question_change event for join/present pages
+    const q = ONBOARDING_QUESTIONS[currentQuestion] || null;
+    emitSseEvent(req.params.id, 'question_change', {
+      status: 'in_progress',
+      active: true,
+      current_question: currentQuestion,
+      current_question_label: q?.label || null,
+      current_section: q?.section || null,
+      current_ai_message: aiMessage !== undefined ? aiMessage : null,
+      section_summary: req.body.clearSummary ? null : undefined,
+      total_questions: ONBOARDING_QUESTIONS.length,
+      progress: Math.round((currentQuestion / ONBOARDING_QUESTIONS.length) * 100),
+    });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -4854,7 +4891,10 @@ Return ONLY valid JSON with no markdown fencing, no commentary. Use this schema:
     let profile;
     try { profile = JSON.parse(cleaned); } catch { return res.status(502).json({ error: 'Gemini returned invalid JSON', raw: cleaned.slice(0, 500) }); }
 
-    await db.collection('onboarding_interviews').doc(req.params.id).update({
+    // Batch write: interview doc + launch doc in one atomic operation
+    const batch = db.batch();
+    const interviewRef = db.collection('onboarding_interviews').doc(req.params.id);
+    batch.update(interviewRef, {
       status: 'extracted',
       extracted_profile: profile,
       completed_at: FieldValue.serverTimestamp(),
@@ -4862,16 +4902,25 @@ Return ONLY valid JSON with no markdown fencing, no commentary. Use this schema:
       join_token_active: false,
     });
 
-    // Save profile to the launch/account doc regardless of status
     const sessionData = doc.data();
     if (sessionData.client_id) {
-      await db.collection('launches').doc(sessionData.client_id).update({
+      const launchRef = db.collection('launches').doc(sessionData.client_id);
+      batch.update(launchRef, {
         onboarding_profile: profile,
         onboarding_completed_at: FieldValue.serverTimestamp(),
-      }).catch(e => console.error('Failed to save profile to launch doc:', e.message));
+      });
+    }
+
+    try { await batch.commit(); } catch (e) {
+      console.error('Batch commit failed, falling back:', e.message);
+      await interviewRef.update({ status: 'extracted', extracted_profile: profile, completed_at: FieldValue.serverTimestamp(), updated_at: FieldValue.serverTimestamp(), join_token_active: false });
+      if (sessionData.client_id) {
+        await db.collection('launches').doc(sessionData.client_id).update({ onboarding_profile: profile, onboarding_completed_at: FieldValue.serverTimestamp() }).catch(() => {});
+      }
     }
 
     res.json({ profile });
+    emitSseEvent(req.params.id, 'complete', { status: 'extracted' });
   } catch (err) {
     console.error('onboarding extract error:', err);
     res.status(500).json({ error: err.message });
@@ -4948,6 +4997,7 @@ Return ONLY valid JSON with no markdown:
     });
 
     res.json(sectionSummary);
+    emitSseEvent(req.params.id, 'summary', sectionSummary);
   } catch (err) {
     console.error('section-summary error:', err);
     res.status(500).json({ error: err.message });
@@ -4962,6 +5012,7 @@ app.post('/api/onboarding/sessions/:id/clear-summary', requireAuth, async (req, 
       updated_at: FieldValue.serverTimestamp(),
     });
     res.json({ ok: true });
+    emitSseEvent(req.params.id, 'summary_cleared', {});
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -5015,6 +5066,76 @@ async function validateJoinToken(sessionId, token) {
   return { doc, data: d };
 }
 
+// ── SSE stream for contractor join page (token-validated, no auth) ──
+app.get('/api/join/:sessionId/:token/stream', async (req, res) => {
+  try {
+    const result = await validateJoinToken(req.params.sessionId, req.params.token);
+    if (!result) return res.status(403).json({ error: 'Invalid' });
+
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no',
+    });
+
+    const d = result.data;
+    const q = ONBOARDING_QUESTIONS[d.current_question] || null;
+    const initialState = {
+      status: d.status,
+      active: d.join_token_active !== false,
+      current_question: d.current_question || 0,
+      current_question_label: q?.label || null,
+      current_section: q?.section || null,
+      current_ai_message: d.current_ai_message || null,
+      section_summary: d.section_summary || null,
+      total_questions: ONBOARDING_QUESTIONS.length,
+      progress: Math.round(((d.current_question || 0) / ONBOARDING_QUESTIONS.length) * 100),
+    };
+    res.write(`event: state\ndata: ${JSON.stringify(initialState)}\n\n`);
+
+    const sid = req.params.sessionId;
+    addSseClient(sid, res);
+
+    const heartbeat = setInterval(() => {
+      try { res.write(': heartbeat\n\n'); } catch { clearInterval(heartbeat); removeSseClient(sid, res); }
+    }, 30000);
+
+    req.on('close', () => { clearInterval(heartbeat); removeSseClient(sid, res); });
+  } catch (err) { if (!res.headersSent) res.status(500).json({ error: err.message }); }
+});
+
+// ── SSE stream for rep onboarding page (authenticated) ──
+app.get('/api/onboarding/sessions/:id/stream', requireAuth, async (req, res) => {
+  try {
+    const doc = await db.collection('onboarding_interviews').doc(req.params.id).get();
+    if (!doc.exists) return res.status(404).json({ error: 'Not found' });
+
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no',
+    });
+
+    const d = doc.data();
+    res.write(`event: state\ndata: ${JSON.stringify({
+      transcript_chunks: d.transcript_chunks || [],
+      contractor_interim: d.contractor_interim || '',
+      current_question: d.current_question || 0,
+    })}\n\n`);
+
+    const sid = req.params.id;
+    addSseClient(sid, res);
+
+    const heartbeat = setInterval(() => {
+      try { res.write(': heartbeat\n\n'); } catch { clearInterval(heartbeat); removeSseClient(sid, res); }
+    }, 30000);
+
+    req.on('close', () => { clearInterval(heartbeat); removeSseClient(sid, res); });
+  } catch (err) { if (!res.headersSent) res.status(500).json({ error: err.message }); }
+});
+
 app.get('/api/join/:sessionId/:token', async (req, res) => {
   try {
     const result = await validateJoinToken(req.params.sessionId, req.params.token);
@@ -5065,13 +5186,16 @@ app.post('/api/join/:sessionId/:token/transcript', joinRateLimit, async (req, re
     if (typeof text !== 'string' || text.length > 5000) return res.status(400).json({ error: 'text exceeds maximum length of 5000 characters' });
 
     const ref = db.collection('onboarding_interviews').doc(req.params.sessionId);
+    const chunk = { text, ts: new Date().toISOString(), source: 'contractor', questionIndex: result.data.current_question || 0 };
     if (interim) {
       await ref.update({ contractor_interim: text });
     } else {
       await ref.update({
-        transcript_chunks: FieldValue.arrayUnion({ text, ts: new Date().toISOString(), source: 'contractor', questionIndex: result.data.current_question || 0 }),
+        transcript_chunks: FieldValue.arrayUnion(chunk),
         contractor_interim: '',
       });
+      // Emit transcript event for rep's onboarding page
+      emitSseEvent(req.params.sessionId, 'transcript', chunk);
     }
     res.json({ ok: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -5083,10 +5207,12 @@ app.post('/api/join/:sessionId/:token/skip', joinRateLimit, async (req, res) => 
     if (!result) return res.status(403).json({ error: 'Invalid' });
     if (!result.data.join_token_active) return res.status(410).json({ error: 'Interview completed' });
     const ref = db.collection('onboarding_interviews').doc(req.params.sessionId);
+    const skipChunk = { text: '(skipped by contractor)', ts: new Date().toISOString(), source: 'contractor', questionIndex: result.data.current_question || 0, skipped: true };
     await ref.update({
-      transcript_chunks: FieldValue.arrayUnion({ text: '(skipped by contractor)', ts: new Date().toISOString(), source: 'contractor', questionIndex: result.data.current_question || 0, skipped: true }),
+      transcript_chunks: FieldValue.arrayUnion(skipChunk),
     });
     res.json({ ok: true });
+    emitSseEvent(req.params.sessionId, 'transcript', skipChunk);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

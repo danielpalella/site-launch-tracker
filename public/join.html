@@ -235,7 +235,7 @@ function showComplete() {
   updateTracker(-1);
   document.getElementById('j-tracker').style.display = 'block';
   document.getElementById('j-complete').style.display = 'block';
-  stopPolling(); stopMic();
+  stopSSE(); stopPolling(); stopMic();
 }
 function hideAll() {
   ['j-loading','j-error','j-perm','j-interview','j-summary','j-complete'].forEach(id => document.getElementById(id).style.display = 'none');
@@ -287,12 +287,66 @@ function animateUnlock(sectionIdx) {
   if (line) setTimeout(() => line.classList.add('done'), 400);
 }
 
+// ── SSE ──
+let eventSource = null;
+
+function startSSE() {
+  if (eventSource) { eventSource.close(); eventSource = null; }
+  try {
+    eventSource = new EventSource(`/api/join/${sessionId}/${joinToken}/stream`);
+
+    eventSource.addEventListener('state', e => {
+      try {
+        const data = JSON.parse(e.data);
+        if (!data.active || data.status === 'extracted') { showComplete(); return; }
+        updateState(data);
+      } catch {}
+    });
+
+    eventSource.addEventListener('question_change', e => {
+      try {
+        const data = JSON.parse(e.data);
+        if (!data.active || data.status === 'extracted') { showComplete(); return; }
+        updateState(data);
+      } catch {}
+    });
+
+    eventSource.addEventListener('summary', e => {
+      try {
+        const ss = JSON.parse(e.data);
+        showSectionSummary(ss);
+      } catch {}
+    });
+
+    eventSource.addEventListener('summary_cleared', () => {
+      if (document.getElementById('j-summary').style.display !== 'none') {
+        document.getElementById('j-summary').style.display = 'none';
+        document.getElementById('j-interview').style.display = 'flex';
+      }
+    });
+
+    eventSource.addEventListener('complete', () => { showComplete(); });
+
+    eventSource.onerror = () => {
+      // Fall back to polling on SSE failure
+      if (eventSource) { eventSource.close(); eventSource = null; }
+      startPolling();
+    };
+  } catch {
+    startPolling();
+  }
+}
+
+function stopSSE() {
+  if (eventSource) { eventSource.close(); eventSource = null; }
+}
+
 // ── Start modes ──
 function requestMicAndStart() {
   hideAll();
   document.getElementById('j-tracker').style.display = 'block';
   document.getElementById('j-interview').style.display = 'flex';
-  startPolling(); initMic();
+  startSSE(); initMic();
 }
 function startWithTextOnly() {
   hideAll();
@@ -301,7 +355,7 @@ function startWithTextOnly() {
   document.getElementById('j-interview').style.display = 'flex';
   document.getElementById('j-text-wrap').style.display = 'block';
   document.getElementById('j-mic-indicator').style.display = 'none';
-  startPolling();
+  startSSE();
 }
 
 // ── Mic ──
