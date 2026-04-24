@@ -4863,6 +4863,27 @@ const ONBOARDING_QUESTIONS = [
   { id:'goals_3', section:'Goals', label:'Anything else we should know about your business?' },
 ];
 
+// ── Rate limiter for unauthenticated join endpoints ──
+const joinRateMap = new Map();
+function joinRateLimit(req, res, next) {
+  const key = req.params.sessionId;
+  const now = Date.now();
+  let entry = joinRateMap.get(key);
+  if (!entry) { entry = []; joinRateMap.set(key, entry); }
+  // Purge timestamps older than 60s
+  while (entry.length && entry[0] < now - 60000) entry.shift();
+  if (entry.length >= 30) return res.status(429).json({ error: 'Too many requests. Please slow down.' });
+  entry.push(now);
+  next();
+}
+// Clean up stale entries every 5 minutes
+setInterval(() => {
+  const cutoff = Date.now() - 120000;
+  for (const [key, timestamps] of joinRateMap) {
+    if (!timestamps.length || timestamps[timestamps.length - 1] < cutoff) joinRateMap.delete(key);
+  }
+}, 300000);
+
 async function validateJoinToken(sessionId, token) {
   const doc = await db.collection('onboarding_interviews').doc(sessionId).get();
   if (!doc.exists) return null;
@@ -4911,13 +4932,14 @@ app.get('/api/join/:sessionId/:token/state', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.post('/api/join/:sessionId/:token/transcript', async (req, res) => {
+app.post('/api/join/:sessionId/:token/transcript', joinRateLimit, async (req, res) => {
   try {
     const result = await validateJoinToken(req.params.sessionId, req.params.token);
     if (!result) return res.status(403).json({ error: 'Invalid' });
     if (!result.data.join_token_active) return res.status(410).json({ error: 'Interview completed' });
     const { text, interim } = req.body;
     if (!text) return res.status(400).json({ error: 'text required' });
+    if (typeof text !== 'string' || text.length > 5000) return res.status(400).json({ error: 'text exceeds maximum length of 5000 characters' });
 
     const ref = db.collection('onboarding_interviews').doc(req.params.sessionId);
     if (interim) {
@@ -4932,7 +4954,7 @@ app.post('/api/join/:sessionId/:token/transcript', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.post('/api/join/:sessionId/:token/skip', async (req, res) => {
+app.post('/api/join/:sessionId/:token/skip', joinRateLimit, async (req, res) => {
   try {
     const result = await validateJoinToken(req.params.sessionId, req.params.token);
     if (!result) return res.status(403).json({ error: 'Invalid' });

@@ -362,7 +362,7 @@ async function searchClients() {
       const r = await fetch(`/api/onboarding/clients?search=${encodeURIComponent(term)}`);
       const clients = await r.json();
       renderSearchResults(clients, term);
-    } catch {}
+    } catch (err) { console.warn('Client search failed:', err); }
   }, 250);
 }
 
@@ -377,7 +377,7 @@ async function loadRecentClients() {
     const r = await fetch('/api/onboarding/clients');
     const clients = await r.json();
     renderSearchResults(clients.slice(0, 10), '');
-  } catch {}
+  } catch (err) { console.warn('Failed to load recent clients:', err); }
 }
 
 function renderSearchResults(clients, searchTerm) {
@@ -514,7 +514,7 @@ async function loadExistingSessions() {
         <span class="ob-session-date">${date}</span>
       </div>`;
     }).join('');
-  } catch {}
+  } catch (err) { console.warn('Failed to load existing sessions:', err); }
 }
 
 // ── Start interview ──
@@ -542,7 +542,7 @@ async function startInterview() {
     updateProgress();
     showJoinLink();
     showView('ob-chat');
-    sessionStorage.setItem('ob-session', JSON.stringify({ id: sessionId }));
+    localStorage.setItem('ob-session', JSON.stringify({ id: sessionId }));
     startContractorPolling();
     // AI asks the first question
     await askCurrentQuestion(true);
@@ -583,7 +583,7 @@ async function resumeSession(id) {
     updateProgress();
     showJoinLink();
     showView('ob-chat');
-    sessionStorage.setItem('ob-session', JSON.stringify({ id: sessionId }));
+    localStorage.setItem('ob-session', JSON.stringify({ id: sessionId }));
     startContractorPolling();
 
     // Replay answered questions as a summary, then ask current
@@ -647,6 +647,11 @@ async function askCurrentQuestion(isFirst) {
   const q = QUESTIONS[currentQ];
   if (!q) return;
 
+  // Clear any previous section summary from Firestore so the join page moves on
+  if (sessionId) {
+    fetch(`/api/onboarding/sessions/${sessionId}/clear-summary`, { method: 'POST' }).catch(err => console.warn('clear-summary failed:', err));
+  }
+
   // Show section divider if entering a new section
   const prevSection = currentQ > 0 ? QUESTIONS[currentQ - 1].section : null;
   if (q.section !== prevSection) {
@@ -683,7 +688,8 @@ async function askCurrentQuestion(isFirst) {
     const msg = data.message || q.label;
     addMessage('ai', msg);
     syncAiMessage(msg);
-  } catch {
+  } catch (err) {
+    console.warn('askCurrentQuestion AI call failed:', err);
     hideTyping();
     addMessage('ai', q.label);
     syncAiMessage(q.label);
@@ -766,7 +772,8 @@ async function sendAnswer() {
         await runExtraction();
       }
     }
-  } catch {
+  } catch (err) {
+    console.warn('sendAnswer chat call failed:', err);
     hideTyping();
     // On error, just move on
     answers[q.id] = followupAnswer;
@@ -810,12 +817,27 @@ async function finishEarly() {
 // ── Save to Firestore ──
 async function saveAnswer(questionId, answer, isSkip) {
   try {
-    await fetch(`/api/onboarding/sessions/${sessionId}/answer`, {
+    const r = await fetch(`/api/onboarding/sessions/${sessionId}/answer`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ questionId, answer, currentQuestion: currentQ + 1, skipped: isSkip ? skipped : undefined }),
     });
-  } catch {} // don't block on save failure
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    // Clear any previous save-failed indicator
+    const old = document.getElementById('ob-save-failed');
+    if (old) old.remove();
+  } catch (err) {
+    console.warn('saveAnswer failed:', err);
+    // Show visual warning to the rep
+    if (!document.getElementById('ob-save-failed')) {
+      const badge = document.createElement('div');
+      badge.id = 'ob-save-failed';
+      badge.textContent = 'Save failed — answer may be lost';
+      badge.style.cssText = 'position:fixed;top:8px;right:8px;background:#dc2626;color:#fff;font-size:.75rem;font-weight:600;padding:.35rem .75rem;border-radius:6px;z-index:9999;cursor:pointer';
+      badge.onclick = () => badge.remove();
+      document.body.appendChild(badge);
+    }
+  }
 }
 
 // ── Extract profile ──
@@ -836,7 +858,7 @@ async function runExtraction() {
     extractedProfile = data.profile;
     renderResults(extractedProfile);
     showView('ob-results');
-    sessionStorage.removeItem('ob-session');
+    localStorage.removeItem('ob-session');
   } catch (err) {
     showExtractionFailed(err.message);
     showView('ob-landing');
@@ -944,10 +966,9 @@ async function showSectionSummary(sectionName, sectionIndex) {
       el.scrollTop = el.scrollHeight;
     }
 
-    // Wait a moment so the contractor view can display it, then clear
-    await new Promise(r => setTimeout(r, 5000));
-    await fetch(`/api/onboarding/sessions/${sessionId}/clear-summary`, { method: 'POST' }).catch(() => {});
-  } catch {
+    // Summary will be cleared when the next question's AI message is synced (in askCurrentQuestion)
+  } catch (err) {
+    console.warn('Section summary generation failed:', err);
     hideTyping();
   }
   setInputLocked(false);
@@ -960,7 +981,7 @@ function syncAiMessage(message) {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ questionId: null, answer: undefined, currentQuestion: currentQ, aiMessage: message }),
-  }).catch(() => {});
+  }).catch(err => console.warn('syncAiMessage failed:', err));
 }
 
 // ── Submit contractor's voice answer (Next button) ──
@@ -977,7 +998,7 @@ async function submitContractorAnswer() {
       const chunks = (data.transcript_chunks || []).filter(c => c.source === 'contractor' && c.questionIndex === currentQ);
       contractorText = chunks.map(c => c.text).join(' ').trim();
     }
-  } catch {}
+  } catch (err) { console.warn('Failed to fetch contractor transcript:', err); }
 
   const answer = typedText || contractorText;
   if (!answer) {
@@ -1052,7 +1073,7 @@ function startContractorPolling() {
         const status = document.getElementById('ob-contractor-status');
         if (status) status.textContent = 'Contractor speaking...';
       }
-    } catch {}
+    } catch (err) { console.warn('Contractor poll failed:', err); }
   }, 3000);
 }
 
@@ -1069,109 +1090,6 @@ function autoGrow(el) {
   el.style.height = Math.min(el.scrollHeight, 120) + 'px';
 }
 
-// ── Voice Input (Web Speech API) ──
-let recognition = null;
-let isListening = false;
-
-function initSpeechRecognition() {
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) {
-    // Hide mic button if not supported
-    const btn = document.getElementById('ob-mic-btn');
-    if (btn) btn.style.display = 'none';
-    return;
-  }
-  recognition = new SR();
-  recognition.continuous = true;
-  recognition.interimResults = true;
-  recognition.lang = 'en-US';
-
-  let finalTranscript = '';
-
-  recognition.onstart = () => {
-    isListening = true;
-    document.getElementById('ob-mic-btn').classList.add('ob-mic-active');
-    document.getElementById('ob-input').classList.add('ob-listening');
-    document.getElementById('ob-mic-status').classList.add('active');
-    document.getElementById('ob-input').placeholder = 'Listening...';
-  };
-
-  recognition.onend = () => {
-    isListening = false;
-    document.getElementById('ob-mic-btn').classList.remove('ob-mic-active');
-    document.getElementById('ob-input').classList.remove('ob-listening');
-    document.getElementById('ob-mic-status').classList.remove('active');
-    document.getElementById('ob-input').placeholder = 'Type or tap the mic to speak...';
-  };
-
-  recognition.onresult = (event) => {
-    const input = document.getElementById('ob-input');
-    // Get the text that was in the input before voice started
-    const prefix = input.dataset.preVoiceText || '';
-    let interim = '';
-    finalTranscript = '';
-    for (let i = event.resultIndex; i < event.results.length; i++) {
-      const t = event.results[i][0].transcript;
-      if (event.results[i].isFinal) {
-        finalTranscript += t;
-      } else {
-        interim += t;
-      }
-    }
-    // Append to whatever was already in the input
-    const existingFinal = input.dataset.voiceFinal || '';
-    const newFinal = existingFinal + finalTranscript;
-    input.dataset.voiceFinal = newFinal;
-    input.value = (prefix ? prefix + ' ' : '') + newFinal + interim;
-    autoGrow(input);
-  };
-
-  recognition.onerror = (event) => {
-    console.warn('Speech recognition error:', event.error);
-    if (event.error === 'not-allowed') {
-      alert('Microphone access was denied. Please allow microphone access in your browser settings.');
-    }
-    stopVoiceInput();
-  };
-}
-
-function toggleVoiceInput() {
-  if (!recognition) initSpeechRecognition();
-  if (!recognition) return; // not supported
-  if (isListening) {
-    stopVoiceInput();
-  } else {
-    startVoiceInput();
-  }
-}
-
-function startVoiceInput() {
-  if (!recognition || isListening) return;
-  const input = document.getElementById('ob-input');
-  // Save existing text so we can append voice to it
-  input.dataset.preVoiceText = input.value.trim();
-  input.dataset.voiceFinal = '';
-  try {
-    recognition.start();
-  } catch (e) {
-    console.warn('Speech start error:', e);
-  }
-}
-
-function stopVoiceInput() {
-  if (!recognition || !isListening) return;
-  try { recognition.stop(); } catch {}
-}
-
-// Stop voice when sending an answer
-const _origSendAnswer = sendAnswer;
-sendAnswer = function() {
-  stopVoiceInput();
-  return _origSendAnswer();
-};
-
-// Initialize on load
-initSpeechRecognition();
 </script>
 </body>
 </html>
