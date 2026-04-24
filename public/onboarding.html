@@ -50,17 +50,6 @@
 .ob-sc-change:hover { text-decoration: underline }
 
 /* New client modal */
-.ob-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 200; align-items: center; justify-content: center }
-.ob-modal-overlay.open { display: flex }
-.ob-modal { background: var(--surface); border-radius: 12px; padding: 1.5rem; width: 420px; max-width: 95vw; box-shadow: 0 12px 40px rgba(0,0,0,.2) }
-.ob-modal-title { font-size: 1rem; font-weight: 700; color: var(--text); margin-bottom: 1rem }
-.ob-modal-field { margin-bottom: .75rem }
-.ob-modal-field label { display: block; font-size: .75rem; font-weight: 600; color: var(--text-muted); margin-bottom: .25rem }
-.ob-modal-field input { width: 100%; padding: .5rem .75rem; border: 1px solid var(--border); border-radius: 6px; font-size: .85rem; font-family: inherit; color: var(--text); background: var(--bg); box-sizing: border-box }
-.ob-modal-field input:focus { outline: none; border-color: var(--primary) }
-.ob-modal-btns { display: flex; justify-content: flex-end; gap: .5rem; margin-top: 1rem }
-.ob-modal-cancel { padding: .45rem .9rem; border: 1px solid var(--border); border-radius: 6px; background: none; color: var(--text); font-size: .82rem; font-weight: 600; cursor: pointer; font-family: inherit }
-.ob-modal-save { padding: .45rem .9rem; border: none; border-radius: 6px; background: var(--primary); color: #fff; font-size: .82rem; font-weight: 700; cursor: pointer; font-family: inherit }
 
 .ob-sessions { margin-top: 2rem }
 .ob-sessions-title { font-size: .82rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: .5rem }
@@ -166,7 +155,7 @@
   <!-- ═══ Landing ═══ -->
   <div id="ob-landing">
     <h1 class="ob-title">AI Onboarding Interview <span class="ob-badge">BETA</span></h1>
-    <p class="ob-sub">Select a client to start or resume an AI-driven onboarding interview. The AI asks 27 questions, evaluates answers, asks follow-ups, and produces a structured profile.</p>
+    <p class="ob-sub">Select a client to start or resume an AI-driven onboarding interview. The AI asks 17 questions across 7 sections, evaluates answers, asks follow-ups when needed, and produces a structured profile.</p>
 
     <!-- Client search -->
     <div class="ob-search-wrap" id="ob-search-wrap">
@@ -218,42 +207,13 @@
     </div>
   </div>
 
-  <!-- New client modal -->
-  <div class="ob-modal-overlay" id="ob-new-client-modal" onclick="if(event.target===this)closeNewClientModal()">
-    <div class="ob-modal">
-      <div class="ob-modal-title">New Client</div>
-      <div class="ob-modal-field"><label>Business Name *</label><input type="text" id="nc-account" placeholder="e.g. Smith Plumbing LLC"></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem">
-        <div class="ob-modal-field"><label>Contact First Name *</label><input type="text" id="nc-first"></div>
-        <div class="ob-modal-field"><label>Contact Last Name *</label><input type="text" id="nc-last"></div>
-      </div>
-      <div class="ob-modal-field"><label>Email *</label><input type="email" id="nc-email" placeholder="owner@example.com"></div>
-      <div class="ob-modal-field"><label>Phone</label><input type="tel" id="nc-phone" placeholder="(555) 123-4567"></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem">
-        <div class="ob-modal-field"><label>Domain</label><input type="text" id="nc-domain" placeholder="smithplumbing.com"></div>
-        <div class="ob-modal-field">
-          <label>Industry *</label>
-          <select id="nc-industry" style="width:100%;padding:.5rem .75rem;border:1px solid var(--border);border-radius:6px;font-size:.85rem;font-family:inherit;color:var(--text);background:var(--bg)">
-            <option value="">Select...</option>
-            <option>Roofing</option><option>Plumbing</option><option>Electrical</option><option>HVAC</option>
-            <option>Landscaping</option><option>Contracting</option><option>Restoration</option><option>Solar</option>
-            <option>Flooring</option><option>Gutters</option><option>Windows/Glass</option><option>Cleaning Services</option><option>Other</option>
-          </select>
-        </div>
-      </div>
-      <div class="ob-modal-btns">
-        <button class="ob-modal-cancel" onclick="closeNewClientModal()">Cancel</button>
-        <button class="ob-modal-save" id="nc-save-btn" onclick="saveNewClient()">Create & Select</button>
-      </div>
-    </div>
-  </div>
 
   <!-- ═══ Chat Interview ═══ -->
   <div id="ob-chat" class="ob-chat-wrap">
     <div class="ob-chat-header">
       <div class="ob-chat-header-info">
         <div class="ob-chat-client" id="ob-chat-client"></div>
-        <div class="ob-chat-progress" id="ob-chat-progress">Question 1 of 27 · Origin Story</div>
+        <div class="ob-chat-progress" id="ob-chat-progress">Question 1 of 17 · Origin Story</div>
         <div class="ob-chat-pbar"><div class="ob-chat-pbar-fill" id="ob-chat-pbar-fill"></div></div>
       </div>
       <button class="ob-chat-end-btn" id="ob-copy-join-btn" onclick="copyJoinLink()" style="display:none" title="Share this link with the client so they can join the interview from their browser">
@@ -424,12 +384,8 @@ function renderSearchResults(clients, searchTerm) {
       </div>`;
     }).join('');
   } else {
-    html = '<div class="ob-sr-empty">No clients found' + (searchTerm ? ' for "' + esc(searchTerm) + '"' : '') + '</div>';
+    html = '<div class="ob-sr-empty">No clients found' + (searchTerm ? ' for "' + esc(searchTerm) + '"' : '') + '. Submit the client through the <a href="/" style="color:var(--primary)">Intake form</a> first.</div>';
   }
-  html += `<div class="ob-sr-new" onclick="openNewClientModal()">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-    Create new client${searchTerm ? ': "' + esc(searchTerm) + '"' : ''}
-  </div>`;
   el.innerHTML = html;
 }
 
@@ -466,57 +422,6 @@ document.addEventListener('click', e => {
     document.getElementById('ob-search-results').classList.remove('open');
   }
 });
-
-// ── New client modal ──
-function openNewClientModal() {
-  const term = document.getElementById('ob-client-search').value.trim();
-  document.getElementById('nc-account').value = term;
-  document.getElementById('ob-search-results').classList.remove('open');
-  document.getElementById('ob-new-client-modal').classList.add('open');
-  setTimeout(() => (term ? document.getElementById('nc-first') : document.getElementById('nc-account')).focus(), 100);
-}
-
-function closeNewClientModal() {
-  document.getElementById('ob-new-client-modal').classList.remove('open');
-}
-
-async function saveNewClient() {
-  const account = document.getElementById('nc-account').value.trim();
-  const first = document.getElementById('nc-first').value.trim();
-  const last = document.getElementById('nc-last').value.trim();
-  const email = document.getElementById('nc-email').value.trim();
-  const phone = document.getElementById('nc-phone').value.trim();
-  const domain = document.getElementById('nc-domain').value.trim();
-  const industry = document.getElementById('nc-industry').value;
-
-  if (!account || !first || !last || !email || !industry) { alert('Please fill in all required fields.'); return; }
-
-  const btn = document.getElementById('nc-save-btn');
-  btn.disabled = true; btn.textContent = 'Creating...';
-  try {
-    const r = await fetch('/api/launches', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        department: 'Other',
-        account_name: account,
-        domain_name: domain || 'pending.com',
-        contact_name: first + ' ' + last,
-        email, phone: phone || '',
-        industry,
-        notes: 'Created from onboarding interview',
-      }),
-    });
-    const data = await r.json();
-    if (!r.ok) throw new Error(data.error || 'Failed to create client');
-    closeNewClientModal();
-    selectClient({ id: data.id, account_name: account, contact_name: first + ' ' + last, email, domain_name: domain, industry, status: 'new', phone });
-  } catch (err) {
-    alert(err.message);
-  } finally {
-    btn.disabled = false; btn.textContent = 'Create & Select';
-  }
-}
 
 // ── Transcript upload ──
 function parseVTT(text) {
@@ -721,7 +626,7 @@ async function resumeSession(id) {
 
     // Replay answered questions as a summary, then ask current
     if (currentQ > 0) {
-      addMessage('ai', `Welcome back! We left off on question ${currentQ + 1} of 27. Let me pick up where we stopped.`);
+      addMessage('ai', `Welcome back! We left off on question ${currentQ + 1} of ${QUESTIONS.length}. Let me pick up where we stopped.`);
     }
     await askCurrentQuestion(currentQ === 0);
   } catch (err) { alert(err.message); }
