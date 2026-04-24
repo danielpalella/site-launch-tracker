@@ -38,22 +38,10 @@
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
       <span class="nav-label">Insights</span>
     </button>
-    <!-- Blog -->
-    <a href="/bulk-blog" class="nav-tab" title="Blog">
-      <svg width="20" height="20" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor">
-        <path d="M58 6C42 1 18 12 13 33c-2 8 0 15 6 20" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
-        <path d="M58 6C51 20 43 29 28 36c-7 3.5-12 7-17 17" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
-        <path d="M13 33c7-3.5 15-5 25-3" stroke-width="4" stroke-linecap="round"/>
-        <path d="M17 51c6-3.5 13-6 22-7" stroke-width="3.8" stroke-linecap="round"/>
-        <path d="M31 17c6-2.5 13-3 20-2" stroke-width="3" stroke-linecap="round" opacity="0.5"/>
-        <path d="M11 53 Q8 59 9 64" stroke-width="4.5" stroke-linecap="round" fill="none"/>
-        <path d="M9 64 Q16 61 22 65" stroke-width="4" stroke-linecap="round" fill="none"/>
-        <path d="M22 65 Q28 68 34 64" stroke-width="3.6" stroke-linecap="round" fill="none"/>
-        <path d="M34 64 Q40 61 46 65" stroke-width="3.2" stroke-linecap="round" fill="none" opacity="0.85"/>
-        <path d="M46 65 Q52 68 57 64" stroke-width="2.6" stroke-linecap="round" fill="none" opacity="0.6"/>
-        <path d="M57 64 Q62 62 67 65" stroke-width="2" stroke-linecap="round" fill="none" opacity="0.35"/>
-      </svg>
-      <span class="nav-label">Blog</span>
+    <!-- Onboarding -->
+    <a href="/onboarding" class="nav-tab" title="Onboarding">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      <span class="nav-label">Onboarding</span>
     </a>
   </div>
 
@@ -789,6 +777,7 @@
       <button class="asht-btn" onclick="switchAdminTab('apiusage', this)">API Usage</button>
       <button class="asht-btn" onclick="switchAdminTab('errorlog', this)">Error Log</button>
       <button class="asht-btn" onclick="switchAdminTab('users', this)">Users</button>
+      <button class="asht-btn" onclick="switchAdminTab('tools', this)">Tools</button>
     </div>
     <div id="admin-tab-logs" class="admin-sheet-body">
       <div id="admin-loading" class="admin-loading-msg">Loading activity…</div>
@@ -837,6 +826,27 @@
           <button class="admin-lh-run-btn" style="margin-top:0;white-space:nowrap" onclick="addTeamMember()">Add Member</button>
         </div>
         <div id="admin-user-list"></div>
+      </div>
+    </div>
+    <div id="admin-tab-tools" class="admin-sheet-body" style="display:none">
+      <div class="admin-lh-wrap">
+        <p class="admin-lh-hint">Internal tools and features.</p>
+        <a href="/bulk-blog" style="display:flex;align-items:center;gap:.75rem;padding:.85rem 1rem;border:1px solid var(--border);border-radius:.6rem;text-decoration:none;color:var(--text);margin-top:.5rem;transition:background .15s" onmouseover="this.style.background='var(--row-bg)'" onmouseout="this.style.background=''">
+          <svg width="20" height="20" viewBox="0 0 80 80" fill="none" stroke="#1259FF" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"><path d="M58 6C42 1 18 12 13 33c-2 8 0 15 6 20"/><path d="M58 6C51 20 43 29 28 36c-7 3.5-12 7-17 17"/></svg>
+          <div>
+            <div style="font-size:.83rem;font-weight:600">Blog Generator</div>
+            <div style="font-size:.74rem;color:var(--text-muted);margin-top:.15rem">Generate SEO blog posts in bulk for active sites</div>
+          </div>
+          <svg style="margin-left:auto;flex-shrink:0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"/></svg>
+        </a>
+        <a href="/map" target="_blank" style="display:flex;align-items:center;gap:.75rem;padding:.85rem 1rem;border:1px solid var(--border);border-radius:.6rem;text-decoration:none;color:var(--text);margin-top:.5rem;transition:background .15s" onmouseover="this.style.background='var(--row-bg)'" onmouseout="this.style.background=''">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C7.6 2 4 5.6 4 10c0 6 8 14 8 14s8-8 8-14c0-4.4-3.6-8-8-8z"/><circle cx="12" cy="10" r="3"/></svg>
+          <div>
+            <div style="font-size:.83rem;font-weight:600">Site Map</div>
+            <div style="font-size:.74rem;color:var(--text-muted);margin-top:.15rem">Interactive map of all launched sites</div>
+          </div>
+          <svg style="margin-left:auto;flex-shrink:0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"/></svg>
+        </a>
       </div>
     </div>
     <div id="admin-tab-lighthouse" class="admin-sheet-body" style="display:none">
@@ -3015,6 +3025,7 @@ function switchAdminTab(tab, btn) {
   document.getElementById('admin-tab-apiusage').style.display   = tab === 'apiusage'   ? 'flex' : 'none';
   document.getElementById('admin-tab-errorlog').style.display   = tab === 'errorlog'   ? 'flex' : 'none';
   document.getElementById('admin-tab-users').style.display      = tab === 'users'      ? 'flex' : 'none';
+  document.getElementById('admin-tab-tools').style.display      = tab === 'tools'      ? 'flex' : 'none';
   document.querySelectorAll('.asht-btn').forEach(b => b.classList.toggle('asht-active', b === btn));
   if (tab === 'analytics') loadAdminAnalyticsList();
   if (tab === 'apiusage')  loadAdminApiUsage();
