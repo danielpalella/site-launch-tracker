@@ -4519,39 +4519,41 @@ app.put('/api/onboarding/sessions/:id/answer', requireAuth, async (req, res) => 
 // AI conversation turn — evaluates the contractor's answer and decides next action
 app.post('/api/onboarding/chat', requireAuth, async (req, res) => {
   try {
-    const { question, answer, followups, sectionName, clientName, conversationContext } = req.body;
+    const { question, answer, followups, sectionName, clientName, conversationContext, alreadyFollowedUp } = req.body;
     if (!question || !answer) return res.status(400).json({ error: 'question and answer required' });
 
     const geminiKey = await getGeminiKey();
     const followupList = (followups || []).map((f, i) => `${i + 1}. "${f}"`).join('\n');
     const contextLine = conversationContext ? `\nRecent conversation context:\n${conversationContext}\n` : '';
+    const alreadyFollowedUpLine = alreadyFollowedUp ? `\nIMPORTANT: You already asked a follow-up for this question. Do NOT ask another one. Return "next" and move on.\n` : '';
 
-    const prompt = `You are a friendly, professional interviewer onboarding a home services contractor named "${clientName || 'the contractor'}" for their new website. You are currently in the "${sectionName || ''}" section of the interview.
+    const prompt = `You are a friendly, professional interviewer onboarding a home services contractor named "${clientName || 'the contractor'}" for their new website. You are in the "${sectionName || ''}" section.
 
-You just asked: "${question}"
+You asked: "${question}"
 They answered: "${answer}"
-${contextLine}
-Available follow-up prompts you can choose from:
-${followupList || '(none)'}
+${contextLine}${alreadyFollowedUpLine}
+Your primary goal is to MOVE THE INTERVIEW FORWARD. Follow-ups should be rare and purposeful.
 
-Evaluate their answer and decide what to do next. Return ONLY valid JSON with no markdown:
+Return ONLY valid JSON with no markdown. Choose ONE action:
 
-If the answer is substantive and complete enough to move on:
-{"action":"next","message":"A brief, warm 1-sentence acknowledgment of what they said, then a natural transition like 'Great, let me ask about...' Do NOT include the next question — just the transition."}
+{"action":"next","message":"Brief warm 1-sentence acknowledgment referencing what they said. Do NOT include the next question."}
+— Use this for ANY answer that is reasonable and on-topic, even if brief. This is the DEFAULT.
 
-If the answer is too short, vague, or you need more detail — pick a follow-up:
-{"action":"followup","message":"A natural, conversational way to ask for more detail. Incorporate the follow-up prompt naturally — don't read it verbatim. Keep it to 1-2 sentences. Be encouraging, not interrogating."}
-
-If the answer is confusing or doesn't address the question:
-{"action":"clarify","message":"A gentle, friendly request to rephrase. 1 sentence max."}
+{"action":"followup","message":"Natural 1-2 sentence follow-up. Be encouraging, not interrogating."}
+— Use this ONLY if ALL of these are true:
+  1. The answer is under 15 words AND clearly lacks substance
+  2. The question is critical for website copy (not a yes/no question)
+  3. You have NOT already asked a follow-up for this question
+  Available follow-ups: ${followupList || '(none)'}
 
 Rules:
-- Be warm and conversational, like a real person — not robotic
-- Reference specific things they said in your response
-- Keep responses short (1-3 sentences max)
-- If they said "skip" or "I don't know" or similar → always return action "next"
-- Only ask ONE follow-up per turn — never stack multiple questions
-- Return ONLY the JSON object, nothing else`;
+- DEFAULT TO "next". When in doubt, move on.
+- If they said "skip", "I don't know", "not sure", "pass", or similar → ALWAYS return "next"
+- If the answer is a simple factual response (a number, a yes/no, a list) → return "next" even if short
+- NEVER ask more than ONE follow-up per question
+- Keep messages to 1-2 sentences max
+- Reference something specific they said
+- Return ONLY the JSON object`;
 
     const gRes = await fetchWithRetry(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`,
@@ -4722,6 +4724,93 @@ Return ONLY valid JSON with no markdown fencing, no commentary. Use this schema:
   }
 });
 
+// Generate a section summary after all questions in a section are answered
+app.post('/api/onboarding/sessions/:id/section-summary', requireAuth, async (req, res) => {
+  try {
+    const { sectionName, sectionIndex, answers: sectionAnswers, clientName } = req.body;
+    if (!sectionName || !sectionAnswers) return res.status(400).json({ error: 'sectionName and answers required' });
+
+    const SECTION_UNLOCKS = {
+      'Origin Story': ['Homepage hero copy that leads with your story', 'About page built around your founding journey', 'Team section featuring key people'],
+      'Services': ['Service pages with detailed descriptions', 'Service area landing pages', 'Emergency service callouts and CTAs'],
+      'Differentiation': ['Competitive positioning throughout the site', 'Customer testimonial strategy', 'Trust signals on every page'],
+      'Service Area': ['City-specific landing pages for local SEO', 'Service area map and coverage details', 'Geo-targeted content for top markets'],
+      'Brand Voice': ['Consistent tone across all website copy', 'Homepage messaging that sounds like you', 'Blog content voice calibration'],
+      'Credentials': ['Trust badges and certification displays', 'About page credentials section', 'Schema markup for licenses and ratings'],
+      'Goals': ['SEO strategy targeting your priority keywords', 'Lead generation CTAs matched to your goals', 'Performance benchmarks to track success'],
+    };
+
+    const geminiKey = await getGeminiKey();
+    const qaPairs = sectionAnswers.map(qa => `Q: ${qa.question}\nA: ${qa.answer || '(skipped)'}`).join('\n\n');
+
+    const prompt = `You are an experienced brand strategist reviewing a contractor onboarding interview. You just finished the "${sectionName}" section with ${clientName || 'the contractor'}.
+
+Here's what they shared:
+
+${qaPairs}
+
+Write a warm, confident, celebratory summary FOR the contractor — as if you're telling them what you heard and why it matters. This is shown on screen between sections to make them feel good about the process.
+
+Return ONLY valid JSON with no markdown:
+{
+  "narrative": "2-3 paragraphs. Reference specific details they shared (names, years, services, etc). Tone: warm and confident, like an experienced strategist who's excited about what they heard. NOT corporate — no 'stakeholder', 'value proposition', 'leverage'. Write like a real person talking to another person.",
+  "unlocks": ["2-4 concrete website deliverables this section enables, written as short bullet points starting with a verb"]
+}`;
+
+    const gRes = await fetchWithRetry(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.7, maxOutputTokens: 1024, thinkingConfig: { thinkingBudget: 0 } } }),
+      }
+    );
+    const gData = await gRes.json();
+    const parts = gData.candidates?.[0]?.content?.parts || [];
+    const raw = (parts.filter(p => p.text).pop()?.text || '').trim();
+    const cleaned = raw.replace(/^```json?\s*/i, '').replace(/```\s*$/, '').trim();
+
+    let summary;
+    try { summary = JSON.parse(cleaned); } catch {
+      summary = { narrative: 'Great progress on this section! Let\'s keep going.', unlocks: SECTION_UNLOCKS[sectionName] || ['Website content tailored to your business'] };
+    }
+
+    // Add fallback unlocks if AI didn't return enough
+    if (!summary.unlocks || summary.unlocks.length < 2) {
+      summary.unlocks = SECTION_UNLOCKS[sectionName] || ['Website content tailored to your business'];
+    }
+
+    // Save to session doc so the presentation view can pick it up
+    const sectionSummary = {
+      section_name: sectionName,
+      section_index: sectionIndex,
+      narrative: summary.narrative,
+      unlocks: summary.unlocks,
+      client_name: clientName,
+    };
+    await db.collection('onboarding_interviews').doc(req.params.id).update({
+      section_summary: sectionSummary,
+      updated_at: FieldValue.serverTimestamp(),
+    });
+
+    res.json(sectionSummary);
+  } catch (err) {
+    console.error('section-summary error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Clear section summary when advancing to next section
+app.post('/api/onboarding/sessions/:id/clear-summary', requireAuth, async (req, res) => {
+  try {
+    await db.collection('onboarding_interviews').doc(req.params.id).update({
+      section_summary: null,
+      updated_at: FieldValue.serverTimestamp(),
+    });
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // ── Onboarding Join (contractor-facing, no auth) ──
 const ONBOARDING_QUESTIONS = [
   { id:'origin_1', section:'Origin Story', label:'How did you get started in this trade?' },
@@ -4794,6 +4883,7 @@ app.get('/api/join/:sessionId/:token/state', async (req, res) => {
       current_question_label: q?.label || null,
       current_section: q?.section || null,
       current_ai_message: d.current_ai_message || null,
+      section_summary: d.section_summary || null,
       total_questions: ONBOARDING_QUESTIONS.length,
       progress: Math.round(((d.current_question || 0) / ONBOARDING_QUESTIONS.length) * 100),
     });
@@ -4835,6 +4925,7 @@ app.post('/api/join/:sessionId/:token/skip', async (req, res) => {
 });
 
 app.get('/join/:sessionId/:token', (req, res) => res.sendFile(join(__dirname, 'public', 'join.html')));
+app.get('/onboarding/present/:sessionId/:token', (req, res) => res.sendFile(join(__dirname, 'public', 'present.html')));
 
 // ── Pages ──
 app.get('/edit-request', (_req, res) => res.sendFile(join(__dirname, 'public', 'edit-request.html')));

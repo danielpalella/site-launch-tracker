@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Interview · RealWork Labs</title>
+<link rel="icon" href="/favicon.png" type="image/png" />
+<style>
+:root { --primary: #1259FF; --bg: #06102a; --lime: #cbff4d; --text: #ffffff; --text-muted: rgba(255,255,255,.5) }
+* { margin: 0; padding: 0; box-sizing: border-box }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; overflow: hidden }
+
+/* Progress bar */
+.p-progress { position: fixed; top: 0; left: 0; width: 100%; height: 4px; background: rgba(255,255,255,.08); z-index: 10 }
+.p-progress-fill { height: 100%; background: var(--primary); border-radius: 0 2px 2px 0; transition: width .6s ease }
+
+/* Header */
+.p-header { padding: 1.25rem 1.5rem; display: flex; align-items: center; flex-shrink: 0 }
+.p-logo { height: 24px; opacity: .85 }
+
+/* Main content area */
+.p-main { flex: 1; display: flex; align-items: center; justify-content: center; padding: 2rem 2.5rem; min-height: 0 }
+
+/* Slide container */
+.p-slide { max-width: 900px; width: 100%; text-align: center; transition: opacity .4s ease, transform .4s ease }
+.p-slide.fade-out { opacity: 0; transform: translateY(8px) }
+.p-slide.fade-in { opacity: 1; transform: translateY(0) }
+
+/* Question view */
+.p-label { font-size: .82rem; font-weight: 600; color: var(--text-muted); letter-spacing: .5px; margin-bottom: 1.25rem }
+.p-label .p-section-name { color: var(--primary); font-weight: 700 }
+.p-question { font-size: 2rem; font-weight: 600; line-height: 1.45; color: var(--text); max-width: 780px; margin: 0 auto }
+
+/* Section summary view */
+.p-summary { text-align: left; max-width: 720px; margin: 0 auto }
+.p-summary-header { display: flex; align-items: center; gap: .65rem; margin-bottom: .35rem }
+.p-summary-check { color: var(--lime); flex-shrink: 0 }
+.p-summary-title-label { font-size: 1rem; font-weight: 700; color: var(--lime) }
+.p-summary-section-name { font-size: 1.5rem; font-weight: 700; color: var(--text); margin-bottom: 1.5rem }
+.p-summary-narrative { font-size: 1.05rem; line-height: 1.7; color: rgba(255,255,255,.85); margin-bottom: 2rem }
+.p-summary-unlocks-label { font-size: .85rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: .75rem }
+.p-summary-unlocks { list-style: none; margin-bottom: 2.5rem }
+.p-summary-unlocks li { display: flex; align-items: flex-start; gap: .6rem; padding: .45rem 0; font-size: 1rem; line-height: 1.5; color: rgba(255,255,255,.9) }
+.p-summary-unlocks li .p-li-check { color: var(--lime); flex-shrink: 0; margin-top: 2px }
+.p-summary-continue { font-size: .9rem; color: var(--text-muted); text-align: center }
+
+/* Complete view */
+.p-complete { text-align: center }
+.p-complete-icon { width: 72px; height: 72px; border-radius: 50%; background: rgba(203,255,77,.12); color: var(--lime); display: flex; align-items: center; justify-content: center; margin: 0 auto 1.25rem }
+.p-complete-title { font-size: 1.75rem; font-weight: 700; margin-bottom: .5rem }
+.p-complete-sub { font-size: 1rem; color: var(--text-muted); line-height: 1.6; max-width: 460px; margin: 0 auto }
+
+/* Loading / error */
+.p-loading { text-align: center; color: var(--text-muted); font-size: 1rem }
+.p-error { text-align: center; color: #ef4444; font-size: 1rem }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .p-main { padding: 1.5rem 1.25rem }
+  .p-question { font-size: 1.45rem }
+  .p-summary-section-name { font-size: 1.25rem }
+  .p-summary-narrative { font-size: .95rem }
+}
+@media (max-width: 480px) {
+  .p-header { padding: 1rem }
+  .p-main { padding: 1rem }
+  .p-question { font-size: 1.2rem }
+}
+</style>
+</head>
+<body>
+
+<div class="p-progress"><div class="p-progress-fill" id="p-progress-fill" style="width:0%"></div></div>
+
+<div class="p-header">
+  <img src="/logo-white.svg" alt="RealWork Labs" class="p-logo">
+</div>
+
+<div class="p-main">
+  <div class="p-loading" id="p-loading">Connecting...</div>
+  <div class="p-error" id="p-error" style="display:none"></div>
+
+  <!-- Question slide -->
+  <div class="p-slide fade-in" id="p-slide-question" style="display:none">
+    <div class="p-label" id="p-label"></div>
+    <div class="p-question" id="p-question"></div>
+  </div>
+
+  <!-- Section summary slide -->
+  <div class="p-slide fade-in" id="p-slide-summary" style="display:none">
+    <div class="p-summary">
+      <div class="p-summary-header">
+        <svg class="p-summary-check" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        <div class="p-summary-title-label" id="p-summary-title-label"></div>
+      </div>
+      <div class="p-summary-section-name" id="p-summary-section-name"></div>
+      <div class="p-summary-narrative" id="p-summary-narrative"></div>
+      <div class="p-summary-unlocks-label">What this unlocks for your website:</div>
+      <ul class="p-summary-unlocks" id="p-summary-unlocks"></ul>
+      <div class="p-summary-continue" id="p-summary-continue"></div>
+    </div>
+  </div>
+
+  <!-- Complete slide -->
+  <div class="p-slide fade-in" id="p-slide-complete" style="display:none">
+    <div class="p-complete">
+      <div class="p-complete-icon">
+        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <div class="p-complete-title">Interview Complete</div>
+      <div class="p-complete-sub">Thank you! All sections have been covered. Your website content is now being built from everything we learned today.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const pathParts = window.location.pathname.split('/').filter(Boolean);
+// URL: /onboarding/present/:sessionId/:token
+const sessionId = pathParts[2] || null;
+const joinToken = pathParts[3] || null;
+
+let pollTimer = null;
+let lastQuestionIndex = -1;
+let lastAiMessage = '';
+let lastView = null; // 'question' | 'summary' | 'complete'
+let lastSummarySectionIndex = -1;
+
+// ── Init ──
+(async () => {
+  if (!sessionId || !joinToken) { showError('Invalid presentation link.'); return; }
+  try {
+    const r = await fetch(`/api/join/${sessionId}/${joinToken}`);
+    const data = await r.json();
+    if (!r.ok) { showError(data.error || 'This link is invalid or has expired.'); return; }
+    if (!data.active || data.status === 'extracted') { showView('complete'); hideLoading(); return; }
+
+    hideLoading();
+    updateState(data);
+    startPolling();
+  } catch { showError('Failed to connect. Please check your link and try again.'); }
+})();
+
+function hideLoading() {
+  document.getElementById('p-loading').style.display = 'none';
+}
+
+function showError(msg) {
+  hideLoading();
+  const el = document.getElementById('p-error');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+// ── View transitions ──
+function showView(view) {
+  const views = { question: 'p-slide-question', summary: 'p-slide-summary', complete: 'p-slide-complete' };
+  if (view === lastView) return;
+
+  // Fade out current
+  if (lastView && views[lastView]) {
+    const outEl = document.getElementById(views[lastView]);
+    outEl.classList.remove('fade-in');
+    outEl.classList.add('fade-out');
+    setTimeout(() => { outEl.style.display = 'none'; }, 400);
+  }
+
+  // Fade in new
+  const inEl = document.getElementById(views[view]);
+  setTimeout(() => {
+    inEl.style.display = '';
+    inEl.classList.remove('fade-out');
+    // Force reflow for transition
+    void inEl.offsetWidth;
+    inEl.classList.add('fade-in');
+  }, lastView ? 420 : 0);
+
+  if (view === 'complete') stopPolling();
+  lastView = view;
+}
+
+function fadeQuestionText() {
+  const slide = document.getElementById('p-slide-question');
+  slide.classList.remove('fade-in');
+  slide.classList.add('fade-out');
+  setTimeout(() => {
+    slide.classList.remove('fade-out');
+    void slide.offsetWidth;
+    slide.classList.add('fade-in');
+  }, 400);
+}
+
+// ── State updates ──
+function updateState(data) {
+  // Update progress bar
+  if (data.progress != null) {
+    document.getElementById('p-progress-fill').style.width = data.progress + '%';
+  }
+
+  // Completed
+  if (!data.active || data.status === 'extracted') {
+    showView('complete');
+    return;
+  }
+
+  // Section summary
+  if (data.section_summary) {
+    const ss = data.section_summary;
+    if (ss.section_index !== lastSummarySectionIndex) {
+      lastSummarySectionIndex = ss.section_index;
+      document.getElementById('p-summary-title-label').textContent =
+        'Section ' + (ss.section_index + 1) + ' of 7 complete';
+      document.getElementById('p-summary-section-name').textContent = ss.section_name || '';
+      document.getElementById('p-summary-narrative').textContent = ss.narrative || '';
+
+      const ul = document.getElementById('p-summary-unlocks');
+      ul.innerHTML = '';
+      (ss.unlocks || []).forEach(item => {
+        const li = document.createElement('li');
+        li.innerHTML = '<svg class="p-li-check" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+        const span = document.createElement('span');
+        span.textContent = item;
+        li.appendChild(span);
+        ul.appendChild(li);
+      });
+
+      const nextSection = ss.section_index + 2;
+      document.getElementById('p-summary-continue').textContent =
+        nextSection <= 7 ? 'Continue to Section ' + nextSection + ' \u2192' : '';
+    }
+    showView('summary');
+    return;
+  }
+
+  // Question view
+  lastSummarySectionIndex = -1;
+  const needsFade = data.current_question !== lastQuestionIndex ||
+    (data.current_ai_message && data.current_ai_message !== lastAiMessage);
+
+  if (needsFade) {
+    const section = data.current_section || '';
+    const qNum = (data.current_question != null ? data.current_question + 1 : '');
+    const total = data.total_questions || '';
+    const labelHTML = section
+      ? '<span class="p-section-name">' + escHtml(section) + '</span> \u00B7 Question ' + qNum + ' of ' + total
+      : 'Question ' + qNum + ' of ' + total;
+
+    const aiMsg = data.current_ai_message || data.current_question_label || '';
+
+    if (lastView === 'question') {
+      // Already showing question — fade text
+      const slide = document.getElementById('p-slide-question');
+      slide.classList.remove('fade-in');
+      slide.classList.add('fade-out');
+      setTimeout(() => {
+        document.getElementById('p-label').innerHTML = labelHTML;
+        document.getElementById('p-question').textContent = aiMsg;
+        slide.classList.remove('fade-out');
+        void slide.offsetWidth;
+        slide.classList.add('fade-in');
+      }, 400);
+    } else {
+      document.getElementById('p-label').innerHTML = labelHTML;
+      document.getElementById('p-question').textContent = aiMsg;
+      showView('question');
+    }
+
+    lastQuestionIndex = data.current_question;
+    lastAiMessage = data.current_ai_message || '';
+  } else if (lastView !== 'question') {
+    showView('question');
+  }
+}
+
+// ── Polling ──
+function startPolling() {
+  pollTimer = setInterval(async () => {
+    try {
+      const r = await fetch(`/api/join/${sessionId}/${joinToken}/state`);
+      if (!r.ok) return;
+      const data = await r.json();
+      updateState(data);
+    } catch {}
+  }, 2000);
+}
+function stopPolling() { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
+
+function escHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+</script>
+</body>
+</html>

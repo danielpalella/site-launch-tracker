@@ -238,6 +238,10 @@
         <div class="ob-chat-progress" id="ob-chat-progress">Question 1 of 27 · Origin Story</div>
         <div class="ob-chat-pbar"><div class="ob-chat-pbar-fill" id="ob-chat-pbar-fill"></div></div>
       </div>
+      <button class="ob-chat-end-btn" id="ob-present-btn" onclick="openPresenterView()" style="display:none" title="Open presentation view for screen sharing">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        Present
+      </button>
       <button class="ob-chat-end-btn" id="ob-copy-join-btn" onclick="copyJoinLink()" style="display:none" title="Copy link for contractor to join">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
         Share Join Link
@@ -732,6 +736,7 @@ async function sendAnswer() {
         sectionName: q.section,
         clientName,
         conversationContext: followupAnswer.length > text.length ? `Previous answer to this question: ${followupAnswer.slice(0, followupAnswer.length - text.length).trim()}` : '',
+        alreadyFollowedUp: awaitingFollowup,
       }),
     });
     const data = await r.json();
@@ -752,11 +757,17 @@ async function sendAnswer() {
       awaitingFollowup = false;
 
       if (currentQ < QUESTIONS.length - 1) {
+        const nextQ = QUESTIONS[currentQ + 1];
+        // Check if we're finishing a section
+        if (nextQ.section !== q.section) {
+          await showSectionSummary(q.section, q.sIdx);
+        }
         currentQ++;
         updateProgress();
         await askCurrentQuestion(false);
       } else {
-        // All done — extract
+        // Last question — show final section summary then extract
+        await showSectionSummary(q.section, q.sIdx);
         setInputLocked(true);
         await runExtraction();
       }
@@ -868,6 +879,53 @@ function copyProfile() {
   });
 }
 
+// ── Section summary ──
+async function showSectionSummary(sectionName, sectionIndex) {
+  // Gather answers for this section
+  const sectionQs = QUESTIONS.filter(q => q.section === sectionName);
+  const sectionAnswers = sectionQs.map(q => ({ question: q.label, answer: answers[q.id] || '' }));
+
+  // Show a generating message
+  addMessage('section', `${sectionName} complete`);
+  showTyping();
+  setInputLocked(true);
+
+  try {
+    const r = await fetch(`/api/onboarding/sessions/${sessionId}/section-summary`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sectionName, sectionIndex, answers: sectionAnswers, clientName }),
+    });
+    const summary = await r.json();
+    hideTyping();
+
+    if (summary.narrative) {
+      // Show summary in chat as a styled card
+      const el = document.getElementById('ob-messages');
+      const card = document.createElement('div');
+      card.style.cssText = 'align-self:stretch;background:linear-gradient(135deg,#06102a,#0f1d3a);border-radius:12px;padding:1.25rem 1.5rem;margin:.5rem 0;color:#fff';
+      card.innerHTML = `
+        <div style="display:flex;align-items:center;gap:.4rem;margin-bottom:.75rem">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#cbff4d" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          <span style="font-size:.72rem;font-weight:700;color:#cbff4d;text-transform:uppercase;letter-spacing:.5px">Section ${sectionIndex + 1} of 7 complete</span>
+        </div>
+        <div style="font-size:.85rem;line-height:1.6;color:#e2e8f0;margin-bottom:1rem">${esc(summary.narrative)}</div>
+        <div style="font-size:.7rem;font-weight:700;color:#cbff4d;text-transform:uppercase;letter-spacing:.4px;margin-bottom:.4rem">What this unlocks for your website</div>
+        ${(summary.unlocks || []).map(u => `<div style="display:flex;align-items:flex-start;gap:.4rem;font-size:.78rem;color:#cbd5e1;padding:.15rem 0"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#cbff4d" stroke-width="2.5" style="flex-shrink:0;margin-top:2px"><polyline points="20 6 9 17 4 12"/></svg>${esc(u)}</div>`).join('')}
+      `;
+      el.appendChild(card);
+      el.scrollTop = el.scrollHeight;
+    }
+
+    // Wait a moment so the contractor view can display it, then clear
+    await new Promise(r => setTimeout(r, 5000));
+    await fetch(`/api/onboarding/sessions/${sessionId}/clear-summary`, { method: 'POST' }).catch(() => {});
+  } catch {
+    hideTyping();
+  }
+  setInputLocked(false);
+}
+
 // ── Sync AI message to Firestore for the join page to see ──
 function syncAiMessage(message) {
   if (!sessionId) return;
@@ -916,6 +974,12 @@ async function submitContractorAnswer() {
 function showJoinLink() {
   if (!joinToken) return;
   document.getElementById('ob-copy-join-btn').style.display = '';
+  document.getElementById('ob-present-btn').style.display = '';
+}
+
+function openPresenterView() {
+  if (!sessionId || !joinToken) return;
+  window.open(`/onboarding/present/${sessionId}/${joinToken}`, '_blank');
 }
 
 function copyJoinLink() {
