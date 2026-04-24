@@ -4611,21 +4611,44 @@ Return ONLY valid JSON with no markdown fencing, no commentary. Use this schema:
 
 Extract as much detail as possible. For fields not discussed in the transcript, use null or empty arrays.`;
 
-    const gRes = await fetchWithRetry(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.2, maxOutputTokens: 4096, thinkingConfig: { thinkingBudget: 0 } } }),
+    // Use longer timeout and retries for transcript extraction
+    async function callGeminiTranscript(promptText, attempt = 0) {
+      const r = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }], generationConfig: { temperature: 0.2, maxOutputTokens: 4096, thinkingConfig: { thinkingBudget: 0 } } }),
+          signal: AbortSignal.timeout(90_000), // 90s for transcripts (can be very large)
+        }
+      );
+      if (!r.ok) {
+        if (attempt < 2 && [429, 500, 502, 503].includes(r.status)) {
+          await new Promise(resolve => setTimeout(resolve, 3000));
+          return callGeminiTranscript(promptText, attempt + 1);
+        }
+        throw new Error(`Gemini API error ${r.status}`);
       }
-    );
-    const gData = await gRes.json();
-    const parts = gData.candidates?.[0]?.content?.parts || [];
-    const raw = (parts.filter(p => p.text).pop()?.text || '').trim();
-    const cleaned = raw.replace(/^```json?\s*/i, '').replace(/```\s*$/, '').trim();
+      const gData = await r.json();
+      const parts = gData.candidates?.[0]?.content?.parts || [];
+      return (parts.filter(p => p.text).pop()?.text || '').trim();
+    }
+
+    let raw = await callGeminiTranscript(prompt);
+    let cleaned = raw.replace(/^```json?\s*/i, '').replace(/```\s*$/, '').trim();
 
     let profile;
-    try { profile = JSON.parse(cleaned); } catch { return res.status(502).json({ error: 'AI returned invalid JSON — try again', raw: cleaned.slice(0, 500) }); }
+    try {
+      profile = JSON.parse(cleaned);
+    } catch {
+      // Retry with stricter prompt
+      const retryPrompt = prompt + '\n\nCRITICAL: Return ONLY valid JSON. Start with { and end with }. No markdown, no backticks, no commentary.';
+      raw = await callGeminiTranscript(retryPrompt);
+      cleaned = raw.replace(/^```json?\s*/i, '').replace(/```\s*$/, '').trim();
+      const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+      if (jsonMatch) { try { profile = JSON.parse(jsonMatch[0]); } catch {} }
+      if (!profile) return res.status(502).json({ error: 'Extraction failed — please retry', raw: cleaned.slice(0, 300) });
+    }
 
     // Save to the launch doc
     await db.collection('launches').doc(clientId).update({
@@ -4877,19 +4900,48 @@ Return ONLY valid JSON with no markdown fencing, no commentary. Use this schema:
   }
 }`;
 
-    const gRes = await fetchWithRetry(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.2, maxOutputTokens: 4096 } }),
+    // Extraction is critical — use longer timeout (60s), more retries, and disable thinking
+    async function callGeminiExtract(promptText, attempt = 0) {
+      const r = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }], generationConfig: { temperature: 0.2, maxOutputTokens: 4096, thinkingConfig: { thinkingBudget: 0 } } }),
+          signal: AbortSignal.timeout(60_000), // 60s timeout for extraction
+        }
+      );
+      if (!r.ok) {
+        if (attempt < 2 && [429, 500, 502, 503].includes(r.status)) {
+          await new Promise(resolve => setTimeout(resolve, 3000));
+          return callGeminiExtract(promptText, attempt + 1);
+        }
+        throw new Error(`Gemini API error ${r.status}`);
       }
-    );
-    const gData = await gRes.json();
-    const raw = gData.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    const cleaned = raw.replace(/^```json?\s*/i, '').replace(/```\s*$/, '').trim();
+      const gData = await r.json();
+      const parts = gData.candidates?.[0]?.content?.parts || [];
+      const raw = (parts.filter(p => p.text).pop()?.text || '').trim();
+      return raw;
+    }
+
+    let raw = await callGeminiExtract(prompt);
+    let cleaned = raw.replace(/^```json?\s*/i, '').replace(/```\s*$/, '').trim();
     let profile;
-    try { profile = JSON.parse(cleaned); } catch { return res.status(502).json({ error: 'Gemini returned invalid JSON', raw: cleaned.slice(0, 500) }); }
+    try {
+      profile = JSON.parse(cleaned);
+    } catch {
+      // Retry once with stricter prompt
+      console.warn('Extraction JSON parse failed, retrying with stricter prompt...');
+      const retryPrompt = prompt + '\n\nCRITICAL: Your previous response was not valid JSON. Return ONLY the JSON object. No markdown fences, no backticks, no text before or after the JSON. Start with { and end with }.';
+      raw = await callGeminiExtract(retryPrompt);
+      cleaned = raw.replace(/^```json?\s*/i, '').replace(/```\s*$/, '').trim();
+      // Try to extract JSON from the response even if there's surrounding text
+      const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try { profile = JSON.parse(jsonMatch[0]); } catch {}
+      }
+      if (!profile) return res.status(502).json({ error: 'Extraction failed — AI returned invalid data. Please retry.', raw: cleaned.slice(0, 300) });
+    }
 
     // Batch write: interview doc + launch doc in one atomic operation
     const batch = db.batch();

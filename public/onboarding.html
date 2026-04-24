@@ -1019,8 +1019,16 @@ async function saveAnswer(questionId, answer, isSkip) {
 }
 
 // ── Extract profile ──
-async function runExtraction() {
+async function runExtraction(retryCount = 0) {
   showView('ob-extracting');
+  // Update the extracting UI with attempt info
+  const statusEl = document.querySelector('#ob-extracting .ob-spinner')?.parentNode;
+  if (statusEl) {
+    const title = statusEl.querySelector('div:nth-child(2)');
+    const sub = statusEl.querySelector('div:nth-child(3)');
+    if (title) title.textContent = retryCount > 0 ? `Retrying extraction (attempt ${retryCount + 1})...` : 'Extracting client profile...';
+    if (sub) sub.textContent = 'This can take up to 30 seconds. Please don\'t close the page.';
+  }
   try {
     const questionsPayload = QUESTIONS.map(q => ({
       id: q.id, label: q.label, section: q.section,
@@ -1038,8 +1046,13 @@ async function runExtraction() {
     showView('ob-results');
     localStorage.removeItem('ob-session');
   } catch (err) {
+    // Auto-retry once on the client side before showing failure
+    if (retryCount < 1) {
+      console.warn('Extraction failed, auto-retrying...', err.message);
+      await new Promise(r => setTimeout(r, 2000));
+      return runExtraction(retryCount + 1);
+    }
     showExtractionFailed(err.message);
-    showView('ob-landing');
   }
 }
 
