@@ -4444,10 +4444,18 @@ app.post('/api/bulk-blog/push-batch', requireAuth, async (req, res) => {
 // ── Onboarding Interview ──
 app.get('/api/onboarding/sessions', requireAuth, async (req, res) => {
   try {
-    const snap = await db.collection('onboarding_interviews')
-      .where('created_by', '==', req.userEmail)
-      .orderBy('created_at', 'desc').limit(20).get();
-    res.json(snap.docs.map(d => ({ id: d.id, ...d.data(), created_at: d.data().created_at?.toDate?.()?.toISOString() || null, updated_at: d.data().updated_at?.toDate?.()?.toISOString() || null })));
+    // Fetch all and filter/sort in JS to avoid requiring a Firestore composite index
+    const snap = await db.collection('onboarding_interviews').get();
+    const sessions = snap.docs
+      .map(d => {
+        const data = d.data();
+        return { id: d.id, ...data, created_at: data.created_at?.toDate?.()?.toISOString() || null, updated_at: data.updated_at?.toDate?.()?.toISOString() || null };
+      })
+      .filter(s => s.created_by === req.userEmail)
+      .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))
+      .slice(0, 20);
+    // Strip large fields to keep the list response lightweight
+    res.json(sessions.map(s => ({ id: s.id, client_name: s.client_name, client_id: s.client_id, status: s.status, current_question: s.current_question, created_at: s.created_at, join_token: s.join_token })));
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
