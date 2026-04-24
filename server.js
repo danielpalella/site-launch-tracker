@@ -4505,6 +4505,27 @@ app.get('/api/onboarding/sessions/:id', requireAuth, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// Download raw session data (answers + transcript chunks) — always accessible
+app.get('/api/onboarding/sessions/:id/raw', requireAuth, async (req, res) => {
+  try {
+    const doc = await db.collection('onboarding_interviews').doc(req.params.id).get();
+    if (!doc.exists) return res.status(404).json({ error: 'Not found' });
+    const d = doc.data();
+    res.json({
+      id: doc.id,
+      client_name: d.client_name,
+      client_id: d.client_id,
+      status: d.status,
+      created_at: d.created_at?.toDate?.()?.toISOString() || null,
+      current_question: d.current_question,
+      answers: d.answers || {},
+      skipped: d.skipped || [],
+      transcript_chunks: d.transcript_chunks || [],
+      extracted_profile: d.extracted_profile || null,
+    });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 app.put('/api/onboarding/sessions/:id/answer', requireAuth, async (req, res) => {
   try {
     const { questionId, answer, currentQuestion, skipped, aiMessage } = req.body;

@@ -286,6 +286,7 @@
     <div id="ob-results-content"></div>
     <div style="display:flex;gap:.5rem;margin-top:1rem">
       <button class="ob-copy-btn" onclick="copyProfile()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy JSON</button>
+      <button class="ob-copy-btn" onclick="downloadRawTranscript()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download Raw Answers</button>
       <button class="ob-copy-btn" onclick="location.href='/onboarding'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg> Back to Interviews</button>
     </div>
   </div>
@@ -513,8 +514,12 @@ async function loadExistingSessions() {
     if (!sessions.length) { wrap.style.display = 'none'; return; }
     wrap.style.display = '';
     list.innerHTML = sessions.map(s => {
-      const color = s.status === 'extracted' ? '#16a34a' : '#d97706';
-      const label = s.status === 'extracted' ? 'Complete' : `In Progress (${s.current_question || 0}/27)`;
+      const total = QUESTIONS.length;
+      const qNum = s.current_question || 0;
+      const isComplete = s.status === 'extracted';
+      const needsExtraction = !isComplete && qNum >= total;
+      const color = isComplete ? '#16a34a' : needsExtraction ? '#ef4444' : '#d97706';
+      const label = isComplete ? 'Complete' : needsExtraction ? 'Needs Extraction' : `In Progress (${qNum}/${total})`;
       const date = s.created_at ? new Date(s.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
       return `<div class="ob-session-row" onclick="resumeSession('${s.id}')">
         <span class="ob-session-name">${esc(s.client_name || 'Untitled')}</span>
@@ -577,6 +582,12 @@ async function resumeSession(id) {
       extractedProfile = data.extracted_profile;
       renderResults(extractedProfile);
       showView('ob-results');
+      return;
+    }
+
+    // All questions answered but extraction failed — offer retry
+    if (currentQ >= QUESTIONS.length) {
+      await runExtraction();
       return;
     }
 
@@ -841,7 +852,7 @@ async function runExtraction() {
     showView('ob-results');
     sessionStorage.removeItem('ob-session');
   } catch (err) {
-    alert('Extraction failed: ' + err.message + '\n\nYour answers are saved. You can retry from the main page.');
+    showExtractionFailed(err.message);
     showView('ob-landing');
   }
 }
@@ -874,6 +885,39 @@ function copyProfile() {
     btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Copied!';
     setTimeout(() => { btn.innerHTML = orig; }, 2000);
   });
+}
+
+// ── Extraction failure recovery ──
+function showExtractionFailed(errorMsg) {
+  const el = document.getElementById('ob-extracting');
+  el.innerHTML = `
+    <div style="max-width:520px;margin:0 auto;text-align:center">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2" style="margin-bottom:.75rem"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <div style="font-size:1.05rem;font-weight:700;color:var(--text);margin-bottom:.35rem">Extraction failed</div>
+      <div style="font-size:.82rem;color:var(--text-muted);margin-bottom:1.25rem;line-height:1.5">${esc(errorMsg)}<br>Your answers are safely saved. You can retry extraction or download the raw transcript.</div>
+      <div style="display:flex;gap:.5rem;justify-content:center;flex-wrap:wrap">
+        <button onclick="runExtraction()" style="padding:.5rem 1.2rem;border:none;border-radius:8px;background:var(--primary);color:#fff;font-size:.82rem;font-weight:700;cursor:pointer;font-family:inherit">Retry Extraction</button>
+        <button onclick="downloadRawTranscript()" style="padding:.5rem 1.2rem;border:1px solid var(--border);border-radius:8px;background:none;color:var(--text);font-size:.82rem;font-weight:600;cursor:pointer;font-family:inherit">Download Raw Answers</button>
+        <button onclick="showView('ob-landing')" style="padding:.5rem 1.2rem;border:1px solid var(--border);border-radius:8px;background:none;color:var(--text-muted);font-size:.82rem;cursor:pointer;font-family:inherit">Back to Interviews</button>
+      </div>
+    </div>`;
+  el.style.display = 'block';
+}
+
+function downloadRawTranscript() {
+  const transcript = QUESTIONS.map(q => ({
+    id: q.id,
+    section: q.section,
+    question: q.label,
+    answer: answers[q.id] || '(skipped)',
+  }));
+  const blob = new Blob([JSON.stringify({ sessionId, clientName, exportedAt: new Date().toISOString(), questions: transcript }, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `onboarding-raw-${clientName.replace(/[^a-zA-Z0-9]/g, '-')}-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 // ── Section summary ──
