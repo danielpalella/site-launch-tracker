@@ -10,12 +10,8 @@
 * { margin: 0; padding: 0; box-sizing: border-box }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; overflow: hidden }
 
-/* Progress */
-.j-progress { position: fixed; top: 0; left: 0; width: 100%; height: 4px; background: rgba(255,255,255,.06); z-index: 10 }
-.j-progress-fill { height: 100%; background: var(--primary); border-radius: 0 2px 2px 0; transition: width .5s ease }
-
 /* Header */
-.j-header { display: flex; align-items: center; padding: .65rem 1.25rem; flex-shrink: 0; margin-top: 4px }
+.j-header { display: flex; align-items: center; padding: .65rem 1.25rem; flex-shrink: 0 }
 .j-logo { height: 22px; opacity: .7 }
 .j-header-right { margin-left: auto; display: flex; align-items: center; gap: .5rem }
 .j-rec-dot { width: 8px; height: 8px; border-radius: 50%; background: #ef4444; display: none }
@@ -24,8 +20,29 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .j-rec-label { font-size: .65rem; font-weight: 700; color: #ef4444; display: none }
 .j-rec-label.active { display: block }
 
-/* Main content — centered */
-.j-main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2rem 2rem 1.5rem; text-align: center }
+/* Section tracker bar — always visible during interview */
+.j-tracker { display: none; padding: .6rem 1.25rem; flex-shrink: 0 }
+.j-tracker-row { display: flex; align-items: center; gap: 0; max-width: 720px; margin: 0 auto }
+.j-tracker-item { display: flex; align-items: center; gap: .4rem; flex-shrink: 0; cursor: default }
+.j-tracker-icon { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all .4s ease; font-size: .6rem; font-weight: 700 }
+.j-tracker-icon.locked { background: rgba(255,255,255,.06); border: 1.5px solid rgba(255,255,255,.12); color: rgba(255,255,255,.2) }
+.j-tracker-icon.active { background: var(--primary); border: 1.5px solid var(--primary); color: #fff; box-shadow: 0 0 12px rgba(18,89,255,.3) }
+.j-tracker-icon.done { background: var(--lime); border: 1.5px solid var(--lime); color: var(--bg) }
+.j-tracker-icon.unlocking { animation: j-unlock .6s ease forwards }
+@keyframes j-unlock {
+  0% { transform: scale(1); background: var(--primary); border-color: var(--primary); color: #fff }
+  40% { transform: scale(1.35); background: var(--lime); border-color: var(--lime); color: var(--bg); box-shadow: 0 0 20px rgba(203,255,77,.4) }
+  70% { transform: scale(0.9) }
+  100% { transform: scale(1); background: var(--lime); border-color: var(--lime); color: var(--bg); box-shadow: none }
+}
+.j-tracker-label { font-size: .62rem; font-weight: 600; color: rgba(255,255,255,.3); transition: color .4s; white-space: nowrap }
+.j-tracker-item.active .j-tracker-label { color: rgba(255,255,255,.8) }
+.j-tracker-item.done .j-tracker-label { color: var(--lime) }
+.j-tracker-line { flex: 1; height: 1.5px; background: rgba(255,255,255,.08); margin: 0 .35rem; min-width: 12px; transition: background .4s }
+.j-tracker-line.done { background: var(--lime) }
+
+/* Main content */
+.j-main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 1.5rem 2rem; text-align: center }
 
 /* Loading / Error / Permission */
 .j-loading { color: var(--text-muted); font-size: .95rem }
@@ -36,35 +53,49 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .j-perm-btn { padding: .7rem 2rem; border: none; border-radius: 8px; background: var(--primary); color: #fff; font-size: .95rem; font-weight: 700; cursor: pointer; font-family: inherit; transition: opacity .15s }
 .j-perm-btn:hover { opacity: .9 }
 
-/* Interview — question is the hero */
+/* Interview question */
 .j-interview { display: none; align-items: center; justify-content: center; flex-direction: column; max-width: 680px; width: 100% }
-.j-section-tag { font-size: .7rem; font-weight: 700; color: var(--primary); text-transform: uppercase; letter-spacing: .8px; margin-bottom: .5rem }
-.j-progress-label { font-size: .75rem; color: var(--text-muted); margin-bottom: 1.5rem }
-.j-question { font-size: 1.65rem; font-weight: 600; line-height: 1.45; color: var(--text); margin-bottom: 2rem; transition: opacity .3s ease; min-height: 3rem }
+.j-client { font-size: .8rem; color: var(--text-muted); margin-bottom: .15rem }
+.j-section-tag { font-size: .7rem; font-weight: 700; color: var(--primary); text-transform: uppercase; letter-spacing: .8px; margin-bottom: .4rem }
+.j-progress-label { font-size: .75rem; color: var(--text-muted); margin-bottom: 1.25rem }
+.j-question { font-size: 1.65rem; font-weight: 600; line-height: 1.45; color: var(--text); margin-bottom: 1.5rem; transition: opacity .3s ease, transform .3s ease; min-height: 3rem }
 .j-question.fading { opacity: 0; transform: translateY(8px) }
-.j-client { font-size: .8rem; color: var(--text-muted); margin-bottom: .25rem }
 
-/* Mic status — subtle, bottom of screen */
-.j-mic-indicator { display: flex; align-items: center; gap: .45rem; color: var(--text-muted); font-size: .78rem; margin-top: auto; padding-top: 1.5rem }
+/* Bottom controls */
+.j-bottom { margin-top: auto; display: flex; flex-direction: column; align-items: center; gap: .3rem; padding-top: 1rem }
+.j-mic-indicator { display: flex; align-items: center; gap: .45rem; color: var(--text-muted); font-size: .78rem }
 .j-mic-indicator.listening { color: rgba(255,255,255,.65) }
 .j-mic-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); flex-shrink: 0 }
 .j-mic-dot.listening { background: #ef4444; animation: j-blink 1.5s ease-in-out infinite }
-
-/* Skip */
-.j-skip { background: none; border: none; color: var(--text-muted); font-size: .78rem; cursor: pointer; font-family: inherit; padding: .4rem .6rem; margin-top: .5rem; transition: color .15s }
+.j-skip { background: none; border: none; color: var(--text-muted); font-size: .75rem; cursor: pointer; font-family: inherit; padding: .3rem .5rem; transition: color .15s }
 .j-skip:hover { color: var(--text) }
 
-/* Section summary */
-.j-summary { display: none; max-width: 580px; width: 100%; text-align: left }
-.j-summary-header { display: flex; align-items: center; gap: .5rem; margin-bottom: 1.25rem }
-.j-summary-check { width: 28px; height: 28px; border-radius: 50%; background: rgba(203,255,77,.15); color: var(--lime); display: flex; align-items: center; justify-content: center; flex-shrink: 0 }
-.j-summary-label { font-size: .75rem; font-weight: 700; color: var(--lime); text-transform: uppercase; letter-spacing: .5px }
-.j-summary-title { font-size: 1.2rem; font-weight: 700; margin-bottom: 1rem; color: var(--text) }
-.j-summary-narrative { font-size: .9rem; line-height: 1.65; color: rgba(255,255,255,.8); margin-bottom: 1.5rem }
-.j-summary-unlocks-label { font-size: .68rem; font-weight: 700; color: var(--lime); text-transform: uppercase; letter-spacing: .5px; margin-bottom: .5rem }
-.j-summary-unlock { display: flex; align-items: flex-start; gap: .5rem; font-size: .82rem; color: rgba(255,255,255,.75); padding: .25rem 0 }
-.j-summary-unlock svg { flex-shrink: 0; margin-top: 2px }
-.j-summary-continue { font-size: .82rem; color: var(--text-muted); margin-top: 1.5rem; text-align: center }
+/* Text fallback */
+.j-text-wrap { display: none; width: 100%; max-width: 500px; margin-top: .5rem }
+.j-text-input { width: 100%; padding: .6rem .85rem; border: 1px solid var(--border); border-radius: 10px; font-size: .9rem; font-family: inherit; color: var(--text); background: var(--surface); resize: none; min-height: 44px; max-height: 100px; line-height: 1.5 }
+.j-text-input:focus { outline: none; border-color: var(--primary) }
+.j-text-input::placeholder { color: var(--text-muted) }
+.j-text-send { margin-top: .4rem; width: 100%; padding: .5rem; border: none; border-radius: 8px; background: var(--primary); color: #fff; font-size: .85rem; font-weight: 700; cursor: pointer; font-family: inherit }
+
+/* Section summary / unlock screen */
+.j-summary { display: none; max-width: 600px; width: 100%; text-align: center }
+.j-summary-badge { display: inline-flex; align-items: center; gap: .4rem; background: rgba(203,255,77,.1); border: 1px solid rgba(203,255,77,.2); border-radius: 20px; padding: .3rem .85rem; margin-bottom: 1rem; animation: j-badge-in .5s ease }
+@keyframes j-badge-in { from { opacity: 0; transform: scale(.8) } to { opacity: 1; transform: scale(1) } }
+.j-summary-badge svg { flex-shrink: 0 }
+.j-summary-badge-text { font-size: .72rem; font-weight: 700; color: var(--lime); text-transform: uppercase; letter-spacing: .5px }
+.j-summary-title { font-size: 1.2rem; font-weight: 700; margin-bottom: 1.25rem; color: var(--text) }
+.j-summary-narrative { font-size: .88rem; line-height: 1.65; color: rgba(255,255,255,.75); margin-bottom: 1.5rem; text-align: left; max-width: 520px; margin-left: auto; margin-right: auto }
+.j-unlocks-label { font-size: .65rem; font-weight: 700; color: var(--lime); text-transform: uppercase; letter-spacing: .6px; margin-bottom: .6rem }
+.j-unlock-items { display: flex; flex-direction: column; gap: .35rem; align-items: center }
+.j-unlock-item { display: inline-flex; align-items: center; gap: .45rem; background: rgba(203,255,77,.06); border: 1px solid rgba(203,255,77,.12); border-radius: 8px; padding: .45rem .85rem; opacity: 0; transform: translateY(10px); animation: j-unlock-item-in .4s ease forwards }
+.j-unlock-item:nth-child(1) { animation-delay: .3s }
+.j-unlock-item:nth-child(2) { animation-delay: .5s }
+.j-unlock-item:nth-child(3) { animation-delay: .7s }
+.j-unlock-item:nth-child(4) { animation-delay: .9s }
+@keyframes j-unlock-item-in { to { opacity: 1; transform: translateY(0) } }
+.j-unlock-item svg { flex-shrink: 0; color: var(--lime) }
+.j-unlock-item span { font-size: .8rem; color: rgba(255,255,255,.85); font-weight: 500 }
+.j-summary-continue { font-size: .82rem; color: var(--text-muted); margin-top: 1.75rem }
 
 /* Complete */
 .j-complete { display: none; text-align: center; max-width: 420px }
@@ -72,19 +103,15 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .j-complete-title { font-size: 1.3rem; font-weight: 700; margin-bottom: .5rem }
 .j-complete-sub { font-size: .9rem; color: var(--text-muted); line-height: 1.55 }
 
-/* Text fallback */
-.j-text-wrap { display: none; width: 100%; max-width: 500px; margin-top: 1rem }
-.j-text-input { width: 100%; padding: .65rem .9rem; border: 1px solid var(--border); border-radius: 10px; font-size: .9rem; font-family: inherit; color: var(--text); background: var(--surface); resize: none; min-height: 44px; max-height: 100px; line-height: 1.5 }
-.j-text-input:focus { outline: none; border-color: var(--primary) }
-.j-text-input::placeholder { color: var(--text-muted) }
-.j-text-send { margin-top: .5rem; width: 100%; padding: .55rem; border: none; border-radius: 8px; background: var(--primary); color: #fff; font-size: .85rem; font-weight: 700; cursor: pointer; font-family: inherit }
-
-@media (max-width: 600px) { .j-question { font-size: 1.25rem } .j-main { padding: 1.5rem 1.25rem 1rem } }
+@media (max-width: 700px) {
+  .j-question { font-size: 1.25rem }
+  .j-main { padding: 1.25rem 1.25rem 1rem }
+  .j-tracker-label { display: none }
+  .j-tracker-row { gap: 0 }
+}
 </style>
 </head>
 <body>
-
-<div class="j-progress"><div class="j-progress-fill" id="j-progress-fill"></div></div>
 
 <div class="j-header">
   <img src="/logo-white.svg" alt="RealWork Labs" class="j-logo">
@@ -94,60 +121,72 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
   </div>
 </div>
 
+<!-- Section tracker — persistent during interview -->
+<div class="j-tracker" id="j-tracker">
+  <div class="j-tracker-row" id="j-tracker-row"></div>
+</div>
+
 <div class="j-main">
   <div class="j-loading" id="j-loading">Connecting to interview...</div>
   <div class="j-error" id="j-error" style="display:none"></div>
 
-  <!-- Permission prompt -->
   <div class="j-perm" id="j-perm" style="display:none">
     <div class="j-perm-title">Ready to begin</div>
-    <div class="j-perm-sub">Your interviewer will ask you questions about your business. Just speak naturally — we'll capture everything automatically.</div>
+    <div class="j-perm-sub">Your interviewer will ask you questions about your business. Just speak naturally -- we'll capture everything automatically.</div>
     <button class="j-perm-btn" onclick="requestMicAndStart()">Enable Microphone & Start</button>
     <div style="margin-top:.75rem"><button style="background:none;border:none;color:var(--text-muted);font-size:.8rem;cursor:pointer;font-family:inherit;text-decoration:underline" onclick="startWithTextOnly()">Continue without microphone</button></div>
   </div>
 
-  <!-- Interview — question as hero -->
   <div class="j-interview" id="j-interview">
     <div class="j-client" id="j-client"></div>
     <div class="j-section-tag" id="j-section-tag"></div>
     <div class="j-progress-label" id="j-progress-label"></div>
     <div class="j-question" id="j-question"></div>
 
-    <!-- Text fallback (for no-mic mode) -->
     <div class="j-text-wrap" id="j-text-wrap">
       <textarea class="j-text-input" id="j-text-input" placeholder="Type your answer..." rows="2"></textarea>
       <button class="j-text-send" onclick="sendTypedAnswer()">Send</button>
     </div>
 
-    <div class="j-mic-indicator" id="j-mic-indicator">
-      <div class="j-mic-dot" id="j-mic-dot"></div>
-      <span id="j-mic-text">Microphone active</span>
+    <div class="j-bottom">
+      <div class="j-mic-indicator" id="j-mic-indicator">
+        <div class="j-mic-dot" id="j-mic-dot"></div>
+        <span id="j-mic-text">Microphone active</span>
+      </div>
+      <button class="j-skip" id="j-skip-btn" onclick="skipQuestion()">Skip this question</button>
     </div>
-    <button class="j-skip" id="j-skip-btn" onclick="skipQuestion()">Skip this question</button>
   </div>
 
-  <!-- Section summary -->
   <div class="j-summary" id="j-summary">
-    <div class="j-summary-header">
-      <div class="j-summary-check"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>
-      <div class="j-summary-label" id="j-summary-label"></div>
+    <div class="j-summary-badge">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#cbff4d" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+      <span class="j-summary-badge-text" id="j-summary-badge-text"></span>
     </div>
     <div class="j-summary-title" id="j-summary-title"></div>
     <div class="j-summary-narrative" id="j-summary-narrative"></div>
-    <div class="j-summary-unlocks-label">What this unlocks for your website</div>
-    <div id="j-summary-unlocks"></div>
+    <div class="j-unlocks-label">Unlocked for your website</div>
+    <div class="j-unlock-items" id="j-summary-unlocks"></div>
     <div class="j-summary-continue" id="j-summary-continue"></div>
   </div>
 
-  <!-- Complete -->
   <div class="j-complete" id="j-complete">
     <div class="j-complete-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></div>
     <div class="j-complete-title">Interview Complete</div>
-    <div class="j-complete-sub">Thank you! Your answers have been recorded and your website profile is being built. You can close this page now.</div>
+    <div class="j-complete-sub">Thank you for sharing your story. Your website profile is being built from everything we discussed. You can close this page now.</div>
   </div>
 </div>
 
 <script>
+const SECTIONS = [
+  { name: 'Story', full: 'Origin Story' },
+  { name: 'Services', full: 'Services' },
+  { name: 'Edge', full: 'Differentiation' },
+  { name: 'Area', full: 'Service Area' },
+  { name: 'Voice', full: 'Brand Voice' },
+  { name: 'Creds', full: 'Credentials' },
+  { name: 'Goals', full: 'Goals' },
+];
+
 const pathParts = window.location.pathname.split('/').filter(Boolean);
 const sessionId = pathParts[1] || null;
 const joinToken = pathParts[2] || null;
@@ -158,6 +197,8 @@ let pollTimer = null;
 let lastQuestionIndex = -1;
 let lastAiMessage = '';
 let useTextMode = false;
+let completedSections = new Set();
+let currentSectionIdx = 0;
 
 // ── Init ──
 (async () => {
@@ -169,10 +210,10 @@ let useTextMode = false;
     if (!data.active || data.status === 'extracted') { showComplete(); return; }
 
     document.getElementById('j-client').textContent = data.client_name || '';
+    buildTracker();
     updateState(data);
 
     document.getElementById('j-loading').style.display = 'none';
-
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SR) {
       document.getElementById('j-perm').style.display = 'block';
@@ -189,6 +230,10 @@ function showError(msg) {
 }
 function showComplete() {
   hideAll();
+  // Mark all sections done
+  SECTIONS.forEach((_, i) => completedSections.add(i));
+  updateTracker(-1);
+  document.getElementById('j-tracker').style.display = 'block';
   document.getElementById('j-complete').style.display = 'block';
   stopPolling(); stopMic();
 }
@@ -196,23 +241,70 @@ function hideAll() {
   ['j-loading','j-error','j-perm','j-interview','j-summary','j-complete'].forEach(id => document.getElementById(id).style.display = 'none');
 }
 
+// ── Tracker bar ──
+function buildTracker() {
+  const row = document.getElementById('j-tracker-row');
+  row.innerHTML = SECTIONS.map((s, i) => {
+    const item = `<div class="j-tracker-item" id="j-ti-${i}"><div class="j-tracker-icon locked" id="j-tic-${i}">${i + 1}</div><span class="j-tracker-label">${s.name}</span></div>`;
+    const line = i < SECTIONS.length - 1 ? `<div class="j-tracker-line" id="j-tl-${i}"></div>` : '';
+    return item + line;
+  }).join('');
+}
+
+function updateTracker(activeSectionIdx) {
+  SECTIONS.forEach((s, i) => {
+    const item = document.getElementById('j-ti-' + i);
+    const icon = document.getElementById('j-tic-' + i);
+    const line = document.getElementById('j-tl-' + i);
+    item.className = 'j-tracker-item';
+    icon.className = 'j-tracker-icon';
+
+    if (completedSections.has(i)) {
+      item.classList.add('done');
+      icon.classList.add('done');
+      icon.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5"><polyline points="20 6 9 17 4 12"/></svg>';
+      if (line) { line.classList.add('done'); }
+    } else if (i === activeSectionIdx) {
+      item.classList.add('active');
+      icon.classList.add('active');
+      icon.textContent = i + 1;
+    } else {
+      icon.classList.add('locked');
+      icon.textContent = i + 1;
+    }
+  });
+}
+
+function animateUnlock(sectionIdx) {
+  const icon = document.getElementById('j-tic-' + sectionIdx);
+  if (!icon) return;
+  completedSections.add(sectionIdx);
+  icon.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5"><polyline points="20 6 9 17 4 12"/></svg>';
+  icon.className = 'j-tracker-icon unlocking';
+  const item = document.getElementById('j-ti-' + sectionIdx);
+  if (item) item.className = 'j-tracker-item done';
+  const line = document.getElementById('j-tl-' + sectionIdx);
+  if (line) setTimeout(() => line.classList.add('done'), 400);
+}
+
 // ── Start modes ──
 function requestMicAndStart() {
   hideAll();
+  document.getElementById('j-tracker').style.display = 'block';
   document.getElementById('j-interview').style.display = 'flex';
-  startPolling();
-  initMic();
+  startPolling(); initMic();
 }
 function startWithTextOnly() {
   hideAll();
   useTextMode = true;
+  document.getElementById('j-tracker').style.display = 'block';
   document.getElementById('j-interview').style.display = 'flex';
   document.getElementById('j-text-wrap').style.display = 'block';
   document.getElementById('j-mic-indicator').style.display = 'none';
   startPolling();
 }
 
-// ── Mic (always-on, silent background) ──
+// ── Mic ──
 function initMic() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) return;
@@ -220,7 +312,6 @@ function initMic() {
   recognition.continuous = true;
   recognition.interimResults = true;
   recognition.lang = 'en-US';
-
   recognition.onstart = () => {
     isListening = true;
     document.getElementById('j-rec-dot').classList.add('active');
@@ -233,7 +324,6 @@ function initMic() {
     isListening = false;
     document.getElementById('j-rec-dot').classList.remove('active');
     document.getElementById('j-rec-label').classList.remove('active');
-    // Auto-restart
     if (document.getElementById('j-interview').style.display !== 'none') {
       setTimeout(() => { try { recognition.start(); } catch {} }, 300);
     }
@@ -245,41 +335,40 @@ function initMic() {
     }
     if (final) sendTranscript(final.trim(), false);
   };
-  recognition.onerror = (event) => {
-    if (event.error === 'not-allowed') {
-      startWithTextOnly();
-    }
-  };
+  recognition.onerror = (event) => { if (event.error === 'not-allowed') startWithTextOnly(); };
   try { recognition.start(); } catch {}
 }
 function stopMic() { if (recognition) { try { recognition.abort(); } catch {} recognition = null; } }
 
-// ── State updates ──
+// ── State ──
 function updateState(data) {
-  // Section summary takes priority
+  // Map current question to section index
+  const sIdx = sectionIndexFromQuestion(data.current_question);
+  currentSectionIdx = sIdx;
+
   if (data.section_summary) {
     showSectionSummary(data.section_summary);
     return;
   }
-  // Hide summary if we were showing one
+
+  // If we were showing summary, switch back to interview
   if (document.getElementById('j-summary').style.display !== 'none') {
     document.getElementById('j-summary').style.display = 'none';
     document.getElementById('j-interview').style.display = 'flex';
   }
+
+  updateTracker(sIdx);
 
   const questionChanged = data.current_question !== lastQuestionIndex;
   const aiMessageChanged = data.current_ai_message && data.current_ai_message !== lastAiMessage;
 
   if (questionChanged || aiMessageChanged) {
     const qEl = document.getElementById('j-question');
-    // Fade out
     qEl.classList.add('fading');
     setTimeout(() => {
       document.getElementById('j-section-tag').textContent = data.current_section || '';
       document.getElementById('j-progress-label').textContent = `Question ${data.current_question + 1} of ${data.total_questions}`;
       qEl.textContent = data.current_ai_message || data.current_question_label || '';
-      document.getElementById('j-progress-fill').style.width = (data.progress || 0) + '%';
-      // Fade in
       qEl.classList.remove('fading');
       lastQuestionIndex = data.current_question;
       lastAiMessage = data.current_ai_message || '';
@@ -287,15 +376,30 @@ function updateState(data) {
   }
 }
 
+function sectionIndexFromQuestion(qIdx) {
+  // Questions per section: 4,4,4,4,4,4,3
+  const breaks = [0,4,8,12,16,20,24,27];
+  for (let i = 0; i < breaks.length - 1; i++) {
+    if (qIdx < breaks[i+1]) return i;
+  }
+  return 6;
+}
+
 function showSectionSummary(ss) {
+  // Animate the unlock on the tracker
+  animateUnlock(ss.section_index);
+  updateTracker(ss.section_index + 1 < 7 ? ss.section_index + 1 : -1);
+
   document.getElementById('j-interview').style.display = 'none';
-  document.getElementById('j-summary-label').textContent = `Section ${ss.section_index + 1} of 7 complete`;
-  document.getElementById('j-summary-title').textContent = ss.section_name;
+  document.getElementById('j-summary-badge-text').textContent = `Section ${ss.section_index + 1} of 7 complete`;
+  document.getElementById('j-summary-title').textContent = ss.section_name || '';
   document.getElementById('j-summary-narrative').textContent = ss.narrative || '';
-  document.getElementById('j-summary-unlocks').innerHTML = (ss.unlocks || []).map(u =>
-    `<div class="j-summary-unlock"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#cbff4d" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg><span>${esc(u)}</span></div>`
+  // Reset and rebuild unlock items so animations replay
+  const container = document.getElementById('j-summary-unlocks');
+  container.innerHTML = (ss.unlocks || []).map(u =>
+    `<div class="j-unlock-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>${esc(u)}</span></div>`
   ).join('');
-  document.getElementById('j-summary-continue').textContent = ss.section_index < 6 ? `Continuing to next section...` : '';
+  document.getElementById('j-summary-continue').textContent = ss.section_index < 6 ? 'Continuing to next section...' : 'Almost there...';
   document.getElementById('j-summary').style.display = 'block';
 }
 
@@ -313,14 +417,13 @@ function startPolling() {
 }
 function stopPolling() { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
 
-// ── Send transcript ──
+// ── Transcript ──
 let sendQueue = Promise.resolve();
 function sendTranscript(text, interim) {
   sendQueue = sendQueue.then(async () => {
     try {
       await fetch(`/api/join/${sessionId}/${joinToken}/transcript`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text, interim }),
       });
     } catch {}
