@@ -4514,6 +4514,16 @@ app.get('/api/onboarding/sessions/:id', requireAuth, async (req, res) => {
 });
 
 // Download raw session data (answers + transcript chunks) — always accessible
+app.delete('/api/onboarding/sessions/:id', requireAuth, async (req, res) => {
+  try {
+    const ref = db.collection('onboarding_interviews').doc(req.params.id);
+    const doc = await ref.get();
+    if (!doc.exists) return res.status(404).json({ error: 'Not found' });
+    await ref.delete();
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 app.get('/api/onboarding/sessions/:id/raw', requireAuth, async (req, res) => {
   try {
     const doc = await db.collection('onboarding_interviews').doc(req.params.id).get();

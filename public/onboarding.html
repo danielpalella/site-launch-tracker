@@ -508,13 +508,26 @@ async function loadExistingSessions() {
       const color = isComplete ? '#16a34a' : needsExtraction ? '#ef4444' : '#d97706';
       const label = isComplete ? 'Complete' : needsExtraction ? 'Needs Extraction' : `In Progress (${qNum}/${total})`;
       const date = s.created_at ? new Date(s.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
-      return `<div class="ob-session-row" onclick="resumeSession('${s.id}')">
-        <span class="ob-session-name">${esc(s.client_name || 'Untitled')}</span>
+      return `<div class="ob-session-row">
+        <span class="ob-session-name" onclick="resumeSession('${s.id}')" style="cursor:pointer;flex:1">${esc(s.client_name || 'Untitled')}</span>
         <span class="ob-session-status" style="background:${color}18;color:${color}">${label}</span>
         <span class="ob-session-date">${date}</span>
+        <button onclick="event.stopPropagation();deleteSession('${s.id}','${esc(s.client_name || 'Untitled')}')" style="background:none;border:none;color:var(--text-muted);cursor:pointer;padding:.25rem;flex-shrink:0;opacity:.5;transition:opacity .15s" onmouseover="this.style.opacity='1';this.style.color='#ef4444'" onmouseout="this.style.opacity='.5';this.style.color='var(--text-muted)'" title="Delete interview">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+        </button>
       </div>`;
     }).join('');
   } catch (err) { console.warn('Failed to load existing sessions:', err); }
+}
+
+// ── Delete session ──
+async function deleteSession(id, name) {
+  if (!confirm(`Delete the interview for "${name}"? This cannot be undone.`)) return;
+  try {
+    const r = await fetch(`/api/onboarding/sessions/${id}`, { method: 'DELETE' });
+    if (!r.ok) { const d = await r.json(); throw new Error(d.error || 'Failed'); }
+    loadExistingSessions();
+  } catch (err) { alert('Delete failed: ' + err.message); }
 }
 
 // ── Start interview ──
