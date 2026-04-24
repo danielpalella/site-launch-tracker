@@ -4524,6 +4524,119 @@ app.delete('/api/onboarding/sessions/:id', requireAuth, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// Extract structured profile from an uploaded Zoom transcript file
+app.post('/api/onboarding/extract-transcript', requireAuth, async (req, res) => {
+  try {
+    const { clientId, clientName, transcript } = req.body;
+    if (!clientId || !transcript) return res.status(400).json({ error: 'clientId and transcript required' });
+    if (transcript.length > 200000) return res.status(400).json({ error: 'Transcript too large (max 200K chars)' });
+
+    const geminiKey = await getGeminiKey();
+    const prompt = `You are a structured data extractor for a home services contractor onboarding interview.
+Below is a raw transcript from a Zoom call between a RealWork Labs team member and a contractor named "${clientName || 'the contractor'}". The conversation covers their business story, services, what makes them different, service area, brand voice, credentials, and goals for their new website.
+
+Extract a structured JSON profile from this conversation. Pull out every relevant detail — names, years, cities, services, certifications, etc.
+
+TRANSCRIPT:
+${transcript.slice(0, 150000)}
+
+Return ONLY valid JSON with no markdown fencing, no commentary. Use this schema:
+{
+  "business_name": "string or null",
+  "owner_name": "string or null",
+  "origin_story": "2-3 sentence narrative summarizing their founding story",
+  "years_in_business": number or null,
+  "pride_points": ["what they're most proud of"],
+  "family_connection": "string or null",
+  "services": {
+    "core": ["list of core services"],
+    "top_revenue": "highest revenue service",
+    "promote_more": ["services they want to push"],
+    "emergency_available": true/false or null
+  },
+  "differentiation": {
+    "unique_selling_points": ["what sets them apart"],
+    "customer_compliments": ["what customers say"],
+    "guarantees": ["any guarantees or unique processes"],
+    "ideal_customer": "description of ideal customer"
+  },
+  "service_area": {
+    "cities": ["cities/areas served"],
+    "primary_markets": ["where most jobs come from"],
+    "growth_targets": ["areas they want to expand into"],
+    "max_travel_radius": "how far they'll travel"
+  },
+  "brand_voice": {
+    "personality": "company personality description",
+    "tone": "formal/casual/friendly etc",
+    "preferred_phrases": ["phrases they use"],
+    "avoid_phrases": ["phrases to avoid"],
+    "voice_description": "how the brand would talk as a person"
+  },
+  "credentials": {
+    "licenses": ["licenses held"],
+    "insured": true/false,
+    "bonded": true/false,
+    "associations": ["trade associations"],
+    "awards": ["awards or recognitions"]
+  },
+  "goals": {
+    "website_goals": ["goals for the new website"],
+    "six_month_success": "what success looks like",
+    "additional_notes": "anything else mentioned"
+  }
+}
+
+Extract as much detail as possible. For fields not discussed in the transcript, use null or empty arrays.`;
+
+    const gRes = await fetchWithRetry(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.2, maxOutputTokens: 4096, thinkingConfig: { thinkingBudget: 0 } } }),
+      }
+    );
+    const gData = await gRes.json();
+    const parts = gData.candidates?.[0]?.content?.parts || [];
+    const raw = (parts.filter(p => p.text).pop()?.text || '').trim();
+    const cleaned = raw.replace(/^```json?\s*/i, '').replace(/```\s*$/, '').trim();
+
+    let profile;
+    try { profile = JSON.parse(cleaned); } catch { return res.status(502).json({ error: 'AI returned invalid JSON — try again', raw: cleaned.slice(0, 500) }); }
+
+    // Save to the launch doc
+    await db.collection('launches').doc(clientId).update({
+      onboarding_profile: profile,
+      onboarding_completed_at: FieldValue.serverTimestamp(),
+    }).catch(e => console.error('Failed to save transcript profile to launch:', e.message));
+
+    // Also create an onboarding_interviews record for history
+    await db.collection('onboarding_interviews').add({
+      created_by: req.userEmail,
+      created_at: FieldValue.serverTimestamp(),
+      updated_at: FieldValue.serverTimestamp(),
+      client_name: clientName || 'Untitled',
+      client_id: clientId,
+      mode: 'transcript_upload',
+      status: 'extracted',
+      current_question: 0,
+      answers: {},
+      skipped: [],
+      extracted_profile: profile,
+      completed_at: FieldValue.serverTimestamp(),
+      transcript_text: transcript.slice(0, 100000),
+      join_token: null,
+      join_token_active: false,
+    });
+
+    res.json({ profile });
+  } catch (err) {
+    console.error('extract-transcript error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/onboarding/sessions/:id/raw', requireAuth, async (req, res) => {
   try {
     const doc = await db.collection('onboarding_interviews').doc(req.params.id).get();

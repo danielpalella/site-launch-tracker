@@ -187,11 +187,29 @@
       </div>
     </div>
 
-    <!-- Start button (disabled until client selected) -->
-    <button class="ob-start-btn" id="ob-start-btn" onclick="startInterview()" disabled>
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-      Start Interview
-    </button>
+    <!-- Action buttons (disabled until client selected) -->
+    <div style="display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;margin-top:.25rem">
+      <button class="ob-start-btn" id="ob-start-btn" onclick="startInterview()" disabled>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Start Interview
+      </button>
+      <span style="font-size:.78rem;color:var(--text-muted)">or</span>
+      <button class="ob-start-btn" id="ob-upload-btn" onclick="document.getElementById('ob-transcript-file').click()" disabled style="background:var(--surface);color:var(--text);border:1px solid var(--border)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Upload Zoom Transcript
+      </button>
+      <input type="file" id="ob-transcript-file" accept=".vtt,.txt,.srt" style="display:none" onchange="handleTranscriptUpload(this)">
+    </div>
+    <div style="font-size:.72rem;color:var(--text-muted);margin-top:.4rem">Supports .vtt (Zoom cloud recording), .txt, or .srt transcript files</div>
+
+    <!-- Upload processing state -->
+    <div id="ob-upload-processing" style="display:none;margin-top:1.25rem">
+      <div class="ob-card" style="text-align:center">
+        <div class="ob-spinner" style="margin-bottom:.75rem"></div>
+        <div style="font-size:.9rem;font-weight:600;color:var(--text);margin-bottom:.3rem" id="ob-upload-status">Processing transcript...</div>
+        <div style="font-size:.78rem;color:var(--text-muted)" id="ob-upload-detail">Extracting client profile from the conversation</div>
+      </div>
+    </div>
 
     <!-- Previous sessions -->
     <div id="ob-prev-sessions" class="ob-sessions" style="display:none">
@@ -418,6 +436,7 @@ function selectClient(client) {
   document.getElementById('ob-selected-client').style.display = '';
   document.getElementById('ob-search-wrap').style.display = 'none';
   document.getElementById('ob-start-btn').disabled = false;
+  document.getElementById('ob-upload-btn').disabled = false;
   document.getElementById('ob-search-results').classList.remove('open');
 }
 
@@ -428,6 +447,7 @@ function clearClientSelection() {
   document.getElementById('ob-selected-client').style.display = 'none';
   document.getElementById('ob-search-wrap').style.display = '';
   document.getElementById('ob-start-btn').disabled = true;
+  document.getElementById('ob-upload-btn').disabled = true;
   document.getElementById('ob-client-search').value = '';
   document.getElementById('ob-client-search').focus();
 }
@@ -489,6 +509,95 @@ async function saveNewClient() {
   } finally {
     btn.disabled = false; btn.textContent = 'Create & Select';
   }
+}
+
+// ── Transcript upload ──
+function parseVTT(text) {
+  // Strip VTT header and metadata lines, extract just the spoken text
+  const lines = text.split('\n');
+  const spoken = [];
+  let inCue = false;
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed === '' || trimmed === 'WEBVTT' || trimmed.startsWith('NOTE') || trimmed.startsWith('Kind:') || trimmed.startsWith('Language:')) {
+      inCue = false;
+      continue;
+    }
+    // Skip timestamp lines (00:00:00.000 --> 00:00:05.000)
+    if (/^\d{2}:\d{2}/.test(trimmed) && trimmed.includes('-->')) { inCue = true; continue; }
+    // Skip cue IDs (numeric lines before timestamps)
+    if (/^\d+$/.test(trimmed)) continue;
+    // This is spoken text
+    if (inCue || trimmed.length > 0) {
+      // Strip speaker labels like "<v Speaker Name>" or "Speaker Name:"
+      let clean = trimmed.replace(/<v\s+[^>]+>/g, '').replace(/<\/v>/g, '').trim();
+      if (clean) spoken.push(clean);
+    }
+  }
+  return spoken.join(' ');
+}
+
+function parseSRT(text) {
+  const lines = text.split('\n');
+  const spoken = [];
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || /^\d+$/.test(trimmed) || (trimmed.includes('-->') && /^\d{2}:\d{2}/.test(trimmed))) continue;
+    spoken.push(trimmed);
+  }
+  return spoken.join(' ');
+}
+
+async function handleTranscriptUpload(input) {
+  const file = input.files?.[0];
+  if (!file) return;
+  if (!selectedClientId) { alert('Please select a client first.'); return; }
+
+  const ext = file.name.split('.').pop().toLowerCase();
+  if (!['vtt', 'txt', 'srt'].includes(ext)) {
+    alert('Unsupported file type. Please upload a .vtt, .txt, or .srt file.');
+    input.value = '';
+    return;
+  }
+
+  // Read file
+  const text = await file.text();
+  if (!text.trim()) { alert('File is empty.'); input.value = ''; return; }
+
+  // Parse based on format
+  let transcript;
+  if (ext === 'vtt') transcript = parseVTT(text);
+  else if (ext === 'srt') transcript = parseSRT(text);
+  else transcript = text.trim();
+
+  if (transcript.length < 50) {
+    alert('Transcript is too short to extract a meaningful profile. Please check the file.');
+    input.value = '';
+    return;
+  }
+
+  // Show processing state
+  document.getElementById('ob-upload-processing').style.display = '';
+  document.getElementById('ob-upload-status').textContent = `Processing ${file.name}...`;
+  document.getElementById('ob-upload-detail').textContent = `${Math.round(transcript.length / 5)} words detected. Extracting structured profile...`;
+
+  try {
+    const r = await fetch('/api/onboarding/extract-transcript', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clientId: selectedClientId, clientName, transcript }),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'Extraction failed');
+
+    extractedProfile = data.profile;
+    renderResults(extractedProfile);
+    showView('ob-results');
+  } catch (err) {
+    document.getElementById('ob-upload-processing').style.display = 'none';
+    alert('Extraction failed: ' + err.message);
+  }
+  input.value = '';
 }
 
 // ── Load previous sessions ──
