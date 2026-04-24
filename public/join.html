@@ -2,87 +2,92 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Interview · RealWork Labs</title>
 <link rel="icon" href="/favicon.png" type="image/png" />
 <style>
-:root { --primary: #1259FF; --bg: #f1f5f9; --surface: #fff; --text: #0f172a; --text-muted: #64748b; --border: #e2e8f0; --green: #16a34a; --red: #ef4444 }
+:root { --primary: #1259FF; --bg: #06102a; --surface: #0f1d3a; --lime: #cbff4d; --text: #ffffff; --text-muted: rgba(255,255,255,.5); --border: rgba(255,255,255,.1) }
 * { margin: 0; padding: 0; box-sizing: border-box }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; overflow: hidden }
 
-.j-header { background: var(--surface); border-bottom: 1px solid var(--border); padding: .65rem 1rem; display: flex; align-items: center; gap: .6rem; flex-shrink: 0 }
-.j-logo { height: 22px }
-.j-header-sep { width: 1px; height: 18px; background: var(--border) }
-.j-header-title { font-size: .78rem; font-weight: 600; color: var(--text-muted) }
-.j-header-right { margin-left: auto; display: flex; align-items: center; gap: .4rem }
-.j-rec-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--red); animation: j-rec-blink 1.5s ease-in-out infinite; display: none }
-.j-rec-dot.active { display: block }
-@keyframes j-rec-blink { 0%,100% { opacity: 1 } 50% { opacity: .3 } }
-.j-rec-label { font-size: .68rem; font-weight: 700; color: var(--red); display: none }
+/* Progress */
+.j-progress { position: fixed; top: 0; left: 0; width: 100%; height: 4px; background: rgba(255,255,255,.06); z-index: 10 }
+.j-progress-fill { height: 100%; background: var(--primary); border-radius: 0 2px 2px 0; transition: width .5s ease }
+
+/* Header */
+.j-header { display: flex; align-items: center; padding: .65rem 1.25rem; flex-shrink: 0; margin-top: 4px }
+.j-logo { height: 22px; opacity: .7 }
+.j-header-right { margin-left: auto; display: flex; align-items: center; gap: .5rem }
+.j-rec-dot { width: 8px; height: 8px; border-radius: 50%; background: #ef4444; display: none }
+.j-rec-dot.active { display: block; animation: j-blink 1.5s ease-in-out infinite }
+@keyframes j-blink { 0%,100% { opacity: 1 } 50% { opacity: .3 } }
+.j-rec-label { font-size: .65rem; font-weight: 700; color: #ef4444; display: none }
 .j-rec-label.active { display: block }
 
-.j-main { flex: 1; display: flex; flex-direction: column; padding: 1rem 1rem 0; max-width: 540px; margin: 0 auto; width: 100% }
+/* Main content — centered */
+.j-main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2rem 2rem 1.5rem; text-align: center }
 
-.j-loading { text-align: center; color: var(--text-muted); font-size: .9rem; padding: 3rem 1rem }
-.j-error { text-align: center; color: var(--red); font-size: .9rem; padding: 3rem 1rem }
+/* Loading / Error / Permission */
+.j-loading { color: var(--text-muted); font-size: .95rem }
+.j-error { color: #ef4444; font-size: .95rem }
+.j-perm { max-width: 420px }
+.j-perm-title { font-size: 1.25rem; font-weight: 700; margin-bottom: .6rem }
+.j-perm-sub { font-size: .9rem; color: var(--text-muted); line-height: 1.6; margin-bottom: 1.25rem }
+.j-perm-btn { padding: .7rem 2rem; border: none; border-radius: 8px; background: var(--primary); color: #fff; font-size: .95rem; font-weight: 700; cursor: pointer; font-family: inherit; transition: opacity .15s }
+.j-perm-btn:hover { opacity: .9 }
 
-/* Interview */
-.j-interview { display: none; flex: 1; flex-direction: column; min-height: 0 }
-.j-client { font-size: .95rem; font-weight: 700; color: var(--text); text-align: center }
-.j-progress-wrap { display: flex; align-items: center; gap: .5rem; margin: .35rem 0 .75rem; justify-content: center }
-.j-progress-label { font-size: .7rem; color: var(--text-muted) }
-.j-progress-bar { flex: 1; max-width: 160px; height: 3px; background: var(--border); border-radius: 3px; overflow: hidden }
-.j-progress-fill { height: 100%; background: var(--primary); border-radius: 3px; transition: width .4s }
+/* Interview — question is the hero */
+.j-interview { display: none; align-items: center; justify-content: center; flex-direction: column; max-width: 680px; width: 100% }
+.j-section-tag { font-size: .7rem; font-weight: 700; color: var(--primary); text-transform: uppercase; letter-spacing: .8px; margin-bottom: .5rem }
+.j-progress-label { font-size: .75rem; color: var(--text-muted); margin-bottom: 1.5rem }
+.j-question { font-size: 1.65rem; font-weight: 600; line-height: 1.45; color: var(--text); margin-bottom: 2rem; transition: opacity .3s ease; min-height: 3rem }
+.j-question.fading { opacity: 0; transform: translateY(8px) }
+.j-client { font-size: .8rem; color: var(--text-muted); margin-bottom: .25rem }
 
-/* AI question card */
-.j-ai-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1rem 1.15rem; margin-bottom: 1rem; flex-shrink: 0 }
-.j-ai-section { font-size: .62rem; font-weight: 700; color: var(--primary); text-transform: uppercase; letter-spacing: .5px; margin-bottom: .35rem }
-.j-ai-message { font-size: .92rem; color: var(--text); line-height: 1.5 }
+/* Mic status — subtle, bottom of screen */
+.j-mic-indicator { display: flex; align-items: center; gap: .45rem; color: var(--text-muted); font-size: .78rem; margin-top: auto; padding-top: 1.5rem }
+.j-mic-indicator.listening { color: rgba(255,255,255,.65) }
+.j-mic-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); flex-shrink: 0 }
+.j-mic-dot.listening { background: #ef4444; animation: j-blink 1.5s ease-in-out infinite }
 
-/* Transcript */
-.j-transcript-area { flex: 1; min-height: 0; display: flex; flex-direction: column }
-.j-transcript-label { font-size: .68rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .4px; margin-bottom: .35rem }
-.j-transcript { flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: .75rem 1rem; overflow-y: auto; font-size: .88rem; line-height: 1.55; color: var(--text); min-height: 60px }
-.j-transcript:empty::before { content: 'Waiting for you to speak...'; color: var(--text-muted); font-style: italic; font-size: .85rem }
-.j-interim { color: var(--text-muted) }
+/* Skip */
+.j-skip { background: none; border: none; color: var(--text-muted); font-size: .78rem; cursor: pointer; font-family: inherit; padding: .4rem .6rem; margin-top: .5rem; transition: color .15s }
+.j-skip:hover { color: var(--text) }
 
-/* Mic status bar */
-.j-mic-bar { display: flex; align-items: center; justify-content: center; gap: .5rem; padding: .6rem 0; flex-shrink: 0 }
-.j-mic-icon { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all .2s }
-.j-mic-icon.listening { background: var(--red); color: #fff; animation: j-pulse 1.5s ease-in-out infinite }
-.j-mic-icon.off { background: var(--border); color: var(--text-muted); cursor: pointer }
-@keyframes j-pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,.3) } 50% { box-shadow: 0 0 0 10px rgba(239,68,68,0) } }
-.j-mic-text { font-size: .78rem; font-weight: 600; color: var(--text-muted) }
-.j-mic-text.listening { color: var(--red) }
-
-/* Text fallback for Safari */
-.j-text-input-wrap { display: none; flex-shrink: 0; padding: .5rem 0 }
-.j-text-input { width: 100%; padding: .6rem .85rem; border: 1px solid var(--border); border-radius: 10px; font-size: .88rem; font-family: inherit; color: var(--text); background: var(--surface); resize: none; min-height: 44px; max-height: 100px; line-height: 1.5 }
-.j-text-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(18,89,255,.1) }
-.j-text-input::placeholder { color: var(--text-muted) }
-.j-text-send { margin-top: .4rem; width: 100%; padding: .55rem; border: none; border-radius: 8px; background: var(--primary); color: #fff; font-size: .85rem; font-weight: 700; cursor: pointer; font-family: inherit }
-
-/* Permission prompt */
-.j-perm { text-align: center; padding: 1.5rem 1rem }
-.j-perm-title { font-size: 1rem; font-weight: 700; margin-bottom: .5rem }
-.j-perm-sub { font-size: .85rem; color: var(--text-muted); margin-bottom: 1rem; line-height: 1.5 }
-.j-perm-btn { padding: .6rem 1.5rem; border: none; border-radius: 8px; background: var(--primary); color: #fff; font-size: .9rem; font-weight: 700; cursor: pointer; font-family: inherit }
+/* Section summary */
+.j-summary { display: none; max-width: 580px; width: 100%; text-align: left }
+.j-summary-header { display: flex; align-items: center; gap: .5rem; margin-bottom: 1.25rem }
+.j-summary-check { width: 28px; height: 28px; border-radius: 50%; background: rgba(203,255,77,.15); color: var(--lime); display: flex; align-items: center; justify-content: center; flex-shrink: 0 }
+.j-summary-label { font-size: .75rem; font-weight: 700; color: var(--lime); text-transform: uppercase; letter-spacing: .5px }
+.j-summary-title { font-size: 1.2rem; font-weight: 700; margin-bottom: 1rem; color: var(--text) }
+.j-summary-narrative { font-size: .9rem; line-height: 1.65; color: rgba(255,255,255,.8); margin-bottom: 1.5rem }
+.j-summary-unlocks-label { font-size: .68rem; font-weight: 700; color: var(--lime); text-transform: uppercase; letter-spacing: .5px; margin-bottom: .5rem }
+.j-summary-unlock { display: flex; align-items: flex-start; gap: .5rem; font-size: .82rem; color: rgba(255,255,255,.75); padding: .25rem 0 }
+.j-summary-unlock svg { flex-shrink: 0; margin-top: 2px }
+.j-summary-continue { font-size: .82rem; color: var(--text-muted); margin-top: 1.5rem; text-align: center }
 
 /* Complete */
-.j-complete { display: none; text-align: center; padding: 2rem 1rem }
-.j-complete-icon { width: 56px; height: 56px; border-radius: 50%; background: #16a34a18; color: var(--green); display: flex; align-items: center; justify-content: center; margin: 0 auto .75rem }
-.j-complete-title { font-size: 1.15rem; font-weight: 700; margin-bottom: .35rem }
-.j-complete-sub { font-size: .85rem; color: var(--text-muted); line-height: 1.5 }
+.j-complete { display: none; text-align: center; max-width: 420px }
+.j-complete-icon { width: 56px; height: 56px; border-radius: 50%; background: rgba(203,255,77,.12); color: var(--lime); display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem }
+.j-complete-title { font-size: 1.3rem; font-weight: 700; margin-bottom: .5rem }
+.j-complete-sub { font-size: .9rem; color: var(--text-muted); line-height: 1.55 }
 
-@media (max-width: 480px) { .j-ai-message { font-size: .87rem } }
+/* Text fallback */
+.j-text-wrap { display: none; width: 100%; max-width: 500px; margin-top: 1rem }
+.j-text-input { width: 100%; padding: .65rem .9rem; border: 1px solid var(--border); border-radius: 10px; font-size: .9rem; font-family: inherit; color: var(--text); background: var(--surface); resize: none; min-height: 44px; max-height: 100px; line-height: 1.5 }
+.j-text-input:focus { outline: none; border-color: var(--primary) }
+.j-text-input::placeholder { color: var(--text-muted) }
+.j-text-send { margin-top: .5rem; width: 100%; padding: .55rem; border: none; border-radius: 8px; background: var(--primary); color: #fff; font-size: .85rem; font-weight: 700; cursor: pointer; font-family: inherit }
+
+@media (max-width: 600px) { .j-question { font-size: 1.25rem } .j-main { padding: 1.5rem 1.25rem 1rem } }
 </style>
 </head>
 <body>
 
+<div class="j-progress"><div class="j-progress-fill" id="j-progress-fill"></div></div>
+
 <div class="j-header">
-  <img src="/logo.svg" alt="RealWork Labs" class="j-logo">
-  <div class="j-header-sep"></div>
-  <div class="j-header-title">Onboarding Interview</div>
+  <img src="/logo-white.svg" alt="RealWork Labs" class="j-logo">
   <div class="j-header-right">
     <div class="j-rec-dot" id="j-rec-dot"></div>
     <div class="j-rec-label" id="j-rec-label">REC</div>
@@ -93,52 +98,52 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
   <div class="j-loading" id="j-loading">Connecting to interview...</div>
   <div class="j-error" id="j-error" style="display:none"></div>
 
-  <!-- Mic permission prompt -->
+  <!-- Permission prompt -->
   <div class="j-perm" id="j-perm" style="display:none">
-    <div class="j-perm-title">Ready to start</div>
-    <div class="j-perm-sub">Your interviewer will ask you questions about your business. Just speak naturally — your answers will be transcribed automatically.</div>
-    <button class="j-perm-btn" onclick="requestMicAndStart()">Enable Microphone</button>
+    <div class="j-perm-title">Ready to begin</div>
+    <div class="j-perm-sub">Your interviewer will ask you questions about your business. Just speak naturally — we'll capture everything automatically.</div>
+    <button class="j-perm-btn" onclick="requestMicAndStart()">Enable Microphone & Start</button>
+    <div style="margin-top:.75rem"><button style="background:none;border:none;color:var(--text-muted);font-size:.8rem;cursor:pointer;font-family:inherit;text-decoration:underline" onclick="startWithTextOnly()">Continue without microphone</button></div>
   </div>
 
-  <!-- Active interview -->
+  <!-- Interview — question as hero -->
   <div class="j-interview" id="j-interview">
     <div class="j-client" id="j-client"></div>
-    <div class="j-progress-wrap">
-      <div class="j-progress-label" id="j-progress-label"></div>
-      <div class="j-progress-bar"><div class="j-progress-fill" id="j-progress-fill"></div></div>
+    <div class="j-section-tag" id="j-section-tag"></div>
+    <div class="j-progress-label" id="j-progress-label"></div>
+    <div class="j-question" id="j-question"></div>
+
+    <!-- Text fallback (for no-mic mode) -->
+    <div class="j-text-wrap" id="j-text-wrap">
+      <textarea class="j-text-input" id="j-text-input" placeholder="Type your answer..." rows="2"></textarea>
+      <button class="j-text-send" onclick="sendTypedAnswer()">Send</button>
     </div>
 
-    <div class="j-ai-card" id="j-ai-card">
-      <div class="j-ai-section" id="j-ai-section"></div>
-      <div class="j-ai-message" id="j-ai-message">Waiting for the interviewer...</div>
+    <div class="j-mic-indicator" id="j-mic-indicator">
+      <div class="j-mic-dot" id="j-mic-dot"></div>
+      <span id="j-mic-text">Microphone active</span>
     </div>
-
-    <div class="j-transcript-area">
-      <div class="j-transcript-label">Your answer</div>
-      <div class="j-transcript" id="j-transcript"></div>
-    </div>
-
-    <div class="j-mic-bar" id="j-mic-bar">
-      <div class="j-mic-icon listening" id="j-mic-icon">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
-      </div>
-      <div class="j-mic-text listening" id="j-mic-text">Listening...</div>
-    </div>
-    <button id="j-skip-btn" onclick="skipQuestion()" style="background:none;border:none;color:var(--text-muted);font-size:.78rem;cursor:pointer;font-family:inherit;padding:.3rem .5rem;text-decoration:underline;text-underline-offset:2px;flex-shrink:0">Skip this question</button>
-
-    <!-- Text fallback (Safari / no mic) -->
-    <div class="j-text-input-wrap" id="j-text-fallback">
-      <textarea class="j-text-input" id="j-text-input" placeholder="Type your answer here..." rows="2"></textarea>
-      <button class="j-text-send" onclick="sendTypedAnswer()">Send Answer</button>
-    </div>
+    <button class="j-skip" id="j-skip-btn" onclick="skipQuestion()">Skip this question</button>
   </div>
 
-  <div class="j-complete" id="j-complete">
-    <div class="j-complete-icon">
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+  <!-- Section summary -->
+  <div class="j-summary" id="j-summary">
+    <div class="j-summary-header">
+      <div class="j-summary-check"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>
+      <div class="j-summary-label" id="j-summary-label"></div>
     </div>
+    <div class="j-summary-title" id="j-summary-title"></div>
+    <div class="j-summary-narrative" id="j-summary-narrative"></div>
+    <div class="j-summary-unlocks-label">What this unlocks for your website</div>
+    <div id="j-summary-unlocks"></div>
+    <div class="j-summary-continue" id="j-summary-continue"></div>
+  </div>
+
+  <!-- Complete -->
+  <div class="j-complete" id="j-complete">
+    <div class="j-complete-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></div>
     <div class="j-complete-title">Interview Complete</div>
-    <div class="j-complete-sub">Thank you! Your answers have been recorded and your profile is being built. You can close this page now.</div>
+    <div class="j-complete-sub">Thank you! Your answers have been recorded and your website profile is being built. You can close this page now.</div>
   </div>
 </div>
 
@@ -152,8 +157,7 @@ let isListening = false;
 let pollTimer = null;
 let lastQuestionIndex = -1;
 let lastAiMessage = '';
-let currentTranscriptText = '';
-let hasSpeechSupport = false;
+let useTextMode = false;
 
 // ── Init ──
 (async () => {
@@ -164,61 +168,54 @@ let hasSpeechSupport = false;
     if (!r.ok) { showError(data.error || 'This link is invalid or has expired.'); return; }
     if (!data.active || data.status === 'extracted') { showComplete(); return; }
 
-    document.getElementById('j-client').textContent = data.client_name || 'Interview';
+    document.getElementById('j-client').textContent = data.client_name || '';
     updateState(data);
-
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    hasSpeechSupport = !!SR;
 
     document.getElementById('j-loading').style.display = 'none';
 
-    if (hasSpeechSupport) {
-      // Show permission prompt first
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SR) {
       document.getElementById('j-perm').style.display = 'block';
     } else {
-      // No speech support — go straight to text mode
-      showInterviewWithTextFallback();
+      startWithTextOnly();
     }
   } catch { showError('Failed to connect. Please check your link and try again.'); }
 })();
 
 function showError(msg) {
   document.getElementById('j-loading').style.display = 'none';
-  const el = document.getElementById('j-error');
-  el.textContent = msg;
-  el.style.display = 'block';
+  document.getElementById('j-error').textContent = msg;
+  document.getElementById('j-error').style.display = 'block';
 }
-
 function showComplete() {
-  document.getElementById('j-loading').style.display = 'none';
-  document.getElementById('j-perm').style.display = 'none';
-  document.getElementById('j-interview').style.display = 'none';
+  hideAll();
   document.getElementById('j-complete').style.display = 'block';
-  stopPolling();
-  stopMic();
+  stopPolling(); stopMic();
+}
+function hideAll() {
+  ['j-loading','j-error','j-perm','j-interview','j-summary','j-complete'].forEach(id => document.getElementById(id).style.display = 'none');
 }
 
-function showInterviewWithTextFallback() {
-  document.getElementById('j-perm').style.display = 'none';
-  document.getElementById('j-interview').style.display = 'flex';
-  document.getElementById('j-mic-bar').style.display = 'none';
-  document.getElementById('j-text-fallback').style.display = 'block';
-  document.getElementById('j-transcript').style.display = 'none';
-  startPolling();
-}
-
-// ── Mic permission + start ──
+// ── Start modes ──
 function requestMicAndStart() {
-  document.getElementById('j-perm').style.display = 'none';
+  hideAll();
   document.getElementById('j-interview').style.display = 'flex';
   startPolling();
-  initAndStartMic();
+  initMic();
+}
+function startWithTextOnly() {
+  hideAll();
+  useTextMode = true;
+  document.getElementById('j-interview').style.display = 'flex';
+  document.getElementById('j-text-wrap').style.display = 'block';
+  document.getElementById('j-mic-indicator').style.display = 'none';
+  startPolling();
 }
 
-function initAndStartMic() {
+// ── Mic (always-on, silent background) ──
+function initMic() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) { showInterviewWithTextFallback(); return; }
-
+  if (!SR) return;
   recognition = new SR();
   recognition.continuous = true;
   recognition.interimResults = true;
@@ -228,89 +225,78 @@ function initAndStartMic() {
     isListening = true;
     document.getElementById('j-rec-dot').classList.add('active');
     document.getElementById('j-rec-label').classList.add('active');
-    document.getElementById('j-mic-icon').className = 'j-mic-icon listening';
-    document.getElementById('j-mic-text').className = 'j-mic-text listening';
-    document.getElementById('j-mic-text').textContent = 'Listening...';
+    document.getElementById('j-mic-dot').classList.add('listening');
+    document.getElementById('j-mic-indicator').classList.add('listening');
+    document.getElementById('j-mic-text').textContent = 'Microphone active';
   };
-
   recognition.onend = () => {
     isListening = false;
     document.getElementById('j-rec-dot').classList.remove('active');
     document.getElementById('j-rec-label').classList.remove('active');
-    // Auto-restart — keep listening continuously
+    // Auto-restart
     if (document.getElementById('j-interview').style.display !== 'none') {
       setTimeout(() => { try { recognition.start(); } catch {} }, 300);
     }
   };
-
   recognition.onresult = (event) => {
     let final = '';
-    let interim = '';
     for (let i = event.resultIndex; i < event.results.length; i++) {
-      const t = event.results[i][0].transcript;
-      if (event.results[i].isFinal) final += t;
-      else interim += t;
+      if (event.results[i].isFinal) final += event.results[i][0].transcript;
     }
-    const el = document.getElementById('j-transcript');
-    if (final) {
-      const trimmed = final.trim();
-      // Add as a new line/segment in the transcript display
-      const seg = document.createElement('div');
-      seg.style.cssText = 'padding:.3rem 0;border-bottom:1px solid var(--border)';
-      seg.textContent = trimmed;
-      // Remove interim element if present
-      const interimEl = el.querySelector('.j-interim-line');
-      if (interimEl) interimEl.remove();
-      el.appendChild(seg);
-      el.scrollTop = el.scrollHeight;
-      sendTranscript(trimmed, false);
-    }
-    if (interim) {
-      let interimEl = el.querySelector('.j-interim-line');
-      if (!interimEl) {
-        interimEl = document.createElement('div');
-        interimEl.className = 'j-interim-line';
-        interimEl.style.cssText = 'padding:.3rem 0;color:var(--text-muted);font-style:italic';
-        el.appendChild(interimEl);
-      }
-      interimEl.textContent = interim;
-      el.scrollTop = el.scrollHeight;
-    }
+    if (final) sendTranscript(final.trim(), false);
   };
-
   recognition.onerror = (event) => {
     if (event.error === 'not-allowed') {
-      // Mic denied — fall back to text
-      showInterviewWithTextFallback();
+      startWithTextOnly();
     }
-    // For other errors (network, etc.), onend will auto-restart
   };
-
   try { recognition.start(); } catch {}
 }
-
-function stopMic() {
-  if (recognition) { try { recognition.abort(); } catch {} recognition = null; }
-  isListening = false;
-}
+function stopMic() { if (recognition) { try { recognition.abort(); } catch {} recognition = null; } }
 
 // ── State updates ──
 function updateState(data) {
-  if (data.current_question !== lastQuestionIndex || (data.current_ai_message && data.current_ai_message !== lastAiMessage)) {
-    if (data.current_question !== lastQuestionIndex) {
-      // New question — clear transcript
-      document.getElementById('j-transcript').innerHTML = '';
-      lastQuestionIndex = data.current_question;
-    }
-    document.getElementById('j-ai-section').textContent = data.current_section || '';
-    // Show AI's conversational message if available, otherwise show the raw question
-    const aiMsg = data.current_ai_message || data.current_question_label || '';
-    document.getElementById('j-ai-message').textContent = aiMsg;
-    lastAiMessage = data.current_ai_message || '';
-
-    document.getElementById('j-progress-label').textContent = `Question ${data.current_question + 1} of ${data.total_questions}`;
-    document.getElementById('j-progress-fill').style.width = data.progress + '%';
+  // Section summary takes priority
+  if (data.section_summary) {
+    showSectionSummary(data.section_summary);
+    return;
   }
+  // Hide summary if we were showing one
+  if (document.getElementById('j-summary').style.display !== 'none') {
+    document.getElementById('j-summary').style.display = 'none';
+    document.getElementById('j-interview').style.display = 'flex';
+  }
+
+  const questionChanged = data.current_question !== lastQuestionIndex;
+  const aiMessageChanged = data.current_ai_message && data.current_ai_message !== lastAiMessage;
+
+  if (questionChanged || aiMessageChanged) {
+    const qEl = document.getElementById('j-question');
+    // Fade out
+    qEl.classList.add('fading');
+    setTimeout(() => {
+      document.getElementById('j-section-tag').textContent = data.current_section || '';
+      document.getElementById('j-progress-label').textContent = `Question ${data.current_question + 1} of ${data.total_questions}`;
+      qEl.textContent = data.current_ai_message || data.current_question_label || '';
+      document.getElementById('j-progress-fill').style.width = (data.progress || 0) + '%';
+      // Fade in
+      qEl.classList.remove('fading');
+      lastQuestionIndex = data.current_question;
+      lastAiMessage = data.current_ai_message || '';
+    }, 250);
+  }
+}
+
+function showSectionSummary(ss) {
+  document.getElementById('j-interview').style.display = 'none';
+  document.getElementById('j-summary-label').textContent = `Section ${ss.section_index + 1} of 7 complete`;
+  document.getElementById('j-summary-title').textContent = ss.section_name;
+  document.getElementById('j-summary-narrative').textContent = ss.narrative || '';
+  document.getElementById('j-summary-unlocks').innerHTML = (ss.unlocks || []).map(u =>
+    `<div class="j-summary-unlock"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#cbff4d" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg><span>${esc(u)}</span></div>`
+  ).join('');
+  document.getElementById('j-summary-continue').textContent = ss.section_index < 6 ? `Continuing to next section...` : '';
+  document.getElementById('j-summary').style.display = 'block';
 }
 
 // ── Polling ──
@@ -341,28 +327,26 @@ function sendTranscript(text, interim) {
   });
 }
 
-// ── Text fallback send ──
+// ── Text fallback ──
 function sendTypedAnswer() {
   const input = document.getElementById('j-text-input');
   const text = input.value.trim();
   if (!text) return;
   sendTranscript(text, false);
   input.value = '';
-  // Show in transcript area for confirmation
-  const el = document.getElementById('j-transcript');
-  if (el) { el.style.display = ''; el.textContent = text; }
 }
+document.addEventListener('keydown', e => {
+  if (useTextMode && e.key === 'Enter' && !e.shiftKey && document.activeElement === document.getElementById('j-text-input')) {
+    e.preventDefault(); sendTypedAnswer();
+  }
+});
 
-// ── Skip question ──
+// ── Skip ──
 async function skipQuestion() {
   const btn = document.getElementById('j-skip-btn');
-  btn.disabled = true;
-  btn.textContent = 'Skipping...';
-  try {
-    await fetch(`/api/join/${sessionId}/${joinToken}/skip`, { method: 'POST' });
-  } catch {}
-  btn.disabled = false;
-  btn.textContent = 'Skip this question';
+  btn.disabled = true; btn.textContent = 'Skipping...';
+  try { await fetch(`/api/join/${sessionId}/${joinToken}/skip`, { method: 'POST' }); } catch {}
+  btn.disabled = false; btn.textContent = 'Skip this question';
 }
 
 function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
