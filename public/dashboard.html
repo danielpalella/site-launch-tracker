@@ -528,6 +528,7 @@
       <button class="crm-tab crm-tab-active" onclick="switchCrmTab('overview',this)">Overview</button>
       <button class="crm-tab" onclick="switchCrmTab('performance',this)">Performance</button>
       <button class="crm-tab" id="crm-tab-gmail-btn" onclick="switchCrmTab('gmail',this)">Gmail</button>
+      <button class="crm-tab" onclick="switchCrmTab('onboarding',this)">Onboarding</button>
     </div>
 
     <!-- Overview Tab -->
@@ -668,6 +669,11 @@
         <div id="gmail-threads-body" style="font-size:.82rem"></div>
       </div>
     </div><!-- /crm-tab-gmail -->
+
+    <!-- Onboarding Tab -->
+    <div id="crm-tab-onboarding" class="crm-tab-content" style="display:none">
+      <div id="crm-onboarding-body" style="font-size:.82rem;color:var(--text-muted);padding:.5rem 0">Loading...</div>
+    </div>
 
     <div class="modal-actions crm-actions">
       <button class="btn btn-danger" id="modal-delete">Delete</button>
@@ -1724,6 +1730,7 @@ function openEdit(id) {
     freezeBtn.style.display = 'none';
   }
   _latestGmailThreadDate = null;
+  _crmOnboardingLoaded = false;
   renderOutreachSection(r);
   document.getElementById('modal').classList.add('open');
   loadTimeline(id);
@@ -1733,12 +1740,13 @@ function openEdit(id) {
 }
 
 function switchCrmTab(name, btn) {
-  ['overview','performance','gmail'].forEach(t => {
+  ['overview','performance','gmail','onboarding'].forEach(t => {
     const el = document.getElementById(`crm-tab-${t}`);
     if (el) el.style.display = t === name ? '' : 'none';
   });
   document.querySelectorAll('.crm-tab-bar .crm-tab').forEach(b => b.classList.remove('crm-tab-active'));
   if (btn) btn.classList.add('crm-tab-active');
+  if (name === 'onboarding') loadCrmOnboardingProfile();
 }
 
 function isFollowUpOverdue(r) {
@@ -6474,6 +6482,7 @@ function renderAnalyticsModalBody(id, data, forms) {
       <button class="acd-tab-btn" onclick="switchAcdTab('leads','${esc(id)}')" id="acd-leads-tab-btn-${id}">Leads${leadCount > 0 ? `<span class="acd-tab-count">${leadCount}</span>` : ''}</button>
       <button class="acd-tab-btn" onclick="switchAcdTab('account','${esc(id)}')">Account</button>
       <button class="acd-tab-btn" onclick="switchAcdTab('blog','${esc(id)}')">Blog</button>
+      <button class="acd-tab-btn" onclick="switchAcdTab('onboarding','${esc(id)}')">Onboarding</button>
       ${(data.tags || []).some(tid => _tagMap[tid]?.name?.toLowerCase() === 'ai chatbot beta') ? `<button class="acd-tab-btn" onclick="switchAcdTab('widget','${esc(id)}')">AI Chatbot <span style="font-size:.65rem;opacity:.7;font-weight:500">beta</span></button>` : ''}
     </div>
     <div id="acd-tp-overview-${id}" class="acd-tab-pane">
@@ -6515,6 +6524,9 @@ function renderAnalyticsModalBody(id, data, forms) {
           Copy Link
         </button>
       </div>
+    </div>
+    <div id="acd-tp-onboarding-${id}" class="acd-tab-pane" style="display:none">
+      <div id="acd-onboarding-body-${id}" style="font-size:.82rem;color:var(--text-muted);padding:.5rem 0">Loading...</div>
     </div>
     <div id="acd-tp-blog-${id}" class="acd-tab-pane" style="display:none">
       <div class="blog-header">
@@ -7002,7 +7014,7 @@ async function renameTag(tagId, currentName) {
 }
 
 function switchAcdTab(tab, id) {
-  const tabs = ['overview', 'seo', 'perf', 'leads', 'account', 'blog', 'widget'];
+  const tabs = ['overview', 'seo', 'perf', 'leads', 'account', 'blog', 'onboarding', 'widget'];
   tabs.forEach(t => {
     const el = document.getElementById(`acd-tp-${t}-${id}`);
     if (el) el.style.display = t === tab ? '' : 'none';
@@ -7013,6 +7025,7 @@ function switchAcdTab(tab, id) {
   });
   if (tab === 'widget') loadWidgetEvents(id);
   if (tab === 'blog') loadBlogHistory(id);
+  if (tab === 'onboarding') loadAcdOnboardingProfile(id);
 }
 
 const _widgetEventsLoaded = {};
@@ -8685,6 +8698,58 @@ function copyBlogPost(id) {
     btn.style.borderColor = '#22c55e';
     setTimeout(() => { btn.textContent = 'Copy post'; btn.style.color = ''; btn.style.borderColor = ''; }, 2000);
   });
+}
+
+// ── Onboarding Profile (shared renderer for both modals) ──
+function renderOnboardingProfile(profile, container) {
+  if (!profile) {
+    container.innerHTML = '<div style="text-align:center;padding:2rem 1rem;color:var(--text-muted)"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom:.5rem;opacity:.4"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><div style="font-size:.85rem;font-weight:600;margin-bottom:.2rem">No onboarding interview yet</div><div style="font-size:.78rem">Start an interview from the <a href="/onboarding" style="color:var(--primary)">Onboarding</a> page.</div></div>';
+    return;
+  }
+  const f = (l, v) => { if (v == null || v === '') return ''; if (typeof v === 'boolean') v = v ? 'Yes' : 'No'; return `<div style="margin-bottom:.4rem"><div style="font-size:.68rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.3px">${esc(l)}</div><div style="font-size:.82rem;color:var(--text);margin-top:.1rem;line-height:1.4">${esc(String(v))}</div></div>`; };
+  const li = (l, a) => { if (!a?.length) return ''; return `<div style="margin-bottom:.4rem"><div style="font-size:.68rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.3px">${esc(l)}</div><div style="margin-top:.1rem">${a.map(v => `<span style="display:inline-block;font-size:.75rem;padding:.15rem .5rem;margin:.15rem .2rem 0 0;background:var(--primary)0a;border:1px solid var(--primary)22;border-radius:4px;color:var(--text)">${esc(String(v))}</span>`).join('')}</div></div>`; };
+  const sec = (t, h) => { if (!h.trim()) return ''; return `<div style="border:1px solid var(--border);border-radius:8px;padding:.75rem 1rem;margin-bottom:.6rem"><div style="font-size:.75rem;font-weight:700;color:var(--primary);text-transform:uppercase;letter-spacing:.4px;margin-bottom:.5rem">${esc(t)}</div>${h}</div>`; };
+  const p = profile;
+  let h = '';
+  h += sec('Overview', f('Business Name',p.business_name)+f('Owner',p.owner_name)+f('Years in Business',p.years_in_business)+f('Origin Story',p.origin_story)+f('Family Connection',p.family_connection)+li('Pride Points',p.pride_points));
+  h += sec('Services', li('Core Services',p.services?.core)+f('Top Revenue',p.services?.top_revenue)+li('Promote More',p.services?.promote_more)+f('Emergency Service',p.services?.emergency_available));
+  h += sec('Differentiation', li('USPs',p.differentiation?.unique_selling_points)+li('Customer Compliments',p.differentiation?.customer_compliments)+li('Guarantees',p.differentiation?.guarantees)+f('Ideal Customer',p.differentiation?.ideal_customer));
+  h += sec('Service Area', li('Cities',p.service_area?.cities)+li('Primary Markets',p.service_area?.primary_markets)+li('Growth Targets',p.service_area?.growth_targets)+f('Max Travel',p.service_area?.max_travel_radius));
+  h += sec('Brand Voice', f('Personality',p.brand_voice?.personality)+f('Tone',p.brand_voice?.tone)+li('Preferred Phrases',p.brand_voice?.preferred_phrases)+li('Avoid',p.brand_voice?.avoid_phrases)+f('Voice',p.brand_voice?.voice_description));
+  h += sec('Credentials', li('Licenses',p.credentials?.licenses)+f('Insured',p.credentials?.insured)+f('Bonded',p.credentials?.bonded)+li('Associations',p.credentials?.associations)+li('Awards',p.credentials?.awards));
+  h += sec('Goals', li('Website Goals',p.goals?.website_goals)+f('6-Month Success',p.goals?.six_month_success)+f('Additional Notes',p.goals?.additional_notes));
+  container.innerHTML = h;
+}
+
+let _crmOnboardingLoaded = false;
+async function loadCrmOnboardingProfile() {
+  if (_crmOnboardingLoaded) return;
+  const body = document.getElementById('crm-onboarding-body');
+  const launchId = document.getElementById('modal-id')?.value;
+  if (!launchId) { body.innerHTML = 'No launch ID'; return; }
+  try {
+    const r = await fetch(`/api/launches/${launchId}`);
+    if (!r.ok) throw new Error();
+    const data = await r.json();
+    renderOnboardingProfile(data.onboarding_profile || null, body);
+    _crmOnboardingLoaded = true;
+  } catch {
+    body.innerHTML = '<div style="color:var(--text-muted);font-size:.82rem">Failed to load onboarding data.</div>';
+  }
+}
+
+async function loadAcdOnboardingProfile(id) {
+  const body = document.getElementById(`acd-onboarding-body-${id}`);
+  if (!body || body.dataset.loaded) return;
+  try {
+    const r = await fetch(`/api/launches/${id}`);
+    if (!r.ok) throw new Error();
+    const data = await r.json();
+    renderOnboardingProfile(data.onboarding_profile || null, body);
+    body.dataset.loaded = 'true';
+  } catch {
+    body.innerHTML = '<div style="color:var(--text-muted);font-size:.82rem">Failed to load onboarding data.</div>';
+  }
 }
 
 async function loadBlogHistory(id) {

@@ -377,8 +377,8 @@ function updateState(data) {
 }
 
 function sectionIndexFromQuestion(qIdx) {
-  // Questions per section: 4,4,4,4,4,4,3
-  const breaks = [0,4,8,12,16,20,24,27];
+  // Questions per section: 3,3,2,2,2,2,3 = 17
+  const breaks = [0,3,6,8,10,12,14,17];
   for (let i = 0; i < breaks.length - 1; i++) {
     if (qIdx < breaks[i+1]) return i;
   }
