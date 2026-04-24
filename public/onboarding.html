@@ -238,13 +238,9 @@
         <div class="ob-chat-progress" id="ob-chat-progress">Question 1 of 27 · Origin Story</div>
         <div class="ob-chat-pbar"><div class="ob-chat-pbar-fill" id="ob-chat-pbar-fill"></div></div>
       </div>
-      <button class="ob-chat-end-btn" id="ob-present-btn" onclick="openPresenterView()" style="display:none" title="Open presentation view for screen sharing">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-        Present
-      </button>
-      <button class="ob-chat-end-btn" id="ob-copy-join-btn" onclick="copyJoinLink()" style="display:none" title="Copy link for contractor to join">
+      <button class="ob-chat-end-btn" id="ob-copy-join-btn" onclick="copyJoinLink()" style="display:none" title="Share this link with the client so they can join the interview from their browser">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
-        Share Join Link
+        Share Client Link
       </button>
       <button class="ob-chat-end-btn" onclick="finishEarly()">Finish Early</button>
     </div>
@@ -253,22 +249,13 @@
       <span id="ob-contractor-status">Contractor voice connected</span>
     </div>
     <div class="ob-messages" id="ob-messages"></div>
-    <div class="ob-input-bar" style="flex-wrap:wrap">
-      <div class="ob-input-wrap">
-        <textarea class="ob-input" id="ob-input" placeholder="Type or tap the mic to speak..." rows="1" onkeydown="handleInputKey(event)" oninput="autoGrow(this)"></textarea>
-        <button class="ob-mic-btn" id="ob-mic-btn" onclick="toggleVoiceInput()" title="Voice input">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
-        </button>
-      </div>
+    <div class="ob-input-bar">
+      <textarea class="ob-input" id="ob-input" placeholder="Type a note or override the contractor's answer..." rows="1" onkeydown="handleInputKey(event)" oninput="autoGrow(this)" style="flex:1"></textarea>
       <button class="ob-skip-btn" id="ob-skip-btn" onclick="skipQuestion()">Skip</button>
-      <button class="ob-next-btn" id="ob-next-btn" onclick="submitContractorAnswer()" title="Submit contractor's voice answer and move on" style="height:42px;padding:0 1rem;border:none;border-radius:10px;background:#16a34a;color:#fff;font-size:.78rem;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0;display:flex;align-items:center;gap:.35rem;transition:opacity .15s">
+      <button class="ob-next-btn" id="ob-next-btn" onclick="submitContractorAnswer()" title="Accept the contractor's answer and move to the next question" style="height:42px;padding:0 1rem;border:none;border-radius:10px;background:#16a34a;color:#fff;font-size:.78rem;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0;display:flex;align-items:center;gap:.35rem;transition:opacity .15s">
         Next
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
       </button>
-      <button class="ob-send-btn" id="ob-send-btn" onclick="sendAnswer()" title="Send typed answer">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-      </button>
-      <div class="ob-mic-status" id="ob-mic-status">Listening... speak now</div>
     </div>
   </div>
 
@@ -651,7 +638,6 @@ function hideTyping() {
 function setInputLocked(locked) {
   inputLocked = locked;
   document.getElementById('ob-input').disabled = locked;
-  document.getElementById('ob-send-btn').disabled = locked;
   document.getElementById('ob-skip-btn').disabled = locked;
   document.getElementById('ob-next-btn').disabled = locked;
 }
@@ -1015,12 +1001,6 @@ async function submitContractorAnswer() {
 function showJoinLink() {
   if (!joinToken) return;
   document.getElementById('ob-copy-join-btn').style.display = '';
-  document.getElementById('ob-present-btn').style.display = '';
-}
-
-function openPresenterView() {
-  if (!sessionId || !joinToken) return;
-  window.open(`/onboarding/present/${sessionId}/${joinToken}`, '_blank');
 }
 
 function copyJoinLink() {
@@ -1031,11 +1011,13 @@ function copyJoinLink() {
     btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Copied!';
     btn.style.color = '#16a34a';
     btn.style.borderColor = '#16a34a';
+    // Show helpful info message in the chat
+    addMessage('ai', 'Client link copied! Send it to the client via Zoom chat or email. They should open it in Chrome or Edge on their desktop for voice capture. Safari and Firefox will fall back to text input.');
     setTimeout(() => {
-      btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg> Share Join Link';
+      btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg> Share Client Link';
       btn.style.color = '';
       btn.style.borderColor = '';
-    }, 3000);
+    }, 4000);
   });
 }
 
@@ -1080,7 +1062,7 @@ function stopContractorPolling() {
 
 // ── Input helpers ──
 function handleInputKey(e) {
-  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendAnswer(); }
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitContractorAnswer(); }
 }
 function autoGrow(el) {
   el.style.height = 'auto';
