@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Audio Capture</title>
+<style>
+:root { --bg: #06102a; --surface: #0f1d3a; --primary: #1259FF; --lime: #cbff4d; --text: #fff; --text-muted: rgba(255,255,255,.5); --border: rgba(255,255,255,.1); --red: #ef4444 }
+* { margin: 0; padding: 0; box-sizing: border-box }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 1.5rem }
+.status { font-size: .85rem; text-align: center; line-height: 1.5; margin-bottom: 1rem }
+.status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle }
+.status-dot.waiting { background: #f59e0b }
+.status-dot.active { background: var(--lime); animation: pulse 1.5s infinite }
+.status-dot.error { background: var(--red) }
+@keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .4 } }
+.level-bar-wrap { width: 200px; height: 6px; background: var(--surface); border-radius: 3px; overflow: hidden; margin: .75rem auto }
+.level-bar { height: 100%; width: 0%; background: var(--lime); border-radius: 3px; transition: width 80ms }
+.btn-stop { margin-top: 1rem; padding: .5rem 1.5rem; border: 1px solid var(--red); border-radius: 6px; background: none; color: var(--red); font-size: .8rem; font-weight: 600; cursor: pointer; font-family: inherit }
+.btn-stop:hover { background: rgba(239,68,68,.15) }
+.hint { font-size: .7rem; color: var(--text-muted); text-align: center; margin-top: .5rem; line-height: 1.4 }
+</style>
+</head>
+<body>
+
+<div id="status" class="status"><span class="status-dot waiting"></span>Requesting tab audio...</div>
+<div class="level-bar-wrap"><div class="level-bar" id="level-bar"></div></div>
+<button class="btn-stop" id="btn-stop" style="display:none" onclick="stopCapture()">Stop Transcription</button>
+<div class="hint" id="hint">Select the Meet tab and check "Share tab audio"</div>
+
+<script>
+const params = new URLSearchParams(window.location.search);
+const authToken = params.get('token');
+const statusEl = document.getElementById('status');
+const levelBar = document.getElementById('level-bar');
+const btnStop = document.getElementById('btn-stop');
+const hintEl = document.getElementById('hint');
+
+const bc = new BroadcastChannel('meet-transcript');
+let ws = null;
+let audioCtx = null;
+let mediaStream = null;
+let processor = null;
+let source = null;
+
+function setStatus(text, state) {
+  statusEl.innerHTML = `<span class="status-dot ${state}"></span>${text}`;
+}
+
+async function startCapture() {
+  try {
+    mediaStream = await navigator.mediaDevices.getDisplayMedia({ audio: true, video: true });
+  } catch (err) {
+    setStatus('Tab sharing cancelled or denied', 'error');
+    hintEl.textContent = 'Close this window and try again from the sidebar.';
+    return;
+  }
+
+  // Stop video tracks — we only need audio
+  mediaStream.getVideoTracks().forEach(t => t.stop());
+
+  const audioTracks = mediaStream.getAudioTracks();
+  if (!audioTracks.length) {
+    setStatus('No audio track — did you check "Share tab audio"?', 'error');
+    hintEl.textContent = 'Close this window and try again. Make sure to check the "Share tab audio" checkbox.';
+    return;
+  }
+
+  setStatus('Connecting...', 'waiting');
+  hintEl.textContent = '';
+
+  // Set up AudioContext at 16kHz for Speech-to-Text
+  audioCtx = new AudioContext({ sampleRate: 16000 });
+  const audioStream = new MediaStream(audioTracks);
+  source = audioCtx.createMediaStreamSource(audioStream);
+  processor = audioCtx.createScriptProcessor(4096, 1, 1);
+
+  // Connect WebSocket
+  const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  ws = new WebSocket(`${wsProto}//${location.host}/ws/transcribe`);
+  ws.binaryType = 'arraybuffer';
+
+  ws.onopen = () => {
+    ws.send(JSON.stringify({ type: 'auth', token: authToken }));
+  };
+
+  ws.onmessage = (evt) => {
+    try {
+      const msg = JSON.parse(evt.data);
+      if (msg.type === 'auth_ok') {
+        setStatus('Transcription active', 'active');
+        btnStop.style.display = 'inline-block';
+        // Start sending audio
+        processor.onaudioprocess = (e) => {
+          const float32 = e.inputBuffer.getChannelData(0);
+          // Update level meter
+          let sum = 0;
+          for (let i = 0; i < float32.length; i++) sum += float32[i] * float32[i];
+          const rms = Math.sqrt(sum / float32.length);
+          levelBar.style.width = Math.min(100, rms * 500) + '%';
+          // Convert to Int16 PCM
+          const int16 = new Int16Array(float32.length);
+          for (let i = 0; i < float32.length; i++) {
+            int16[i] = Math.max(-32768, Math.min(32767, Math.round(float32[i] * 32768)));
+          }
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(int16.buffer);
+          }
+        };
+        source.connect(processor);
+        processor.connect(audioCtx.destination);
+      } else if (msg.type === 'transcript') {
+        // Relay to sidebar via BroadcastChannel
+        bc.postMessage({ type: 'transcript', text: msg.text, isFinal: msg.isFinal });
+      } else if (msg.type === 'error') {
+        setStatus('Error: ' + msg.message, 'error');
+      } else if (msg.type === 'info') {
+        // Stream restart info — no action needed
+      }
+    } catch {}
+  };
+
+  ws.onerror = () => {
+    setStatus('WebSocket error', 'error');
+  };
+
+  ws.onclose = () => {
+    setStatus('Connection closed', 'error');
+    btnStop.style.display = 'none';
+  };
+
+  // Handle tab sharing ending
+  audioTracks[0].addEventListener('ended', () => {
+    stopCapture();
+  });
+}
+
+function stopCapture() {
+  if (processor) { try { processor.disconnect(); } catch {} }
+  if (source) { try { source.disconnect(); } catch {} }
+  if (audioCtx) { try { audioCtx.close(); } catch {} }
+  if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); }
+  if (ws && ws.readyState <= 1) { ws.close(); }
+  bc.postMessage({ type: 'stopped' });
+  setStatus('Transcription stopped', 'error');
+  btnStop.style.display = 'none';
+  hintEl.textContent = 'You can close this window.';
+}
+
+// Start immediately on load
+startCapture();
+</script>
+</body>
+</html>

@@ -5,6 +5,9 @@ import { google } from 'googleapis';
 import { getStorage } from 'firebase-admin/storage';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { createServer } from 'http';
+import { WebSocketServer } from 'ws';
+import speech from '@google-cloud/speech';
 import { initializeApp, getApps } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 
@@ -5992,7 +5995,144 @@ app.get('/bulk-blog', requireAuth, (_req, res) => res.sendFile(join(__dirname, '
 app.get('/onboarding', requireAuth, (_req, res) => res.sendFile(join(__dirname, 'public', 'onboarding.html')));
 app.get('/dashboard', requireAuth, (_req, res) => res.sendFile(join(__dirname, 'public', 'dashboard.html')));
 
-app.listen(PORT, () => {
+// ── HTTP server + WebSocket for live transcription ──
+const server = createServer(app);
+
+const speechClient = new speech.SpeechClient();
+
+const wss = new WebSocketServer({ server, path: '/ws/transcribe' });
+
+async function validateToken(token) {
+  if (!token) return null;
+  const cached = sessionCache.get(token);
+  if (cached && cached.expiry > Date.now()) return cached.email;
+  try {
+    const session = await db.collection('sessions').doc(token).get();
+    if (!session.exists) { sessionCache.delete(token); return null; }
+    const email = session.data().email || '';
+    sessionCache.set(token, { expiry: Date.now() + 300_000, email });
+    return email;
+  } catch { return null; }
+}
+
+function createRecognizeStream(ws) {
+  const recognizeStream = speechClient.streamingRecognize({
+    config: {
+      encoding: 'LINEAR16',
+      sampleRateHertz: 16000,
+      languageCode: 'en-US',
+      enableAutomaticPunctuation: true,
+      model: 'latest_long',
+    },
+    interimResults: true,
+  });
+
+  recognizeStream.on('data', (data) => {
+    const result = data.results[0];
+    if (result && ws.readyState === 1) {
+      ws.send(JSON.stringify({
+        type: 'transcript',
+        text: result.alternatives[0].transcript,
+        isFinal: result.isFinal,
+      }));
+    }
+  });
+
+  recognizeStream.on('error', (err) => {
+    console.error('Speech-to-Text stream error:', err.message);
+    if (ws.readyState === 1) {
+      ws.send(JSON.stringify({ type: 'error', message: 'Transcription stream error' }));
+    }
+  });
+
+  return recognizeStream;
+}
+
+wss.on('connection', (ws) => {
+  let authenticated = false;
+  let recognizeStream = null;
+  let restartTimer = null;
+
+  function scheduleRestart() {
+    clearTimeout(restartTimer);
+    restartTimer = setTimeout(() => {
+      if (ws.readyState === 1) {
+        try { recognizeStream.end(); } catch {}
+        recognizeStream = createRecognizeStream(ws);
+        if (ws.readyState === 1) {
+          ws.send(JSON.stringify({ type: 'info', message: 'Stream restarted (time limit)' }));
+        }
+        scheduleRestart();
+      }
+    }, 270_000); // 4.5 minutes
+  }
+
+  function startStream() {
+    if (recognizeStream) {
+      try { recognizeStream.end(); } catch {}
+    }
+    recognizeStream = createRecognizeStream(ws);
+    scheduleRestart();
+  }
+
+  const authTimeout = setTimeout(() => {
+    if (!authenticated && ws.readyState === 1) {
+      ws.send(JSON.stringify({ type: 'error', message: 'Auth timeout' }));
+      ws.close();
+    }
+  }, 10_000);
+
+  ws.on('message', async (data) => {
+    // Binary audio data
+    if (data instanceof Buffer && authenticated) {
+      if (recognizeStream) {
+        recognizeStream.write(data);
+      }
+      return;
+    }
+
+    // JSON control messages
+    try {
+      const msg = JSON.parse(data.toString());
+      if (msg.type === 'auth' && !authenticated) {
+        const email = await validateToken(msg.token);
+        if (!email) {
+          ws.send(JSON.stringify({ type: 'error', message: 'Invalid token' }));
+          ws.close();
+          return;
+        }
+        authenticated = true;
+        clearTimeout(authTimeout);
+        ws.send(JSON.stringify({ type: 'auth_ok' }));
+        startStream();
+      }
+    } catch {}
+  });
+
+  ws.on('close', () => {
+    clearTimeout(restartTimer);
+    clearTimeout(authTimeout);
+    if (recognizeStream) {
+      try { recognizeStream.end(); } catch {}
+    }
+  });
+
+  ws.on('error', () => {
+    clearTimeout(restartTimer);
+    clearTimeout(authTimeout);
+    if (recognizeStream) {
+      try { recognizeStream.end(); } catch {}
+    }
+  });
+});
+
+// ── Meet audio capture popup route ──
+app.get('/meet-addon-capture', (req, res) => {
+  res.setHeader('Content-Security-Policy', "frame-ancestors 'self'");
+  res.sendFile(join(__dirname, 'public', 'meet-addon-capture.html'));
+});
+
+server.listen(PORT, () => {
   console.log(`\n  Site Launch Tracker running at http://localhost:${PORT}`);
   console.log(`  Dashboard:              http://localhost:${PORT}/dashboard\n`);
 });

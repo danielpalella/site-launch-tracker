@@ -57,6 +57,19 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .ma-section-done-title { font-size: .72rem; font-weight: 700; color: var(--lime) }
 .ma-section-done-text { font-size: .7rem; color: var(--text-muted); margin-top: .15rem }
 
+/* Transcript */
+.ma-transcript-bar { display: flex; gap: .4rem; margin-bottom: .6rem }
+.ma-btn-transcript { flex: 1; padding: .4rem .6rem; border: 1px solid var(--primary); border-radius: 6px; background: none; color: var(--primary); font-size: .72rem; font-weight: 700; cursor: pointer; font-family: inherit; display: flex; align-items: center; justify-content: center; gap: .3rem }
+.ma-btn-transcript.active { background: var(--primary); color: #fff }
+.ma-btn-transcript-stop { flex: 0; padding: .4rem .6rem; border: 1px solid #ef4444; border-radius: 6px; background: none; color: #ef4444; font-size: .72rem; font-weight: 600; cursor: pointer; font-family: inherit; display: none }
+.ma-transcript-box { max-height: 140px; overflow-y: auto; background: var(--surface); border-radius: 6px; padding: .5rem .6rem; margin-bottom: .6rem; font-size: .74rem; line-height: 1.5; display: none; border: 1px solid var(--border) }
+.ma-transcript-box .interim { color: var(--text-muted) }
+.ma-transcript-box .final { color: var(--text) }
+.ma-transcript-empty { color: var(--text-muted); font-style: italic }
+.ma-transcript-status { font-size: .65rem; color: var(--text-muted); margin-bottom: .4rem; display: none }
+.ma-transcript-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--lime); margin-right: 4px; vertical-align: middle; animation: ma-pulse 1.5s infinite }
+@keyframes ma-pulse { 0%,100% { opacity: 1 } 50% { opacity: .3 } }
+
 /* Finish screen */
 .ma-finish { display: none; padding: 1.5rem .75rem; text-align: center }
 .ma-finish-title { font-size: 1rem; font-weight: 700; margin-bottom: .4rem }
@@ -136,6 +149,11 @@ let selectedClientId = null;
 let clientName = '';
 let meetSession = null;
 let completedSections = new Set();
+let transcriptActive = false;
+let transcriptText = '';
+let capturePopup = null;
+let transcriptChannel = null;
+let interimText = '';
 
 function authHeaders(h = {}) { if (authToken) h['Authorization'] = 'Bearer ' + authToken; return h; }
 function authFetch(url, opts = {}) { opts.headers = authHeaders(opts.headers || {}); return fetch(url, opts); }
@@ -277,6 +295,14 @@ function renderGuide() {
     html += '</div>';
   }
 
+  // Transcript controls
+  html += '<div class="ma-transcript-bar">';
+  html += `<button class="ma-btn-transcript${transcriptActive ? ' active' : ''}" id="ma-btn-transcript" onclick="toggleTranscript()">${transcriptActive ? '<span class="ma-transcript-dot"></span>Listening...' : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg> Live Transcript'}</button>`;
+  if (transcriptActive) html += '<button class="ma-btn-transcript-stop" style="display:inline-block" onclick="stopTranscript()">Stop</button>';
+  html += '</div>';
+  html += '<div class="ma-transcript-status" id="ma-transcript-status"' + (transcriptActive ? ' style="display:block"' : '') + '><span class="ma-transcript-dot"></span>Live transcription active</div>';
+  html += '<div class="ma-transcript-box" id="ma-transcript-box"' + (transcriptActive ? ' style="display:block"' : '') + '>' + (transcriptText || '<span class="ma-transcript-empty">Transcript will appear here...</span>') + '</div>';
+
   html += '<div class="ma-guide-btns">';
   html += '<button class="ma-btn-skip" onclick="skipQuestion()">Skip</button>';
   html += `<button class="ma-btn-next" onclick="nextQuestion()">Next <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></button>`;
@@ -339,6 +365,65 @@ async function importMeetTranscript() {
   } catch (err) {
     status.textContent = 'Import failed: ' + err.message + '. Try "Extract from Notes" or upload the transcript from the Onboarding page.';
   }
+}
+
+// ── Live Transcript ──
+function toggleTranscript() {
+  if (transcriptActive) return;
+  transcriptActive = true;
+  transcriptText = '';
+  interimText = '';
+
+  // Open capture popup
+  capturePopup = window.open(
+    '/meet-addon-capture?token=' + encodeURIComponent(authToken),
+    'audio-capture',
+    'width=420,height=320'
+  );
+
+  // Listen on BroadcastChannel
+  transcriptChannel = new BroadcastChannel('meet-transcript');
+  transcriptChannel.onmessage = (evt) => {
+    const msg = evt.data;
+    if (msg.type === 'transcript') {
+      if (msg.isFinal) {
+        transcriptText += (transcriptText ? ' ' : '') + msg.text;
+        interimText = '';
+      } else {
+        interimText = msg.text;
+      }
+      updateTranscriptBox();
+    } else if (msg.type === 'stopped') {
+      stopTranscript();
+    }
+  };
+
+  renderGuide();
+}
+
+function stopTranscript() {
+  transcriptActive = false;
+  if (capturePopup && !capturePopup.closed) {
+    capturePopup.close();
+  }
+  capturePopup = null;
+  if (transcriptChannel) {
+    transcriptChannel.close();
+    transcriptChannel = null;
+  }
+  interimText = '';
+  renderGuide();
+}
+
+function updateTranscriptBox() {
+  const box = document.getElementById('ma-transcript-box');
+  if (!box) return;
+  let html = '';
+  if (transcriptText) html += '<span class="final">' + esc(transcriptText) + '</span>';
+  if (interimText) html += ' <span class="interim">' + esc(interimText) + '</span>';
+  if (!html) html = '<span class="ma-transcript-empty">Transcript will appear here...</span>';
+  box.innerHTML = html;
+  box.scrollTop = box.scrollHeight;
 }
 
 async function manualExtract() {
