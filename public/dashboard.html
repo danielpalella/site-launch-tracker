@@ -8729,7 +8729,7 @@ function renderOnboardingProfile(profile, container, launchId, driveUrl) {
   let h = '';
   if (launchId) {
     h += `<div style="display:flex;justify-content:flex-end;gap:.4rem;margin-bottom:.5rem">
-      ${driveUrl ? `<a href="${esc(driveUrl)}" target="_blank" style="font-size:.75rem;font-weight:600;padding:.3rem .7rem;border:1px solid var(--border);border-radius:5px;background:none;color:var(--text-muted);text-decoration:none;display:inline-flex;align-items:center;gap:.3rem;cursor:pointer;font-family:inherit"><img src="/drive-icon.avif" width="14" height="14" style="border-radius:2px">Drive</a>` : ''}
+      ${driveUrl ? `<a href="${esc(driveUrl)}" target="_blank" style="font-size:.75rem;font-weight:600;padding:.3rem .7rem;border:1px solid var(--border);border-radius:5px;background:none;color:var(--text-muted);text-decoration:none;display:inline-flex;align-items:center;gap:.3rem;cursor:pointer;font-family:inherit"><img src="/drive-icon.avif" width="14" height="14" style="border-radius:2px">Drive</a>` : `<button onclick="pushProfileToDrive('${launchId}')" style="font-size:.75rem;font-weight:600;padding:.3rem .7rem;border:1px solid var(--border);border-radius:5px;background:none;color:var(--text-muted);cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:.3rem"><img src="/drive-icon.avif" width="14" height="14" style="border-radius:2px">Push to Drive</button>`}
       <button onclick="editOnboardingProfile('${launchId}')" style="font-size:.75rem;font-weight:600;padding:.3rem .7rem;border:1px solid var(--border);border-radius:5px;background:none;color:var(--text-muted);cursor:pointer;font-family:inherit">Edit Profile</button>
     </div>`;
   }
@@ -8854,6 +8854,26 @@ async function saveEditProfile(launchId) {
   } catch (err) {
     if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save Changes'; }
     showToast('Failed to save: ' + err.message, 'error');
+  }
+}
+
+async function pushProfileToDrive(launchId) {
+  const profile = _obProfileCache[launchId];
+  if (!profile) { showToast('No profile to push', 'error'); return; }
+  const btn = event.target.closest('button');
+  if (btn) { btn.disabled = true; btn.textContent = 'Pushing...'; }
+  try {
+    const r = await fetch(`/api/launches/${launchId}/push-to-drive`, { method: 'POST' });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'Failed');
+    showToast('Pushed to Google Drive', 'success');
+    // Reload to show the Drive link
+    _crmOnboardingLoaded = false;
+    const body = document.getElementById('crm-onboarding-body') || document.getElementById(`acd-onboarding-body-${launchId}`);
+    if (body) { body.dataset.loaded = ''; loadAcdOnboardingProfile(launchId); }
+  } catch (err) {
+    showToast('Drive push failed: ' + err.message, 'error');
+    if (btn) { btn.disabled = false; btn.innerHTML = '<img src="/drive-icon.avif" width="14" height="14" style="border-radius:2px">Push to Drive'; }
   }
 }
 

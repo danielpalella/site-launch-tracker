@@ -4686,6 +4686,19 @@ app.patch('/api/launches/:id/onboarding-profile', requireAuth, async (req, res) 
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// Manually push onboarding profile to Google Drive
+app.post('/api/launches/:id/push-to-drive', requireAuth, async (req, res) => {
+  try {
+    const doc = await db.collection('launches').doc(req.params.id).get();
+    if (!doc.exists) return res.status(404).json({ error: 'Not found' });
+    const d = doc.data();
+    if (!d.onboarding_profile) return res.status(400).json({ error: 'No onboarding profile to push' });
+    const result = await pushOnboardingToDrive(req.params.id, d.account_name || 'Unknown', d.onboarding_profile, null);
+    if (!result) return res.status(502).json({ error: 'Drive push failed — check analytics connection' });
+    res.json({ ok: true, folderId: result.clientFolderId });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // Lightweight client search for onboarding picker (returns minimal fields)
 app.get('/api/onboarding/clients', requireAuth, async (req, res) => {
   try {
