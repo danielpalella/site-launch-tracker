@@ -4835,6 +4835,33 @@ app.delete('/api/launches/:id/research', requireAuth, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// Backfill Google Drive folders for all existing accounts that don't have one
+app.post('/api/admin/backfill-drive-folders', requireAuth, async (req, res) => {
+  try {
+    const snap = await db.collection('launches').get();
+    const missing = snap.docs.filter(d => !d.data().drive_folder_id && !d.data().archived);
+    res.json({ queued: missing.length, message: `Creating Drive folders for ${missing.length} accounts in background` });
+    (async () => {
+      const token = await getAnalyticsAccessToken();
+      let created = 0, failed = 0;
+      for (const doc of missing) {
+        try {
+          const name = doc.data().account_name || 'Unknown';
+          const folderId = await driveGetOrCreateClientFolder(name, token);
+          await driveGetOrCreateSubfolder('Onboarding', folderId, token);
+          await driveGetOrCreateSubfolder('Research', folderId, token);
+          await driveGetOrCreateSubfolder('Blog Posts', folderId, token);
+          await doc.ref.update({ drive_folder_id: folderId, drive_folder_url: `https://drive.google.com/drive/folders/${folderId}` });
+          created++;
+          // Small delay to avoid rate limiting
+          await new Promise(r => setTimeout(r, 500));
+        } catch (e) { failed++; console.warn(`[drive-backfill] ${doc.data().account_name}:`, e.message); }
+      }
+      console.log(`[drive-backfill] Done — created: ${created}, failed: ${failed}`);
+    })();
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // Lightweight client search for onboarding picker (returns minimal fields)
 app.get('/api/onboarding/clients', requireAuth, async (req, res) => {
   try {
