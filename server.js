@@ -4853,8 +4853,8 @@ app.post('/api/admin/backfill-drive-folders', requireAuth, async (req, res) => {
           await driveGetOrCreateSubfolder('Blog Posts', folderId, token);
           await doc.ref.update({ drive_folder_id: folderId, drive_folder_url: `https://drive.google.com/drive/folders/${folderId}` });
           created++;
-          // Small delay to avoid rate limiting
-          await new Promise(r => setTimeout(r, 500));
+          // Longer delay to avoid Google Drive rate limiting (each account = ~7 API calls)
+          await new Promise(r => setTimeout(r, 2000));
         } catch (e) { failed++; console.warn(`[drive-backfill] ${doc.data().account_name}:`, e.message); }
       }
       console.log(`[drive-backfill] Done — created: ${created}, failed: ${failed}`);
