@@ -124,8 +124,8 @@ async function startCapture() {
     setStatus('WebSocket error', 'error');
   };
 
-  ws.onclose = () => {
-    setStatus('Connection closed', 'error');
+  ws.onclose = (evt) => {
+    setStatus('Connection closed (code: ' + evt.code + ', reason: ' + (evt.reason || 'none') + ')', 'error');
     btnStop.style.display = 'none';
   };
 

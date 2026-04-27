@@ -6071,8 +6071,14 @@ wss.on('connection', (ws) => {
     if (recognizeStream) {
       try { recognizeStream.end(); } catch {}
     }
-    recognizeStream = createRecognizeStream(ws);
-    scheduleRestart();
+    try {
+      recognizeStream = createRecognizeStream(ws);
+      scheduleRestart();
+      console.log('[ws] Speech-to-Text stream started');
+    } catch (e) {
+      console.error('[ws] Failed to create Speech-to-Text stream:', e.message);
+      if (ws.readyState === 1) ws.send(JSON.stringify({ type: 'error', message: 'Speech-to-Text failed: ' + e.message }));
+    }
   }
 
   const authTimeout = setTimeout(() => {
