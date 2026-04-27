@@ -8881,8 +8881,8 @@ let _crmOnboardingLoaded = false;
 async function loadCrmOnboardingProfile() {
   if (_crmOnboardingLoaded) return;
   const body = document.getElementById('crm-onboarding-body');
-  const launchId = document.getElementById('modal-id')?.value;
-  if (!launchId) { body.innerHTML = 'No launch ID'; return; }
+  const launchId = editingId;
+  if (!launchId) { body.innerHTML = '<div style="color:var(--text-muted);font-size:.82rem;padding:1rem 0;text-align:center">Open a launch to view its onboarding profile.</div>'; return; }
   try {
     const r = await fetch(`/api/launches/${launchId}`);
     if (!r.ok) throw new Error();
