@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Onboarding · RealWork</title>
+<style>
+:root { --primary: #1259FF; --bg: #06102a; --lime: #cbff4d; --text: #fff; --text-muted: rgba(255,255,255,.5); --border: rgba(255,255,255,.1) }
+* { margin: 0; padding: 0; box-sizing: border-box }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; overflow: hidden }
+
+.ms-progress { position: fixed; top: 0; left: 0; width: 100%; height: 4px; background: rgba(255,255,255,.06); z-index: 10 }
+.ms-progress-fill { height: 100%; background: var(--primary); border-radius: 0 2px 2px 0; transition: width .5s }
+
+.ms-header { display: flex; align-items: center; padding: .5rem 1.5rem; flex-shrink: 0; margin-top: 4px }
+.ms-logo { height: 22px; opacity: .7 }
+.ms-header-client { margin-left: auto; font-size: .78rem; color: var(--text-muted) }
+
+.ms-main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2rem; text-align: center }
+.ms-section { font-size: .75rem; font-weight: 700; color: var(--primary); text-transform: uppercase; letter-spacing: .8px; margin-bottom: .5rem }
+.ms-progress-label { font-size: .8rem; color: var(--text-muted); margin-bottom: 1.5rem }
+.ms-question { font-size: 2.2rem; font-weight: 600; line-height: 1.35; max-width: 800px; transition: opacity .3s; min-height: 3rem }
+.ms-question.fading { opacity: 0; transform: translateY(8px) }
+
+/* Section tracker */
+.ms-tracker { display: flex; align-items: center; justify-content: center; gap: 0; padding: .75rem 1.5rem; flex-shrink: 0 }
+.ms-tracker-item { display: flex; align-items: center; gap: .3rem }
+.ms-tracker-icon { width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: .55rem; font-weight: 700; transition: all .3s }
+.ms-tracker-icon.locked { background: rgba(255,255,255,.06); border: 1.5px solid rgba(255,255,255,.1); color: rgba(255,255,255,.2) }
+.ms-tracker-icon.active { background: var(--primary); border: 1.5px solid var(--primary); color: #fff; box-shadow: 0 0 10px rgba(18,89,255,.3) }
+.ms-tracker-icon.done { background: var(--lime); border: 1.5px solid var(--lime); color: var(--bg) }
+.ms-tracker-label { font-size: .6rem; font-weight: 600; color: rgba(255,255,255,.3); white-space: nowrap }
+.ms-tracker-item.active .ms-tracker-label { color: rgba(255,255,255,.7) }
+.ms-tracker-item.done .ms-tracker-label { color: var(--lime) }
+.ms-tracker-line { width: 20px; height: 1.5px; background: rgba(255,255,255,.08); margin: 0 .25rem; transition: background .3s }
+.ms-tracker-line.done { background: var(--lime) }
+
+.ms-loading { color: var(--text-muted); font-size: .9rem }
+.ms-complete { text-align: center }
+.ms-complete-icon { width: 56px; height: 56px; border-radius: 50%; background: rgba(203,255,77,.12); color: var(--lime); display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem }
+
+@media (max-width: 768px) { .ms-question { font-size: 1.5rem } .ms-tracker-label { display: none } }
+</style>
+</head>
+<body>
+
+<div class="ms-progress"><div class="ms-progress-fill" id="ms-progress-fill"></div></div>
+
+<div class="ms-header">
+  <img src="/logo-white.svg" alt="RealWork" class="ms-logo">
+  <div class="ms-header-client" id="ms-client"></div>
+</div>
+
+<div class="ms-tracker" id="ms-tracker"></div>
+
+<div class="ms-main" id="ms-main">
+  <div class="ms-loading" id="ms-loading">Connecting...</div>
+</div>
+
+<script src="https://www.gstatic.com/meetjs/addons/1.1.0/meet.addons.js"></script>
+<script>
+const SECTIONS = [
+  { name: 'Story', full: 'Origin Story' },
+  { name: 'Services', full: 'Services' },
+  { name: 'Edge', full: 'Differentiation' },
+  { name: 'Area', full: 'Service Area' },
+  { name: 'Voice', full: 'Brand Voice' },
+  { name: 'Creds', full: 'Credentials' },
+  { name: 'Goals', full: 'Goals' },
+];
+
+let lastQuestion = -1;
+let lastAiMessage = '';
+let completedSections = new Set();
+
+// Parse session info from URL
+const params = new URLSearchParams(window.location.search);
+const sessionId = params.get('session');
+const joinToken = params.get('token');
+
+// Init Meet SDK
+(async () => {
+  try {
+    await window.meet.addon.createAddonSession({ cloudProjectNumber: '630073859512' });
+  } catch (e) { console.warn('Meet SDK:', e.message); }
+
+  buildTracker();
+
+  if (!sessionId || !joinToken) {
+    document.getElementById('ms-loading').textContent = 'Waiting for interview to start...';
+    return;
+  }
+
+  // Start polling for state
+  poll();
+  setInterval(poll, 2000);
+})();
+
+async function poll() {
+  try {
+    const r = await fetch(`/api/join/${sessionId}/${joinToken}/state`);
+    if (!r.ok) return;
+    const data = await r.json();
+    if (!data.active || data.status === 'extracted') { showComplete(); return; }
+    updateState(data);
+  } catch {}
+}
+
+function updateState(data) {
+  const sIdx = sectionIndexFromQuestion(data.current_question);
+
+  if (data.section_summary) {
+    // Could show section summary here
+    return;
+  }
+
+  updateTracker(sIdx);
+
+  const changed = data.current_question !== lastQuestion || (data.current_ai_message && data.current_ai_message !== lastAiMessage);
+  if (!changed) return;
+
+  const main = document.getElementById('ms-main');
+  document.getElementById('ms-loading').style.display = 'none';
+  document.getElementById('ms-client').textContent = data.client_name || '';
+  document.getElementById('ms-progress-fill').style.width = (data.progress || 0) + '%';
+
+  main.innerHTML = `
+    <div class="ms-section">${esc(data.current_section || '')}</div>
+    <div class="ms-progress-label">Question ${data.current_question + 1} of ${data.total_questions}</div>
+    <div class="ms-question">${esc(data.current_ai_message || data.current_question_label || '')}</div>
+  `;
+
+  lastQuestion = data.current_question;
+  lastAiMessage = data.current_ai_message || '';
+}
+
+function showComplete() {
+  document.getElementById('ms-main').innerHTML = `
+    <div class="ms-complete">
+      <div class="ms-complete-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></div>
+      <div style="font-size:1.3rem;font-weight:700;margin-bottom:.4rem">Interview Complete</div>
+      <div style="font-size:.9rem;color:var(--text-muted)">Thank you! The profile is being built.</div>
+    </div>
+  `;
+  SECTIONS.forEach((_, i) => completedSections.add(i));
+  updateTracker(-1);
+}
+
+function sectionIndexFromQuestion(qIdx) {
+  const breaks = [0,3,6,8,10,12,14,17];
+  for (let i = 0; i < breaks.length - 1; i++) { if (qIdx < breaks[i+1]) return i; }
+  return 6;
+}
+
+function buildTracker() {
+  document.getElementById('ms-tracker').innerHTML = SECTIONS.map((s, i) =>
+    `<div class="ms-tracker-item" id="ms-ti-${i}"><div class="ms-tracker-icon locked" id="ms-tic-${i}">${i+1}</div><span class="ms-tracker-label">${s.name}</span></div>` +
+    (i < SECTIONS.length - 1 ? `<div class="ms-tracker-line" id="ms-tl-${i}"></div>` : '')
+  ).join('');
+}
+
+function updateTracker(activeIdx) {
+  SECTIONS.forEach((s, i) => {
+    const item = document.getElementById('ms-ti-' + i);
+    const icon = document.getElementById('ms-tic-' + i);
+    const line = document.getElementById('ms-tl-' + i);
+    item.className = 'ms-tracker-item';
+    icon.className = 'ms-tracker-icon';
+    if (completedSections.has(i)) {
+      item.classList.add('done'); icon.classList.add('done');
+      icon.innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5"><polyline points="20 6 9 17 4 12"/></svg>';
+      if (line) line.classList.add('done');
+    } else if (i === activeIdx) {
+      item.classList.add('active'); icon.classList.add('active'); icon.textContent = i + 1;
+    } else {
+      icon.classList.add('locked'); icon.textContent = i + 1;
+    }
+  });
+}
+
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+</script>
+</body>
+</html>
