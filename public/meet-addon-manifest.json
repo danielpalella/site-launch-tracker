@@ -1,0 +1,9 @@
+{
+  "addOns": {
+    "meet": {
+      "sidePanelUri": "https://site-launch-tracker--site-launch-tracker.us-central1.hosted.app/meet-addon",
+      "addOnName": "RealWork Onboarding",
+      "logoUrl": "https://site-launch-tracker--site-launch-tracker.us-central1.hosted.app/favicon.png"
+    }
+  }
+}

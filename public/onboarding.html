@@ -188,8 +188,13 @@
         Upload Zoom Transcript
       </button>
       <input type="file" id="ob-transcript-file" accept=".vtt,.txt,.srt" style="display:none" onchange="handleTranscriptUpload(this)">
+      <span style="font-size:.78rem;color:var(--text-muted)">or</span>
+      <button class="ob-start-btn" id="ob-meet-btn" onclick="openInMeet()" disabled style="background:var(--surface);color:var(--text);border:1px solid var(--border)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="15" height="10" rx="2"/><polygon points="22 7 17 12 22 17 22 7"/></svg>
+        Open in Meet
+      </button>
     </div>
-    <div style="font-size:.72rem;color:var(--text-muted);margin-top:.4rem">Supports .vtt (Zoom cloud recording), .txt, or .srt transcript files</div>
+    <div style="font-size:.72rem;color:var(--text-muted);margin-top:.4rem">Supports .vtt (Zoom cloud recording), .txt, or .srt transcript files &middot; "Open in Meet" launches a compact panel for use alongside Google Meet</div>
 
     <!-- Upload processing state -->
     <div id="ob-upload-processing" style="display:none;margin-top:1.25rem">
@@ -401,6 +406,7 @@ function selectClient(client) {
   document.getElementById('ob-search-wrap').style.display = 'none';
   document.getElementById('ob-start-btn').disabled = false;
   document.getElementById('ob-upload-btn').disabled = false;
+  document.getElementById('ob-meet-btn').disabled = false;
   document.getElementById('ob-search-results').classList.remove('open');
 }
 
@@ -412,6 +418,7 @@ function clearClientSelection() {
   document.getElementById('ob-search-wrap').style.display = '';
   document.getElementById('ob-start-btn').disabled = true;
   document.getElementById('ob-upload-btn').disabled = true;
+  document.getElementById('ob-meet-btn').disabled = true;
   document.getElementById('ob-client-search').value = '';
   document.getElementById('ob-client-search').focus();
 }
@@ -423,6 +430,17 @@ document.addEventListener('click', e => {
     document.getElementById('ob-search-results').classList.remove('open');
   }
 });
+
+// ── Open in Meet ──
+async function openInMeet() {
+  try {
+    const r = await fetch('/api/auth/meet-token');
+    const data = await r.json();
+    if (!r.ok || !data.token) { alert('Failed to get auth token. Please try again.'); return; }
+    const url = `/meet-addon?token=${encodeURIComponent(data.token)}`;
+    window.open(url, '_blank');
+  } catch (err) { alert('Failed to open Meet panel: ' + err.message); }
+}
 
 // ── Transcript upload ──
 function parseVTT(text) {

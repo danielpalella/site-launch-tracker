@@ -67,7 +67,12 @@ function getCookies(req) {
 const sessionCache = new Map();
 
 async function requireAuth(req, res, next) {
-  const { auth_token } = getCookies(req);
+  // Support Bearer token auth (for Meet add-on iframe) in addition to cookies
+  const bearerMatch = req.headers.authorization?.match(/^Bearer (.+)$/);
+  // Also support token as query param (for SSE which can't set headers)
+  const queryToken = req.query?.token;
+  const { auth_token: cookie_token } = getCookies(req);
+  const auth_token = bearerMatch?.[1] || queryToken || cookie_token;
   const fail = () => {
     if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'Unauthorized' });
     res.setHeader('Set-Cookie', `auth_return_to=${encodeURIComponent(req.originalUrl)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=600`);
@@ -5824,6 +5829,128 @@ app.post('/api/join/:sessionId/:token/skip', joinRateLimit, async (req, res) => 
 
 app.get('/join/:sessionId/:token', (req, res) => res.sendFile(join(__dirname, 'public', 'join.html')));
 app.get('/onboarding/present/:sessionId/:token', (req, res) => res.sendFile(join(__dirname, 'public', 'present.html')));
+
+// ── Meet Add-on ──
+app.get('/meet-addon', (req, res) => {
+  res.setHeader('Content-Security-Policy', "frame-ancestors 'self' https://meet.google.com https://*.google.com");
+  res.removeHeader('X-Frame-Options');
+  res.sendFile(join(__dirname, 'public', 'meet-addon.html'));
+});
+
+// Generate auth token for Meet add-on (returns the user's existing session token)
+app.get('/api/auth/meet-token', requireAuth, (req, res) => {
+  const bearerMatch = req.headers.authorization?.match(/^Bearer (.+)$/);
+  const { auth_token } = getCookies(req);
+  const token = bearerMatch?.[1] || auth_token || null;
+  res.json({ token, email: req.userEmail });
+});
+
+// Import Meet transcript from Google Drive
+app.post('/api/onboarding/sessions/:id/import-meet-transcript', requireAuth, async (req, res) => {
+  try {
+    const doc = await db.collection('onboarding_interviews').doc(req.params.id).get();
+    if (!doc.exists) return res.status(404).json({ error: 'Session not found' });
+    const session = doc.data();
+
+    const token = await getAnalyticsAccessToken();
+    const geminiKey = await getGeminiKey();
+
+    // Search Drive for recent transcript documents created after the session started
+    const sessionCreated = session.created_at?.toDate?.() || new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const createdISO = sessionCreated.toISOString();
+    const q = encodeURIComponent(`mimeType='application/vnd.google-apps.document' and name contains 'transcript' and modifiedTime > '${createdISO}' and trashed=false`);
+    const searchRes = await fetchWithRetry(`https://www.googleapis.com/drive/v3/files?q=${q}&orderBy=modifiedTime desc&pageSize=5&fields=files(id,name,modifiedTime)`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!searchRes.ok) {
+      const errText = await searchRes.text();
+      return res.status(502).json({ error: `Drive search failed: ${errText}` });
+    }
+    const searchData = await searchRes.json();
+    const files = searchData.files || [];
+    if (!files.length) return res.json({ profile: null, message: 'No transcript documents found in Drive' });
+
+    // Download the most recent transcript as plain text
+    const fileId = files[0].id;
+    const exportRes = await fetchWithRetry(`https://www.googleapis.com/drive/v3/files/${fileId}/export?mimeType=text/plain`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!exportRes.ok) return res.status(502).json({ error: 'Failed to download transcript from Drive' });
+    const transcript = await exportRes.text();
+
+    if (!transcript || transcript.trim().length < 50) {
+      return res.json({ profile: null, message: 'Transcript too short for extraction' });
+    }
+
+    // Use the same extraction pipeline as extract-transcript
+    const clientName = session.client_name || 'the contractor';
+    const prompt = `You are a structured data extractor for a home services contractor onboarding interview.
+Below is a raw transcript from a Google Meet call between a RealWork Labs team member and a contractor named "${clientName}". The conversation covers their business story, services, what makes them different, service area, brand voice, credentials, and goals for their new website.
+
+Extract a structured JSON profile from this conversation. Pull out every relevant detail — names, years, cities, services, certifications, etc.
+
+TRANSCRIPT:
+${transcript.slice(0, 150000)}
+
+Return ONLY valid JSON with no markdown fencing, no commentary. Use this schema:
+{
+  "business_name": "string or null",
+  "owner_name": "string or null",
+  "origin_story": "2-3 sentence narrative summarizing their founding story",
+  "years_in_business": "number or null",
+  "pride_points": ["what they're most proud of"],
+  "family_connection": "string or null",
+  "services": { "core": [], "top_revenue": "string", "promote_more": [], "emergency_available": "boolean or null" },
+  "differentiation": { "unique_selling_points": [], "customer_compliments": [], "guarantees": [], "ideal_customer": "string" },
+  "service_area": { "cities": [], "primary_markets": [], "growth_targets": [], "max_travel_radius": "string" },
+  "brand_voice": { "personality": "string", "tone": "string", "preferred_phrases": [], "avoid_phrases": [], "voice_description": "string" },
+  "credentials": { "licenses": [], "insured": "boolean", "bonded": "boolean", "associations": [], "awards": [] },
+  "goals": { "website_goals": [], "six_month_success": "string", "additional_notes": "string" }
+}`;
+
+    const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.2, maxOutputTokens: 4096, thinkingConfig: { thinkingBudget: 0 } } }),
+      signal: AbortSignal.timeout(90_000),
+    });
+    incrApiStat('gemini');
+
+    const geminiData = await geminiRes.json();
+    if (!geminiRes.ok) return res.status(502).json({ error: `Gemini error: ${geminiData.error?.message}` });
+
+    const rawText = geminiData.candidates?.[0]?.content?.parts?.filter(p => p.text).pop()?.text || '';
+    const cleaned = rawText.replace(/^```json?\s*/i, '').replace(/```\s*$/, '').trim();
+    let profile;
+    try { profile = JSON.parse(cleaned); } catch {
+      const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+      if (jsonMatch) try { profile = JSON.parse(jsonMatch[0]); } catch {}
+    }
+    if (!profile) return res.status(502).json({ error: 'Failed to parse extracted profile' });
+
+    // Save to session and launch doc
+    await db.collection('onboarding_interviews').doc(req.params.id).update({
+      extracted_profile: profile,
+      status: 'extracted',
+      completed_at: FieldValue.serverTimestamp(),
+      meet_transcript_file: files[0].name,
+    });
+
+    if (session.client_id) {
+      await db.collection('launches').doc(session.client_id).update({
+        onboarding_profile: profile,
+        onboarding_completed_at: FieldValue.serverTimestamp(),
+      }).catch(e => console.error('Failed to save Meet transcript profile to launch:', e.message));
+
+      pushOnboardingToDrive(session.client_id, clientName, profile, transcript).catch(() => {});
+    }
+
+    res.json({ profile, source: files[0].name });
+  } catch (err) {
+    console.error('[meet-transcript] import error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // ── Pages ──
 app.get('/edit-request', (_req, res) => res.sendFile(join(__dirname, 'public', 'edit-request.html')));

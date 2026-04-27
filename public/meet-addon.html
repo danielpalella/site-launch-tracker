@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Onboarding · Meet Add-on</title>
+<link rel="icon" href="/favicon.png" type="image/png" />
+<style>
+:root { --primary: #1259FF; --bg: #06102a; --surface: #0f1d3a; --lime: #cbff4d; --text: #ffffff; --text-muted: rgba(255,255,255,.5); --border: rgba(255,255,255,.1); --green: #16a34a; --red: #ef4444 }
+* { margin: 0; padding: 0; box-sizing: border-box }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden }
+
+/* Header */
+.ma-header { display: flex; align-items: center; padding: .5rem .75rem; border-bottom: 1px solid var(--border); flex-shrink: 0 }
+.ma-logo { height: 18px; opacity: .7 }
+.ma-header-title { font-size: .72rem; font-weight: 700; color: var(--text-muted); margin-left: .5rem; letter-spacing: .3px }
+.ma-header-right { margin-left: auto; display: flex; align-items: center; gap: .4rem }
+.ma-standalone-badge { font-size: .55rem; font-weight: 700; background: #d9770633; color: #d97706; border-radius: 4px; padding: .1rem .35rem; display: none }
+
+/* Phases */
+.ma-phase { display: none; padding: .75rem }
+.ma-phase.active { display: block }
+
+/* Phase 1: Client Selection */
+.ma-section-label { font-size: .65rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: .4rem }
+.ma-search-wrap { position: relative; margin-bottom: .5rem }
+.ma-search-input { width: 100%; padding: .5rem .65rem .5rem 2rem; border: 1px solid var(--border); border-radius: 8px; font-size: .82rem; font-family: inherit; color: var(--text); background: var(--surface); box-sizing: border-box }
+.ma-search-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px rgba(18,89,255,.15) }
+.ma-search-input::placeholder { color: var(--text-muted) }
+.ma-search-icon { position: absolute; left: .6rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none }
+.ma-results { max-height: 220px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); display: none }
+.ma-results.open { display: block }
+.ma-result-item { display: flex; align-items: center; gap: .5rem; padding: .45rem .65rem; cursor: pointer; border-bottom: 1px solid var(--border); transition: background .1s }
+.ma-result-item:last-child { border-bottom: none }
+.ma-result-item:hover { background: rgba(18,89,255,.08) }
+.ma-result-item.selected { background: rgba(18,89,255,.12); border-left: 3px solid var(--primary) }
+.ma-result-name { font-size: .78rem; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+.ma-result-meta { font-size: .65rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+.ma-result-status { font-size: .55rem; font-weight: 700; border-radius: 6px; padding: .08rem .3rem; flex-shrink: 0 }
+.ma-empty { padding: .5rem .65rem; font-size: .75rem; color: var(--text-muted); text-align: center }
+
+.ma-selected-card { display: none; border: 2px solid var(--primary); border-radius: 8px; padding: .5rem .75rem; margin-bottom: .5rem; background: rgba(18,89,255,.04) }
+.ma-sc-row { display: flex; align-items: center; gap: .5rem }
+.ma-sc-name { font-size: .82rem; font-weight: 700; color: var(--text); flex: 1 }
+.ma-sc-change { font-size: .65rem; color: var(--primary); background: none; border: none; cursor: pointer; font-family: inherit; font-weight: 600; padding: .2rem .4rem }
+.ma-sc-change:hover { text-decoration: underline }
+
+.ma-btn { display: flex; align-items: center; justify-content: center; gap: .4rem; width: 100%; padding: .55rem; border: none; border-radius: 8px; font-size: .82rem; font-weight: 700; cursor: pointer; font-family: inherit; transition: opacity .15s }
+.ma-btn:hover { opacity: .9 }
+.ma-btn:disabled { opacity: .4; cursor: not-allowed }
+.ma-btn-primary { background: var(--primary); color: #fff }
+.ma-btn-green { background: var(--green); color: #fff }
+.ma-btn-outline { background: none; border: 1px solid var(--border); color: var(--text) }
+.ma-btn-outline:hover { border-color: var(--text-muted) }
+.ma-btn-small { padding: .35rem .6rem; font-size: .72rem; width: auto }
+
+/* Previous sessions */
+.ma-sessions { margin-top: .75rem }
+.ma-session-row { display: flex; align-items: center; gap: .5rem; padding: .4rem .65rem; border: 1px solid var(--border); border-radius: 6px; margin-bottom: .25rem; cursor: pointer; transition: border-color .15s }
+.ma-session-row:hover { border-color: var(--primary) }
+.ma-session-name { font-size: .75rem; font-weight: 600; color: var(--text); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.ma-session-status { font-size: .58rem; font-weight: 700; border-radius: 8px; padding: .1rem .35rem }
+
+/* Phase 2: Interview Running */
+.ma-copy-bar { margin-bottom: .5rem }
+.ma-copy-btn { display: flex; align-items: center; justify-content: center; gap: .35rem; width: 100%; padding: .45rem; background: rgba(18,89,255,.1); border: 1px solid rgba(18,89,255,.25); border-radius: 8px; color: var(--primary); font-size: .75rem; font-weight: 700; cursor: pointer; font-family: inherit; transition: all .15s }
+.ma-copy-btn:hover { background: rgba(18,89,255,.15) }
+.ma-copy-btn.copied { background: rgba(22,163,74,.1); border-color: rgba(22,163,74,.25); color: var(--green) }
+
+.ma-question-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: .65rem .75rem; margin-bottom: .5rem }
+.ma-q-section { font-size: .6rem; font-weight: 700; color: var(--primary); text-transform: uppercase; letter-spacing: .5px; margin-bottom: .15rem }
+.ma-q-progress { font-size: .6rem; color: var(--text-muted); float: right }
+.ma-q-text { font-size: .82rem; color: var(--text); line-height: 1.45; font-weight: 500 }
+
+.ma-transcript-feed { max-height: 180px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); padding: .4rem .6rem; margin-bottom: .5rem; min-height: 50px }
+.ma-transcript-empty { font-size: .72rem; color: var(--text-muted); text-align: center; padding: .5rem 0 }
+.ma-transcript-chunk { font-size: .75rem; color: rgba(255,255,255,.75); line-height: 1.4; padding: .15rem 0; border-bottom: 1px solid rgba(255,255,255,.04) }
+.ma-transcript-chunk:last-child { border-bottom: none }
+.ma-transcript-interim { font-size: .72rem; color: var(--text-muted); font-style: italic; padding: .1rem 0 }
+
+.ma-controls { display: flex; gap: .4rem }
+.ma-controls .ma-btn { flex: 1 }
+
+/* Section summary interstitial */
+.ma-summary-card { background: rgba(203,255,77,.04); border: 1px solid rgba(203,255,77,.12); border-radius: 8px; padding: .65rem .75rem; margin-bottom: .5rem }
+.ma-summary-badge { font-size: .6rem; font-weight: 700; color: var(--lime); text-transform: uppercase; letter-spacing: .5px; margin-bottom: .25rem }
+.ma-summary-text { font-size: .75rem; color: rgba(255,255,255,.75); line-height: 1.45 }
+.ma-summary-continue { text-align: center; margin-top: .4rem; font-size: .68rem; color: var(--text-muted) }
+
+/* Phase 3: Finish */
+.ma-finish-wrap { text-align: center; padding: 1.5rem .75rem }
+.ma-spinner { width: 28px; height: 28px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: ma-spin .7s linear infinite; margin: 0 auto .75rem }
+@keyframes ma-spin { to { transform: rotate(360deg) } }
+.ma-finish-icon { width: 44px; height: 44px; border-radius: 50%; background: rgba(203,255,77,.12); color: var(--lime); display: flex; align-items: center; justify-content: center; margin: 0 auto .6rem }
+.ma-finish-title { font-size: .95rem; font-weight: 700; color: var(--text); margin-bottom: .25rem }
+.ma-finish-sub { font-size: .78rem; color: var(--text-muted); line-height: 1.5; margin-bottom: .75rem }
+
+/* Profile summary compact */
+.ma-profile-section { border: 1px solid var(--border); border-radius: 6px; padding: .45rem .6rem; margin-bottom: .35rem; background: var(--surface) }
+.ma-profile-section-title { font-size: .62rem; font-weight: 700; color: var(--primary); text-transform: uppercase; letter-spacing: .3px; margin-bottom: .2rem }
+.ma-profile-field { font-size: .72rem; color: var(--text); line-height: 1.35; margin-bottom: .15rem }
+.ma-profile-label { font-weight: 700; color: var(--text-muted); font-size: .62rem; text-transform: uppercase }
+
+/* Auth screen */
+.ma-auth { display: none; text-align: center; padding: 2rem 1rem }
+.ma-auth-title { font-size: 1rem; font-weight: 700; margin-bottom: .4rem }
+.ma-auth-sub { font-size: .82rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 1rem }
+.ma-auth-link { color: var(--primary); text-decoration: underline }
+
+/* Scrollbar styling */
+::-webkit-scrollbar { width: 4px }
+::-webkit-scrollbar-track { background: transparent }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,.15); border-radius: 2px }
+</style>
+</head>
+<body>
+
+<div class="ma-header">
+  <img src="/logo-white.svg" alt="RealWork Labs" class="ma-logo">
+  <span class="ma-header-title">ONBOARDING</span>
+  <div class="ma-header-right">
+    <span class="ma-standalone-badge" id="ma-standalone-badge">STANDALONE</span>
+  </div>
+</div>
+
+<!-- Auth required screen -->
+<div class="ma-auth" id="ma-auth">
+  <div class="ma-auth-title">Authentication Required</div>
+  <div class="ma-auth-sub">Open the onboarding page in your browser first, then use the "Open in Meet" button to get an authenticated link.</div>
+  <a href="/onboarding" class="ma-auth-link" target="_blank">Go to Onboarding</a>
+</div>
+
+<!-- Phase 1: Client Selection -->
+<div class="ma-phase" id="ma-phase-select">
+  <div class="ma-section-label">Select Client</div>
+  <div class="ma-search-wrap">
+    <svg class="ma-search-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <input type="text" class="ma-search-input" id="ma-client-search" placeholder="Search clients..." autocomplete="off" oninput="maSearchClients()" onfocus="maOnSearchFocus()">
+  </div>
+  <div class="ma-results" id="ma-search-results"></div>
+
+  <div class="ma-selected-card" id="ma-selected-card">
+    <div class="ma-sc-row">
+      <span class="ma-sc-name" id="ma-sc-name"></span>
+      <button class="ma-sc-change" onclick="maClearSelection()">Change</button>
+    </div>
+  </div>
+
+  <button class="ma-btn ma-btn-primary" id="ma-start-btn" onclick="maStartInterview()" disabled>
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+    Start Interview
+  </button>
+
+  <!-- Previous sessions -->
+  <div class="ma-sessions" id="ma-sessions" style="display:none">
+    <div class="ma-section-label">Recent Interviews</div>
+    <div id="ma-sessions-list"></div>
+  </div>
+</div>
+
+<!-- Phase 2: Interview Running -->
+<div class="ma-phase" id="ma-phase-interview">
+  <!-- Copy join link -->
+  <div class="ma-copy-bar">
+    <button class="ma-copy-btn" id="ma-copy-join" onclick="maCopyJoinLink()">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
+      Copy Join Link for Contractor
+    </button>
+  </div>
+
+  <!-- Current question -->
+  <div class="ma-question-card" id="ma-question-card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.2rem">
+      <span class="ma-q-section" id="ma-q-section"></span>
+      <span class="ma-q-progress" id="ma-q-progress"></span>
+    </div>
+    <div class="ma-q-text" id="ma-q-text"></div>
+  </div>
+
+  <!-- Section summary interstitial (shown between sections) -->
+  <div class="ma-summary-card" id="ma-section-summary" style="display:none">
+    <div class="ma-summary-badge" id="ma-summary-badge"></div>
+    <div class="ma-summary-text" id="ma-summary-text"></div>
+    <div class="ma-summary-continue">Next section loading...</div>
+  </div>
+
+  <!-- Contractor transcript feed -->
+  <div class="ma-section-label" style="margin-top:.25rem">Contractor Audio</div>
+  <div class="ma-transcript-feed" id="ma-transcript-feed">
+    <div class="ma-transcript-empty" id="ma-transcript-empty">Waiting for contractor to join...</div>
+  </div>
+
+  <!-- Controls -->
+  <div class="ma-controls">
+    <button class="ma-btn ma-btn-outline ma-btn-small" id="ma-skip-btn" onclick="maSkipQuestion()">Skip</button>
+    <button class="ma-btn ma-btn-green" id="ma-next-btn" onclick="maSubmitAnswer()">
+      Next
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+    </button>
+    <button class="ma-btn ma-btn-outline ma-btn-small" onclick="maFinishEarly()" style="flex:0 0 auto;width:auto">Finish</button>
+  </div>
+</div>
+
+<!-- Phase 3: Extracting -->
+<div class="ma-phase" id="ma-phase-extracting">
+  <div class="ma-finish-wrap">
+    <div class="ma-spinner"></div>
+    <div class="ma-finish-title">Extracting Profile...</div>
+    <div class="ma-finish-sub">AI is analyzing the conversation and building a structured client profile. This takes about 15 seconds.</div>
+  </div>
+</div>
+
+<!-- Phase 4: Complete -->
+<div class="ma-phase" id="ma-phase-complete">
+  <div class="ma-finish-wrap" style="padding-bottom:.75rem">
+    <div class="ma-finish-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></div>
+    <div class="ma-finish-title">Profile Extracted</div>
+    <div class="ma-finish-sub" id="ma-complete-sub"></div>
+  </div>
+  <div id="ma-profile-summary"></div>
+  <div style="display:flex;gap:.35rem;flex-wrap:wrap;margin-top:.5rem">
+    <button class="ma-btn ma-btn-outline ma-btn-small" onclick="maImportMeetTranscript()" id="ma-import-btn">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      Import Meet Transcript
+    </button>
+    <button class="ma-btn ma-btn-outline ma-btn-small" onclick="maPushToDrive()" id="ma-drive-btn">
+      <img src="/drive-icon.avif" width="12" height="12" style="border-radius:2px"> Push to Drive
+    </button>
+    <button class="ma-btn ma-btn-outline ma-btn-small" onclick="maNewInterview()">New Interview</button>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/meet/addons/v1/meet-addons-sdk.js"></script>
+<script>
+// ── Questions (must match server + onboarding.html) ──
+const QUESTIONS = [
+  { id:'origin_1', section:'Origin Story', sIdx:0, label:'Tell us your story \u2014 how did you get into this trade and start your business?' },
+  { id:'origin_2', section:'Origin Story', sIdx:0, label:'What makes you most proud about your company?' },
+  { id:'origin_3', section:'Origin Story', sIdx:0, label:'Is there a family or personal story connected to the business?' },
+  { id:'services_1', section:'Services', sIdx:1, label:'Walk me through your core services \u2014 what do you do?' },
+  { id:'services_2', section:'Services', sIdx:1, label:'Which service is your bread and butter, and which do you want to grow?' },
+  { id:'services_3', section:'Services', sIdx:1, label:'Describe your process from the first call to job completion.' },
+  { id:'diff_1', section:'Differentiation', sIdx:2, label:'What makes you different from competitors \u2014 and what do customers say about you?' },
+  { id:'diff_2', section:'Differentiation', sIdx:2, label:'Who is your ideal customer?' },
+  { id:'area_1', section:'Service Area', sIdx:3, label:'What areas do you serve, and where do you get the most work?' },
+  { id:'area_2', section:'Service Area', sIdx:3, label:'Are there specific neighborhoods or cities you want to target for growth?' },
+  { id:'voice_1', section:'Brand Voice', sIdx:4, label:"How would you describe your company's personality and tone?" },
+  { id:'voice_2', section:'Brand Voice', sIdx:4, label:'Any words, phrases, or taglines you love \u2014 or want to avoid on the website?' },
+  { id:'cred_1', section:'Credentials', sIdx:5, label:'What licenses, certifications, and insurance do you carry?' },
+  { id:'cred_2', section:'Credentials', sIdx:5, label:'Any awards, recognitions, or things you want to highlight?' },
+  { id:'goals_1', section:'Goals', sIdx:6, label:'What are your top goals for the new website?' },
+  { id:'goals_2', section:'Goals', sIdx:6, label:'What does success look like 6 months from now?' },
+  { id:'goals_3', section:'Goals', sIdx:6, label:'Anything else we should know about your business?' },
+];
+const SECTIONS = ['Origin Story','Services','Differentiation','Service Area','Brand Voice','Credentials','Goals'];
+
+// ── State ──
+let authToken = null;
+let isStandalone = false;
+let meetSession = null;
+let sidePanelClient = null;
+
+let selectedClient = null;
+let selectedClientId = null;
+let clientName = '';
+let sessionId = null;
+let joinToken = null;
+let currentQ = 0;
+let answers = {};
+let skipped = [];
+let extractedProfile = null;
+let inputLocked = false;
+let searchTimer = null;
+let sseSource = null;
+let localTranscriptChunks = [];
+
+const esc = s => { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
+
+// ── Auth helpers ──
+function authHeaders(extra = {}) {
+  const h = { ...extra };
+  if (authToken) h['Authorization'] = 'Bearer ' + authToken;
+  return h;
+}
+
+function authFetch(url, opts = {}) {
+  opts.headers = authHeaders(opts.headers || {});
+  return fetch(url, opts);
+}
+
+// ── Initialization ──
+(async () => {
+  // Read token from URL
+  const params = new URLSearchParams(window.location.search);
+  authToken = params.get('token');
+
+  if (!authToken) {
+    document.getElementById('ma-auth').style.display = 'block';
+    return;
+  }
+
+  // Verify token
+  try {
+    const r = await authFetch('/api/auth/me');
+    if (!r.ok) {
+      document.getElementById('ma-auth').style.display = 'block';
+      return;
+    }
+  } catch {
+    document.getElementById('ma-auth').style.display = 'block';
+    return;
+  }
+
+  // Initialize Meet SDK
+  try {
+    meetSession = await window.meet.addon.createAddonSession({
+      cloudProjectNumber: '630073859512'
+    });
+    sidePanelClient = await meetSession.createSidePanelClient();
+  } catch (e) {
+    console.warn('Meet SDK not available, running in standalone mode:', e.message);
+    isStandalone = true;
+    document.getElementById('ma-standalone-badge').style.display = '';
+  }
+
+  // Show client selection phase
+  showPhase('select');
+  loadRecentClients();
+  loadExistingSessions();
+})();
+
+// ── Phase management ──
+function showPhase(phase) {
+  document.querySelectorAll('.ma-phase').forEach(el => el.classList.remove('active'));
+  const el = document.getElementById('ma-phase-' + phase);
+  if (el) el.classList.add('active');
+  document.getElementById('ma-auth').style.display = 'none';
+  if (phase !== 'interview') stopSSE();
+}
+
+// ── Client search ──
+async function maSearchClients() {
+  clearTimeout(searchTimer);
+  const term = document.getElementById('ma-client-search').value.trim();
+  if (!term) { loadRecentClients(); return; }
+  searchTimer = setTimeout(async () => {
+    try {
+      const r = await authFetch(`/api/onboarding/clients?search=${encodeURIComponent(term)}`);
+      const clients = await r.json();
+      renderSearchResults(clients, term);
+    } catch (err) { console.warn('Search failed:', err); }
+  }, 250);
+}
+
+function maOnSearchFocus() {
+  const term = document.getElementById('ma-client-search').value.trim();
+  if (!term) loadRecentClients();
+  document.getElementById('ma-search-results').classList.add('open');
+}
+
+async function loadRecentClients() {
+  try {
+    const r = await authFetch('/api/onboarding/clients');
+    const clients = await r.json();
+    renderSearchResults(clients.slice(0, 8), '');
+  } catch (err) { console.warn('Failed to load clients:', err); }
+}
+
+function renderSearchResults(clients, searchTerm) {
+  const el = document.getElementById('ma-search-results');
+  el.classList.add('open');
+  const statusColors = { new: '#3b82f6', in_progress: '#d97706', awaiting_approval: '#f59e0b', awaiting_dns: '#f59e0b', launched: '#16a34a' };
+  const statusLabels = { new: 'New', in_progress: 'In Progress', awaiting_approval: 'Approval', awaiting_dns: 'DNS', launched: 'Launched' };
+  if (clients.length) {
+    el.innerHTML = clients.map(c => {
+      const sc = statusColors[c.status] || '#64748b';
+      const sl = statusLabels[c.status] || c.status;
+      return `<div class="ma-result-item" onclick="maSelectClient(${JSON.stringify(c).replace(/"/g, '&quot;')})">
+        <div style="flex:1;min-width:0">
+          <div class="ma-result-name">${esc(c.account_name)}</div>
+          <div class="ma-result-meta">${esc(c.contact_name || '')}${c.industry ? ' \u00b7 ' + esc(c.industry) : ''}</div>
+        </div>
+        <span class="ma-result-status" style="background:${sc}18;color:${sc}">${sl}</span>
+      </div>`;
+    }).join('');
+  } else {
+    el.innerHTML = `<div class="ma-empty">No clients found${searchTerm ? ' for "' + esc(searchTerm) + '"' : ''}</div>`;
+  }
+}
+
+function maSelectClient(client) {
+  selectedClient = client;
+  selectedClientId = client.id;
+  clientName = client.account_name;
+  document.getElementById('ma-sc-name').textContent = client.account_name;
+  document.getElementById('ma-selected-card').style.display = '';
+  document.getElementById('ma-search-results').classList.remove('open');
+  document.querySelector('.ma-search-wrap').style.display = 'none';
+  document.getElementById('ma-start-btn').disabled = false;
+}
+
+function maClearSelection() {
+  selectedClient = null;
+  selectedClientId = null;
+  clientName = '';
+  document.getElementById('ma-selected-card').style.display = 'none';
+  document.querySelector('.ma-search-wrap').style.display = '';
+  document.getElementById('ma-start-btn').disabled = true;
+  document.getElementById('ma-client-search').value = '';
+  document.getElementById('ma-client-search').focus();
+}
+
+// Close search results when clicking outside
+document.addEventListener('click', e => {
+  const wrap = document.querySelector('.ma-search-wrap');
+  if (wrap && !wrap.contains(e.target)) {
+    document.getElementById('ma-search-results').classList.remove('open');
+  }
+});
+
+// ── Load existing sessions ──
+async function loadExistingSessions() {
+  try {
+    const r = await authFetch('/api/onboarding/sessions');
+    const sessions = await r.json();
+    const wrap = document.getElementById('ma-sessions');
+    const list = document.getElementById('ma-sessions-list');
+    if (!sessions.length) { wrap.style.display = 'none'; return; }
+    wrap.style.display = '';
+    list.innerHTML = sessions.slice(0, 5).map(s => {
+      const total = QUESTIONS.length;
+      const qNum = s.current_question || 0;
+      const isComplete = s.status === 'extracted';
+      const color = isComplete ? '#16a34a' : '#d97706';
+      const label = isComplete ? 'Done' : `${qNum}/${total}`;
+      return `<div class="ma-session-row" onclick="maResumeSession('${s.id}')">
+        <span class="ma-session-name">${esc(s.client_name || 'Untitled')}</span>
+        <span class="ma-session-status" style="background:${color}18;color:${color}">${label}</span>
+      </div>`;
+    }).join('');
+  } catch (err) { console.warn('Failed to load sessions:', err); }
+}
+
+// ── Start interview ──
+async function maStartInterview() {
+  if (!selectedClientId) return;
+  const btn = document.getElementById('ma-start-btn');
+  btn.disabled = true;
+  try {
+    const r = await authFetch('/api/onboarding/sessions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clientName, clientId: selectedClientId }),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error);
+    sessionId = data.id;
+    joinToken = data.join_token || null;
+    currentQ = 0;
+    answers = {};
+    skipped = [];
+    localTranscriptChunks = [];
+    enterInterviewPhase();
+  } catch (err) { alert(err.message); }
+  finally { btn.disabled = false; }
+}
+
+// ── Resume session ──
+async function maResumeSession(id) {
+  try {
+    const r = await authFetch(`/api/onboarding/sessions/${id}`);
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error);
+    sessionId = id;
+    currentQ = data.current_question || 0;
+    answers = data.answers || {};
+    skipped = data.skipped || [];
+    clientName = data.client_name || 'Untitled';
+    joinToken = data.join_token || null;
+    localTranscriptChunks = data.transcript_chunks || [];
+
+    if (data.status === 'extracted' && data.extracted_profile) {
+      extractedProfile = data.extracted_profile;
+      showComplete();
+      return;
+    }
+
+    if (currentQ >= QUESTIONS.length) {
+      await maRunExtraction();
+      return;
+    }
+
+    enterInterviewPhase();
+  } catch (err) { alert(err.message); }
+}
+
+// ── Enter interview phase ──
+function enterInterviewPhase() {
+  showPhase('interview');
+  updateQuestion();
+  startSSE();
+}
+
+// ── Update question display ──
+function updateQuestion() {
+  const q = QUESTIONS[currentQ];
+  if (!q) return;
+  document.getElementById('ma-q-section').textContent = q.section;
+  document.getElementById('ma-q-progress').textContent = `${currentQ + 1} / ${QUESTIONS.length}`;
+  document.getElementById('ma-q-text').textContent = q.label;
+  // Clear transcript feed for new question
+  document.getElementById('ma-transcript-feed').innerHTML = '<div class="ma-transcript-empty" id="ma-transcript-empty">Waiting for contractor to speak...</div>';
+}
+
+// ── Copy join link ──
+function maCopyJoinLink() {
+  if (!sessionId || !joinToken) return;
+  const url = `${window.location.origin}/join/${sessionId}/${joinToken}`;
+  navigator.clipboard.writeText(url).then(() => {
+    const btn = document.getElementById('ma-copy-join');
+    btn.classList.add('copied');
+    btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Copied!';
+    setTimeout(() => {
+      btn.classList.remove('copied');
+      btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg> Copy Join Link for Contractor';
+    }, 2500);
+  });
+}
+
+// ── SSE for contractor transcript ──
+function startSSE() {
+  stopSSE();
+  if (!sessionId) return;
+  try {
+    // SSE needs auth via query param since EventSource can't set headers
+    sseSource = new EventSource(`/api/onboarding/sessions/${sessionId}/stream?token=${encodeURIComponent(authToken)}`);
+
+    sseSource.addEventListener('state', e => {
+      try {
+        const data = JSON.parse(e.data);
+        if (data.transcript_chunks) {
+          const newChunks = data.transcript_chunks.filter(c => c.source === 'contractor' && c.questionIndex === currentQ);
+          renderTranscriptChunks(newChunks, data.contractor_interim);
+          localTranscriptChunks = data.transcript_chunks;
+        }
+      } catch {}
+    });
+
+    sseSource.addEventListener('transcript', e => {
+      try {
+        const chunk = JSON.parse(e.data);
+        if (chunk.source === 'contractor') {
+          localTranscriptChunks.push(chunk);
+          if (chunk.questionIndex === currentQ) {
+            appendTranscriptChunk(chunk);
+          }
+        }
+      } catch {}
+    });
+
+    sseSource.onerror = () => {
+      // Reconnect after a delay
+      stopSSE();
+      setTimeout(() => { if (sessionId) startSSE(); }, 3000);
+    };
+  } catch (err) {
+    console.warn('SSE failed:', err);
+  }
+}
+
+function stopSSE() {
+  if (sseSource) { sseSource.close(); sseSource = null; }
+}
+
+function renderTranscriptChunks(chunks, interim) {
+  const feed = document.getElementById('ma-transcript-feed');
+  const empty = document.getElementById('ma-transcript-empty');
+  if (chunks.length > 0 && empty) empty.remove();
+
+  // Re-render all chunks for current question
+  feed.innerHTML = '';
+  chunks.forEach(c => {
+    const div = document.createElement('div');
+    div.className = 'ma-transcript-chunk';
+    div.textContent = c.text;
+    feed.appendChild(div);
+  });
+
+  if (interim) {
+    const div = document.createElement('div');
+    div.className = 'ma-transcript-interim';
+    div.textContent = interim;
+    feed.appendChild(div);
+  }
+
+  if (!chunks.length && !interim) {
+    feed.innerHTML = '<div class="ma-transcript-empty">Waiting for contractor to speak...</div>';
+  }
+
+  feed.scrollTop = feed.scrollHeight;
+}
+
+function appendTranscriptChunk(chunk) {
+  const feed = document.getElementById('ma-transcript-feed');
+  const empty = document.getElementById('ma-transcript-empty');
+  if (empty) empty.remove();
+  const div = document.createElement('div');
+  div.className = 'ma-transcript-chunk';
+  div.textContent = chunk.text;
+  feed.appendChild(div);
+  feed.scrollTop = feed.scrollHeight;
+}
+
+// ── Submit answer (Next button) ──
+async function maSubmitAnswer() {
+  if (inputLocked) return;
+  // Collect contractor transcript for this question
+  const chunks = localTranscriptChunks.filter(c => c.source === 'contractor' && c.questionIndex === currentQ);
+  const answer = chunks.map(c => c.text).join(' ').trim();
+
+  if (!answer) {
+    const btn = document.getElementById('ma-next-btn');
+    btn.style.background = '#d97706';
+    btn.textContent = 'No answer yet';
+    setTimeout(() => {
+      btn.style.background = '';
+      btn.innerHTML = 'Next <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
+    }, 1500);
+    return;
+  }
+
+  setLocked(true);
+  const q = QUESTIONS[currentQ];
+  answers[q.id] = answer;
+
+  try {
+    await authFetch(`/api/onboarding/sessions/${sessionId}/answer`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ questionId: q.id, answer, currentQuestion: currentQ + 1, skipped }),
+    });
+  } catch (err) { console.warn('Save failed:', err); }
+
+  // Check if entering new section -> show summary
+  const nextQ = QUESTIONS[currentQ + 1];
+  if (nextQ && nextQ.section !== q.section) {
+    await showSectionSummary(q.section, q.sIdx);
+  }
+
+  if (currentQ < QUESTIONS.length - 1) {
+    currentQ++;
+    updateQuestion();
+  } else {
+    await maRunExtraction();
+  }
+  setLocked(false);
+}
+
+// ── Skip question ──
+async function maSkipQuestion() {
+  if (inputLocked) return;
+  const q = QUESTIONS[currentQ];
+  if (!skipped.includes(q.id)) skipped.push(q.id);
+  answers[q.id] = '';
+
+  try {
+    await authFetch(`/api/onboarding/sessions/${sessionId}/answer`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ questionId: q.id, answer: '', currentQuestion: currentQ + 1, skipped }),
+    });
+  } catch (err) { console.warn('Save failed:', err); }
+
+  const nextQ = QUESTIONS[currentQ + 1];
+  if (nextQ && nextQ.section !== q.section) {
+    await showSectionSummary(q.section, q.sIdx);
+  }
+
+  if (currentQ < QUESTIONS.length - 1) {
+    currentQ++;
+    updateQuestion();
+  } else {
+    await maRunExtraction();
+  }
+}
+
+// ── Section summary ──
+async function showSectionSummary(sectionName, sectionIndex) {
+  const summaryCard = document.getElementById('ma-section-summary');
+  const questionCard = document.getElementById('ma-question-card');
+
+  // Gather section answers
+  const sectionAnswers = QUESTIONS
+    .filter(q => q.section === sectionName)
+    .map(q => ({ id: q.id, label: q.label, answer: answers[q.id] || '(skipped)' }));
+
+  try {
+    const r = await authFetch(`/api/onboarding/sessions/${sessionId}/section-summary`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sectionName, sectionIndex, answers: sectionAnswers, clientName }),
+    });
+    const data = await r.json();
+    if (r.ok && data.summary) {
+      questionCard.style.display = 'none';
+      document.getElementById('ma-summary-badge').textContent = sectionName + ' Complete';
+      document.getElementById('ma-summary-text').textContent = data.summary;
+      summaryCard.style.display = '';
+
+      // Show for 3 seconds then continue
+      await new Promise(resolve => setTimeout(resolve, 3000));
+
+      summaryCard.style.display = 'none';
+      questionCard.style.display = '';
+    }
+  } catch (err) {
+    console.warn('Section summary failed:', err);
+  }
+}
+
+// ── Finish early ──
+async function maFinishEarly() {
+  if (Object.keys(answers).length < 3) {
+    if (!confirm('Only a few questions answered. Extract anyway?')) return;
+  }
+  await maRunExtraction();
+}
+
+// ── Extraction ──
+async function maRunExtraction() {
+  showPhase('extracting');
+  try {
+    const questionsPayload = QUESTIONS.map(q => ({
+      id: q.id, label: q.label, section: q.section,
+      answer: answers[q.id] || '(skipped)',
+    }));
+    const r = await authFetch(`/api/onboarding/sessions/${sessionId}/extract`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ questions: questionsPayload }),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error);
+    extractedProfile = data.profile;
+    showComplete();
+  } catch (err) {
+    alert('Extraction failed: ' + err.message);
+    showPhase('interview');
+  }
+}
+
+// ── Show complete ──
+function showComplete() {
+  showPhase('complete');
+  document.getElementById('ma-complete-sub').textContent = clientName ? 'Profile for ' + clientName : '';
+  if (extractedProfile) renderProfileSummary(extractedProfile);
+}
+
+// ── Render compact profile summary ──
+function renderProfileSummary(p) {
+  const c = document.getElementById('ma-profile-summary');
+  const f = (l, v) => { if (!v) return ''; return `<div class="ma-profile-field"><span class="ma-profile-label">${esc(l)}:</span> ${esc(String(v))}</div>`; };
+  const li = (l, a) => { if (!a?.length) return ''; return `<div class="ma-profile-field"><span class="ma-profile-label">${esc(l)}:</span> ${a.map(v => esc(String(v))).join(', ')}</div>`; };
+  const sec = (t, h) => { if (!h.trim()) return ''; return `<div class="ma-profile-section"><div class="ma-profile-section-title">${esc(t)}</div>${h}</div>`; };
+
+  let h = '';
+  h += sec('Overview', f('Business',p.business_name)+f('Owner',p.owner_name)+f('Years',p.years_in_business)+f('Story',p.origin_story));
+  h += sec('Services', li('Core',p.services?.core)+f('Top Revenue',p.services?.top_revenue)+li('Promote',p.services?.promote_more));
+  h += sec('Differentiation', li('USPs',p.differentiation?.unique_selling_points)+f('Ideal Customer',p.differentiation?.ideal_customer));
+  h += sec('Service Area', li('Cities',p.service_area?.cities)+li('Primary',p.service_area?.primary_markets)+li('Growth',p.service_area?.growth_targets));
+  h += sec('Brand Voice', f('Personality',p.brand_voice?.personality)+f('Tone',p.brand_voice?.tone));
+  h += sec('Credentials', li('Licenses',p.credentials?.licenses)+li('Awards',p.credentials?.awards));
+  h += sec('Goals', li('Website Goals',p.goals?.website_goals)+f('Success',p.goals?.six_month_success));
+  c.innerHTML = h;
+}
+
+// ── Lock/unlock controls ──
+function setLocked(locked) {
+  inputLocked = locked;
+  document.getElementById('ma-next-btn').disabled = locked;
+  document.getElementById('ma-skip-btn').disabled = locked;
+}
+
+// ── Import Meet transcript from Drive ──
+async function maImportMeetTranscript() {
+  const btn = document.getElementById('ma-import-btn');
+  btn.disabled = true;
+  btn.textContent = 'Searching Drive...';
+  try {
+    const r = await authFetch(`/api/onboarding/sessions/${sessionId}/import-meet-transcript`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error);
+    if (data.profile) {
+      extractedProfile = data.profile;
+      renderProfileSummary(extractedProfile);
+      btn.textContent = 'Imported!';
+      btn.style.color = '#16a34a';
+      btn.style.borderColor = '#16a34a';
+    } else {
+      btn.textContent = 'No transcript found';
+      setTimeout(() => { btn.textContent = 'Import Meet Transcript'; btn.disabled = false; }, 2000);
+    }
+  } catch (err) {
+    alert('Import failed: ' + err.message);
+    btn.textContent = 'Import Meet Transcript';
+    btn.disabled = false;
+  }
+}
+
+// ── Push to Drive ──
+async function maPushToDrive() {
+  if (!selectedClientId && !sessionId) return;
+  const btn = document.getElementById('ma-drive-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<img src="/drive-icon.avif" width="12" height="12" style="border-radius:2px"> Pushing...';
+  try {
+    // Get client ID from session if not selected
+    let cid = selectedClientId;
+    if (!cid && sessionId) {
+      const r = await authFetch(`/api/onboarding/sessions/${sessionId}`);
+      const data = await r.json();
+      cid = data.client_id;
+    }
+    if (!cid) throw new Error('No client linked');
+    const r = await authFetch(`/api/launches/${cid}/push-to-drive`, { method: 'POST' });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'Failed');
+    btn.innerHTML = '<img src="/drive-icon.avif" width="12" height="12" style="border-radius:2px"> Done!';
+    btn.style.color = '#16a34a';
+    btn.style.borderColor = '#16a34a';
+  } catch (err) {
+    alert('Drive push failed: ' + err.message);
+    btn.innerHTML = '<img src="/drive-icon.avif" width="12" height="12" style="border-radius:2px"> Push to Drive';
+    btn.disabled = false;
+  }
+}
+
+// ── New interview ──
+function maNewInterview() {
+  sessionId = null;
+  joinToken = null;
+  currentQ = 0;
+  answers = {};
+  skipped = [];
+  extractedProfile = null;
+  localTranscriptChunks = [];
+  maClearSelection();
+  showPhase('select');
+  loadExistingSessions();
+}
+</script>
+</body>
+</html>
