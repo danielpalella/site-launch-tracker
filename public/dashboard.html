@@ -8712,16 +8712,26 @@ function copyBlogPost(id) {
 }
 
 // ── Onboarding Profile (shared renderer for both modals) ──
-function renderOnboardingProfile(profile, container) {
+// ── Onboarding Profile (view + edit) ──
+let _obProfileCache = {}; // launchId -> profile object
+
+function renderOnboardingProfile(profile, container, launchId) {
   if (!profile) {
     container.innerHTML = '<div style="text-align:center;padding:2rem 1rem;color:var(--text-muted)"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom:.5rem;opacity:.4"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><div style="font-size:.85rem;font-weight:600;margin-bottom:.2rem">No onboarding interview yet</div><div style="font-size:.78rem">Start an interview from the <a href="/onboarding" style="color:var(--primary)">Onboarding</a> page.</div></div>';
     return;
   }
+  if (launchId) _obProfileCache[launchId] = JSON.parse(JSON.stringify(profile));
+
   const f = (l, v) => { if (v == null || v === '') return ''; if (typeof v === 'boolean') v = v ? 'Yes' : 'No'; return `<div style="margin-bottom:.4rem"><div style="font-size:.68rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.3px">${esc(l)}</div><div style="font-size:.82rem;color:var(--text);margin-top:.1rem;line-height:1.4">${esc(String(v))}</div></div>`; };
   const li = (l, a) => { if (!a?.length) return ''; return `<div style="margin-bottom:.4rem"><div style="font-size:.68rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.3px">${esc(l)}</div><div style="margin-top:.1rem">${a.map(v => `<span style="display:inline-block;font-size:.75rem;padding:.15rem .5rem;margin:.15rem .2rem 0 0;background:var(--primary)0a;border:1px solid var(--primary)22;border-radius:4px;color:var(--text)">${esc(String(v))}</span>`).join('')}</div></div>`; };
   const sec = (t, h) => { if (!h.trim()) return ''; return `<div style="border:1px solid var(--border);border-radius:8px;padding:.75rem 1rem;margin-bottom:.6rem"><div style="font-size:.75rem;font-weight:700;color:var(--primary);text-transform:uppercase;letter-spacing:.4px;margin-bottom:.5rem">${esc(t)}</div>${h}</div>`; };
   const p = profile;
   let h = '';
+  if (launchId) {
+    h += `<div style="display:flex;justify-content:flex-end;margin-bottom:.5rem">
+      <button onclick="editOnboardingProfile('${launchId}')" style="font-size:.75rem;font-weight:600;padding:.3rem .7rem;border:1px solid var(--border);border-radius:5px;background:none;color:var(--text-muted);cursor:pointer;font-family:inherit">Edit Profile</button>
+    </div>`;
+  }
   h += sec('Overview', f('Business Name',p.business_name)+f('Owner',p.owner_name)+f('Years in Business',p.years_in_business)+f('Origin Story',p.origin_story)+f('Family Connection',p.family_connection)+li('Pride Points',p.pride_points));
   h += sec('Services', li('Core Services',p.services?.core)+f('Top Revenue',p.services?.top_revenue)+li('Promote More',p.services?.promote_more)+f('Emergency Service',p.services?.emergency_available));
   h += sec('Differentiation', li('USPs',p.differentiation?.unique_selling_points)+li('Customer Compliments',p.differentiation?.customer_compliments)+li('Guarantees',p.differentiation?.guarantees)+f('Ideal Customer',p.differentiation?.ideal_customer));
@@ -8730,6 +8740,120 @@ function renderOnboardingProfile(profile, container) {
   h += sec('Credentials', li('Licenses',p.credentials?.licenses)+f('Insured',p.credentials?.insured)+f('Bonded',p.credentials?.bonded)+li('Associations',p.credentials?.associations)+li('Awards',p.credentials?.awards));
   h += sec('Goals', li('Website Goals',p.goals?.website_goals)+f('6-Month Success',p.goals?.six_month_success)+f('Additional Notes',p.goals?.additional_notes));
   container.innerHTML = h;
+}
+
+function editOnboardingProfile(launchId) {
+  const profile = _obProfileCache[launchId];
+  if (!profile) return;
+  // Find the container (works for both CRM and ACD modals)
+  const container = document.getElementById('crm-onboarding-body') || document.getElementById(`acd-onboarding-body-${launchId}`);
+  if (!container) return;
+
+  const ta = (label, path, val) => {
+    const v = val != null ? (Array.isArray(val) ? val.join(', ') : String(val)) : '';
+    return `<div style="margin-bottom:.6rem"><label style="font-size:.68rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:.2rem">${esc(label)}</label><textarea data-path="${path}" style="width:100%;padding:.4rem .6rem;border:1px solid var(--border);border-radius:6px;font-size:.8rem;font-family:inherit;color:var(--text);background:var(--bg);resize:vertical;min-height:${v.length > 80 ? '60px' : '32px'};box-sizing:border-box">${esc(v)}</textarea></div>`;
+  };
+  const sec = (title, fields) => `<div style="border:1px solid var(--primary)33;border-radius:8px;padding:.75rem 1rem;margin-bottom:.6rem"><div style="font-size:.75rem;font-weight:700;color:var(--primary);text-transform:uppercase;letter-spacing:.4px;margin-bottom:.5rem">${esc(title)}</div>${fields}</div>`;
+
+  let h = `<div style="display:flex;justify-content:flex-end;gap:.4rem;margin-bottom:.6rem">
+    <button onclick="cancelEditProfile('${launchId}')" style="font-size:.75rem;padding:.3rem .7rem;border:1px solid var(--border);border-radius:5px;background:none;color:var(--text-muted);cursor:pointer;font-family:inherit">Cancel</button>
+    <button onclick="saveEditProfile('${launchId}')" style="font-size:.75rem;font-weight:700;padding:.3rem .7rem;border:none;border-radius:5px;background:var(--primary);color:#fff;cursor:pointer;font-family:inherit">Save Changes</button>
+  </div>`;
+  h += sec('Overview',
+    ta('Business Name','business_name',profile.business_name)+
+    ta('Owner','owner_name',profile.owner_name)+
+    ta('Years in Business','years_in_business',profile.years_in_business)+
+    ta('Origin Story','origin_story',profile.origin_story)+
+    ta('Family Connection','family_connection',profile.family_connection)+
+    ta('Pride Points (comma-separated)','pride_points',profile.pride_points)
+  );
+  h += sec('Services',
+    ta('Core Services (comma-separated)','services.core',profile.services?.core)+
+    ta('Top Revenue Service','services.top_revenue',profile.services?.top_revenue)+
+    ta('Promote More (comma-separated)','services.promote_more',profile.services?.promote_more)+
+    ta('Emergency Service (Yes/No)','services.emergency_available',profile.services?.emergency_available)
+  );
+  h += sec('Differentiation',
+    ta('Unique Selling Points (comma-separated)','differentiation.unique_selling_points',profile.differentiation?.unique_selling_points)+
+    ta('Customer Compliments (comma-separated)','differentiation.customer_compliments',profile.differentiation?.customer_compliments)+
+    ta('Guarantees (comma-separated)','differentiation.guarantees',profile.differentiation?.guarantees)+
+    ta('Ideal Customer','differentiation.ideal_customer',profile.differentiation?.ideal_customer)
+  );
+  h += sec('Service Area',
+    ta('Cities (comma-separated)','service_area.cities',profile.service_area?.cities)+
+    ta('Primary Markets (comma-separated)','service_area.primary_markets',profile.service_area?.primary_markets)+
+    ta('Growth Targets (comma-separated)','service_area.growth_targets',profile.service_area?.growth_targets)+
+    ta('Max Travel Radius','service_area.max_travel_radius',profile.service_area?.max_travel_radius)
+  );
+  h += sec('Brand Voice',
+    ta('Personality','brand_voice.personality',profile.brand_voice?.personality)+
+    ta('Tone','brand_voice.tone',profile.brand_voice?.tone)+
+    ta('Preferred Phrases (comma-separated)','brand_voice.preferred_phrases',profile.brand_voice?.preferred_phrases)+
+    ta('Avoid Phrases (comma-separated)','brand_voice.avoid_phrases',profile.brand_voice?.avoid_phrases)+
+    ta('Voice Description','brand_voice.voice_description',profile.brand_voice?.voice_description)
+  );
+  h += sec('Credentials',
+    ta('Licenses (comma-separated)','credentials.licenses',profile.credentials?.licenses)+
+    ta('Insured (Yes/No)','credentials.insured',profile.credentials?.insured)+
+    ta('Bonded (Yes/No)','credentials.bonded',profile.credentials?.bonded)+
+    ta('Associations (comma-separated)','credentials.associations',profile.credentials?.associations)+
+    ta('Awards (comma-separated)','credentials.awards',profile.credentials?.awards)
+  );
+  h += sec('Goals',
+    ta('Website Goals (comma-separated)','goals.website_goals',profile.goals?.website_goals)+
+    ta('6-Month Success','goals.six_month_success',profile.goals?.six_month_success)+
+    ta('Additional Notes','goals.additional_notes',profile.goals?.additional_notes)
+  );
+  container.innerHTML = h;
+}
+
+function cancelEditProfile(launchId) {
+  const profile = _obProfileCache[launchId];
+  const container = document.getElementById('crm-onboarding-body') || document.getElementById(`acd-onboarding-body-${launchId}`);
+  if (container && profile) renderOnboardingProfile(profile, container, launchId);
+}
+
+async function saveEditProfile(launchId) {
+  const container = document.getElementById('crm-onboarding-body') || document.getElementById(`acd-onboarding-body-${launchId}`);
+  if (!container) return;
+
+  // Read all textareas and build the profile object
+  const profile = JSON.parse(JSON.stringify(_obProfileCache[launchId] || {}));
+  container.querySelectorAll('textarea[data-path]').forEach(ta => {
+    const path = ta.dataset.path;
+    const val = ta.value.trim();
+    const parts = path.split('.');
+    // Parse comma-separated arrays
+    const isArray = ['pride_points','services.core','services.promote_more','differentiation.unique_selling_points','differentiation.customer_compliments','differentiation.guarantees','service_area.cities','service_area.primary_markets','service_area.growth_targets','brand_voice.preferred_phrases','brand_voice.avoid_phrases','credentials.licenses','credentials.associations','credentials.awards','goals.website_goals'].includes(path);
+    const isBool = ['services.emergency_available','credentials.insured','credentials.bonded'].includes(path);
+    const isNum = ['years_in_business'].includes(path);
+    let parsed;
+    if (isArray) parsed = val ? val.split(',').map(s => s.trim()).filter(Boolean) : [];
+    else if (isBool) parsed = ['yes','true','1'].includes(val.toLowerCase());
+    else if (isNum) parsed = val ? parseInt(val) || null : null;
+    else parsed = val || null;
+
+    if (parts.length === 1) profile[parts[0]] = parsed;
+    else { if (!profile[parts[0]]) profile[parts[0]] = {}; profile[parts[0]][parts[1]] = parsed; }
+  });
+
+  // Save to server
+  const saveBtn = container.querySelector('button[onclick*="saveEdit"]');
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving...'; }
+  try {
+    const r = await fetch(`/api/launches/${launchId}/onboarding-profile`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ profile }),
+    });
+    if (!r.ok) throw new Error((await r.json()).error || 'Save failed');
+    _obProfileCache[launchId] = profile;
+    renderOnboardingProfile(profile, container, launchId);
+    showToast('Onboarding profile updated', 'success');
+  } catch (err) {
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save Changes'; }
+    showToast('Failed to save: ' + err.message, 'error');
+  }
 }
 
 let _crmOnboardingLoaded = false;
@@ -8742,7 +8866,7 @@ async function loadCrmOnboardingProfile() {
     const r = await fetch(`/api/launches/${launchId}`);
     if (!r.ok) throw new Error();
     const data = await r.json();
-    renderOnboardingProfile(data.onboarding_profile || null, body);
+    renderOnboardingProfile(data.onboarding_profile || null, body, launchId);
     _crmOnboardingLoaded = true;
   } catch {
     body.innerHTML = '<div style="color:var(--text-muted);font-size:.82rem">Failed to load onboarding data.</div>';
@@ -8756,7 +8880,7 @@ async function loadAcdOnboardingProfile(id) {
     const r = await fetch(`/api/launches/${id}`);
     if (!r.ok) throw new Error();
     const data = await r.json();
-    renderOnboardingProfile(data.onboarding_profile || null, body);
+    renderOnboardingProfile(data.onboarding_profile || null, body, id);
     body.dataset.loaded = 'true';
   } catch {
     body.innerHTML = '<div style="color:var(--text-muted);font-size:.82rem">Failed to load onboarding data.</div>';

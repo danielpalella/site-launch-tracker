@@ -3559,6 +3559,70 @@ app.post('/api/blog/post', requireAuth, async (req, res) => {
     const city = cityParam || placeData?.city || '';
     const location = city ? ` in ${city}` : '';
 
+    // ── Fetch onboarding profile for this site (if available) ──
+    let onboardingContext = '';
+    if (cleanDomain) {
+      try {
+        const snap = await db.collection('launches')
+          .where('domain_name', '==', cleanDomain).limit(1).get();
+        if (!snap.empty) {
+          const profile = snap.docs[0].data().onboarding_profile;
+          if (profile) {
+            const ob = profile;
+            // Build context based on content type — each type needs different data
+            const parts = [];
+            // Always include brand voice if available
+            if (ob.brand_voice) {
+              const bv = ob.brand_voice;
+              parts.push(`BRAND VOICE — Write in this contractor's actual voice:
+- Personality: ${bv.personality || 'professional'}
+- Tone: ${bv.tone || 'friendly'}
+${bv.preferred_phrases?.length ? `- Phrases they use: ${bv.preferred_phrases.join(', ')}` : ''}
+${bv.avoid_phrases?.length ? `- Phrases to AVOID: ${bv.avoid_phrases.join(', ')}` : ''}
+${bv.voice_description ? `- Voice description: ${bv.voice_description}` : ''}`);
+            }
+            // Origin story for trust/authority posts
+            if (['trust', 'symptom', 'seasonal'].includes(contentType) && ob.origin_story) {
+              parts.push(`CONTRACTOR BACKGROUND: ${ob.origin_story}${ob.years_in_business ? ` (${ob.years_in_business} years in business)` : ''}${ob.family_connection ? ` Family connection: ${ob.family_connection}` : ''}`);
+            }
+            // Services detail for symptom and cost posts
+            if (['symptom', 'cost', 'emergency'].includes(contentType) && ob.services) {
+              const sv = ob.services;
+              parts.push(`SERVICES DETAIL:
+${sv.core?.length ? `- Core services: ${sv.core.join(', ')}` : ''}
+${sv.top_revenue ? `- Top revenue service: ${sv.top_revenue}` : ''}
+${sv.emergency_available != null ? `- Emergency/after-hours: ${sv.emergency_available ? 'Yes' : 'No'}` : ''}`);
+            }
+            // Differentiation for all types
+            if (ob.differentiation) {
+              const df = ob.differentiation;
+              parts.push(`WHAT MAKES THEM DIFFERENT:
+${df.unique_selling_points?.length ? `- USPs: ${df.unique_selling_points.join('; ')}` : ''}
+${df.guarantees?.length ? `- Guarantees: ${df.guarantees.join('; ')}` : ''}
+${df.customer_compliments?.length ? `- Customers say: ${df.customer_compliments.join('; ')}` : ''}`);
+            }
+            // Credentials for trust, emergency
+            if (['trust', 'emergency'].includes(contentType) && ob.credentials) {
+              const cr = ob.credentials;
+              parts.push(`CREDENTIALS:
+${cr.licenses?.length ? `- Licenses: ${cr.licenses.join(', ')}` : ''}
+${cr.insured ? '- Fully insured' : ''}${cr.bonded ? ', bonded' : ''}
+${cr.associations?.length ? `- Associations: ${cr.associations.join(', ')}` : ''}
+${cr.awards?.length ? `- Awards: ${cr.awards.join(', ')}` : ''}`);
+            }
+            // Service area for local posts
+            if (ob.service_area) {
+              const sa = ob.service_area;
+              if (sa.cities?.length) parts.push(`SERVICE AREA: ${sa.cities.join(', ')}${sa.primary_markets?.length ? `. Primary markets: ${sa.primary_markets.join(', ')}` : ''}`);
+            }
+            if (parts.length) {
+              onboardingContext = `\n\n--- CONTRACTOR PROFILE (from onboarding interview — use this to make the post authentic) ---\n${parts.join('\n\n')}\n--- END CONTRACTOR PROFILE ---\n\nIMPORTANT: Use the contractor's actual brand voice, reference their real credentials, and weave in their specific differentiators. This post should sound like THEM, not a generic contractor.\n`;
+            }
+          }
+        }
+      } catch (e) { console.warn('Failed to fetch onboarding profile for blog:', e.message); }
+    }
+
     const keywordLine = kwArray.length
       ? `\nTarget SEO keywords: ${kwArray.map(k => `"${k}"`).join(', ')} — weave these naturally throughout the post (max 3 mentions of the primary keyword). Include "${kwArray[0]}" in the <h1> and at least one <h2>.\n`
       : '';
@@ -3591,7 +3655,7 @@ Content type: ${ct.label}
 
 Question: "${question}"
 Context: ${detail || '(no additional context)'}
-${keywordLine}${bizLine}${cityLine}${reviewsLine}${customerReviewsLine}${internalLinksLine}
+${onboardingContext}${keywordLine}${bizLine}${cityLine}${reviewsLine}${customerReviewsLine}${internalLinksLine}
 Write an SEO-optimized blog post in clean HTML. Structure:
 - A compelling <h1> title under 60 characters — rewrite the source question into an SEO-friendly blog title (e.g. not "Which one of yall did this?" but "5 Signs Your Roof Was Damaged in a Storm")${kwArray.length ? ` Include the target keyword.` : ''}${city ? ` Include "${city}".` : ''}
 - A brief intro paragraph (2-3 sentences) that directly addresses the question within the first 150 words
@@ -4478,6 +4542,19 @@ app.get('/api/onboarding/sessions', requireAuth, async (req, res) => {
       .slice(0, 20);
     // Strip large fields to keep the list response lightweight
     res.json(sessions.map(s => ({ id: s.id, client_name: s.client_name, client_id: s.client_id, status: s.status, current_question: s.current_question, created_at: s.created_at, join_token: s.join_token })));
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Update onboarding profile on a launch doc (for manual edits)
+app.patch('/api/launches/:id/onboarding-profile', requireAuth, async (req, res) => {
+  try {
+    const { profile } = req.body;
+    if (!profile || typeof profile !== 'object') return res.status(400).json({ error: 'profile object required' });
+    const ref = db.collection('launches').doc(req.params.id);
+    const doc = await ref.get();
+    if (!doc.exists) return res.status(404).json({ error: 'Not found' });
+    await ref.update({ onboarding_profile: profile, updated_at: FieldValue.serverTimestamp() });
+    res.json({ ok: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
