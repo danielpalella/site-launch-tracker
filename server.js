@@ -188,6 +188,8 @@ function formatLaunch(doc) {
     outreach_log:         d.outreach_log          || [],
     onboarding_profile:   d.onboarding_profile    || null,
     onboarding_completed_at: fmtTs(d.onboarding_completed_at),
+    drive_folder_id:      d.drive_folder_id       || null,
+    drive_folder_url:     d.drive_folder_url      || null,
   };
 }
 
@@ -1517,6 +1519,7 @@ const ANALYTICS_SCOPES = [
   'email',
   'https://www.googleapis.com/auth/webmasters.readonly',
   'https://www.googleapis.com/auth/analytics.readonly',
+  'https://www.googleapis.com/auth/drive.file',
 ];
 
 // In-memory token cache (avoids Firestore read on every request)
@@ -2993,6 +2996,128 @@ app.get('/api/analytics/:id/snapshots', requireAuth, async (req, res) => {
   }
 });
 
+// ── Google Drive Integration ──
+const DRIVE_ROOT_FOLDER_ID = '1WaqG1DGZ1KHnlbUc6nTWaRAXT8ZV8O7W'; // RW Website Clients
+
+async function driveCreateFolder(name, parentId, token) {
+  const r = await fetchWithRetry('https://www.googleapis.com/drive/v3/files', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, mimeType: 'application/vnd.google-apps.folder', parents: [parentId] }),
+  });
+  if (!r.ok) throw new Error(`Drive folder create failed: ${r.status}`);
+  return (await r.json()).id;
+}
+
+async function driveFindFolder(name, parentId, token) {
+  const q = encodeURIComponent(`name='${name.replace(/'/g, "\\'")}' and '${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`);
+  const r = await fetchWithRetry(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)&pageSize=1`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!r.ok) return null;
+  const data = await r.json();
+  return data.files?.[0]?.id || null;
+}
+
+async function driveGetOrCreateClientFolder(clientName, token) {
+  // Find or create: RW Website Clients / {clientName}
+  let clientFolderId = await driveFindFolder(clientName, DRIVE_ROOT_FOLDER_ID, token);
+  if (!clientFolderId) clientFolderId = await driveCreateFolder(clientName, DRIVE_ROOT_FOLDER_ID, token);
+  return clientFolderId;
+}
+
+async function driveGetOrCreateSubfolder(subfolderName, parentId, token) {
+  let folderId = await driveFindFolder(subfolderName, parentId, token);
+  if (!folderId) folderId = await driveCreateFolder(subfolderName, parentId, token);
+  return folderId;
+}
+
+async function driveUploadFile(name, content, mimeType, parentId, token) {
+  const metadata = { name, parents: [parentId] };
+  const boundary = '-----DriveUploadBoundary';
+  const body = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n--${boundary}\r\nContent-Type: ${mimeType}\r\n\r\n${content}\r\n--${boundary}--`;
+  const r = await fetchWithRetry('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': `multipart/related; boundary=${boundary}`,
+    },
+    body,
+  });
+  if (!r.ok) throw new Error(`Drive upload failed: ${r.status}`);
+  return r.json();
+}
+
+// Push onboarding profile + transcript to Google Drive
+async function pushOnboardingToDrive(launchId, clientName, profile, transcript) {
+  try {
+    const token = await getAnalyticsAccessToken();
+    const clientFolderId = await driveGetOrCreateClientFolder(clientName, token);
+    const obFolderId = await driveGetOrCreateSubfolder('Onboarding', clientFolderId, token);
+
+    const date = new Date().toISOString().slice(0, 10);
+    // Upload profile JSON
+    const profileFile = await driveUploadFile(
+      `Onboarding Profile — ${date}.json`,
+      JSON.stringify(profile, null, 2),
+      'application/json',
+      obFolderId, token
+    );
+
+    // Upload transcript if available
+    let transcriptFile = null;
+    if (transcript) {
+      transcriptFile = await driveUploadFile(
+        `Interview Transcript — ${date}.txt`,
+        typeof transcript === 'string' ? transcript : JSON.stringify(transcript, null, 2),
+        'text/plain',
+        obFolderId, token
+      );
+    }
+
+    // Save Drive folder ID on the launch doc for quick access
+    await db.collection('launches').doc(launchId).update({
+      drive_folder_id: clientFolderId,
+      drive_folder_url: `https://drive.google.com/drive/folders/${clientFolderId}`,
+    }).catch(() => {});
+
+    console.log(`[drive] Pushed onboarding for ${clientName} → folder ${clientFolderId}`);
+    return { clientFolderId, profileFileId: profileFile?.id, transcriptFileId: transcriptFile?.id };
+  } catch (err) {
+    console.warn('[drive] Failed to push onboarding to Drive:', err.message);
+    return null; // Don't fail the main operation
+  }
+}
+
+// Push a blog post to Google Drive
+async function pushBlogToDrive(launchId, clientName, title, html) {
+  try {
+    const token = await getAnalyticsAccessToken();
+    const clientFolderId = await driveGetOrCreateClientFolder(clientName, token);
+    const blogFolderId = await driveGetOrCreateSubfolder('Blog Posts', clientFolderId, token);
+
+    const date = new Date().toISOString().slice(0, 10);
+    const safeName = title.replace(/[<>:"/\\|?*]/g, '').slice(0, 80);
+    const file = await driveUploadFile(
+      `${date} — ${safeName}.html`,
+      html,
+      'text/html',
+      blogFolderId, token
+    );
+
+    // Save Drive folder ID on the launch doc if not already set
+    await db.collection('launches').doc(launchId).update({
+      drive_folder_id: clientFolderId,
+      drive_folder_url: `https://drive.google.com/drive/folders/${clientFolderId}`,
+    }).catch(() => {});
+
+    return file;
+  } catch (err) {
+    console.warn('[drive] Failed to push blog to Drive:', err.message);
+    return null;
+  }
+}
+
 // ── Blog Draft Generator (Gemini + Duda Blog API) ──
 app.post('/api/analytics/:id/generate-blog', requireAuth, async (req, res) => {
   const { keyword } = req.body;
@@ -3197,6 +3322,9 @@ app.post('/api/analytics/:id/push-blog', requireAuth, async (req, res) => {
       : Promise.resolve();
     await Promise.all([draftWrite, excludeWrite]);
     res.json({ success: true, title, postId, status });
+
+    // Push to Google Drive in the background (fire-and-forget)
+    pushBlogToDrive(req.params.id, launch.account_name, title, html).catch(() => {});
   } catch (err) {
     console.error('push-blog error:', err);
     res.status(500).json({ error: err.message });
@@ -4753,6 +4881,9 @@ Extract as much detail as possible. For fields not discussed in the transcript, 
     });
 
     res.json({ profile });
+
+    // Push to Google Drive in the background
+    pushOnboardingToDrive(clientId, clientName || 'Unknown', profile, transcript).catch(() => {});
   } catch (err) {
     console.error('extract-transcript error:', err);
     res.status(500).json({ error: err.message });
@@ -5050,6 +5181,12 @@ Return ONLY valid JSON with no markdown fencing, no commentary. Use this schema:
 
     res.json({ profile });
     emitSseEvent(req.params.id, 'complete', { status: 'extracted' });
+
+    // Push to Google Drive in the background (fire-and-forget)
+    if (sessionData.client_id) {
+      const transcriptData = sessionData.answers ? Object.entries(sessionData.answers).map(([k, v]) => `${k}: ${v}`).join('\n\n') : null;
+      pushOnboardingToDrive(sessionData.client_id, sessionData.client_name || 'Unknown', profile, transcriptData).catch(() => {});
+    }
   } catch (err) {
     console.error('onboarding extract error:', err);
     res.status(500).json({ error: err.message });

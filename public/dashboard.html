@@ -8715,7 +8715,7 @@ function copyBlogPost(id) {
 // ── Onboarding Profile (view + edit) ──
 let _obProfileCache = {}; // launchId -> profile object
 
-function renderOnboardingProfile(profile, container, launchId) {
+function renderOnboardingProfile(profile, container, launchId, driveUrl) {
   if (!profile) {
     container.innerHTML = '<div style="text-align:center;padding:2rem 1rem;color:var(--text-muted)"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom:.5rem;opacity:.4"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><div style="font-size:.85rem;font-weight:600;margin-bottom:.2rem">No onboarding interview yet</div><div style="font-size:.78rem">Start an interview from the <a href="/onboarding" style="color:var(--primary)">Onboarding</a> page.</div></div>';
     return;
@@ -8728,7 +8728,8 @@ function renderOnboardingProfile(profile, container, launchId) {
   const p = profile;
   let h = '';
   if (launchId) {
-    h += `<div style="display:flex;justify-content:flex-end;margin-bottom:.5rem">
+    h += `<div style="display:flex;justify-content:flex-end;gap:.4rem;margin-bottom:.5rem">
+      ${driveUrl ? `<a href="${esc(driveUrl)}" target="_blank" style="font-size:.75rem;font-weight:600;padding:.3rem .7rem;border:1px solid var(--border);border-radius:5px;background:none;color:var(--text-muted);text-decoration:none;display:inline-flex;align-items:center;gap:.3rem;cursor:pointer;font-family:inherit"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>Drive</a>` : ''}
       <button onclick="editOnboardingProfile('${launchId}')" style="font-size:.75rem;font-weight:600;padding:.3rem .7rem;border:1px solid var(--border);border-radius:5px;background:none;color:var(--text-muted);cursor:pointer;font-family:inherit">Edit Profile</button>
     </div>`;
   }
@@ -8866,7 +8867,7 @@ async function loadCrmOnboardingProfile() {
     const r = await fetch(`/api/launches/${launchId}`);
     if (!r.ok) throw new Error();
     const data = await r.json();
-    renderOnboardingProfile(data.onboarding_profile || null, body, launchId);
+    renderOnboardingProfile(data.onboarding_profile || null, body, launchId, data.drive_folder_url);
     _crmOnboardingLoaded = true;
   } catch {
     body.innerHTML = '<div style="color:var(--text-muted);font-size:.82rem">Failed to load onboarding data.</div>';
@@ -8880,7 +8881,7 @@ async function loadAcdOnboardingProfile(id) {
     const r = await fetch(`/api/launches/${id}`);
     if (!r.ok) throw new Error();
     const data = await r.json();
-    renderOnboardingProfile(data.onboarding_profile || null, body, id);
+    renderOnboardingProfile(data.onboarding_profile || null, body, id, data.drive_folder_url);
     body.dataset.loaded = 'true';
   } catch {
     body.innerHTML = '<div style="color:var(--text-muted);font-size:.82rem">Failed to load onboarding data.</div>';
