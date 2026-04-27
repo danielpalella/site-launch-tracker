@@ -16,7 +16,14 @@ function log(msg) {
 }
 log('Page loaded');
 log('URL: ' + window.location.href);
-log('User Agent: ' + navigator.userAgent.slice(0, 80));
+log('Cookies: ' + (document.cookie || '(none)'));
+log('localStorage meet-addon-token-saved: ' + (localStorage.getItem('meet-addon-token-saved') || '(none)'));
+
+// Try fetching /api/auth/me with cookies
+fetch('/api/auth/me', { credentials: 'include' }).then(r => {
+  log('Auth check status: ' + r.status);
+  return r.json();
+}).then(d => log('Auth result: ' + JSON.stringify(d))).catch(e => log('Auth error: ' + e.message));
 </script>
 <script src="https://www.gstatic.com/meetjs/addons/1.1.0/meet.addons.js"></script>
 <script>
