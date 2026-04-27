@@ -144,6 +144,7 @@ const SECTIONS = ['Origin Story','Services','Differentiation','Service Area','Br
 // ── State ──
 let authToken = null;
 let sessionId = null;
+let joinToken = null;
 let currentQ = 0;
 let selectedClientId = null;
 let clientName = '';
@@ -256,6 +257,7 @@ async function selectClient(client) {
     const data = await r.json();
     if (!r.ok) throw new Error(data.error);
     sessionId = data.id;
+    joinToken = data.join_token || null;
     currentQ = 0;
     completedSections.clear();
     showPhase('guide');
@@ -274,6 +276,14 @@ function renderGuide() {
   let html = '';
   html += `<div class="ma-guide-client">${esc(clientName)}</div>`;
   html += `<div class="ma-guide-progress">Question ${currentQ + 1} of ${QUESTIONS.length}</div>`;
+
+  // Share buttons
+  if (joinToken) {
+    html += '<div style="display:flex;gap:.3rem;margin-bottom:.6rem">';
+    html += `<button onclick="openContractorView()" style="flex:1;padding:.35rem .5rem;border:none;border-radius:5px;background:var(--primary);color:#fff;font-size:.68rem;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:.3rem"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>Open Contractor View</button>`;
+    html += `<button onclick="copyJoinLink(this)" style="flex:0;padding:.35rem .5rem;border:1px solid var(--border);border-radius:5px;background:none;color:var(--text-muted);font-size:.68rem;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg> Copy Link</button>`;
+    html += '</div>';
+  }
 
   // Show completed section badges
   SECTIONS.forEach((s, i) => {
@@ -421,6 +431,28 @@ function toggleTranscript() {
   }
 
   renderGuide();
+}
+
+// ── Contractor view ──
+function openContractorView() {
+  if (!sessionId || !joinToken) return;
+  const url = `${location.protocol}//${location.host.includes('hosted.app') ? location.host : location.host}/join/${sessionId}/${joinToken}`;
+  window.open(url, '_blank');
+}
+
+function copyJoinLink(btn) {
+  if (!sessionId || !joinToken) return;
+  const url = `${location.origin}/join/${sessionId}/${joinToken}`;
+  navigator.clipboard.writeText(url).then(() => {
+    btn.innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Copied!';
+    btn.style.color = '#16a34a';
+    btn.style.borderColor = '#16a34a';
+    setTimeout(() => {
+      btn.innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg> Copy Link';
+      btn.style.color = '';
+      btn.style.borderColor = '';
+    }, 2000);
+  });
 }
 
 function handleTranscriptMessage(msg) {
