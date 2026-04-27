@@ -368,35 +368,61 @@ async function importMeetTranscript() {
 }
 
 // ── Live Transcript ──
+const EXTENSION_ID = ''; // Will be set after installing the extension
+let extensionDetected = false;
+let transcriptPollTimer = null;
+let lastTranscriptIdx = 0;
+
+// Try to detect the Chrome extension on load
+function detectExtension() {
+  if (!chrome?.runtime?.sendMessage) return;
+  // Try known extension IDs, or use externally_connectable
+  // The sidebar can't directly message the extension from inside Meet's iframe
+  // Instead, we use the popup fallback + BroadcastChannel approach
+}
+
 function toggleTranscript() {
   if (transcriptActive) return;
   transcriptActive = true;
   transcriptText = '';
   interimText = '';
 
-  // Open capture popup
-  capturePopup = window.open(
-    '/meet-addon-capture?token=' + encodeURIComponent(authToken),
-    'audio-capture',
-    'width=420,height=320'
-  );
+  // Try popup approach (works when sidebar can open popups)
+  try {
+    capturePopup = window.open(
+      '/meet-addon-capture?token=' + encodeURIComponent(authToken),
+      'audio-capture',
+      'width=420,height=320,left=100,top=100'
+    );
+  } catch {}
 
-  // Listen on BroadcastChannel
-  transcriptChannel = new BroadcastChannel('meet-transcript');
-  transcriptChannel.onmessage = (evt) => {
-    const msg = evt.data;
-    if (msg.type === 'transcript') {
-      if (msg.isFinal) {
-        transcriptText += (transcriptText ? ' ' : '') + msg.text;
-        interimText = '';
-      } else {
-        interimText = msg.text;
+  // Listen on BroadcastChannel (from popup or extension)
+  try {
+    transcriptChannel = new BroadcastChannel('meet-transcript');
+    transcriptChannel.onmessage = (evt) => {
+      const msg = evt.data;
+      if (msg.type === 'transcript') {
+        if (msg.isFinal) {
+          transcriptText += (transcriptText ? ' ' : '') + msg.text;
+          interimText = '';
+        } else {
+          interimText = msg.text;
+        }
+        updateTranscriptBox();
+      } else if (msg.type === 'stopped') {
+        stopTranscript();
       }
-      updateTranscriptBox();
-    } else if (msg.type === 'stopped') {
-      stopTranscript();
+    };
+  } catch {}
+
+  // If popup was blocked, show instructions
+  if (!capturePopup || capturePopup.closed) {
+    // Open as a new tab instead
+    const win = window.open('/meet-addon-capture?token=' + encodeURIComponent(authToken), '_blank');
+    if (!win) {
+      alert('Please allow popups for this site, or open this URL manually:\n' + location.origin + '/meet-addon-capture?token=' + authToken);
     }
-  };
+  }
 
   renderGuide();
 }

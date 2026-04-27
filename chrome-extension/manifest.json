@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "RealWork Onboarding Audio",
+  "version": "1.0.0",
+  "description": "Captures Meet audio for live transcription in the RealWork onboarding tool",
+  "permissions": [
+    "tabCapture",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "https://meet.google.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "icons": {
+    "16": "icon-16.png",
+    "48": "icon-48.png",
+    "128": "icon-128.png"
+  },
+  "externally_connectable": {
+    "matches": [
+      "https://site-launch-tracker--site-launch-tracker.us-central1.hosted.app/*"
+    ]
+  }
+}
