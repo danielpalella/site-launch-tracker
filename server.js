@@ -3005,7 +3005,10 @@ async function driveCreateFolder(name, parentId, token) {
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ name, mimeType: 'application/vnd.google-apps.folder', parents: [parentId] }),
   });
-  if (!r.ok) throw new Error(`Drive folder create failed: ${r.status}`);
+  if (!r.ok) {
+    const errBody = await r.text().catch(() => '');
+    throw new Error(`Drive folder create failed (${r.status}): ${errBody.slice(0, 200)}`);
+  }
   return (await r.json()).id;
 }
 
@@ -3014,7 +3017,11 @@ async function driveFindFolder(name, parentId, token) {
   const r = await fetchWithRetry(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)&pageSize=1`, {
     headers: { Authorization: `Bearer ${token}` },
   });
-  if (!r.ok) return null;
+  if (!r.ok) {
+    const errBody = await r.text().catch(() => '');
+    console.warn(`[drive] findFolder failed (${r.status}):`, errBody.slice(0, 200));
+    return null;
+  }
   const data = await r.json();
   return data.files?.[0]?.id || null;
 }
@@ -4693,10 +4700,24 @@ app.post('/api/launches/:id/push-to-drive', requireAuth, async (req, res) => {
     if (!doc.exists) return res.status(404).json({ error: 'Not found' });
     const d = doc.data();
     if (!d.onboarding_profile) return res.status(400).json({ error: 'No onboarding profile to push' });
-    const result = await pushOnboardingToDrive(req.params.id, d.account_name || 'Unknown', d.onboarding_profile, null);
-    if (!result) return res.status(502).json({ error: 'Drive push failed — check analytics connection' });
-    res.json({ ok: true, folderId: result.clientFolderId });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+
+    // Attempt Drive push with full error surfacing
+    const token = await getAnalyticsAccessToken();
+    const clientFolderId = await driveGetOrCreateClientFolder(d.account_name || 'Unknown', token);
+    const obFolderId = await driveGetOrCreateSubfolder('Onboarding', clientFolderId, token);
+    const date = new Date().toISOString().slice(0, 10);
+    await driveUploadFile(`Onboarding Profile — ${date}.json`, JSON.stringify(d.onboarding_profile, null, 2), 'application/json', obFolderId, token);
+
+    await db.collection('launches').doc(req.params.id).update({
+      drive_folder_id: clientFolderId,
+      drive_folder_url: `https://drive.google.com/drive/folders/${clientFolderId}`,
+    });
+
+    res.json({ ok: true, folderId: clientFolderId });
+  } catch (err) {
+    console.error('[drive] push-to-drive error:', err);
+    res.status(502).json({ error: err.message || 'Drive push failed' });
+  }
 });
 
 // Lightweight client search for onboarding picker (returns minimal fields)
