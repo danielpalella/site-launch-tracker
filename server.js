@@ -191,6 +191,7 @@ function formatLaunch(doc) {
     drive_folder_id:      d.drive_folder_id       || null,
     drive_folder_url:     d.drive_folder_url      || null,
     has_research:         !!d.research_md,
+    projects:             d.projects || [],
   };
 }
 
@@ -3819,6 +3820,30 @@ ${cr.awards?.length ? `- Awards: ${cr.awards.join(', ')}` : ''}`);
       } catch (e) { console.warn('Failed to fetch research for blog:', e.message); }
     }
 
+    // ── Fetch project examples for this site (if available) ──
+    let projectsContext = '';
+    if (cleanDomain) {
+      try {
+        const snap = await db.collection('launches')
+          .where('domain_name', '==', cleanDomain).limit(1).get();
+        if (!snap.empty) {
+          const projectsArr = snap.docs[0].data().projects;
+          if (projectsArr?.length) {
+            const top3 = projectsArr.slice(0, 3);
+            const lines = top3.map((p, i) => {
+              let entry = `Project ${i + 1}: ${p.job_title || 'Untitled'} in ${p.customer_city || 'unknown location'}`;
+              if (p.job_description) entry += `\nDescription: ${p.job_description}`;
+              if (p.customer_name) entry += `\nCustomer: ${p.customer_name}`;
+              if (p.review_rating) entry += ` — ${p.review_rating} stars`;
+              if (p.review_text) entry += `\nReview: "${p.review_text}"`;
+              return entry;
+            }).join('\n\n');
+            projectsContext = `\n\n--- REAL PROJECT EXAMPLES (from completed jobs) ---\n${lines}\n--- END PROJECT EXAMPLES ---\n\nUse these real project examples to ground the blog post in actual work. Reference specific jobs, quote real customer reviews, and mention real locations. This is what makes the content unique and trustworthy.\n`;
+          }
+        }
+      } catch (e) { console.warn('Failed to fetch projects for blog:', e.message); }
+    }
+
     const keywordLine = kwArray.length
       ? `\nTarget SEO keywords: ${kwArray.map(k => `"${k}"`).join(', ')} — weave these naturally throughout the post (max 3 mentions of the primary keyword). Include "${kwArray[0]}" in the <h1> and at least one <h2>.\n`
       : '';
@@ -3851,7 +3876,7 @@ Content type: ${ct.label}
 
 Question: "${question}"
 Context: ${detail || '(no additional context)'}
-${onboardingContext}${researchContext}${keywordLine}${bizLine}${cityLine}${reviewsLine}${customerReviewsLine}${internalLinksLine}
+${onboardingContext}${researchContext}${projectsContext}${keywordLine}${bizLine}${cityLine}${reviewsLine}${customerReviewsLine}${internalLinksLine}
 Write an SEO-optimized blog post in clean HTML. Structure:
 - A compelling <h1> title under 60 characters — rewrite the source question into an SEO-friendly blog title (e.g. not "Which one of yall did this?" but "5 Signs Your Roof Was Damaged in a Storm")${kwArray.length ? ` Include the target keyword.` : ''}${city ? ` Include "${city}".` : ''}
 - A brief intro paragraph (2-3 sentences) that directly addresses the question within the first 150 words
@@ -4778,6 +4803,145 @@ app.post('/api/launches/:id/push-to-drive', requireAuth, async (req, res) => {
   } catch (err) {
     console.error('[drive] push-to-drive error:', err);
     res.status(502).json({ error: err.message || 'Drive push failed' });
+  }
+});
+
+// Scan Projects folder via Gemini Vision
+app.post('/api/launches/:id/scan-projects', requireAuth, async (req, res) => {
+  try {
+    const doc = await db.collection('launches').doc(req.params.id).get();
+    if (!doc.exists) return res.status(404).json({ error: 'Not found' });
+    const d = doc.data();
+    if (!d.drive_folder_id) return res.status(400).json({ error: 'No Google Drive folder linked to this launch' });
+
+    const token = await getAnalyticsAccessToken();
+    const geminiKey = await getGeminiKey();
+
+    // Find or create Projects subfolder
+    const projectsFolderId = await driveGetOrCreateSubfolder('Projects', d.drive_folder_id, token);
+
+    // List image files in Projects folder (and one level of subfolders)
+    async function listImages(folderId) {
+      const q = encodeURIComponent(`'${folderId}' in parents and mimeType contains 'image/' and trashed=false`);
+      const r = await fetchWithRetry(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,mimeType)&pageSize=20`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!r.ok) return [];
+      const data = await r.json();
+      return data.files || [];
+    }
+
+    // Also check subfolders one level deep
+    async function listSubfolders(folderId) {
+      const q = encodeURIComponent(`'${folderId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`);
+      const r = await fetchWithRetry(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)&pageSize=10`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!r.ok) return [];
+      const data = await r.json();
+      return data.files || [];
+    }
+
+    let images = await listImages(projectsFolderId);
+    const subfolders = await listSubfolders(projectsFolderId);
+    for (const sf of subfolders) {
+      const subImages = await listImages(sf.id);
+      images = images.concat(subImages);
+    }
+
+    // Cap at 20 images
+    images = images.slice(0, 20);
+
+    if (images.length === 0) {
+      return res.json({ projects: [], message: 'No images found in Projects folder' });
+    }
+
+    const extractionPrompt = `You are extracting project/job data from a screenshot of a home services contractor's project management software.
+
+Extract ALL visible information and return ONLY valid JSON:
+{
+  "customer_name": "first name and last initial only (e.g. Dave D.)",
+  "customer_city": "city and state",
+  "job_date": "date of the job",
+  "job_title": "brief title for the job",
+  "job_description": "the full description text visible",
+  "customer_type": "residential or commercial",
+  "service_tags": ["list of service types visible"],
+  "review_text": "the full Google review text if visible, or null",
+  "review_rating": 5 or null,
+  "reviewer_name": "reviewer name if visible, or null",
+  "has_photos": true/false based on whether project photos are visible in the screenshot
+}
+
+If the screenshot is not a project/job record, return {"error": "not_a_project"}.`;
+
+    const projects = [];
+    for (let i = 0; i < images.length; i++) {
+      try {
+        // Download image content
+        const imgRes = await fetchWithRetry(`https://www.googleapis.com/drive/v3/files/${images[i].id}?alt=media`, {
+          headers: { Authorization: `Bearer ${token}` },
+          timeout: 30000,
+        });
+        if (!imgRes.ok) {
+          console.warn(`[scan-projects] Failed to download image ${images[i].name}: ${imgRes.status}`);
+          continue;
+        }
+        const imgBuffer = Buffer.from(await imgRes.arrayBuffer());
+        const base64 = imgBuffer.toString('base64');
+        const mimeType = images[i].mimeType || 'image/jpeg';
+
+        // Send to Gemini Vision
+        const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{
+              parts: [
+                { text: extractionPrompt },
+                { inlineData: { mimeType, data: base64 } }
+              ]
+            }],
+            generationConfig: { temperature: 0.1, maxOutputTokens: 1024, thinkingConfig: { thinkingBudget: 0 } }
+          }),
+          signal: AbortSignal.timeout(30000),
+        });
+        incrApiStat('gemini');
+
+        const geminiData = await geminiRes.json();
+        if (!geminiRes.ok) {
+          console.warn(`[scan-projects] Gemini error for ${images[i].name}:`, geminiData.error?.message);
+          continue;
+        }
+
+        const rawText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        // Extract JSON from response (may be wrapped in markdown code blocks)
+        const jsonStr = rawText.replace(/^```json?\n?/i, '').replace(/\n?```$/m, '').trim();
+        const parsed = JSON.parse(jsonStr);
+
+        if (!parsed.error) {
+          parsed._source_file = images[i].name;
+          projects.push(parsed);
+        }
+      } catch (err) {
+        console.warn(`[scan-projects] Error processing ${images[i].name}:`, err.message);
+      }
+
+      // 1-second delay between images to avoid rate limiting
+      if (i < images.length - 1) await new Promise(r => setTimeout(r, 1000));
+    }
+
+    // Save projects to launch doc
+    await db.collection('launches').doc(req.params.id).update({
+      projects,
+      updated_at: FieldValue.serverTimestamp(),
+    });
+
+    console.log(`[scan-projects] Extracted ${projects.length} projects from ${images.length} images for ${d.account_name}`);
+    res.json({ projects, imagesScanned: images.length });
+  } catch (err) {
+    console.error('[scan-projects] error:', err);
+    res.status(500).json({ error: err.message || 'Scan failed' });
   }
 });
 

@@ -8816,7 +8816,7 @@ async function deleteResearch(launchId) {
   }
 }
 
-function renderOnboardingProfile(profile, container, launchId, driveUrl, hasResearch) {
+function renderOnboardingProfile(profile, container, launchId, driveUrl, hasResearch, projects) {
   if (!profile) {
     container.innerHTML = '<div style="text-align:center;padding:2rem 1rem;color:var(--text-muted)"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom:.5rem;opacity:.4"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><div style="font-size:.85rem;font-weight:600;margin-bottom:.2rem">No onboarding interview yet</div><div style="font-size:.78rem">Start an interview from the <a href="/onboarding" style="color:var(--primary)">Onboarding</a> page.</div></div>';
     if (launchId) renderResearchSection(container, launchId, hasResearch);
@@ -8833,6 +8833,7 @@ function renderOnboardingProfile(profile, container, launchId, driveUrl, hasRese
     h += `<div style="display:flex;justify-content:flex-end;gap:.4rem;margin-bottom:.5rem">
       ${driveUrl ? `<a href="${esc(driveUrl)}" target="_blank" style="font-size:.75rem;font-weight:600;padding:.3rem .7rem;border:1px solid var(--border);border-radius:5px;background:none;color:var(--text-muted);text-decoration:none;display:inline-flex;align-items:center;gap:.3rem;cursor:pointer;font-family:inherit"><img src="/drive-icon.avif" width="14" height="14" style="border-radius:2px">Drive</a>` : `<button onclick="pushProfileToDrive('${launchId}')" style="font-size:.75rem;font-weight:600;padding:.3rem .7rem;border:1px solid var(--border);border-radius:5px;background:none;color:var(--text-muted);cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:.3rem"><img src="/drive-icon.avif" width="14" height="14" style="border-radius:2px">Push to Drive</button>`}
       <button onclick="editOnboardingProfile('${launchId}')" style="font-size:.75rem;font-weight:600;padding:.3rem .7rem;border:1px solid var(--border);border-radius:5px;background:none;color:var(--text-muted);cursor:pointer;font-family:inherit">Edit Profile</button>
+      <button onclick="scanProjects('${launchId}')" id="scan-projects-btn-${launchId}" style="font-size:.75rem;font-weight:600;padding:.3rem .7rem;border:1px solid var(--border);border-radius:5px;background:none;color:var(--text-muted);cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:.3rem"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Scan Projects</button>
     </div>`;
   }
   h += sec('Overview', f('Business Name',p.business_name)+f('Owner',p.owner_name)+f('Years in Business',p.years_in_business)+f('Origin Story',p.origin_story)+f('Family Connection',p.family_connection)+li('Pride Points',p.pride_points));
@@ -8842,6 +8843,22 @@ function renderOnboardingProfile(profile, container, launchId, driveUrl, hasRese
   h += sec('Brand Voice', f('Personality',p.brand_voice?.personality)+f('Tone',p.brand_voice?.tone)+li('Preferred Phrases',p.brand_voice?.preferred_phrases)+li('Avoid',p.brand_voice?.avoid_phrases)+f('Voice',p.brand_voice?.voice_description));
   h += sec('Credentials', li('Licenses',p.credentials?.licenses)+f('Insured',p.credentials?.insured)+f('Bonded',p.credentials?.bonded)+li('Associations',p.credentials?.associations)+li('Awards',p.credentials?.awards));
   h += sec('Goals', li('Website Goals',p.goals?.website_goals)+f('6-Month Success',p.goals?.six_month_success)+f('Additional Notes',p.goals?.additional_notes));
+  // Projects section
+  if (projects && projects.length) {
+    let ph = '<div style="border:1px solid var(--border);border-radius:8px;padding:.75rem 1rem;margin-bottom:.6rem"><div style="font-size:.75rem;font-weight:700;color:var(--primary);text-transform:uppercase;letter-spacing:.4px;margin-bottom:.5rem">Scanned Projects (' + projects.length + ')</div>';
+    projects.forEach((proj, idx) => {
+      ph += '<div style="padding:.5rem 0;' + (idx > 0 ? 'border-top:1px solid var(--border);' : '') + '">';
+      ph += '<div style="font-size:.82rem;font-weight:600;color:var(--text)">' + esc(proj.job_title || 'Untitled Project') + '</div>';
+      if (proj.customer_city) ph += '<div style="font-size:.75rem;color:var(--text-muted);margin-top:.1rem">' + esc(proj.customer_city) + '</div>';
+      if (proj.job_date) ph += '<div style="font-size:.72rem;color:var(--text-muted)">' + esc(proj.job_date) + '</div>';
+      if (proj.review_text) ph += '<div style="font-size:.78rem;color:var(--text);margin-top:.3rem;font-style:italic;border-left:2px solid var(--primary);padding-left:.5rem">"' + esc(proj.review_text.slice(0, 150)) + (proj.review_text.length > 150 ? '...' : '') + '"' + (proj.review_rating ? ' — ' + proj.review_rating + ' stars' : '') + '</div>';
+      if (proj.service_tags?.length) ph += '<div style="margin-top:.2rem">' + proj.service_tags.map(t => '<span style="display:inline-block;font-size:.7rem;padding:.1rem .4rem;margin:.1rem .15rem 0 0;background:var(--primary)0a;border:1px solid var(--primary)22;border-radius:3px;color:var(--text)">' + esc(t) + '</span>').join('') + '</div>';
+      ph += '</div>';
+    });
+    ph += '</div>';
+    h += ph;
+  }
+  h += '<div id="projects-section-' + (launchId || '') + '"></div>';
   container.innerHTML = h;
   if (launchId) renderResearchSection(container, launchId, hasResearch);
 }
@@ -8914,7 +8931,7 @@ function editOnboardingProfile(launchId) {
 function cancelEditProfile(launchId) {
   const profile = _obProfileCache[launchId];
   const container = document.getElementById('crm-onboarding-body') || document.getElementById(`acd-onboarding-body-${launchId}`);
-  if (container && profile) renderOnboardingProfile(profile, container, launchId, null, !!_researchStatusCache[launchId]);
+  if (container && profile) renderOnboardingProfile(profile, container, launchId, null, !!_researchStatusCache[launchId], _projectsCache[launchId] || []);
 }
 
 async function saveEditProfile(launchId) {
@@ -8952,7 +8969,7 @@ async function saveEditProfile(launchId) {
     });
     if (!r.ok) throw new Error((await r.json()).error || 'Save failed');
     _obProfileCache[launchId] = profile;
-    renderOnboardingProfile(profile, container, launchId, null, !!_researchStatusCache[launchId]);
+    renderOnboardingProfile(profile, container, launchId, null, !!_researchStatusCache[launchId], _projectsCache[launchId] || []);
     showToast('Onboarding profile updated', 'success');
   } catch (err) {
     if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save Changes'; }
@@ -8980,8 +8997,28 @@ async function pushProfileToDrive(launchId) {
   }
 }
 
+async function scanProjects(launchId) {
+  const btn = document.getElementById('scan-projects-btn-' + launchId);
+  if (btn) { btn.disabled = true; btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="animation:spin 1s linear infinite"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>Scanning...'; }
+  try {
+    const r = await fetch(`/api/launches/${launchId}/scan-projects`, { method: 'POST' });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'Scan failed');
+    _projectsCache[launchId] = data.projects || [];
+    showToast(`Scanned ${data.imagesScanned || 0} images, extracted ${(data.projects || []).length} projects`, 'success');
+    // Re-render the profile to show projects
+    const profile = _obProfileCache[launchId];
+    const container = document.getElementById('crm-onboarding-body') || document.getElementById(`acd-onboarding-body-${launchId}`);
+    if (container && profile) renderOnboardingProfile(profile, container, launchId, null, !!_researchStatusCache[launchId], data.projects || []);
+  } catch (err) {
+    showToast('Scan failed: ' + err.message, 'error');
+    if (btn) { btn.disabled = false; btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Scan Projects'; }
+  }
+}
+
 let _crmOnboardingLoaded = false;
 let _researchStatusCache = {}; // launchId -> boolean
+let _projectsCache = {}; // launchId -> array
 
 async function loadCrmOnboardingProfile() {
   if (_crmOnboardingLoaded) return;
@@ -8993,7 +9030,8 @@ async function loadCrmOnboardingProfile() {
     if (!r.ok) throw new Error();
     const data = await r.json();
     _researchStatusCache[launchId] = !!data.has_research;
-    renderOnboardingProfile(data.onboarding_profile || null, body, launchId, data.drive_folder_url, !!data.has_research);
+    _projectsCache[launchId] = data.projects || [];
+    renderOnboardingProfile(data.onboarding_profile || null, body, launchId, data.drive_folder_url, !!data.has_research, data.projects || []);
     _crmOnboardingLoaded = true;
   } catch {
     body.innerHTML = '<div style="color:var(--text-muted);font-size:.82rem">Failed to load onboarding data.</div>';
@@ -9008,7 +9046,8 @@ async function loadAcdOnboardingProfile(id) {
     if (!r.ok) throw new Error();
     const data = await r.json();
     _researchStatusCache[id] = !!data.has_research;
-    renderOnboardingProfile(data.onboarding_profile || null, body, id, data.drive_folder_url, !!data.has_research);
+    _projectsCache[id] = data.projects || [];
+    renderOnboardingProfile(data.onboarding_profile || null, body, id, data.drive_folder_url, !!data.has_research, data.projects || []);
     body.dataset.loaded = 'true';
   } catch {
     body.innerHTML = '<div style="color:var(--text-muted);font-size:.82rem">Failed to load onboarding data.</div>';
