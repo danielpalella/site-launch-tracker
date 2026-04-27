@@ -126,12 +126,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 <!-- Auth required screen -->
 <div class="ma-auth" id="ma-auth">
   <div class="ma-auth-title">Sign In to Continue</div>
-  <div class="ma-auth-sub">Click below to sign in with your RealWork Labs account.</div>
-  <button onclick="openSignInPopup()" style="margin:1rem auto;display:flex;align-items:center;gap:.5rem;padding:.6rem 1.5rem;border:none;border-radius:8px;background:var(--primary);color:#fff;font-size:.85rem;font-weight:700;cursor:pointer;font-family:inherit">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
-    Sign In
-  </button>
-  <div style="font-size:.7rem;color:var(--text-muted);margin-top:.5rem">Opens a sign-in window</div>
+  <div class="ma-auth-sub">Open this link in a new tab to authenticate, then come back here.</div>
+  <a href="/meet-addon-auth" target="_blank" onclick="startTokenPolling()" style="display:inline-flex;align-items:center;gap:.5rem;margin:1rem auto;padding:.6rem 1.5rem;border:none;border-radius:8px;background:var(--primary);color:#fff;font-size:.85rem;font-weight:700;cursor:pointer;font-family:inherit;text-decoration:none">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+    Sign In (opens new tab)
+  </a>
+  <div id="ma-auth-waiting" style="display:none;font-size:.75rem;color:var(--lime);margin-top:.5rem">Waiting for sign-in...</div>
 </div>
 
 <!-- Phase 1: Client Selection -->
@@ -292,28 +292,27 @@ function authFetch(url, opts = {}) {
   return fetch(url, opts);
 }
 
-// ── Popup auth flow ──
-let authPopupInterval = null;
+// ── Auth polling (waits for sign-in from the new tab) ──
+let authPollInterval = null;
 
-function openSignInPopup() {
-  // Open the app's login page in a popup — after login it redirects to a page that posts the token back
-  const popup = window.open('/meet-addon-auth', 'realwork-auth', 'width=420,height=500,left=200,top=200');
-  // Poll for the token being passed back via localStorage
-  authPopupInterval = setInterval(() => {
+function startTokenPolling() {
+  document.getElementById('ma-auth-waiting').style.display = 'block';
+  if (authPollInterval) clearInterval(authPollInterval);
+  authPollInterval = setInterval(() => {
     try {
       const token = localStorage.getItem('meet-addon-token');
       if (token) {
         localStorage.removeItem('meet-addon-token');
-        clearInterval(authPopupInterval);
+        localStorage.setItem('meet-addon-token-saved', token);
+        clearInterval(authPollInterval);
         authToken = token;
         document.getElementById('ma-auth').style.display = 'none';
         showPhase('select');
         loadRecentClients();
         loadExistingSessions();
-        if (popup && !popup.closed) popup.close();
       }
     } catch {}
-  }, 500);
+  }, 1000);
 }
 
 // ── Initialization ──
