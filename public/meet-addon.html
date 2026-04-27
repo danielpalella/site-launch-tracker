@@ -400,20 +400,16 @@ function toggleTranscript() {
   try {
     transcriptChannel = new BroadcastChannel('meet-transcript');
     transcriptChannel.onmessage = (evt) => {
-      const msg = evt.data;
-      if (msg.type === 'transcript') {
-        if (msg.isFinal) {
-          transcriptText += (transcriptText ? ' ' : '') + msg.text;
-          interimText = '';
-        } else {
-          interimText = msg.text;
-        }
-        updateTranscriptBox();
-      } else if (msg.type === 'stopped') {
-        stopTranscript();
-      }
+      handleTranscriptMessage(evt.data);
     };
   } catch {}
+
+  // Also listen via postMessage as fallback (BroadcastChannel may not work across iframe origins)
+  window.addEventListener('message', (evt) => {
+    if (evt.data?.type === 'rw-transcript') {
+      handleTranscriptMessage({ type: 'transcript', text: evt.data.text, isFinal: evt.data.isFinal });
+    }
+  });
 
   // If popup was blocked, show instructions
   if (!capturePopup || capturePopup.closed) {
@@ -425,6 +421,20 @@ function toggleTranscript() {
   }
 
   renderGuide();
+}
+
+function handleTranscriptMessage(msg) {
+  if (msg.type === 'transcript') {
+    if (msg.isFinal) {
+      transcriptText += (transcriptText ? ' ' : '') + msg.text;
+      interimText = '';
+    } else {
+      interimText = msg.text;
+    }
+    updateTranscriptBox();
+  } else if (msg.type === 'stopped') {
+    stopTranscript();
+  }
 }
 
 function stopTranscript() {

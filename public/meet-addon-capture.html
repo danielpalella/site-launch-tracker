@@ -26,6 +26,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 <div id="status" class="status"><span class="status-dot waiting"></span>Requesting tab audio...</div>
 <div class="level-bar-wrap"><div class="level-bar" id="level-bar"></div></div>
 <button class="btn-stop" id="btn-stop" style="display:none" onclick="stopCapture()">Stop Transcription</button>
+<div id="transcript-debug" style="display:none;max-height:120px;overflow-y:auto;margin-top:.5rem;padding:.5rem;background:#111;border-radius:6px;border:1px solid #333"></div>
 <div class="hint" id="hint">Select the Meet tab and check "Share tab audio"</div>
 
 <script>
@@ -112,8 +113,23 @@ async function startCapture() {
         source.connect(processor);
         processor.connect(audioCtx.destination);
       } else if (msg.type === 'transcript') {
+        // Show transcript in the popup for debugging
+        const debugDiv = document.getElementById('transcript-debug');
+        if (debugDiv) {
+          debugDiv.style.display = 'block';
+          if (msg.isFinal) {
+            debugDiv.innerHTML += '<div style="color:#fff;font-size:.75rem">' + msg.text + '</div>';
+          } else {
+            let interim = debugDiv.querySelector('.interim');
+            if (!interim) { interim = document.createElement('div'); interim.className = 'interim'; interim.style.cssText = 'color:#888;font-size:.75rem;font-style:italic'; debugDiv.appendChild(interim); }
+            interim.textContent = msg.text;
+          }
+          debugDiv.scrollTop = debugDiv.scrollHeight;
+        }
         // Relay to sidebar via BroadcastChannel
         bc.postMessage({ type: 'transcript', text: msg.text, isFinal: msg.isFinal });
+        // Also try window.opener in case BroadcastChannel doesn't work across iframe origins
+        try { window.opener?.postMessage({ type: 'rw-transcript', text: msg.text, isFinal: msg.isFinal }, '*'); } catch {}
       } else if (msg.type === 'error') {
         setStatus('Error: ' + msg.message, 'error');
       } else if (msg.type === 'info') {
