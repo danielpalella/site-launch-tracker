@@ -3,336 +3,152 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Onboarding · Meet Add-on</title>
+<title>Onboarding · Meet</title>
 <link rel="icon" href="/favicon.png" type="image/png" />
 <style>
-:root { --primary: #1259FF; --bg: #06102a; --surface: #0f1d3a; --lime: #cbff4d; --text: #ffffff; --text-muted: rgba(255,255,255,.5); --border: rgba(255,255,255,.1); --green: #16a34a; --red: #ef4444 }
+:root { --primary: #1259FF; --bg: #06102a; --surface: #0f1d3a; --lime: #cbff4d; --text: #fff; --text-muted: rgba(255,255,255,.5); --border: rgba(255,255,255,.1); --green: #16a34a }
 * { margin: 0; padding: 0; box-sizing: border-box }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden }
 
 /* Header */
-.ma-header { display: flex; align-items: center; padding: .5rem .75rem; border-bottom: 1px solid var(--border); flex-shrink: 0 }
+.ma-header { padding: .6rem .75rem; display: flex; align-items: center; gap: .5rem; border-bottom: 1px solid var(--border) }
 .ma-logo { height: 18px; opacity: .7 }
-.ma-header-title { font-size: .72rem; font-weight: 700; color: var(--text-muted); margin-left: .5rem; letter-spacing: .3px }
-.ma-header-right { margin-left: auto; display: flex; align-items: center; gap: .4rem }
-.ma-standalone-badge { font-size: .55rem; font-weight: 700; background: #d9770633; color: #d97706; border-radius: 4px; padding: .1rem .35rem; display: none }
+.ma-header-title { font-size: .7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px }
+
+/* Auth */
+.ma-auth { display: none; padding: 2rem 1rem; text-align: center }
+.ma-auth input { width: 100%; padding: .5rem .7rem; border: 1px solid var(--border); border-radius: 6px; font-size: .82rem; font-family: inherit; color: var(--text); background: var(--surface); margin: .75rem 0 .5rem; box-sizing: border-box }
+.ma-auth input:focus { outline: none; border-color: var(--primary) }
+.ma-auth-btn { width: 100%; padding: .55rem; border: none; border-radius: 6px; background: var(--primary); color: #fff; font-size: .82rem; font-weight: 700; cursor: pointer; font-family: inherit }
+.ma-auth-err { font-size: .72rem; color: #ef4444; margin-top: .3rem; display: none }
 
 /* Phases */
 .ma-phase { display: none; padding: .75rem }
 .ma-phase.active { display: block }
 
-/* Phase 1: Client Selection */
-.ma-section-label { font-size: .65rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: .4rem }
-.ma-search-wrap { position: relative; margin-bottom: .5rem }
-.ma-search-input { width: 100%; padding: .5rem .65rem .5rem 2rem; border: 1px solid var(--border); border-radius: 8px; font-size: .82rem; font-family: inherit; color: var(--text); background: var(--surface); box-sizing: border-box }
-.ma-search-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px rgba(18,89,255,.15) }
-.ma-search-input::placeholder { color: var(--text-muted) }
-.ma-search-icon { position: absolute; left: .6rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none }
-.ma-results { max-height: 220px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); display: none }
-.ma-results.open { display: block }
-.ma-result-item { display: flex; align-items: center; gap: .5rem; padding: .45rem .65rem; cursor: pointer; border-bottom: 1px solid var(--border); transition: background .1s }
-.ma-result-item:last-child { border-bottom: none }
-.ma-result-item:hover { background: rgba(18,89,255,.08) }
-.ma-result-item.selected { background: rgba(18,89,255,.12); border-left: 3px solid var(--primary) }
-.ma-result-name { font-size: .78rem; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
-.ma-result-meta { font-size: .65rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
-.ma-result-status { font-size: .55rem; font-weight: 700; border-radius: 6px; padding: .08rem .3rem; flex-shrink: 0 }
-.ma-empty { padding: .5rem .65rem; font-size: .75rem; color: var(--text-muted); text-align: center }
+/* Client search */
+.ma-search { width: 100%; padding: .5rem .7rem; border: 1px solid var(--border); border-radius: 6px; font-size: .82rem; font-family: inherit; color: var(--text); background: var(--surface); box-sizing: border-box; margin-bottom: .5rem }
+.ma-search:focus { outline: none; border-color: var(--primary) }
+.ma-client { padding: .45rem .6rem; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; margin-bottom: .3rem; transition: border-color .15s }
+.ma-client:hover { border-color: var(--primary) }
+.ma-client-name { font-size: .8rem; font-weight: 600 }
+.ma-client-meta { font-size: .68rem; color: var(--text-muted) }
 
-.ma-selected-card { display: none; border: 2px solid var(--primary); border-radius: 8px; padding: .5rem .75rem; margin-bottom: .5rem; background: rgba(18,89,255,.04) }
-.ma-sc-row { display: flex; align-items: center; gap: .5rem }
-.ma-sc-name { font-size: .82rem; font-weight: 700; color: var(--text); flex: 1 }
-.ma-sc-change { font-size: .65rem; color: var(--primary); background: none; border: none; cursor: pointer; font-family: inherit; font-weight: 600; padding: .2rem .4rem }
-.ma-sc-change:hover { text-decoration: underline }
+/* Interview guide */
+.ma-guide { padding: .75rem }
+.ma-guide-client { font-size: .85rem; font-weight: 700; margin-bottom: .15rem }
+.ma-guide-progress { font-size: .68rem; color: var(--text-muted); margin-bottom: .75rem }
+.ma-guide-section { font-size: .6rem; font-weight: 700; color: var(--primary); text-transform: uppercase; letter-spacing: .5px; margin-bottom: .3rem }
+.ma-guide-question { font-size: .95rem; font-weight: 600; line-height: 1.4; margin-bottom: .5rem }
+.ma-guide-tips { font-size: .72rem; color: var(--text-muted); line-height: 1.45; margin-bottom: .75rem; padding: .5rem .65rem; background: var(--surface); border-radius: 6px; border-left: 3px solid var(--primary) }
+.ma-guide-followups { margin-bottom: .75rem }
+.ma-guide-followups-label { font-size: .62rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .3px; margin-bottom: .25rem }
+.ma-guide-followup { font-size: .72rem; color: rgba(255,255,255,.7); padding: .2rem 0; padding-left: .6rem; position: relative }
+.ma-guide-followup::before { content: ''; position: absolute; left: 0; top: .45rem; width: 4px; height: 4px; border-radius: 50%; background: var(--text-muted) }
+.ma-guide-btns { display: flex; gap: .4rem }
+.ma-btn-skip { flex: 0; padding: .45rem .75rem; border: 1px solid var(--border); border-radius: 6px; background: none; color: var(--text-muted); font-size: .75rem; font-weight: 600; cursor: pointer; font-family: inherit }
+.ma-btn-next { flex: 1; padding: .45rem .75rem; border: none; border-radius: 6px; background: var(--green); color: #fff; font-size: .78rem; font-weight: 700; cursor: pointer; font-family: inherit; display: flex; align-items: center; justify-content: center; gap: .3rem }
+.ma-guide-divider { height: 1px; background: var(--border); margin: .75rem 0 }
+.ma-guide-note { font-size: .72rem; color: var(--text-muted); line-height: 1.4 }
+.ma-guide-note strong { color: var(--text); font-weight: 600 }
 
-.ma-btn { display: flex; align-items: center; justify-content: center; gap: .4rem; width: 100%; padding: .55rem; border: none; border-radius: 8px; font-size: .82rem; font-weight: 700; cursor: pointer; font-family: inherit; transition: opacity .15s }
-.ma-btn:hover { opacity: .9 }
-.ma-btn:disabled { opacity: .4; cursor: not-allowed }
-.ma-btn-primary { background: var(--primary); color: #fff }
-.ma-btn-green { background: var(--green); color: #fff }
-.ma-btn-outline { background: none; border: 1px solid var(--border); color: var(--text) }
-.ma-btn-outline:hover { border-color: var(--text-muted) }
-.ma-btn-small { padding: .35rem .6rem; font-size: .72rem; width: auto }
+/* Section complete */
+.ma-section-done { background: var(--surface); border-radius: 8px; padding: .65rem .75rem; margin-bottom: .75rem; border-left: 3px solid var(--lime) }
+.ma-section-done-title { font-size: .72rem; font-weight: 700; color: var(--lime) }
+.ma-section-done-text { font-size: .7rem; color: var(--text-muted); margin-top: .15rem }
 
-/* Previous sessions */
-.ma-sessions { margin-top: .75rem }
-.ma-session-row { display: flex; align-items: center; gap: .5rem; padding: .4rem .65rem; border: 1px solid var(--border); border-radius: 6px; margin-bottom: .25rem; cursor: pointer; transition: border-color .15s }
-.ma-session-row:hover { border-color: var(--primary) }
-.ma-session-name { font-size: .75rem; font-weight: 600; color: var(--text); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
-.ma-session-status { font-size: .58rem; font-weight: 700; border-radius: 8px; padding: .1rem .35rem }
-
-/* Phase 2: Interview Running */
-.ma-copy-bar { margin-bottom: .5rem }
-.ma-copy-btn { display: flex; align-items: center; justify-content: center; gap: .35rem; width: 100%; padding: .45rem; background: rgba(18,89,255,.1); border: 1px solid rgba(18,89,255,.25); border-radius: 8px; color: var(--primary); font-size: .75rem; font-weight: 700; cursor: pointer; font-family: inherit; transition: all .15s }
-.ma-copy-btn:hover { background: rgba(18,89,255,.15) }
-.ma-copy-btn.copied { background: rgba(22,163,74,.1); border-color: rgba(22,163,74,.25); color: var(--green) }
-
-.ma-question-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: .65rem .75rem; margin-bottom: .5rem }
-.ma-q-section { font-size: .6rem; font-weight: 700; color: var(--primary); text-transform: uppercase; letter-spacing: .5px; margin-bottom: .15rem }
-.ma-q-progress { font-size: .6rem; color: var(--text-muted); float: right }
-.ma-q-text { font-size: .82rem; color: var(--text); line-height: 1.45; font-weight: 500 }
-
-.ma-transcript-feed { max-height: 180px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); padding: .4rem .6rem; margin-bottom: .5rem; min-height: 50px }
-.ma-transcript-empty { font-size: .72rem; color: var(--text-muted); text-align: center; padding: .5rem 0 }
-.ma-transcript-chunk { font-size: .75rem; color: rgba(255,255,255,.75); line-height: 1.4; padding: .15rem 0; border-bottom: 1px solid rgba(255,255,255,.04) }
-.ma-transcript-chunk:last-child { border-bottom: none }
-.ma-transcript-interim { font-size: .72rem; color: var(--text-muted); font-style: italic; padding: .1rem 0 }
-
-.ma-controls { display: flex; gap: .4rem }
-.ma-controls .ma-btn { flex: 1 }
-
-/* Section summary interstitial */
-.ma-summary-card { background: rgba(203,255,77,.04); border: 1px solid rgba(203,255,77,.12); border-radius: 8px; padding: .65rem .75rem; margin-bottom: .5rem }
-.ma-summary-badge { font-size: .6rem; font-weight: 700; color: var(--lime); text-transform: uppercase; letter-spacing: .5px; margin-bottom: .25rem }
-.ma-summary-text { font-size: .75rem; color: rgba(255,255,255,.75); line-height: 1.45 }
-.ma-summary-continue { text-align: center; margin-top: .4rem; font-size: .68rem; color: var(--text-muted) }
-
-/* Phase 3: Finish */
-.ma-finish-wrap { text-align: center; padding: 1.5rem .75rem }
-.ma-spinner { width: 28px; height: 28px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: ma-spin .7s linear infinite; margin: 0 auto .75rem }
-@keyframes ma-spin { to { transform: rotate(360deg) } }
-.ma-finish-icon { width: 44px; height: 44px; border-radius: 50%; background: rgba(203,255,77,.12); color: var(--lime); display: flex; align-items: center; justify-content: center; margin: 0 auto .6rem }
-.ma-finish-title { font-size: .95rem; font-weight: 700; color: var(--text); margin-bottom: .25rem }
-.ma-finish-sub { font-size: .78rem; color: var(--text-muted); line-height: 1.5; margin-bottom: .75rem }
-
-/* Profile summary compact */
-.ma-profile-section { border: 1px solid var(--border); border-radius: 6px; padding: .45rem .6rem; margin-bottom: .35rem; background: var(--surface) }
-.ma-profile-section-title { font-size: .62rem; font-weight: 700; color: var(--primary); text-transform: uppercase; letter-spacing: .3px; margin-bottom: .2rem }
-.ma-profile-field { font-size: .72rem; color: var(--text); line-height: 1.35; margin-bottom: .15rem }
-.ma-profile-label { font-weight: 700; color: var(--text-muted); font-size: .62rem; text-transform: uppercase }
-
-/* Auth screen */
-.ma-auth { display: none; text-align: center; padding: 2rem 1rem }
-.ma-auth-title { font-size: 1rem; font-weight: 700; margin-bottom: .4rem }
-.ma-auth-sub { font-size: .82rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 1rem }
-.ma-auth-link { color: var(--primary); text-decoration: underline }
-
-/* Scrollbar styling */
-::-webkit-scrollbar { width: 4px }
-::-webkit-scrollbar-track { background: transparent }
-::-webkit-scrollbar-thumb { background: rgba(255,255,255,.15); border-radius: 2px }
+/* Finish screen */
+.ma-finish { display: none; padding: 1.5rem .75rem; text-align: center }
+.ma-finish-title { font-size: 1rem; font-weight: 700; margin-bottom: .4rem }
+.ma-finish-sub { font-size: .82rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 1rem }
+.ma-finish-btn { width: 100%; padding: .55rem; border: none; border-radius: 6px; background: var(--primary); color: #fff; font-size: .82rem; font-weight: 700; cursor: pointer; font-family: inherit; margin-bottom: .4rem }
+.ma-finish-btn-outline { width: 100%; padding: .55rem; border: 1px solid var(--border); border-radius: 6px; background: none; color: var(--text); font-size: .82rem; font-weight: 600; cursor: pointer; font-family: inherit }
+.ma-finish-status { font-size: .75rem; color: var(--text-muted); margin-top: .5rem }
 </style>
 </head>
 <body>
 
 <div class="ma-header">
-  <img src="/logo-white.svg" alt="RealWork Labs" class="ma-logo">
-  <span class="ma-header-title">ONBOARDING</span>
-  <div class="ma-header-right">
-    <span class="ma-standalone-badge" id="ma-standalone-badge">STANDALONE</span>
-  </div>
+  <img src="/logo-white.svg" alt="RealWork" class="ma-logo">
+  <span class="ma-header-title">Onboarding</span>
 </div>
 
-<!-- Auth required screen -->
+<!-- Auth -->
 <div class="ma-auth" id="ma-auth">
-  <div class="ma-auth-title">Connect to RealWork</div>
-  <div class="ma-auth-sub">Paste your access code below. Get it from the onboarding page by clicking "Copy Meet Code".</div>
-  <div style="display:flex;gap:.4rem;margin:1rem auto;max-width:280px">
-    <input type="text" id="ma-token-input" placeholder="Paste access code..." style="flex:1;padding:.5rem .7rem;border:1px solid var(--border);border-radius:6px;font-size:.82rem;font-family:inherit;color:var(--text);background:var(--surface)">
-    <button onclick="submitToken()" style="padding:.5rem .8rem;border:none;border-radius:6px;background:var(--primary);color:#fff;font-size:.8rem;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">Connect</button>
-  </div>
-  <div id="ma-auth-error" style="display:none;font-size:.72rem;color:var(--red);margin-top:.3rem"></div>
+  <div style="font-size:.95rem;font-weight:700;margin-bottom:.3rem">Connect to RealWork</div>
+  <div style="font-size:.78rem;color:var(--text-muted);line-height:1.4">Get your access code from the Onboarding page (click "Copy Meet Code") and paste it below.</div>
+  <input type="text" id="ma-token-input" placeholder="Paste access code..." onkeydown="if(event.key==='Enter')submitToken()">
+  <button class="ma-auth-btn" onclick="submitToken()">Connect</button>
+  <div class="ma-auth-err" id="ma-auth-err"></div>
 </div>
 
 <!-- Phase 1: Client Selection -->
 <div class="ma-phase" id="ma-phase-select">
-  <div class="ma-section-label">Select Client</div>
-  <div class="ma-search-wrap">
-    <svg class="ma-search-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-    <input type="text" class="ma-search-input" id="ma-client-search" placeholder="Search clients..." autocomplete="off" oninput="maSearchClients()" onfocus="maOnSearchFocus()">
-  </div>
-  <div class="ma-results" id="ma-search-results"></div>
-
-  <div class="ma-selected-card" id="ma-selected-card">
-    <div class="ma-sc-row">
-      <span class="ma-sc-name" id="ma-sc-name"></span>
-      <button class="ma-sc-change" onclick="maClearSelection()">Change</button>
-    </div>
-  </div>
-
-  <button class="ma-btn ma-btn-primary" id="ma-start-btn" onclick="maStartInterview()" disabled>
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-    Start Interview
-  </button>
-
-  <!-- Previous sessions -->
-  <div class="ma-sessions" id="ma-sessions" style="display:none">
-    <div class="ma-section-label">Recent Interviews</div>
-    <div id="ma-sessions-list"></div>
-  </div>
+  <div style="font-size:.85rem;font-weight:700;margin-bottom:.5rem">Select a client</div>
+  <input type="text" class="ma-search" id="ma-search" placeholder="Search clients..." oninput="searchClients()">
+  <div id="ma-clients-list"></div>
 </div>
 
-<!-- Phase 2: Interview Running -->
-<div class="ma-phase" id="ma-phase-interview">
-  <!-- Copy join link -->
-  <div class="ma-copy-bar">
-    <button class="ma-copy-btn" id="ma-copy-join" onclick="maCopyJoinLink()">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
-      Copy Join Link for Contractor
-    </button>
-  </div>
-
-  <!-- Current question -->
-  <div class="ma-question-card" id="ma-question-card">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.2rem">
-      <span class="ma-q-section" id="ma-q-section"></span>
-      <span class="ma-q-progress" id="ma-q-progress"></span>
-    </div>
-    <div class="ma-q-text" id="ma-q-text"></div>
-  </div>
-
-  <!-- Section summary interstitial (shown between sections) -->
-  <div class="ma-summary-card" id="ma-section-summary" style="display:none">
-    <div class="ma-summary-badge" id="ma-summary-badge"></div>
-    <div class="ma-summary-text" id="ma-summary-text"></div>
-    <div class="ma-summary-continue">Next section loading...</div>
-  </div>
-
-  <!-- Contractor transcript feed -->
-  <div class="ma-section-label" style="margin-top:.25rem">Contractor Audio</div>
-  <div class="ma-transcript-feed" id="ma-transcript-feed">
-    <div class="ma-transcript-empty" id="ma-transcript-empty">Waiting for contractor to join...</div>
-  </div>
-
-  <!-- Controls -->
-  <div class="ma-controls">
-    <button class="ma-btn ma-btn-outline ma-btn-small" id="ma-skip-btn" onclick="maSkipQuestion()">Skip</button>
-    <button class="ma-btn ma-btn-green" id="ma-next-btn" onclick="maSubmitAnswer()">
-      Next
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-    </button>
-    <button class="ma-btn ma-btn-outline ma-btn-small" onclick="maFinishEarly()" style="flex:0 0 auto;width:auto">Finish</button>
-  </div>
+<!-- Phase 2: Interview Guide -->
+<div class="ma-phase" id="ma-phase-guide">
+  <div class="ma-guide" id="ma-guide"></div>
 </div>
 
-<!-- Phase 3: Extracting -->
-<div class="ma-phase" id="ma-phase-extracting">
-  <div class="ma-finish-wrap">
-    <div class="ma-spinner"></div>
-    <div class="ma-finish-title">Extracting Profile...</div>
-    <div class="ma-finish-sub">AI is analyzing the conversation and building a structured client profile. This takes about 15 seconds.</div>
-  </div>
-</div>
-
-<!-- Phase 4: Complete -->
-<div class="ma-phase" id="ma-phase-complete">
-  <div class="ma-finish-wrap" style="padding-bottom:.75rem">
-    <div class="ma-finish-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></div>
-    <div class="ma-finish-title">Profile Extracted</div>
-    <div class="ma-finish-sub" id="ma-complete-sub"></div>
-  </div>
-  <div id="ma-profile-summary"></div>
-  <div style="display:flex;gap:.35rem;flex-wrap:wrap;margin-top:.5rem">
-    <button class="ma-btn ma-btn-outline ma-btn-small" onclick="maImportMeetTranscript()" id="ma-import-btn">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-      Import Meet Transcript
-    </button>
-    <button class="ma-btn ma-btn-outline ma-btn-small" onclick="maPushToDrive()" id="ma-drive-btn">
-      <img src="/drive-icon.avif" width="12" height="12" style="border-radius:2px"> Push to Drive
-    </button>
-    <button class="ma-btn ma-btn-outline ma-btn-small" onclick="maNewInterview()">New Interview</button>
-  </div>
+<!-- Phase 3: Finish -->
+<div class="ma-finish" id="ma-finish">
+  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--lime)" stroke-width="2" style="margin-bottom:.75rem"><circle cx="12" cy="12" r="10"/><polyline points="20 6 9 17 4 12" stroke-width="2.5"/></svg>
+  <div class="ma-finish-title">Interview Complete</div>
+  <div class="ma-finish-sub">Great job! Now import the Meet transcript to extract the client profile automatically.</div>
+  <button class="ma-finish-btn" onclick="importMeetTranscript()">Import Meet Transcript</button>
+  <button class="ma-finish-btn-outline" onclick="manualExtract()">Extract from Notes</button>
+  <div class="ma-finish-status" id="ma-finish-status"></div>
 </div>
 
 <script src="https://www.gstatic.com/meetjs/addons/1.1.0/meet.addons.js"></script>
 <script>
-// ── Questions (must match server + onboarding.html) ──
+// ── Questions ──
 const QUESTIONS = [
-  { id:'origin_1', section:'Origin Story', sIdx:0, label:'Tell us your story \u2014 how did you get into this trade and start your business?' },
-  { id:'origin_2', section:'Origin Story', sIdx:0, label:'What makes you most proud about your company?' },
-  { id:'origin_3', section:'Origin Story', sIdx:0, label:'Is there a family or personal story connected to the business?' },
-  { id:'services_1', section:'Services', sIdx:1, label:'Walk me through your core services \u2014 what do you do?' },
-  { id:'services_2', section:'Services', sIdx:1, label:'Which service is your bread and butter, and which do you want to grow?' },
-  { id:'services_3', section:'Services', sIdx:1, label:'Describe your process from the first call to job completion.' },
-  { id:'diff_1', section:'Differentiation', sIdx:2, label:'What makes you different from competitors \u2014 and what do customers say about you?' },
-  { id:'diff_2', section:'Differentiation', sIdx:2, label:'Who is your ideal customer?' },
-  { id:'area_1', section:'Service Area', sIdx:3, label:'What areas do you serve, and where do you get the most work?' },
-  { id:'area_2', section:'Service Area', sIdx:3, label:'Are there specific neighborhoods or cities you want to target for growth?' },
-  { id:'voice_1', section:'Brand Voice', sIdx:4, label:"How would you describe your company's personality and tone?" },
-  { id:'voice_2', section:'Brand Voice', sIdx:4, label:'Any words, phrases, or taglines you love \u2014 or want to avoid on the website?' },
-  { id:'cred_1', section:'Credentials', sIdx:5, label:'What licenses, certifications, and insurance do you carry?' },
-  { id:'cred_2', section:'Credentials', sIdx:5, label:'Any awards, recognitions, or things you want to highlight?' },
-  { id:'goals_1', section:'Goals', sIdx:6, label:'What are your top goals for the new website?' },
-  { id:'goals_2', section:'Goals', sIdx:6, label:'What does success look like 6 months from now?' },
-  { id:'goals_3', section:'Goals', sIdx:6, label:'Anything else we should know about your business?' },
+  { id:'origin_1', section:'Origin Story', label:'Tell us your story — how did you get into this trade and start your business?', tips:'Ask about when they started, what motivated them, how long they\'ve been in business.', followups:['How long have you been in business?','Was there a specific moment that pushed you to start your own company?'] },
+  { id:'origin_2', section:'Origin Story', label:'What makes you most proud about your company?', tips:'Listen for milestones, team achievements, specific projects they light up about.', followups:['Can you tell me about a project that really stands out?'] },
+  { id:'origin_3', section:'Origin Story', label:'Is there a family or personal story connected to the business?', tips:'Family involvement, personal connection to the trade. This makes great About page copy.', followups:['Are any family members involved in day-to-day operations?'] },
+  { id:'services_1', section:'Services', label:'Walk me through your core services — what do you do?', tips:'Get the full list. Ask about residential vs commercial, emergency availability.', followups:['Do you handle both residential and commercial?','Do you offer emergency or after-hours service?'] },
+  { id:'services_2', section:'Services', label:'Which service is your bread and butter, and which do you want to grow?', tips:'Top revenue service AND what they want the website to push more.', followups:['Why do you want to push those services more?'] },
+  { id:'services_3', section:'Services', label:'Describe your process from the first call to job completion.', tips:'This becomes the "How We Work" section. Get the step-by-step.', followups:['What happens after the job — any follow-up, warranty check-in?'] },
+  { id:'diff_1', section:'Differentiation', label:'What makes you different from competitors — and what do customers say about you?', tips:'Their edge, review themes, guarantees, unique processes. This is the USP.', followups:['Do you use specific brands or methods that set you apart?','Do you offer any guarantees?'] },
+  { id:'diff_2', section:'Differentiation', label:'Who is your ideal customer?', tips:'Residential vs commercial, neighborhood type, job size preference.', followups:['Is there a type of job you prefer to avoid?'] },
+  { id:'area_1', section:'Service Area', label:'What areas do you serve, and where do you get the most work?', tips:'Cities, counties, travel radius. Top markets for city landing pages.', followups:['How far will you travel for a job?','Are there areas you want to expand into?'] },
+  { id:'area_2', section:'Service Area', label:'Are there specific neighborhoods or cities you want to target for growth?', tips:'New markets, less competition areas. Important for SEO targeting.', followups:['Do you have any presence there already?'] },
+  { id:'voice_1', section:'Brand Voice', label:'How would you describe your company\'s personality and tone?', tips:'Professional, casual, friendly — how do they talk to customers? This calibrates all copy.', followups:['How do you want customers to feel after working with you?'] },
+  { id:'voice_2', section:'Brand Voice', label:'Any words, phrases, or taglines you love — or want to avoid on the website?', tips:'Mottos, jargon to avoid, specific language preferences.', followups:['Do you have a tagline or motto?'] },
+  { id:'cred_1', section:'Credentials', label:'What licenses, certifications, and insurance do you carry?', tips:'State licenses, manufacturer certs, bonded, insured. Trust signals.', followups:['Are you a member of any trade associations?'] },
+  { id:'cred_2', section:'Credentials', label:'Any awards, recognitions, or things you want to highlight?', tips:'Google rating, best-of awards, community involvement.', followups:['How many Google reviews do you have?'] },
+  { id:'goals_1', section:'Goals', label:'What are your top goals for the new website?', tips:'More leads, SEO, professional look. Get specific priorities.', followups:['What frustrates you about your current online presence?'] },
+  { id:'goals_2', section:'Goals', label:'What does success look like 6 months from now?', tips:'Measurable targets — lead count, ranking goals, revenue impact.', followups:['Specific number of leads per month you\'re targeting?'] },
+  { id:'goals_3', section:'Goals', label:'Anything else we should know about your business?', tips:'Open-ended catch-all. Let them talk.', followups:[] },
 ];
 const SECTIONS = ['Origin Story','Services','Differentiation','Service Area','Brand Voice','Credentials','Goals'];
 
 // ── State ──
 let authToken = null;
-let isStandalone = false;
-let meetSession = null;
-let sidePanelClient = null;
-
-let selectedClient = null;
+let sessionId = null;
+let currentQ = 0;
 let selectedClientId = null;
 let clientName = '';
-let sessionId = null;
-let joinToken = null;
-let currentQ = 0;
-let answers = {};
-let skipped = [];
-let extractedProfile = null;
-let inputLocked = false;
-let searchTimer = null;
-let sseSource = null;
-let localTranscriptChunks = [];
+let meetSession = null;
+let completedSections = new Set();
 
+function authHeaders(h = {}) { if (authToken) h['Authorization'] = 'Bearer ' + authToken; return h; }
+function authFetch(url, opts = {}) { opts.headers = authHeaders(opts.headers || {}); return fetch(url, opts); }
 const esc = s => { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
 
-// ── Auth helpers ──
-function authHeaders(extra = {}) {
-  const h = { ...extra };
-  if (authToken) h['Authorization'] = 'Bearer ' + authToken;
-  return h;
-}
-
-function authFetch(url, opts = {}) {
-  opts.headers = authHeaders(opts.headers || {});
-  return fetch(url, opts);
-}
-
-// ── Token submit ──
-async function submitToken() {
-  const input = document.getElementById('ma-token-input');
-  const token = input.value.trim();
-  const errEl = document.getElementById('ma-auth-error');
-  if (!token) { errEl.textContent = 'Please paste your access code.'; errEl.style.display = 'block'; return; }
-
-  authToken = token;
-  try {
-    const r = await authFetch('/api/auth/me');
-    if (!r.ok) throw new Error('Invalid code');
-    errEl.style.display = 'none';
-    document.getElementById('ma-auth').style.display = 'none';
-    // Save for next time (within this Meet session)
-    try { sessionStorage.setItem('ma-token', token); } catch {}
-    showPhase('select');
-    loadRecentClients();
-    loadExistingSessions();
-  } catch {
-    authToken = null;
-    errEl.textContent = 'Invalid access code. Try copying it again from the onboarding page.';
-    errEl.style.display = 'block';
-  }
-}
-
-// ── Initialization ──
+// ── Init ──
 (async () => {
-  // Initialize Meet SDK FIRST — Meet times out if this isn't called quickly
   try {
-    meetSession = await window.meet.addon.createAddonSession({
-      cloudProjectNumber: '630073859512'
-    });
-    sidePanelClient = await meetSession.createSidePanelClient();
-  } catch (e) {
-    console.warn('Meet SDK not available, running in standalone mode:', e.message);
-    isStandalone = true;
-    const badge = document.getElementById('ma-standalone-badge');
-    if (badge) badge.style.display = '';
-  }
+    meetSession = await window.meet.addon.createAddonSession({ cloudProjectNumber: '630073859512' });
+    await meetSession.createSidePanelClient();
+  } catch (e) { console.warn('Meet SDK:', e.message); }
 
-  // Check for token in URL (standalone mode) or sessionStorage (previous Meet session entry)
+  // Check for saved token
   const params = new URLSearchParams(window.location.search);
   authToken = params.get('token');
   if (!authToken) try { authToken = sessionStorage.getItem('ma-token'); } catch {}
@@ -340,138 +156,62 @@ async function submitToken() {
   if (authToken) {
     try {
       const r = await authFetch('/api/auth/me');
-      if (r.ok) {
-        try { sessionStorage.setItem('ma-token', authToken); } catch {}
-        showPhase('select');
-        loadRecentClients();
-        loadExistingSessions();
-        return;
-      }
+      if (r.ok) { showPhase('select'); loadClients(); return; }
     } catch {}
     authToken = null;
   }
-
-  // No valid token — show sign-in button
   document.getElementById('ma-auth').style.display = 'block';
 })();
 
-// ── Phase management ──
-function showPhase(phase) {
+// ── Auth ──
+async function submitToken() {
+  const input = document.getElementById('ma-token-input');
+  const err = document.getElementById('ma-auth-err');
+  authToken = input.value.trim();
+  if (!authToken) { err.textContent = 'Paste your access code.'; err.style.display = 'block'; return; }
+  try {
+    const r = await authFetch('/api/auth/me');
+    if (!r.ok) throw new Error();
+    try { sessionStorage.setItem('ma-token', authToken); } catch {}
+    document.getElementById('ma-auth').style.display = 'none';
+    showPhase('select');
+    loadClients();
+  } catch {
+    authToken = null;
+    err.textContent = 'Invalid code. Copy it again from the Onboarding page.';
+    err.style.display = 'block';
+  }
+}
+
+// ── Phases ──
+function showPhase(id) {
   document.querySelectorAll('.ma-phase').forEach(el => el.classList.remove('active'));
-  const el = document.getElementById('ma-phase-' + phase);
+  const el = document.getElementById('ma-phase-' + id);
   if (el) el.classList.add('active');
-  document.getElementById('ma-auth').style.display = 'none';
-  if (phase !== 'interview') stopSSE();
+  document.getElementById('ma-finish').style.display = 'none';
 }
 
 // ── Client search ──
-async function maSearchClients() {
+let searchTimer = null;
+async function loadClients() { searchClients(); }
+async function searchClients() {
   clearTimeout(searchTimer);
-  const term = document.getElementById('ma-client-search').value.trim();
-  if (!term) { loadRecentClients(); return; }
+  const term = document.getElementById('ma-search').value.trim();
   searchTimer = setTimeout(async () => {
     try {
-      const r = await authFetch(`/api/onboarding/clients?search=${encodeURIComponent(term)}`);
+      const r = await authFetch(`/api/onboarding/clients${term ? '?search=' + encodeURIComponent(term) : ''}`);
       const clients = await r.json();
-      renderSearchResults(clients, term);
-    } catch (err) { console.warn('Search failed:', err); }
-  }, 250);
+      const list = document.getElementById('ma-clients-list');
+      if (!clients.length) { list.innerHTML = '<div style="font-size:.78rem;color:var(--text-muted);padding:.5rem 0;text-align:center">No clients found</div>'; return; }
+      list.innerHTML = clients.slice(0, 15).map(c => `<div class="ma-client" onclick="selectClient(${JSON.stringify(c).replace(/"/g,'&quot;')})"><div class="ma-client-name">${esc(c.account_name)}</div><div class="ma-client-meta">${esc([c.contact_name, c.industry].filter(Boolean).join(' · '))}</div></div>`).join('');
+    } catch {}
+  }, 200);
 }
 
-function maOnSearchFocus() {
-  const term = document.getElementById('ma-client-search').value.trim();
-  if (!term) loadRecentClients();
-  document.getElementById('ma-search-results').classList.add('open');
-}
-
-async function loadRecentClients() {
-  try {
-    const r = await authFetch('/api/onboarding/clients');
-    const clients = await r.json();
-    renderSearchResults(clients.slice(0, 8), '');
-  } catch (err) { console.warn('Failed to load clients:', err); }
-}
-
-function renderSearchResults(clients, searchTerm) {
-  const el = document.getElementById('ma-search-results');
-  el.classList.add('open');
-  const statusColors = { new: '#3b82f6', in_progress: '#d97706', awaiting_approval: '#f59e0b', awaiting_dns: '#f59e0b', launched: '#16a34a' };
-  const statusLabels = { new: 'New', in_progress: 'In Progress', awaiting_approval: 'Approval', awaiting_dns: 'DNS', launched: 'Launched' };
-  if (clients.length) {
-    el.innerHTML = clients.map(c => {
-      const sc = statusColors[c.status] || '#64748b';
-      const sl = statusLabels[c.status] || c.status;
-      return `<div class="ma-result-item" onclick="maSelectClient(${JSON.stringify(c).replace(/"/g, '&quot;')})">
-        <div style="flex:1;min-width:0">
-          <div class="ma-result-name">${esc(c.account_name)}</div>
-          <div class="ma-result-meta">${esc(c.contact_name || '')}${c.industry ? ' \u00b7 ' + esc(c.industry) : ''}</div>
-        </div>
-        <span class="ma-result-status" style="background:${sc}18;color:${sc}">${sl}</span>
-      </div>`;
-    }).join('');
-  } else {
-    el.innerHTML = `<div class="ma-empty">No clients found${searchTerm ? ' for "' + esc(searchTerm) + '"' : ''}</div>`;
-  }
-}
-
-function maSelectClient(client) {
-  selectedClient = client;
+async function selectClient(client) {
   selectedClientId = client.id;
   clientName = client.account_name;
-  document.getElementById('ma-sc-name').textContent = client.account_name;
-  document.getElementById('ma-selected-card').style.display = '';
-  document.getElementById('ma-search-results').classList.remove('open');
-  document.querySelector('.ma-search-wrap').style.display = 'none';
-  document.getElementById('ma-start-btn').disabled = false;
-}
-
-function maClearSelection() {
-  selectedClient = null;
-  selectedClientId = null;
-  clientName = '';
-  document.getElementById('ma-selected-card').style.display = 'none';
-  document.querySelector('.ma-search-wrap').style.display = '';
-  document.getElementById('ma-start-btn').disabled = true;
-  document.getElementById('ma-client-search').value = '';
-  document.getElementById('ma-client-search').focus();
-}
-
-// Close search results when clicking outside
-document.addEventListener('click', e => {
-  const wrap = document.querySelector('.ma-search-wrap');
-  if (wrap && !wrap.contains(e.target)) {
-    document.getElementById('ma-search-results').classList.remove('open');
-  }
-});
-
-// ── Load existing sessions ──
-async function loadExistingSessions() {
-  try {
-    const r = await authFetch('/api/onboarding/sessions');
-    const sessions = await r.json();
-    const wrap = document.getElementById('ma-sessions');
-    const list = document.getElementById('ma-sessions-list');
-    if (!sessions.length) { wrap.style.display = 'none'; return; }
-    wrap.style.display = '';
-    list.innerHTML = sessions.slice(0, 5).map(s => {
-      const total = QUESTIONS.length;
-      const qNum = s.current_question || 0;
-      const isComplete = s.status === 'extracted';
-      const color = isComplete ? '#16a34a' : '#d97706';
-      const label = isComplete ? 'Done' : `${qNum}/${total}`;
-      return `<div class="ma-session-row" onclick="maResumeSession('${s.id}')">
-        <span class="ma-session-name">${esc(s.client_name || 'Untitled')}</span>
-        <span class="ma-session-status" style="background:${color}18;color:${color}">${label}</span>
-      </div>`;
-    }).join('');
-  } catch (err) { console.warn('Failed to load sessions:', err); }
-}
-
-// ── Start interview ──
-async function maStartInterview() {
-  if (!selectedClientId) return;
-  const btn = document.getElementById('ma-start-btn');
-  btn.disabled = true;
+  // Create session
   try {
     const r = await authFetch('/api/onboarding/sessions', {
       method: 'POST',
@@ -481,337 +221,95 @@ async function maStartInterview() {
     const data = await r.json();
     if (!r.ok) throw new Error(data.error);
     sessionId = data.id;
-    joinToken = data.join_token || null;
     currentQ = 0;
-    answers = {};
-    skipped = [];
-    localTranscriptChunks = [];
-    enterInterviewPhase();
-  } catch (err) { alert(err.message); }
-  finally { btn.disabled = false; }
+    completedSections.clear();
+    showPhase('guide');
+    renderGuide();
+  } catch (err) { alert('Failed to start: ' + err.message); }
 }
 
-// ── Resume session ──
-async function maResumeSession(id) {
-  try {
-    const r = await authFetch(`/api/onboarding/sessions/${id}`);
-    const data = await r.json();
-    if (!r.ok) throw new Error(data.error);
-    sessionId = id;
-    currentQ = data.current_question || 0;
-    answers = data.answers || {};
-    skipped = data.skipped || [];
-    clientName = data.client_name || 'Untitled';
-    joinToken = data.join_token || null;
-    localTranscriptChunks = data.transcript_chunks || [];
-
-    if (data.status === 'extracted' && data.extracted_profile) {
-      extractedProfile = data.extracted_profile;
-      showComplete();
-      return;
-    }
-
-    if (currentQ >= QUESTIONS.length) {
-      await maRunExtraction();
-      return;
-    }
-
-    enterInterviewPhase();
-  } catch (err) { alert(err.message); }
-}
-
-// ── Enter interview phase ──
-function enterInterviewPhase() {
-  showPhase('interview');
-  updateQuestion();
-  startSSE();
-}
-
-// ── Update question display ──
-function updateQuestion() {
+// ── Interview Guide ──
+function renderGuide() {
   const q = QUESTIONS[currentQ];
-  if (!q) return;
-  document.getElementById('ma-q-section').textContent = q.section;
-  document.getElementById('ma-q-progress').textContent = `${currentQ + 1} / ${QUESTIONS.length}`;
-  document.getElementById('ma-q-text').textContent = q.label;
-  // Clear transcript feed for new question
-  document.getElementById('ma-transcript-feed').innerHTML = '<div class="ma-transcript-empty" id="ma-transcript-empty">Waiting for contractor to speak...</div>';
-}
+  if (!q) { showFinish(); return; }
 
-// ── Copy join link ──
-function maCopyJoinLink() {
-  if (!sessionId || !joinToken) return;
-  const url = `${window.location.origin}/join/${sessionId}/${joinToken}`;
-  navigator.clipboard.writeText(url).then(() => {
-    const btn = document.getElementById('ma-copy-join');
-    btn.classList.add('copied');
-    btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Copied!';
-    setTimeout(() => {
-      btn.classList.remove('copied');
-      btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg> Copy Join Link for Contractor';
-    }, 2500);
-  });
-}
+  const prevSection = currentQ > 0 ? QUESTIONS[currentQ - 1].section : null;
+  const isNewSection = q.section !== prevSection;
 
-// ── SSE for contractor transcript ──
-function startSSE() {
-  stopSSE();
-  if (!sessionId) return;
-  try {
-    // SSE needs auth via query param since EventSource can't set headers
-    sseSource = new EventSource(`/api/onboarding/sessions/${sessionId}/stream?token=${encodeURIComponent(authToken)}`);
+  let html = '';
+  html += `<div class="ma-guide-client">${esc(clientName)}</div>`;
+  html += `<div class="ma-guide-progress">Question ${currentQ + 1} of ${QUESTIONS.length}</div>`;
 
-    sseSource.addEventListener('state', e => {
-      try {
-        const data = JSON.parse(e.data);
-        if (data.transcript_chunks) {
-          const newChunks = data.transcript_chunks.filter(c => c.source === 'contractor' && c.questionIndex === currentQ);
-          renderTranscriptChunks(newChunks, data.contractor_interim);
-          localTranscriptChunks = data.transcript_chunks;
-        }
-      } catch {}
-    });
-
-    sseSource.addEventListener('transcript', e => {
-      try {
-        const chunk = JSON.parse(e.data);
-        if (chunk.source === 'contractor') {
-          localTranscriptChunks.push(chunk);
-          if (chunk.questionIndex === currentQ) {
-            appendTranscriptChunk(chunk);
-          }
-        }
-      } catch {}
-    });
-
-    sseSource.onerror = () => {
-      // Reconnect after a delay
-      stopSSE();
-      setTimeout(() => { if (sessionId) startSSE(); }, 3000);
-    };
-  } catch (err) {
-    console.warn('SSE failed:', err);
-  }
-}
-
-function stopSSE() {
-  if (sseSource) { sseSource.close(); sseSource = null; }
-}
-
-function renderTranscriptChunks(chunks, interim) {
-  const feed = document.getElementById('ma-transcript-feed');
-  const empty = document.getElementById('ma-transcript-empty');
-  if (chunks.length > 0 && empty) empty.remove();
-
-  // Re-render all chunks for current question
-  feed.innerHTML = '';
-  chunks.forEach(c => {
-    const div = document.createElement('div');
-    div.className = 'ma-transcript-chunk';
-    div.textContent = c.text;
-    feed.appendChild(div);
+  // Show completed section badges
+  SECTIONS.forEach((s, i) => {
+    if (completedSections.has(i)) {
+      html += `<div class="ma-section-done"><div class="ma-section-done-title">${esc(s)} complete</div></div>`;
+    }
   });
 
-  if (interim) {
-    const div = document.createElement('div');
-    div.className = 'ma-transcript-interim';
-    div.textContent = interim;
-    feed.appendChild(div);
+  html += `<div class="ma-guide-section">${esc(q.section)}</div>`;
+  html += `<div class="ma-guide-question">${esc(q.label)}</div>`;
+
+  if (q.tips) {
+    html += `<div class="ma-guide-tips"><strong>Ask about:</strong> ${esc(q.tips)}</div>`;
   }
 
-  if (!chunks.length && !interim) {
-    feed.innerHTML = '<div class="ma-transcript-empty">Waiting for contractor to speak...</div>';
+  if (q.followups?.length) {
+    html += '<div class="ma-guide-followups"><div class="ma-guide-followups-label">Follow-up if needed</div>';
+    q.followups.forEach(f => { html += `<div class="ma-guide-followup">${esc(f)}</div>`; });
+    html += '</div>';
   }
 
-  feed.scrollTop = feed.scrollHeight;
+  html += '<div class="ma-guide-btns">';
+  html += '<button class="ma-btn-skip" onclick="skipQuestion()">Skip</button>';
+  html += `<button class="ma-btn-next" onclick="nextQuestion()">Next <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></button>`;
+  html += '</div>';
+
+  html += '<div class="ma-guide-divider"></div>';
+  html += '<div class="ma-guide-note"><strong>Tip:</strong> Just have a natural conversation. Meet is recording the transcript — the AI will extract everything after the call.</div>';
+
+  document.getElementById('ma-guide').innerHTML = html;
+
+  // Save progress
+  authFetch(`/api/onboarding/sessions/${sessionId}/answer`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ questionId: null, currentQuestion: currentQ }),
+  }).catch(() => {});
 }
 
-function appendTranscriptChunk(chunk) {
-  const feed = document.getElementById('ma-transcript-feed');
-  const empty = document.getElementById('ma-transcript-empty');
-  if (empty) empty.remove();
-  const div = document.createElement('div');
-  div.className = 'ma-transcript-chunk';
-  div.textContent = chunk.text;
-  feed.appendChild(div);
-  feed.scrollTop = feed.scrollHeight;
-}
-
-// ── Submit answer (Next button) ──
-async function maSubmitAnswer() {
-  if (inputLocked) return;
-  // Collect contractor transcript for this question
-  const chunks = localTranscriptChunks.filter(c => c.source === 'contractor' && c.questionIndex === currentQ);
-  const answer = chunks.map(c => c.text).join(' ').trim();
-
-  if (!answer) {
-    const btn = document.getElementById('ma-next-btn');
-    btn.style.background = '#d97706';
-    btn.textContent = 'No answer yet';
-    setTimeout(() => {
-      btn.style.background = '';
-      btn.innerHTML = 'Next <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
-    }, 1500);
-    return;
-  }
-
-  setLocked(true);
+function nextQuestion() {
   const q = QUESTIONS[currentQ];
-  answers[q.id] = answer;
-
-  try {
-    await authFetch(`/api/onboarding/sessions/${sessionId}/answer`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ questionId: q.id, answer, currentQuestion: currentQ + 1, skipped }),
-    });
-  } catch (err) { console.warn('Save failed:', err); }
-
-  // Check if entering new section -> show summary
   const nextQ = QUESTIONS[currentQ + 1];
+
+  // Check if section is completing
   if (nextQ && nextQ.section !== q.section) {
-    await showSectionSummary(q.section, q.sIdx);
+    const sIdx = SECTIONS.indexOf(q.section);
+    if (sIdx >= 0) completedSections.add(sIdx);
+  }
+  if (!nextQ) {
+    const sIdx = SECTIONS.indexOf(q.section);
+    if (sIdx >= 0) completedSections.add(sIdx);
   }
 
-  if (currentQ < QUESTIONS.length - 1) {
-    currentQ++;
-    updateQuestion();
-  } else {
-    await maRunExtraction();
-  }
-  setLocked(false);
+  currentQ++;
+  if (currentQ >= QUESTIONS.length) { showFinish(); return; }
+  renderGuide();
 }
 
-// ── Skip question ──
-async function maSkipQuestion() {
-  if (inputLocked) return;
-  const q = QUESTIONS[currentQ];
-  if (!skipped.includes(q.id)) skipped.push(q.id);
-  answers[q.id] = '';
-
-  try {
-    await authFetch(`/api/onboarding/sessions/${sessionId}/answer`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ questionId: q.id, answer: '', currentQuestion: currentQ + 1, skipped }),
-    });
-  } catch (err) { console.warn('Save failed:', err); }
-
-  const nextQ = QUESTIONS[currentQ + 1];
-  if (nextQ && nextQ.section !== q.section) {
-    await showSectionSummary(q.section, q.sIdx);
-  }
-
-  if (currentQ < QUESTIONS.length - 1) {
-    currentQ++;
-    updateQuestion();
-  } else {
-    await maRunExtraction();
-  }
+function skipQuestion() {
+  nextQuestion();
 }
 
-// ── Section summary ──
-async function showSectionSummary(sectionName, sectionIndex) {
-  const summaryCard = document.getElementById('ma-section-summary');
-  const questionCard = document.getElementById('ma-question-card');
-
-  // Gather section answers
-  const sectionAnswers = QUESTIONS
-    .filter(q => q.section === sectionName)
-    .map(q => ({ id: q.id, label: q.label, answer: answers[q.id] || '(skipped)' }));
-
-  try {
-    const r = await authFetch(`/api/onboarding/sessions/${sessionId}/section-summary`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sectionName, sectionIndex, answers: sectionAnswers, clientName }),
-    });
-    const data = await r.json();
-    if (r.ok && data.summary) {
-      questionCard.style.display = 'none';
-      document.getElementById('ma-summary-badge').textContent = sectionName + ' Complete';
-      document.getElementById('ma-summary-text').textContent = data.summary;
-      summaryCard.style.display = '';
-
-      // Show for 3 seconds then continue
-      await new Promise(resolve => setTimeout(resolve, 3000));
-
-      summaryCard.style.display = 'none';
-      questionCard.style.display = '';
-    }
-  } catch (err) {
-    console.warn('Section summary failed:', err);
-  }
+// ── Finish ──
+function showFinish() {
+  document.querySelectorAll('.ma-phase').forEach(el => el.classList.remove('active'));
+  document.getElementById('ma-finish').style.display = 'block';
 }
 
-// ── Finish early ──
-async function maFinishEarly() {
-  if (Object.keys(answers).length < 3) {
-    if (!confirm('Only a few questions answered. Extract anyway?')) return;
-  }
-  await maRunExtraction();
-}
-
-// ── Extraction ──
-async function maRunExtraction() {
-  showPhase('extracting');
-  try {
-    const questionsPayload = QUESTIONS.map(q => ({
-      id: q.id, label: q.label, section: q.section,
-      answer: answers[q.id] || '(skipped)',
-    }));
-    const r = await authFetch(`/api/onboarding/sessions/${sessionId}/extract`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ questions: questionsPayload }),
-    });
-    const data = await r.json();
-    if (!r.ok) throw new Error(data.error);
-    extractedProfile = data.profile;
-    showComplete();
-  } catch (err) {
-    alert('Extraction failed: ' + err.message);
-    showPhase('interview');
-  }
-}
-
-// ── Show complete ──
-function showComplete() {
-  showPhase('complete');
-  document.getElementById('ma-complete-sub').textContent = clientName ? 'Profile for ' + clientName : '';
-  if (extractedProfile) renderProfileSummary(extractedProfile);
-}
-
-// ── Render compact profile summary ──
-function renderProfileSummary(p) {
-  const c = document.getElementById('ma-profile-summary');
-  const f = (l, v) => { if (!v) return ''; return `<div class="ma-profile-field"><span class="ma-profile-label">${esc(l)}:</span> ${esc(String(v))}</div>`; };
-  const li = (l, a) => { if (!a?.length) return ''; return `<div class="ma-profile-field"><span class="ma-profile-label">${esc(l)}:</span> ${a.map(v => esc(String(v))).join(', ')}</div>`; };
-  const sec = (t, h) => { if (!h.trim()) return ''; return `<div class="ma-profile-section"><div class="ma-profile-section-title">${esc(t)}</div>${h}</div>`; };
-
-  let h = '';
-  h += sec('Overview', f('Business',p.business_name)+f('Owner',p.owner_name)+f('Years',p.years_in_business)+f('Story',p.origin_story));
-  h += sec('Services', li('Core',p.services?.core)+f('Top Revenue',p.services?.top_revenue)+li('Promote',p.services?.promote_more));
-  h += sec('Differentiation', li('USPs',p.differentiation?.unique_selling_points)+f('Ideal Customer',p.differentiation?.ideal_customer));
-  h += sec('Service Area', li('Cities',p.service_area?.cities)+li('Primary',p.service_area?.primary_markets)+li('Growth',p.service_area?.growth_targets));
-  h += sec('Brand Voice', f('Personality',p.brand_voice?.personality)+f('Tone',p.brand_voice?.tone));
-  h += sec('Credentials', li('Licenses',p.credentials?.licenses)+li('Awards',p.credentials?.awards));
-  h += sec('Goals', li('Website Goals',p.goals?.website_goals)+f('Success',p.goals?.six_month_success));
-  c.innerHTML = h;
-}
-
-// ── Lock/unlock controls ──
-function setLocked(locked) {
-  inputLocked = locked;
-  document.getElementById('ma-next-btn').disabled = locked;
-  document.getElementById('ma-skip-btn').disabled = locked;
-}
-
-// ── Import Meet transcript from Drive ──
-async function maImportMeetTranscript() {
-  const btn = document.getElementById('ma-import-btn');
-  btn.disabled = true;
-  btn.textContent = 'Searching Drive...';
+async function importMeetTranscript() {
+  const status = document.getElementById('ma-finish-status');
+  status.textContent = 'Searching for Meet transcript in Drive...';
   try {
     const r = await authFetch(`/api/onboarding/sessions/${sessionId}/import-meet-transcript`, {
       method: 'POST',
@@ -820,63 +318,28 @@ async function maImportMeetTranscript() {
     });
     const data = await r.json();
     if (!r.ok) throw new Error(data.error);
-    if (data.profile) {
-      extractedProfile = data.profile;
-      renderProfileSummary(extractedProfile);
-      btn.textContent = 'Imported!';
-      btn.style.color = '#16a34a';
-      btn.style.borderColor = '#16a34a';
-    } else {
-      btn.textContent = 'No transcript found';
-      setTimeout(() => { btn.textContent = 'Import Meet Transcript'; btn.disabled = false; }, 2000);
-    }
+    status.innerHTML = '<span style="color:var(--lime)">Profile extracted successfully!</span>';
   } catch (err) {
-    alert('Import failed: ' + err.message);
-    btn.textContent = 'Import Meet Transcript';
-    btn.disabled = false;
+    status.textContent = 'Import failed: ' + err.message + '. Try "Extract from Notes" or upload the transcript from the Onboarding page.';
   }
 }
 
-// ── Push to Drive ──
-async function maPushToDrive() {
-  if (!selectedClientId && !sessionId) return;
-  const btn = document.getElementById('ma-drive-btn');
-  btn.disabled = true;
-  btn.innerHTML = '<img src="/drive-icon.avif" width="12" height="12" style="border-radius:2px"> Pushing...';
+async function manualExtract() {
+  const status = document.getElementById('ma-finish-status');
+  status.textContent = 'Extracting profile from session data...';
   try {
-    // Get client ID from session if not selected
-    let cid = selectedClientId;
-    if (!cid && sessionId) {
-      const r = await authFetch(`/api/onboarding/sessions/${sessionId}`);
-      const data = await r.json();
-      cid = data.client_id;
-    }
-    if (!cid) throw new Error('No client linked');
-    const r = await authFetch(`/api/launches/${cid}/push-to-drive`, { method: 'POST' });
+    const questionsPayload = QUESTIONS.map(q => ({ id: q.id, label: q.label, section: q.section, answer: '(answered during call — see Meet transcript)' }));
+    const r = await authFetch(`/api/onboarding/sessions/${sessionId}/extract`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ questions: questionsPayload }),
+    });
     const data = await r.json();
-    if (!r.ok) throw new Error(data.error || 'Failed');
-    btn.innerHTML = '<img src="/drive-icon.avif" width="12" height="12" style="border-radius:2px"> Done!';
-    btn.style.color = '#16a34a';
-    btn.style.borderColor = '#16a34a';
+    if (!r.ok) throw new Error(data.error);
+    status.innerHTML = '<span style="color:var(--lime)">Profile extracted! View it in the dashboard.</span>';
   } catch (err) {
-    alert('Drive push failed: ' + err.message);
-    btn.innerHTML = '<img src="/drive-icon.avif" width="12" height="12" style="border-radius:2px"> Push to Drive';
-    btn.disabled = false;
+    status.textContent = 'Failed: ' + err.message;
   }
-}
-
-// ── New interview ──
-function maNewInterview() {
-  sessionId = null;
-  joinToken = null;
-  currentQ = 0;
-  answers = {};
-  skipped = [];
-  extractedProfile = null;
-  localTranscriptChunks = [];
-  maClearSelection();
-  showPhase('select');
-  loadExistingSessions();
 }
 </script>
 </body>
