@@ -5998,7 +5998,13 @@ app.get('/dashboard', requireAuth, (_req, res) => res.sendFile(join(__dirname, '
 // ── HTTP server + WebSocket for live transcription ──
 const server = createServer(app);
 
-const speechClient = new speech.SpeechClient();
+let speechClient = null;
+try {
+  speechClient = new speech.SpeechClient();
+  console.log('[speech] Speech-to-Text client initialized');
+} catch (e) {
+  console.error('[speech] Failed to initialize Speech-to-Text client:', e.message);
+}
 
 const wss = new WebSocketServer({ server, path: '/ws/transcribe' });
 
@@ -6016,6 +6022,7 @@ async function validateToken(token) {
 }
 
 function createRecognizeStream(ws) {
+  if (!speechClient) throw new Error('Speech-to-Text client not available');
   const recognizeStream = speechClient.streamingRecognize({
     config: {
       encoding: 'LINEAR16',
@@ -6092,7 +6099,9 @@ wss.on('connection', (ws) => {
     // Binary audio data
     if (data instanceof Buffer && authenticated) {
       if (recognizeStream) {
-        recognizeStream.write(data);
+        try { recognizeStream.write(data); } catch (e) {
+          console.error('[ws] Write to Speech-to-Text failed:', e.message);
+        }
       }
       return;
     }
@@ -6115,12 +6124,17 @@ wss.on('connection', (ws) => {
     } catch {}
   });
 
-  ws.on('close', () => {
+  ws.on('close', (code, reason) => {
+    console.log(`[ws] Connection closed (code: ${code}, reason: ${reason || 'none'})`);
     clearTimeout(restartTimer);
     clearTimeout(authTimeout);
     if (recognizeStream) {
       try { recognizeStream.end(); } catch {}
     }
+  });
+
+  ws.on('error', (err) => {
+    console.error('[ws] WebSocket error:', err.message);
   });
 
   ws.on('error', () => {
