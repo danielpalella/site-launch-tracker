@@ -190,6 +190,7 @@ function formatLaunch(doc) {
     onboarding_completed_at: fmtTs(d.onboarding_completed_at),
     drive_folder_id:      d.drive_folder_id       || null,
     drive_folder_url:     d.drive_folder_url      || null,
+    has_research:         !!d.research_md,
   };
 }
 
@@ -3758,6 +3759,54 @@ ${cr.awards?.length ? `- Awards: ${cr.awards.join(', ')}` : ''}`);
       } catch (e) { console.warn('Failed to fetch onboarding profile for blog:', e.message); }
     }
 
+    // ── Fetch research data for this site (if available) ──
+    let researchContext = '';
+    if (cleanDomain) {
+      try {
+        const snap = await db.collection('launches')
+          .where('domain_name', '==', cleanDomain).limit(1).get();
+        if (!snap.empty) {
+          const researchMd = snap.docs[0].data().research_md;
+          if (researchMd) {
+            const parts = [];
+            // Extract SEO keywords section
+            const kwMatch = researchMd.match(/#+\s*(?:SEO|Keywords?|Target Keywords?)[\s\S]*?(?=\n#+\s|\n---|\$)/i);
+            if (kwMatch) {
+              const kwText = kwMatch[0].replace(/^#+\s*.+\n/, '').trim().slice(0, 400);
+              if (kwText) parts.push(`SEO KEYWORDS TO TARGET:\n${kwText}`);
+            }
+            // Extract content guidance
+            const cgMatch = researchMd.match(/#+\s*(?:Content Guidance|Content Strategy|Content Recommendations?)[\s\S]*?(?=\n#+\s|\n---|\$)/i);
+            if (cgMatch) {
+              const cgText = cgMatch[0].replace(/^#+\s*.+\n/, '').trim().slice(0, 400);
+              if (cgText) parts.push(`CONTENT GUIDANCE:\n${cgText}`);
+            }
+            // Extract competitive landscape
+            const compMatch = researchMd.match(/#+\s*(?:Competi|Landscape|Market Analysis)[\s\S]*?(?=\n#+\s|\n---|\$)/i);
+            if (compMatch) {
+              const compText = compMatch[0].replace(/^#+\s*.+\n/, '').trim().slice(0, 300);
+              if (compText) parts.push(`COMPETITIVE CONTEXT:\n${compText}`);
+            }
+            // Extract customer reviews/quotes
+            const revMatch = researchMd.match(/#+\s*(?:Customer Review|Review|Testimonial|Quote)[\s\S]*?(?=\n#+\s|\n---|\$)/i);
+            if (revMatch) {
+              const revText = revMatch[0].replace(/^#+\s*.+\n/, '').trim().slice(0, 300);
+              if (revText) parts.push(`CUSTOMER QUOTES (use as social proof):\n${revText}`);
+            }
+            // Extract do-not-use / warnings
+            const warnMatch = researchMd.match(/#+\s*(?:Do Not|Warning|Unconfirmed|Avoid|Caution)[\s\S]*?(?=\n#+\s|\n---|\$)/i);
+            if (warnMatch) {
+              const warnText = warnMatch[0].replace(/^#+\s*.+\n/, '').trim().slice(0, 200);
+              if (warnText) parts.push(`DO NOT CLAIM (unconfirmed):\n${warnText}`);
+            }
+            if (parts.length) {
+              researchContext = `\n\n--- CLIENT RESEARCH DATA ---\n${parts.join('\n\n').slice(0, 2000)}\n--- END RESEARCH DATA ---\n`;
+            }
+          }
+        }
+      } catch (e) { console.warn('Failed to fetch research for blog:', e.message); }
+    }
+
     const keywordLine = kwArray.length
       ? `\nTarget SEO keywords: ${kwArray.map(k => `"${k}"`).join(', ')} — weave these naturally throughout the post (max 3 mentions of the primary keyword). Include "${kwArray[0]}" in the <h1> and at least one <h2>.\n`
       : '';
@@ -3790,7 +3839,7 @@ Content type: ${ct.label}
 
 Question: "${question}"
 Context: ${detail || '(no additional context)'}
-${onboardingContext}${keywordLine}${bizLine}${cityLine}${reviewsLine}${customerReviewsLine}${internalLinksLine}
+${onboardingContext}${researchContext}${keywordLine}${bizLine}${cityLine}${reviewsLine}${customerReviewsLine}${internalLinksLine}
 Write an SEO-optimized blog post in clean HTML. Structure:
 - A compelling <h1> title under 60 characters — rewrite the source question into an SEO-friendly blog title (e.g. not "Which one of yall did this?" but "5 Signs Your Roof Was Damaged in a Storm")${kwArray.length ? ` Include the target keyword.` : ''}${city ? ` Include "${city}".` : ''}
 - A brief intro paragraph (2-3 sentences) that directly addresses the question within the first 150 words
@@ -4718,6 +4767,60 @@ app.post('/api/launches/:id/push-to-drive', requireAuth, async (req, res) => {
     console.error('[drive] push-to-drive error:', err);
     res.status(502).json({ error: err.message || 'Drive push failed' });
   }
+});
+
+// ── Research file endpoints ──
+app.put('/api/launches/:id/research', requireAuth, async (req, res) => {
+  try {
+    const { content } = req.body;
+    if (!content || typeof content !== 'string') return res.status(400).json({ error: 'content string required' });
+    if (Buffer.byteLength(content, 'utf8') > 500 * 1024) return res.status(400).json({ error: 'Research file exceeds 500KB limit' });
+    const ref = db.collection('launches').doc(req.params.id);
+    const doc = await ref.get();
+    if (!doc.exists) return res.status(404).json({ error: 'Not found' });
+    await ref.update({ research_md: content, updated_at: FieldValue.serverTimestamp() });
+
+    // Push to Google Drive (fire-and-forget)
+    const d = doc.data();
+    const clientName = d.account_name || 'Unknown';
+    (async () => {
+      try {
+        const token = await getAnalyticsAccessToken();
+        const clientFolderId = await driveGetOrCreateClientFolder(clientName, token);
+        const resFolderId = await driveGetOrCreateSubfolder('Research', clientFolderId, token);
+        const date = new Date().toISOString().slice(0, 10);
+        await driveUploadFile(`Research — ${date}.md`, content, 'text/markdown', resFolderId, token);
+        await ref.update({
+          drive_folder_id: clientFolderId,
+          drive_folder_url: `https://drive.google.com/drive/folders/${clientFolderId}`,
+        }).catch(() => {});
+        console.log(`[drive] Pushed research for ${clientName} → folder ${clientFolderId}`);
+      } catch (err) {
+        console.warn('[drive] Failed to push research to Drive:', err.message);
+      }
+    })();
+
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/launches/:id/research', requireAuth, async (req, res) => {
+  try {
+    const doc = await db.collection('launches').doc(req.params.id).get();
+    if (!doc.exists) return res.status(404).json({ error: 'Not found' });
+    const content = doc.data().research_md || '';
+    res.json({ content });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/launches/:id/research', requireAuth, async (req, res) => {
+  try {
+    const ref = db.collection('launches').doc(req.params.id);
+    const doc = await ref.get();
+    if (!doc.exists) return res.status(404).json({ error: 'Not found' });
+    await ref.update({ research_md: FieldValue.delete(), updated_at: FieldValue.serverTimestamp() });
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // Lightweight client search for onboarding picker (returns minimal fields)

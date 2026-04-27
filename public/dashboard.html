@@ -8715,9 +8715,111 @@ function copyBlogPost(id) {
 // ── Onboarding Profile (view + edit) ──
 let _obProfileCache = {}; // launchId -> profile object
 
-function renderOnboardingProfile(profile, container, launchId, driveUrl) {
+function renderResearchSection(container, launchId, hasResearch) {
+  let rsDiv = container.querySelector('.research-section');
+  if (!rsDiv) {
+    rsDiv = document.createElement('div');
+    rsDiv.className = 'research-section';
+    rsDiv.style.cssText = 'margin-top:.8rem';
+    container.appendChild(rsDiv);
+  }
+  if (!hasResearch) {
+    rsDiv.innerHTML = `<div style="border:1px dashed var(--border);border-radius:8px;padding:1rem;text-align:center">
+      <div style="font-size:.75rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:.5rem">Research File</div>
+      <div style="font-size:.8rem;color:var(--text-muted);margin-bottom:.6rem">Upload research file (.md)</div>
+      <input type="file" accept=".md,.txt,.markdown" onchange="uploadResearchFile('${launchId}', this)" style="font-size:.78rem;font-family:inherit">
+    </div>`;
+  } else {
+    rsDiv.innerHTML = `<div style="border:1px solid var(--border);border-radius:8px;padding:.75rem 1rem">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">
+        <div style="font-size:.75rem;font-weight:700;color:var(--primary);text-transform:uppercase;letter-spacing:.4px">Research File</div>
+        <div style="display:flex;gap:.3rem">
+          <button onclick="viewFullResearch('${launchId}')" style="font-size:.72rem;font-weight:600;padding:.25rem .5rem;border:1px solid var(--border);border-radius:4px;background:none;color:var(--text-muted);cursor:pointer;font-family:inherit">View Full</button>
+          <button onclick="replaceResearch('${launchId}')" style="font-size:.72rem;font-weight:600;padding:.25rem .5rem;border:1px solid var(--border);border-radius:4px;background:none;color:var(--text-muted);cursor:pointer;font-family:inherit">Replace</button>
+          <button onclick="deleteResearch('${launchId}')" style="font-size:.72rem;font-weight:600;padding:.25rem .5rem;border:1px solid var(--border);border-radius:4px;background:none;color:#e74c3c;cursor:pointer;font-family:inherit">Delete</button>
+        </div>
+      </div>
+      <div id="research-preview-${launchId}" style="font-size:.78rem;color:var(--text);line-height:1.5;max-height:120px;overflow:hidden;white-space:pre-wrap;background:var(--bg);padding:.5rem;border-radius:4px;border:1px solid var(--border)">Loading preview...</div>
+    </div>`;
+    // Fetch preview
+    fetch(`/api/launches/${launchId}/research`).then(r => r.json()).then(data => {
+      const pre = document.getElementById(`research-preview-${launchId}`);
+      if (pre) pre.textContent = (data.content || '').slice(0, 500) + ((data.content || '').length > 500 ? '...' : '');
+    }).catch(() => {});
+  }
+}
+
+async function uploadResearchFile(launchId, input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 500 * 1024) { showToast('File exceeds 500KB limit', 'error'); input.value = ''; return; }
+  try {
+    const content = await file.text();
+    const r = await fetch(`/api/launches/${launchId}/research`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content }),
+    });
+    if (!r.ok) throw new Error((await r.json()).error || 'Upload failed');
+    showToast('Research file uploaded', 'success');
+    // Re-render the section
+    const container = input.closest('.research-section')?.parentElement;
+    if (container) renderResearchSection(container, launchId, true);
+  } catch (err) {
+    showToast('Upload failed: ' + err.message, 'error');
+  }
+}
+
+async function viewFullResearch(launchId) {
+  try {
+    const r = await fetch(`/api/launches/${launchId}/research`);
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'Failed');
+    // Show in a modal overlay
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:10000;display:flex;align-items:center;justify-content:center';
+    overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+    const box = document.createElement('div');
+    box.style.cssText = 'background:var(--bg);border-radius:12px;padding:1.5rem;max-width:700px;width:90%;max-height:80vh;overflow-y:auto;position:relative;box-shadow:0 8px 30px rgba(0,0,0,.2)';
+    box.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+      <div style="font-size:.9rem;font-weight:700;color:var(--text)">Research File</div>
+      <button onclick="this.closest('div[style*=fixed]').remove()" style="font-size:1.2rem;background:none;border:none;cursor:pointer;color:var(--text-muted);font-family:inherit">&times;</button>
+    </div>
+    <pre style="white-space:pre-wrap;font-size:.8rem;line-height:1.6;color:var(--text);max-height:65vh;overflow-y:auto;padding:.5rem;background:var(--surface);border-radius:6px;border:1px solid var(--border)">${esc(data.content || '')}</pre>`;
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+  } catch (err) {
+    showToast('Failed to load research: ' + err.message, 'error');
+  }
+}
+
+function replaceResearch(launchId) {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.md,.txt,.markdown';
+  input.onchange = () => uploadResearchFile(launchId, input);
+  input.click();
+}
+
+async function deleteResearch(launchId) {
+  if (!confirm('Delete research file?')) return;
+  try {
+    const r = await fetch(`/api/launches/${launchId}/research`, { method: 'DELETE' });
+    if (!r.ok) throw new Error((await r.json()).error || 'Delete failed');
+    showToast('Research file deleted', 'success');
+    // Find container and re-render
+    const preview = document.getElementById(`research-preview-${launchId}`);
+    const container = preview?.closest('.research-section')?.parentElement;
+    if (container) renderResearchSection(container, launchId, false);
+  } catch (err) {
+    showToast('Delete failed: ' + err.message, 'error');
+  }
+}
+
+function renderOnboardingProfile(profile, container, launchId, driveUrl, hasResearch) {
   if (!profile) {
     container.innerHTML = '<div style="text-align:center;padding:2rem 1rem;color:var(--text-muted)"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom:.5rem;opacity:.4"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><div style="font-size:.85rem;font-weight:600;margin-bottom:.2rem">No onboarding interview yet</div><div style="font-size:.78rem">Start an interview from the <a href="/onboarding" style="color:var(--primary)">Onboarding</a> page.</div></div>';
+    if (launchId) renderResearchSection(container, launchId, hasResearch);
     return;
   }
   if (launchId) _obProfileCache[launchId] = JSON.parse(JSON.stringify(profile));
@@ -8741,6 +8843,7 @@ function renderOnboardingProfile(profile, container, launchId, driveUrl) {
   h += sec('Credentials', li('Licenses',p.credentials?.licenses)+f('Insured',p.credentials?.insured)+f('Bonded',p.credentials?.bonded)+li('Associations',p.credentials?.associations)+li('Awards',p.credentials?.awards));
   h += sec('Goals', li('Website Goals',p.goals?.website_goals)+f('6-Month Success',p.goals?.six_month_success)+f('Additional Notes',p.goals?.additional_notes));
   container.innerHTML = h;
+  if (launchId) renderResearchSection(container, launchId, hasResearch);
 }
 
 function editOnboardingProfile(launchId) {
@@ -8811,7 +8914,7 @@ function editOnboardingProfile(launchId) {
 function cancelEditProfile(launchId) {
   const profile = _obProfileCache[launchId];
   const container = document.getElementById('crm-onboarding-body') || document.getElementById(`acd-onboarding-body-${launchId}`);
-  if (container && profile) renderOnboardingProfile(profile, container, launchId);
+  if (container && profile) renderOnboardingProfile(profile, container, launchId, null, !!_researchStatusCache[launchId]);
 }
 
 async function saveEditProfile(launchId) {
@@ -8849,7 +8952,7 @@ async function saveEditProfile(launchId) {
     });
     if (!r.ok) throw new Error((await r.json()).error || 'Save failed');
     _obProfileCache[launchId] = profile;
-    renderOnboardingProfile(profile, container, launchId);
+    renderOnboardingProfile(profile, container, launchId, null, !!_researchStatusCache[launchId]);
     showToast('Onboarding profile updated', 'success');
   } catch (err) {
     if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save Changes'; }
@@ -8878,6 +8981,8 @@ async function pushProfileToDrive(launchId) {
 }
 
 let _crmOnboardingLoaded = false;
+let _researchStatusCache = {}; // launchId -> boolean
+
 async function loadCrmOnboardingProfile() {
   if (_crmOnboardingLoaded) return;
   const body = document.getElementById('crm-onboarding-body');
@@ -8887,7 +8992,8 @@ async function loadCrmOnboardingProfile() {
     const r = await fetch(`/api/launches/${launchId}`);
     if (!r.ok) throw new Error();
     const data = await r.json();
-    renderOnboardingProfile(data.onboarding_profile || null, body, launchId, data.drive_folder_url);
+    _researchStatusCache[launchId] = !!data.has_research;
+    renderOnboardingProfile(data.onboarding_profile || null, body, launchId, data.drive_folder_url, !!data.has_research);
     _crmOnboardingLoaded = true;
   } catch {
     body.innerHTML = '<div style="color:var(--text-muted);font-size:.82rem">Failed to load onboarding data.</div>';
@@ -8901,7 +9007,8 @@ async function loadAcdOnboardingProfile(id) {
     const r = await fetch(`/api/launches/${id}`);
     if (!r.ok) throw new Error();
     const data = await r.json();
-    renderOnboardingProfile(data.onboarding_profile || null, body, id, data.drive_folder_url);
+    _researchStatusCache[id] = !!data.has_research;
+    renderOnboardingProfile(data.onboarding_profile || null, body, id, data.drive_folder_url, !!data.has_research);
     body.dataset.loaded = 'true';
   } catch {
     body.innerHTML = '<div style="color:var(--text-muted);font-size:.82rem">Failed to load onboarding data.</div>';
