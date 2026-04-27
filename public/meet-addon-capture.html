@@ -75,9 +75,11 @@ async function startCapture() {
   source = audioCtx.createMediaStreamSource(audioStream);
   processor = audioCtx.createScriptProcessor(4096, 1, 1);
 
-  // Connect WebSocket
-  const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  ws = new WebSocket(`${wsProto}//${location.host}/ws/transcribe`);
+  // Connect WebSocket — use direct Cloud Run URL (Firebase App Hosting doesn't proxy WebSockets)
+  const wsHost = location.host.includes('hosted.app')
+    ? 'site-launch-tracker-2qh6nkd65a-uc.a.run.app'  // direct Cloud Run URL
+    : location.host;
+  ws = new WebSocket(`wss://${wsHost}/ws/transcribe`);
   ws.binaryType = 'arraybuffer';
 
   ws.onopen = () => {
