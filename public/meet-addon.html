@@ -148,7 +148,24 @@ const esc = s => { const d = document.createElement('div'); d.textContent = s; r
     await meetSession.createSidePanelClient();
   } catch (e) { console.warn('Meet SDK:', e.message); }
 
-  // Check for saved token
+  // Try cookie auth first (works if SameSite=None; Secure is set)
+  try {
+    const r = await fetch('/api/auth/me', { credentials: 'include' });
+    if (r.ok) {
+      // Cookies work! Get a token for Bearer auth on subsequent calls
+      const tr = await fetch('/api/auth/meet-token', { credentials: 'include' });
+      const td = await tr.json();
+      if (td.token) {
+        authToken = td.token;
+        try { sessionStorage.setItem('ma-token', authToken); } catch {}
+        showPhase('select');
+        loadClients();
+        return;
+      }
+    }
+  } catch {}
+
+  // Check URL token or sessionStorage
   const params = new URLSearchParams(window.location.search);
   authToken = params.get('token');
   if (!authToken) try { authToken = sessionStorage.getItem('ma-token'); } catch {}

@@ -420,7 +420,7 @@ app.get('/auth/google/callback', async (req, res) => {
     await logAudit({ type: 'login', email: user.email });
     const returnToCookie = decodeURIComponent(getCookies(req).auth_return_to || '') || '/dashboard';
     res.setHeader('Set-Cookie', [
-      `auth_token=${token}; Path=/; HttpOnly; SameSite=Lax`,
+      `auth_token=${token}; Path=/; HttpOnly; SameSite=None; Secure`,
       `auth_return_to=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`,
     ]);
     res.redirect(returnToCookie);
