@@ -290,6 +290,19 @@ function authFetch(url, opts = {}) {
 
 // ── Initialization ──
 (async () => {
+  // Initialize Meet SDK FIRST — Meet times out if this isn't called quickly
+  try {
+    meetSession = await window.meet.addon.createAddonSession({
+      cloudProjectNumber: '630073859512'
+    });
+    sidePanelClient = await meetSession.createSidePanelClient();
+  } catch (e) {
+    console.warn('Meet SDK not available, running in standalone mode:', e.message);
+    isStandalone = true;
+    const badge = document.getElementById('ma-standalone-badge');
+    if (badge) badge.style.display = '';
+  }
+
   // Read token from URL
   const params = new URLSearchParams(window.location.search);
   authToken = params.get('token');
@@ -309,18 +322,6 @@ function authFetch(url, opts = {}) {
   } catch {
     document.getElementById('ma-auth').style.display = 'block';
     return;
-  }
-
-  // Initialize Meet SDK
-  try {
-    meetSession = await window.meet.addon.createAddonSession({
-      cloudProjectNumber: '630073859512'
-    });
-    sidePanelClient = await meetSession.createSidePanelClient();
-  } catch (e) {
-    console.warn('Meet SDK not available, running in standalone mode:', e.message);
-    isStandalone = true;
-    document.getElementById('ma-standalone-badge').style.display = '';
   }
 
   // Show client selection phase
