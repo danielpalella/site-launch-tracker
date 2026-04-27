@@ -125,13 +125,13 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 
 <!-- Auth required screen -->
 <div class="ma-auth" id="ma-auth">
-  <div class="ma-auth-title">Sign In to Continue</div>
-  <div class="ma-auth-sub">Open this link in a new tab to authenticate, then come back here.</div>
-  <a href="/meet-addon-auth" target="_blank" onclick="startTokenPolling()" style="display:inline-flex;align-items:center;gap:.5rem;margin:1rem auto;padding:.6rem 1.5rem;border:none;border-radius:8px;background:var(--primary);color:#fff;font-size:.85rem;font-weight:700;cursor:pointer;font-family:inherit;text-decoration:none">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-    Sign In (opens new tab)
-  </a>
-  <div id="ma-auth-waiting" style="display:none;font-size:.75rem;color:var(--lime);margin-top:.5rem">Waiting for sign-in...</div>
+  <div class="ma-auth-title">Connect to RealWork</div>
+  <div class="ma-auth-sub">Paste your access code below. Get it from the onboarding page by clicking "Copy Meet Code".</div>
+  <div style="display:flex;gap:.4rem;margin:1rem auto;max-width:280px">
+    <input type="text" id="ma-token-input" placeholder="Paste access code..." style="flex:1;padding:.5rem .7rem;border:1px solid var(--border);border-radius:6px;font-size:.82rem;font-family:inherit;color:var(--text);background:var(--surface)">
+    <button onclick="submitToken()" style="padding:.5rem .8rem;border:none;border-radius:6px;background:var(--primary);color:#fff;font-size:.8rem;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">Connect</button>
+  </div>
+  <div id="ma-auth-error" style="display:none;font-size:.72rem;color:var(--red);margin-top:.3rem"></div>
 </div>
 
 <!-- Phase 1: Client Selection -->
@@ -292,27 +292,29 @@ function authFetch(url, opts = {}) {
   return fetch(url, opts);
 }
 
-// ── Auth polling (waits for sign-in from the new tab) ──
-let authPollInterval = null;
+// ── Token submit ──
+async function submitToken() {
+  const input = document.getElementById('ma-token-input');
+  const token = input.value.trim();
+  const errEl = document.getElementById('ma-auth-error');
+  if (!token) { errEl.textContent = 'Please paste your access code.'; errEl.style.display = 'block'; return; }
 
-function startTokenPolling() {
-  document.getElementById('ma-auth-waiting').style.display = 'block';
-  if (authPollInterval) clearInterval(authPollInterval);
-  authPollInterval = setInterval(() => {
-    try {
-      const token = localStorage.getItem('meet-addon-token');
-      if (token) {
-        localStorage.removeItem('meet-addon-token');
-        localStorage.setItem('meet-addon-token-saved', token);
-        clearInterval(authPollInterval);
-        authToken = token;
-        document.getElementById('ma-auth').style.display = 'none';
-        showPhase('select');
-        loadRecentClients();
-        loadExistingSessions();
-      }
-    } catch {}
-  }, 1000);
+  authToken = token;
+  try {
+    const r = await authFetch('/api/auth/me');
+    if (!r.ok) throw new Error('Invalid code');
+    errEl.style.display = 'none';
+    document.getElementById('ma-auth').style.display = 'none';
+    // Save for next time (within this Meet session)
+    try { sessionStorage.setItem('ma-token', token); } catch {}
+    showPhase('select');
+    loadRecentClients();
+    loadExistingSessions();
+  } catch {
+    authToken = null;
+    errEl.textContent = 'Invalid access code. Try copying it again from the onboarding page.';
+    errEl.style.display = 'block';
+  }
 }
 
 // ── Initialization ──
@@ -330,18 +332,16 @@ function startTokenPolling() {
     if (badge) badge.style.display = '';
   }
 
-  // Check for token in URL (standalone mode via "Open in Meet" button)
+  // Check for token in URL (standalone mode) or sessionStorage (previous Meet session entry)
   const params = new URLSearchParams(window.location.search);
   authToken = params.get('token');
-
-  // Also check localStorage (from a previous popup sign-in)
-  if (!authToken) authToken = localStorage.getItem('meet-addon-token-saved');
+  if (!authToken) try { authToken = sessionStorage.getItem('ma-token'); } catch {}
 
   if (authToken) {
     try {
       const r = await authFetch('/api/auth/me');
       if (r.ok) {
-        localStorage.setItem('meet-addon-token-saved', authToken);
+        try { sessionStorage.setItem('ma-token', authToken); } catch {}
         showPhase('select');
         loadRecentClients();
         loadExistingSessions();
@@ -349,7 +349,6 @@ function startTokenPolling() {
       }
     } catch {}
     authToken = null;
-    localStorage.removeItem('meet-addon-token-saved');
   }
 
   // No valid token — show sign-in button
