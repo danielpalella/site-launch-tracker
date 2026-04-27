@@ -252,6 +252,7 @@
         <div class="ob-results-sub" id="ob-results-sub" style="margin-bottom:0"></div>
       </div>
       <div style="display:flex;gap:.4rem;flex-shrink:0">
+        <button class="ob-copy-btn" onclick="pushResultsToDrive()" id="ob-drive-btn" style="margin-top:0"><img src="/drive-icon.avif" width="14" height="14" style="border-radius:2px"> Push to Drive</button>
         <button class="ob-copy-btn" onclick="copyProfile()" style="margin-top:0"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy JSON</button>
         <button class="ob-copy-btn" onclick="downloadRawTranscript()" style="margin-top:0"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download Raw</button>
         <button class="ob-copy-btn" onclick="location.href='/onboarding'" style="margin-top:0"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg> Back</button>
@@ -978,6 +979,34 @@ function renderResults(profile) {
   h += sec('Credentials', li('Licenses',p.credentials?.licenses)+f('Insured',p.credentials?.insured)+f('Bonded',p.credentials?.bonded)+li('Associations',p.credentials?.associations)+li('Awards',p.credentials?.awards));
   h += sec('Goals', li('Website Goals',p.goals?.website_goals)+f('6-Month Success',p.goals?.six_month_success)+f('Additional Notes',p.goals?.additional_notes));
   c.innerHTML = h;
+}
+
+// ── Push to Drive ──
+async function pushResultsToDrive() {
+  if (!selectedClientId) { alert('No client selected'); return; }
+  const btn = document.getElementById('ob-drive-btn');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<img src="/drive-icon.avif" width="14" height="14" style="border-radius:2px"> Pushing...'; }
+  try {
+    const r = await fetch(`/api/launches/${selectedClientId}/push-to-drive`, { method: 'POST' });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'Failed');
+    if (btn) {
+      btn.innerHTML = '<img src="/drive-icon.avif" width="14" height="14" style="border-radius:2px"> Pushed!';
+      btn.style.color = '#16a34a';
+      btn.style.borderColor = '#16a34a';
+      // Add link to open the folder
+      setTimeout(() => {
+        btn.onclick = () => window.open(`https://drive.google.com/drive/folders/${data.folderId}`, '_blank');
+        btn.innerHTML = '<img src="/drive-icon.avif" width="14" height="14" style="border-radius:2px"> Open Drive';
+        btn.disabled = false;
+        btn.style.color = '';
+        btn.style.borderColor = '';
+      }, 2000);
+    }
+  } catch (err) {
+    alert('Drive push failed: ' + err.message);
+    if (btn) { btn.disabled = false; btn.innerHTML = '<img src="/drive-icon.avif" width="14" height="14" style="border-radius:2px"> Push to Drive'; }
+  }
 }
 
 // ── Copy JSON ──
