@@ -523,6 +523,18 @@ app.post('/api/launches', requireAuth, async (req, res) => {
     ]); // fire-and-forget
     // Auto pre-launch Lighthouse scan (fire-and-forget)
     runPageSpeedAudit(ref.id, domain_name.trim().toLowerCase(), false).catch(e => console.warn('Pre-launch PSI skipped:', e.message));
+    // Auto-create Google Drive folder for the client (fire-and-forget)
+    (async () => {
+      try {
+        const token = await getAnalyticsAccessToken();
+        const folderId = await driveGetOrCreateClientFolder(account_name.trim(), token);
+        await driveGetOrCreateSubfolder('Onboarding', folderId, token);
+        await driveGetOrCreateSubfolder('Research', folderId, token);
+        await driveGetOrCreateSubfolder('Blog Posts', folderId, token);
+        await ref.update({ drive_folder_id: folderId, drive_folder_url: `https://drive.google.com/drive/folders/${folderId}` });
+        console.log(`[drive] Auto-created folder for ${account_name.trim()} → ${folderId}`);
+      } catch (e) { console.warn('[drive] Auto-create folder skipped:', e.message); }
+    })();
     res.status(201).json(formatLaunch(doc));
   } catch (err) {
     console.error(err);
