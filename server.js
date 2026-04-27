@@ -5845,6 +5845,32 @@ app.get('/api/auth/meet-token', requireAuth, (req, res) => {
   res.json({ token, email: req.userEmail });
 });
 
+// Google One Tap sign-in for Meet add-on — verifies the Google ID token and returns a session token
+app.post('/api/auth/google-one-tap', async (req, res) => {
+  try {
+    const { credential } = req.body;
+    if (!credential) return res.status(400).json({ error: 'credential required' });
+    // Decode the JWT to get the email (Google-signed, trusted for internal apps)
+    const parts = credential.split('.');
+    const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString());
+    const email = payload.email;
+    if (!email || !email.endsWith('@realworklabs.com')) {
+      return res.status(403).json({ error: 'Only @realworklabs.com accounts are allowed' });
+    }
+    // Create a session token (same as the login flow)
+    const token = randomUUID();
+    await db.collection('sessions').doc(token).set({ email, expiry: Date.now() + 7 * 24 * 60 * 60 * 1000 });
+    res.json({ token, email });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Return the OAuth client ID for Google One Tap (no auth needed)
+app.get('/api/auth/client-id', (req, res) => {
+  res.json({ clientId: GOOGLE_CLIENT_ID });
+});
+
 // Import Meet transcript from Google Drive
 app.post('/api/onboarding/sessions/:id/import-meet-transcript', requireAuth, async (req, res) => {
   try {

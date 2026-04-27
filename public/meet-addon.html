@@ -125,9 +125,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 
 <!-- Auth required screen -->
 <div class="ma-auth" id="ma-auth">
-  <div class="ma-auth-title">Authentication Required</div>
-  <div class="ma-auth-sub">Open the onboarding page in your browser first, then use the "Open in Meet" button to get an authenticated link.</div>
-  <a href="/onboarding" class="ma-auth-link" target="_blank">Go to Onboarding</a>
+  <div class="ma-auth-title">Sign In to Continue</div>
+  <div class="ma-auth-sub">Sign in with your RealWork Labs account to start an onboarding interview.</div>
+  <div id="ma-google-btn" style="display:flex;justify-content:center;margin:1rem 0"></div>
 </div>
 
 <!-- Phase 1: Client Selection -->
@@ -230,6 +230,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
   </div>
 </div>
 
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://www.gstatic.com/meet/addons/v1/meet-addons-sdk.js"></script>
 <script>
 // ── Questions (must match server + onboarding.html) ──
@@ -288,6 +289,26 @@ function authFetch(url, opts = {}) {
   return fetch(url, opts);
 }
 
+// ── Google One Tap callback ──
+async function handleGoogleOneTap(response) {
+  try {
+    const r = await fetch('/api/auth/google-one-tap', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ credential: response.credential }),
+    });
+    const data = await r.json();
+    if (!r.ok) { alert(data.error || 'Sign-in failed'); return; }
+    authToken = data.token;
+    document.getElementById('ma-auth').style.display = 'none';
+    showPhase('select');
+    loadRecentClients();
+    loadExistingSessions();
+  } catch (err) { alert('Sign-in failed: ' + err.message); }
+}
+// Make it global for Google's callback
+window.handleGoogleOneTap = handleGoogleOneTap;
+
 // ── Initialization ──
 (async () => {
   // Initialize Meet SDK FIRST — Meet times out if this isn't called quickly
@@ -303,31 +324,46 @@ function authFetch(url, opts = {}) {
     if (badge) badge.style.display = '';
   }
 
-  // Read token from URL
+  // Check for token in URL (standalone mode via "Open in Meet" button)
   const params = new URLSearchParams(window.location.search);
   authToken = params.get('token');
 
-  if (!authToken) {
-    document.getElementById('ma-auth').style.display = 'block';
-    return;
+  if (authToken) {
+    // Verify the URL token
+    try {
+      const r = await authFetch('/api/auth/me');
+      if (r.ok) {
+        showPhase('select');
+        loadRecentClients();
+        loadExistingSessions();
+        return;
+      }
+    } catch {}
   }
 
-  // Verify token
+  // No valid token — show Google One Tap sign-in
+  document.getElementById('ma-auth').style.display = 'block';
   try {
-    const r = await authFetch('/api/auth/me');
-    if (!r.ok) {
-      document.getElementById('ma-auth').style.display = 'block';
-      return;
+    const r = await fetch('/api/auth/client-id');
+    const { clientId } = await r.json();
+    if (clientId && window.google?.accounts?.id) {
+      google.accounts.id.initialize({
+        client_id: clientId,
+        callback: handleGoogleOneTap,
+      });
+      google.accounts.id.prompt(); // Show One Tap popup
+      // Also render a button as fallback
+      const btnContainer = document.getElementById('ma-google-btn');
+      if (btnContainer) {
+        google.accounts.id.renderButton(btnContainer, {
+          theme: 'filled_blue',
+          size: 'large',
+          width: 280,
+          text: 'signin_with',
+        });
+      }
     }
-  } catch {
-    document.getElementById('ma-auth').style.display = 'block';
-    return;
-  }
-
-  // Show client selection phase
-  showPhase('select');
-  loadRecentClients();
-  loadExistingSessions();
+  } catch (e) { console.warn('Failed to init Google One Tap:', e); }
 })();
 
 // ── Phase management ──
