@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sign In · RealWork</title>
+<link rel="icon" href="/favicon.png" type="image/png" />
+<style>
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f1f5f9; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0 }
+.card { background: #fff; border-radius: 12px; padding: 2rem; text-align: center; max-width: 360px; width: 90%; box-shadow: 0 4px 20px rgba(0,0,0,.08) }
+.logo { height: 32px; margin-bottom: 1rem }
+h1 { font-size: 1.1rem; font-weight: 700; color: #0f172a; margin-bottom: .4rem }
+p { font-size: .85rem; color: #64748b; margin-bottom: 1.5rem; line-height: 1.5 }
+.status { font-size: .85rem; color: #64748b; margin-top: 1rem }
+.success { color: #16a34a; font-weight: 600 }
+</style>
+</head>
+<body>
+<div class="card">
+  <img src="/logo.svg" alt="RealWork Labs" class="logo">
+  <h1>Sign in for Meet Add-on</h1>
+  <p id="status">Checking your session...</p>
+  <div id="action"></div>
+</div>
+<script>
+(async () => {
+  const statusEl = document.getElementById('status');
+  const actionEl = document.getElementById('action');
+
+  // Check if the user is already logged in (has a cookie session)
+  try {
+    const r = await fetch('/api/auth/me');
+    if (r.ok) {
+      // User is already logged in — get their token
+      const tokenR = await fetch('/api/auth/meet-token');
+      const tokenData = await tokenR.json();
+      if (tokenData.token) {
+        // Pass token back to the meet-addon page via localStorage
+        localStorage.setItem('meet-addon-token', tokenData.token);
+        statusEl.innerHTML = '<span class="success">Signed in! You can close this window.</span>';
+        setTimeout(() => window.close(), 1500);
+        return;
+      }
+    }
+  } catch {}
+
+  // Not logged in — redirect to Google OAuth login
+  statusEl.textContent = 'Redirecting to sign in...';
+  // After login, the app redirects back to the dashboard. We need it to come back here.
+  // Store a flag so after login we know to come back
+  sessionStorage.setItem('meet-addon-auth-redirect', 'true');
+  window.location.href = '/auth/google';
+})();
+
+// Check if we just came back from OAuth redirect
+if (sessionStorage.getItem('meet-addon-auth-redirect')) {
+  sessionStorage.removeItem('meet-addon-auth-redirect');
+  // We're back from login — try to get the token again
+  (async () => {
+    try {
+      const r = await fetch('/api/auth/meet-token');
+      const data = await r.json();
+      if (data.token) {
+        localStorage.setItem('meet-addon-token', data.token);
+        document.getElementById('status').innerHTML = '<span class="success">Signed in! You can close this window.</span>';
+        setTimeout(() => window.close(), 1500);
+      }
+    } catch {}
+  })();
+}
+</script>
+</body>
+</html>
