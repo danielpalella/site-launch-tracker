@@ -5833,6 +5833,12 @@ app.get('/onboarding/present/:sessionId/:token', (req, res) => res.sendFile(join
 // ── Meet Add-on ──
 app.get('/meet-addon-auth', requireAuth, (_req, res) => res.sendFile(join(__dirname, 'public', 'meet-addon-auth.html')));
 
+app.get('/meet-addon-test', (req, res) => {
+  res.setHeader('Content-Security-Policy', "frame-ancestors 'self' https://meet.google.com https://*.google.com");
+  res.removeHeader('X-Frame-Options');
+  res.sendFile(join(__dirname, 'public', 'meet-addon-test.html'));
+});
+
 app.get('/meet-addon', (req, res) => {
   res.setHeader('Content-Security-Policy', "frame-ancestors 'self' https://meet.google.com https://*.google.com");
   res.removeHeader('X-Frame-Options');

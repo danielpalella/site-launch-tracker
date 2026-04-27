@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+body { font-family: sans-serif; background: #06102a; color: white; padding: 20px; }
+#log { font-size: 12px; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<h3>Meet Add-on Debug</h3>
+<div id="log"></div>
+<script>
+function log(msg) {
+  document.getElementById('log').textContent += new Date().toLocaleTimeString() + ' ' + msg + '\n';
+}
+log('Page loaded');
+log('URL: ' + window.location.href);
+log('User Agent: ' + navigator.userAgent.slice(0, 80));
+</script>
+<script src="https://www.gstatic.com/meet/addons/v1/meet-addons-sdk.js"></script>
+<script>
+log('Meet SDK script tag executed');
+log('window.meet exists: ' + !!window.meet);
+log('window.meet.addon exists: ' + !!(window.meet && window.meet.addon));
+
+(async () => {
+  try {
+    log('Calling createAddonSession...');
+    const session = await window.meet.addon.createAddonSession({
+      cloudProjectNumber: '630073859512'
+    });
+    log('Session created: ' + JSON.stringify(Object.keys(session)));
+    const client = await session.createSidePanelClient();
+    log('SidePanelClient created: ' + JSON.stringify(Object.keys(client)));
+    log('SUCCESS - SDK initialized');
+  } catch (e) {
+    log('ERROR: ' + e.message);
+    log('Stack: ' + e.stack);
+  }
+
+  // Show something visible
+  document.body.innerHTML += '<h2 style="color:#cbff4d;margin-top:20px">Add-on loaded successfully</h2>';
+  document.body.innerHTML += '<p>If you see this, the page rendered. Check the log above for SDK status.</p>';
+})();
+</script>
+</body>
+</html>
