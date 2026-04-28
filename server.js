@@ -3956,14 +3956,16 @@ ${cr.awards?.length ? `- Awards: ${cr.awards.join(', ')}` : ''}`);
       } catch (e) { console.warn('Failed to fetch research for blog:', e.message); }
     }
 
-    // ── Fetch project examples for this site (if available) ──
+    // ── Fetch project examples + images for this site (if available) ──
     let projectsContext = '';
+    let projectImageUrls = [];
     if (cleanDomain) {
       try {
         const snap = await db.collection('launches')
           .where('domain_name', '==', cleanDomain).limit(1).get();
         if (!snap.empty) {
-          const projectsArr = snap.docs[0].data().projects;
+          const launchData = snap.docs[0].data();
+          const projectsArr = launchData.projects;
           if (projectsArr?.length) {
             const top3 = projectsArr.slice(0, 3);
             const lines = top3.map((p, i) => {
@@ -3976,8 +3978,39 @@ ${cr.awards?.length ? `- Awards: ${cr.awards.join(', ')}` : ''}`);
             }).join('\n\n');
             projectsContext = `\n\n--- REAL PROJECT EXAMPLES (from completed jobs) ---\n${lines}\n--- END PROJECT EXAMPLES ---\n\nUse these real project examples to ground the blog post in actual work. Reference specific jobs, quote real customer reviews, and mention real locations. This is what makes the content unique and trustworthy.\n`;
           }
+
+          // Fetch project images from Drive for use as blog images
+          if (launchData.drive_folder_id) {
+            try {
+              const driveToken = await getAnalyticsAccessToken();
+              const projFolderId = await driveFindFolder('Projects', launchData.drive_folder_id, driveToken);
+              if (projFolderId) {
+                const imgQ = encodeURIComponent(`'${projFolderId}' in parents and trashed=false`);
+                const imgR = await fetchWithRetry(`https://www.googleapis.com/drive/v3/files?q=${imgQ}&fields=files(id,name,mimeType,webContentLink,thumbnailLink)&pageSize=10`, {
+                  headers: { Authorization: `Bearer ${driveToken}` },
+                });
+                if (imgR.ok) {
+                  const imgData = await imgR.json();
+                  const imgs = (imgData.files || []).filter(f => f.mimeType?.startsWith('image/') || f.name?.match(/\.(jpg|jpeg|png|webp)$/i));
+                  // Make images accessible via a proxy URL
+                  projectImageUrls = imgs.slice(0, 5).map(f => ({
+                    id: f.id,
+                    name: f.name,
+                    url: `https://drive.google.com/thumbnail?id=${f.id}&sz=w800`,
+                  }));
+                }
+              }
+            } catch (e) { console.warn('Failed to fetch project images:', e.message); }
+          }
         }
       } catch (e) { console.warn('Failed to fetch projects for blog:', e.message); }
+    }
+
+    // Add project image instructions to the prompt if available
+    if (projectImageUrls.length && projectsContext) {
+      projectsContext += `\nPROJECT PHOTOS AVAILABLE — Include these images in the blog post using <img> tags:
+${projectImageUrls.map((img, i) => `- Image ${i + 1}: <img src="${img.url}" alt="${img.name}" style="width:100%;border-radius:12px;margin:1rem 0">`).join('\n')}
+Place the first image as the hero image after the H1. Place additional images near the project examples they relate to.\n`;
     }
 
     const keywordLine = kwArray.length
@@ -4030,14 +4063,16 @@ Return the blog post wrapped in a styled container div. Include:
 
 The CSS should include:
 - Clean typography (system fonts, 1.6 line-height, max-width: 720px, centered)
-- Styled headings (h1: 2rem bold, h2: 1.4rem with bottom border, h3: 1.1rem)
+- Styled headings — CRITICAL: h1 must use "color: #1a1a1a !important" (Duda themes often set white h1 which makes it invisible). h1: 2rem bold, h2: 1.4rem with bottom border, h3: 1.1rem. All headings must have "color: #1a1a1a !important"
 - Blockquote styling (left border, italic, grey background)
 - CTA button styling (primary color, rounded, centered)
 - FAQ section styling (each Q&A as a card with subtle border)
+- Image styling (width: 100%, border-radius: 12px, margin-bottom: 1.5rem)
 - List styling (custom bullets, spacing)
 - Responsive (works on mobile)
 
 Make the CSS inline-friendly — use a <style> block, not external stylesheets.
+Use !important on all heading colors to override CMS theme defaults.
 
 RULES — DO NOT VIOLATE:
 - Every <h2> MUST be phrased as a question (e.g. "What Causes...?" not "Common Causes of...")
