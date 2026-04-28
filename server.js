@@ -1542,6 +1542,7 @@ const ANALYTICS_SCOPES = [
   'https://www.googleapis.com/auth/webmasters.readonly',
   'https://www.googleapis.com/auth/analytics.readonly',
   'https://www.googleapis.com/auth/drive.file',
+  'https://www.googleapis.com/auth/drive.readonly',
 ];
 
 // In-memory token cache (avoids Firestore read on every request)
