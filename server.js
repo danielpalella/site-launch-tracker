@@ -3752,15 +3752,18 @@ Return ONLY a valid JSON array with no markdown, no code fences. Each item must 
 {"title": "Blog post title under 70 chars", "description": "One sentence describing the angle and target audience"}`;
 
     const geminiKey = await getGeminiKey();
-    const gRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
+    const gRes = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.8, maxOutputTokens: 2048 } }),
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.8, maxOutputTokens: 2048, thinkingConfig: { thinkingBudget: 0 } } }),
     });
     const gData = await gRes.json();
     if (!gRes.ok) throw new Error(gData.error?.message || 'Gemini error');
-    const raw = gData.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    const jsonMatch = raw.match(/\[[\s\S]*\]/);
+    // Grab the last text part (skip thinking part if present)
+    const parts = gData.candidates?.[0]?.content?.parts || [];
+    const raw = (parts.filter(p => p.text).pop()?.text || '').trim();
+    const cleaned = raw.replace(/^```json?\s*/i, '').replace(/```\s*$/, '').trim();
+    const jsonMatch = cleaned.match(/\[[\s\S]*\]/);
     if (!jsonMatch) throw new Error('Failed to parse AI response');
     const topics = JSON.parse(jsonMatch[0]);
     res.json({ topics });
