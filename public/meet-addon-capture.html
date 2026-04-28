@@ -8,26 +8,61 @@
 :root { --bg: #06102a; --surface: #0f1d3a; --primary: #1259FF; --lime: #cbff4d; --text: #fff; --text-muted: rgba(255,255,255,.5); --border: rgba(255,255,255,.1); --red: #ef4444 }
 * { margin: 0; padding: 0; box-sizing: border-box }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 1.5rem }
-.status { font-size: .85rem; text-align: center; line-height: 1.5; margin-bottom: 1rem }
+.mode-select { text-align: center; max-width: 360px }
+.mode-title { font-size: 1rem; font-weight: 700; margin-bottom: .3rem }
+.mode-sub { font-size: .78rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 1rem }
+.mode-btn { width: 100%; padding: .65rem 1rem; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); font-size: .82rem; font-weight: 600; cursor: pointer; font-family: inherit; text-align: left; margin-bottom: .5rem; display: flex; align-items: center; gap: .6rem; transition: border-color .15s }
+.mode-btn:hover { border-color: var(--primary) }
+.mode-btn-icon { width: 32px; height: 32px; border-radius: 6px; background: rgba(255,255,255,.06); display: flex; align-items: center; justify-content: center; flex-shrink: 0 }
+.mode-btn-text { flex: 1 }
+.mode-btn-label { font-weight: 700; margin-bottom: .1rem }
+.mode-btn-desc { font-size: .68rem; color: var(--text-muted); font-weight: 400 }
+.mode-btn-rec { background: var(--primary); border-color: var(--primary) }
+
+.status { font-size: .85rem; text-align: center; line-height: 1.5; margin-bottom: .75rem; display: none }
 .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle }
 .status-dot.waiting { background: #f59e0b }
 .status-dot.active { background: var(--lime); animation: pulse 1.5s infinite }
 .status-dot.error { background: var(--red) }
 @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .4 } }
-.level-bar-wrap { width: 200px; height: 6px; background: var(--surface); border-radius: 3px; overflow: hidden; margin: .75rem auto }
+.level-bar-wrap { width: 200px; height: 6px; background: var(--surface); border-radius: 3px; overflow: hidden; margin: .5rem auto; display: none }
 .level-bar { height: 100%; width: 0%; background: var(--lime); border-radius: 3px; transition: width 80ms }
-.btn-stop { margin-top: 1rem; padding: .5rem 1.5rem; border: 1px solid var(--red); border-radius: 6px; background: none; color: var(--red); font-size: .8rem; font-weight: 600; cursor: pointer; font-family: inherit }
+.btn-stop { margin-top: .75rem; padding: .5rem 1.5rem; border: 1px solid var(--red); border-radius: 6px; background: none; color: var(--red); font-size: .8rem; font-weight: 600; cursor: pointer; font-family: inherit; display: none }
 .btn-stop:hover { background: rgba(239,68,68,.15) }
 .hint { font-size: .7rem; color: var(--text-muted); text-align: center; margin-top: .5rem; line-height: 1.4 }
+#transcript-debug { display: none; max-height: 100px; overflow-y: auto; margin-top: .5rem; padding: .4rem .5rem; background: #111; border-radius: 6px; border: 1px solid #333; width: 100%; max-width: 360px; font-size: .72rem }
 </style>
 </head>
 <body>
 
-<div id="status" class="status"><span class="status-dot waiting"></span>Requesting tab audio...</div>
-<div class="level-bar-wrap"><div class="level-bar" id="level-bar"></div></div>
-<button class="btn-stop" id="btn-stop" style="display:none" onclick="stopCapture()">Stop Transcription</button>
-<div id="transcript-debug" style="display:none;max-height:120px;overflow-y:auto;margin-top:.5rem;padding:.5rem;background:#111;border-radius:6px;border:1px solid #333"></div>
-<div class="hint" id="hint">Select the Meet tab and check "Share tab audio"</div>
+<!-- Mode selection -->
+<div class="mode-select" id="mode-select">
+  <div class="mode-title">Start Audio Capture</div>
+  <div class="mode-sub">Choose how to capture the contractor's voice during the call.</div>
+
+  <button class="mode-btn mode-btn-rec" onclick="startMicCapture()">
+    <div class="mode-btn-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/></svg></div>
+    <div class="mode-btn-text">
+      <div class="mode-btn-label">Use Microphone (Recommended)</div>
+      <div class="mode-btn-desc">Captures both sides through your mic. Works alongside screen sharing.</div>
+    </div>
+  </button>
+
+  <button class="mode-btn" onclick="startTabCapture()">
+    <div class="mode-btn-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div>
+    <div class="mode-btn-text">
+      <div class="mode-btn-label">Capture Tab Audio</div>
+      <div class="mode-btn-desc">Higher quality but cannot share screen at the same time.</div>
+    </div>
+  </button>
+</div>
+
+<!-- Active state -->
+<div id="status" class="status"></div>
+<div class="level-bar-wrap" id="level-wrap"><div class="level-bar" id="level-bar"></div></div>
+<button class="btn-stop" id="btn-stop" onclick="stopCapture()">Stop Transcription</button>
+<div id="transcript-debug"></div>
+<div class="hint" id="hint"></div>
 
 <script>
 const params = new URLSearchParams(window.location.search);
@@ -36,6 +71,7 @@ const statusEl = document.getElementById('status');
 const levelBar = document.getElementById('level-bar');
 const btnStop = document.getElementById('btn-stop');
 const hintEl = document.getElementById('hint');
+const modeSelect = document.getElementById('mode-select');
 
 const bc = new BroadcastChannel('meet-transcript');
 let ws = null;
@@ -45,40 +81,58 @@ let processor = null;
 let source = null;
 
 function setStatus(text, state) {
+  statusEl.style.display = 'block';
   statusEl.innerHTML = `<span class="status-dot ${state}"></span>${text}`;
 }
 
-async function startCapture() {
+// ── Mic capture (recommended — works with screen sharing) ──
+async function startMicCapture() {
+  modeSelect.style.display = 'none';
+  setStatus('Requesting microphone...', 'waiting');
+  try {
+    mediaStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 16000 } });
+    hintEl.textContent = 'Mic active — capturing through your microphone. You can share your screen in Meet.';
+    connectAudioAndWs();
+  } catch (err) {
+    setStatus('Microphone access denied', 'error');
+    hintEl.textContent = 'Allow microphone access and try again.';
+    modeSelect.style.display = '';
+  }
+}
+
+// ── Tab audio capture (higher quality but conflicts with screen sharing) ──
+async function startTabCapture() {
+  modeSelect.style.display = 'none';
+  setStatus('Select the Meet tab and check "Share tab audio"', 'waiting');
   try {
     mediaStream = await navigator.mediaDevices.getDisplayMedia({ audio: true, video: true });
+    mediaStream.getVideoTracks().forEach(t => t.stop());
+    const audioTracks = mediaStream.getAudioTracks();
+    if (!audioTracks.length) {
+      setStatus('No audio — did you check "Share tab audio"?', 'error');
+      modeSelect.style.display = '';
+      return;
+    }
+    hintEl.textContent = 'Capturing tab audio. Note: screen sharing in Meet may conflict.';
+    audioTracks[0].addEventListener('ended', () => { stopCapture(); });
+    connectAudioAndWs();
   } catch (err) {
-    setStatus('Tab sharing cancelled or denied', 'error');
-    hintEl.textContent = 'Close this window and try again from the sidebar.';
-    return;
+    setStatus('Tab sharing cancelled', 'error');
+    modeSelect.style.display = '';
   }
+}
 
-  // Stop video tracks — we only need audio
-  mediaStream.getVideoTracks().forEach(t => t.stop());
-
-  const audioTracks = mediaStream.getAudioTracks();
-  if (!audioTracks.length) {
-    setStatus('No audio track — did you check "Share tab audio"?', 'error');
-    hintEl.textContent = 'Close this window and try again. Make sure to check the "Share tab audio" checkbox.';
-    return;
-  }
-
+// ── Shared: connect audio to WebSocket + Speech-to-Text ──
+function connectAudioAndWs() {
   setStatus('Connecting...', 'waiting');
-  hintEl.textContent = '';
 
-  // Set up AudioContext at 16kHz for Speech-to-Text
   audioCtx = new AudioContext({ sampleRate: 16000 });
-  const audioStream = new MediaStream(audioTracks);
+  const audioStream = new MediaStream(mediaStream.getAudioTracks());
   source = audioCtx.createMediaStreamSource(audioStream);
   processor = audioCtx.createScriptProcessor(4096, 1, 1);
 
-  // Connect WebSocket — use direct Cloud Run URL (Firebase App Hosting doesn't proxy WebSockets)
   const wsHost = location.host.includes('hosted.app')
-    ? 'site-launch-tracker-2qh6nkd65a-uc.a.run.app'  // direct Cloud Run URL
+    ? 'site-launch-tracker-2qh6nkd65a-uc.a.run.app'
     : location.host;
   ws = new WebSocket(`wss://${wsHost}/ws/transcribe`);
   ws.binaryType = 'arraybuffer';
@@ -92,81 +146,72 @@ async function startCapture() {
       const msg = JSON.parse(evt.data);
       if (msg.type === 'auth_ok') {
         setStatus('Transcription active', 'active');
-        btnStop.style.display = 'inline-block';
-        // Start sending audio
+        document.getElementById('level-wrap').style.display = 'block';
+        btnStop.style.display = '';
+
         processor.onaudioprocess = (e) => {
           const float32 = e.inputBuffer.getChannelData(0);
-          // Update level meter
+          // Level meter
           let sum = 0;
           for (let i = 0; i < float32.length; i++) sum += float32[i] * float32[i];
-          const rms = Math.sqrt(sum / float32.length);
-          levelBar.style.width = Math.min(100, rms * 500) + '%';
-          // Convert to Int16 PCM
+          levelBar.style.width = Math.min(100, Math.sqrt(sum / float32.length) * 500) + '%';
+          // Convert to Int16 and send
           const int16 = new Int16Array(float32.length);
           for (let i = 0; i < float32.length; i++) {
             int16[i] = Math.max(-32768, Math.min(32767, Math.round(float32[i] * 32768)));
           }
-          if (ws && ws.readyState === WebSocket.OPEN) {
-            ws.send(int16.buffer);
-          }
+          if (ws && ws.readyState === WebSocket.OPEN) ws.send(int16.buffer);
         };
         source.connect(processor);
         processor.connect(audioCtx.destination);
+
       } else if (msg.type === 'transcript') {
-        // Show transcript in the popup for debugging
         const debugDiv = document.getElementById('transcript-debug');
         if (debugDiv) {
           debugDiv.style.display = 'block';
           if (msg.isFinal) {
-            debugDiv.innerHTML += '<div style="color:#fff;font-size:.75rem">' + msg.text + '</div>';
+            debugDiv.innerHTML += '<div style="color:#fff">' + esc(msg.text) + '</div>';
           } else {
             let interim = debugDiv.querySelector('.interim');
-            if (!interim) { interim = document.createElement('div'); interim.className = 'interim'; interim.style.cssText = 'color:#888;font-size:.75rem;font-style:italic'; debugDiv.appendChild(interim); }
+            if (!interim) { interim = document.createElement('div'); interim.className = 'interim'; interim.style.cssText = 'color:#888;font-style:italic'; debugDiv.appendChild(interim); }
             interim.textContent = msg.text;
           }
           debugDiv.scrollTop = debugDiv.scrollHeight;
         }
-        // Relay to sidebar via BroadcastChannel
         bc.postMessage({ type: 'transcript', text: msg.text, isFinal: msg.isFinal });
-        // Also try window.opener in case BroadcastChannel doesn't work across iframe origins
         try { window.opener?.postMessage({ type: 'rw-transcript', text: msg.text, isFinal: msg.isFinal }, '*'); } catch {}
+
       } else if (msg.type === 'error') {
         setStatus('Error: ' + msg.message, 'error');
-      } else if (msg.type === 'info') {
-        // Stream restart info — no action needed
       }
     } catch {}
   };
 
-  ws.onerror = () => {
-    setStatus('WebSocket error', 'error');
-  };
-
+  ws.onerror = () => setStatus('WebSocket error', 'error');
   ws.onclose = (evt) => {
-    setStatus('Connection closed (code: ' + evt.code + ', reason: ' + (evt.reason || 'none') + ')', 'error');
+    setStatus('Connection closed (code: ' + evt.code + ')', 'error');
     btnStop.style.display = 'none';
   };
-
-  // Handle tab sharing ending
-  audioTracks[0].addEventListener('ended', () => {
-    stopCapture();
-  });
 }
 
 function stopCapture() {
-  if (processor) { try { processor.disconnect(); } catch {} }
-  if (source) { try { source.disconnect(); } catch {} }
-  if (audioCtx) { try { audioCtx.close(); } catch {} }
-  if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); }
-  if (ws && ws.readyState <= 1) { ws.close(); }
+  if (processor) { try { processor.disconnect(); } catch {} processor = null; }
+  if (source) { try { source.disconnect(); } catch {} source = null; }
+  if (audioCtx) { try { audioCtx.close(); } catch {} audioCtx = null; }
+  if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; }
+  if (ws) { try { ws.close(); } catch {} ws = null; }
   bc.postMessage({ type: 'stopped' });
   setStatus('Transcription stopped', 'error');
   btnStop.style.display = 'none';
-  hintEl.textContent = 'You can close this window.';
+  document.getElementById('level-wrap').style.display = 'none';
 }
 
-// Start immediately on load
-startCapture();
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+// Auto-start if mode is specified in URL
+const mode = params.get('mode');
+if (mode === 'mic') startMicCapture();
+else if (mode === 'tab') startTabCapture();
 </script>
 </body>
 </html>
