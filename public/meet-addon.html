@@ -70,6 +70,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .ma-transcript-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--lime); margin-right: 4px; vertical-align: middle; animation: ma-pulse 1.5s infinite }
 @keyframes ma-pulse { 0%,100% { opacity: 1 } 50% { opacity: .3 } }
 
+/* AI recommendation badges */
+.ma-ai-rec { padding: .4rem .6rem; border-radius: 6px; font-size: .72rem; line-height: 1.4; margin-bottom: .5rem; display: none }
+.ma-ai-rec.ready { display: block; background: rgba(22,163,74,.12); border: 1px solid rgba(22,163,74,.25); color: #4ade80 }
+.ma-ai-rec.followup { display: block; background: rgba(234,179,8,.1); border: 1px solid rgba(234,179,8,.2); color: #facc15 }
+.ma-ai-rec.thinking { display: block; background: rgba(255,255,255,.05); border: 1px solid var(--border); color: var(--text-muted) }
+
 /* Finish screen */
 .ma-finish { display: none; padding: 1.5rem .75rem; text-align: center }
 .ma-finish-title { font-size: 1rem; font-weight: 700; margin-bottom: .4rem }
@@ -111,8 +117,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 <div class="ma-finish" id="ma-finish">
   <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--lime)" stroke-width="2" style="margin-bottom:.75rem"><circle cx="12" cy="12" r="10"/><polyline points="20 6 9 17 4 12" stroke-width="2.5"/></svg>
   <div class="ma-finish-title">Interview Complete</div>
-  <div class="ma-finish-sub">Great job! Now import the Meet transcript to extract the client profile automatically.</div>
-  <button class="ma-finish-btn" onclick="importMeetTranscript()">Import Meet Transcript</button>
+  <div class="ma-finish-sub">Great job! The AI is extracting the client profile from the live transcript.</div>
+  <button class="ma-finish-btn-outline" onclick="importMeetTranscript()" style="margin-bottom:.4rem">Import Meet Transcript</button>
   <button class="ma-finish-btn-outline" onclick="manualExtract()">Extract from Notes</button>
   <div class="ma-finish-status" id="ma-finish-status"></div>
 </div>
@@ -156,6 +162,11 @@ let transcriptText = '';
 let capturePopup = null;
 let transcriptChannel = null;
 let interimText = '';
+let questionTranscripts = {};
+let currentQuestionTranscript = '';
+let evalTimer = null;
+let lastEvalText = '';
+let aiRecState = null; // { action, message }
 
 function authHeaders(h = {}) { if (authToken) h['Authorization'] = 'Bearer ' + authToken; return h; }
 function authFetch(url, opts = {}) { opts.headers = authHeaders(opts.headers || {}); return fetch(url, opts); }
@@ -314,6 +325,19 @@ function renderGuide() {
   html += '<div class="ma-transcript-status" id="ma-transcript-status"' + (transcriptActive ? ' style="display:block"' : '') + '><span class="ma-transcript-dot"></span>Live transcription active</div>';
   html += '<div class="ma-transcript-box" id="ma-transcript-box"' + (transcriptActive ? ' style="display:block"' : '') + '>' + (transcriptText || '<span class="ma-transcript-empty">Transcript will appear here...</span>') + '</div>';
 
+  // AI recommendation badge
+  html += '<div class="ma-ai-rec' + (aiRecState ? (aiRecState.action === 'next' ? ' ready' : ' followup') : '') + '" id="ma-ai-rec">';
+  if (aiRecState) {
+    if (aiRecState.action === 'next') {
+      html += 'Answer sounds complete &mdash; ready to move on' + (aiRecState.message ? '<br><span style="opacity:.8;font-size:.68rem">' + esc(aiRecState.message) + '</span>' : '');
+    } else if (aiRecState.action === 'followup') {
+      html += 'Consider asking: ' + esc(aiRecState.message);
+    } else if (aiRecState.action === 'clarify') {
+      html += 'Answer was unclear &mdash; try rephrasing the question';
+    }
+  }
+  html += '</div>';
+
   html += '<div class="ma-guide-btns">';
   html += '<button class="ma-btn-skip" onclick="skipQuestion()">Skip</button>';
   html += `<button class="ma-btn-next" onclick="nextQuestion()">Next <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></button>`;
@@ -336,6 +360,12 @@ function nextQuestion() {
   const q = QUESTIONS[currentQ];
   const nextQ = QUESTIONS[currentQ + 1];
 
+  // Save per-question transcript and reset
+  questionTranscripts[currentQ] = currentQuestionTranscript;
+  currentQuestionTranscript = '';
+  aiRecState = null;
+  lastEvalText = '';
+
   // Check if section is completing
   if (nextQ && nextQ.section !== q.section) {
     const sIdx = SECTIONS.indexOf(q.section);
@@ -357,8 +387,47 @@ function skipQuestion() {
 
 // ── Finish ──
 function showFinish() {
+  // Save transcript for the last question if any
+  if (currentQuestionTranscript) {
+    questionTranscripts[currentQ] = currentQuestionTranscript;
+    currentQuestionTranscript = '';
+  }
+  stopEvalTimer();
+  aiRecState = null;
+
   document.querySelectorAll('.ma-phase').forEach(el => el.classList.remove('active'));
-  document.getElementById('ma-finish').style.display = 'block';
+  const finishEl = document.getElementById('ma-finish');
+  finishEl.style.display = 'block';
+
+  // Check if we have any real transcript answers
+  const hasRealAnswers = Object.values(questionTranscripts).some(t => t && t.trim().length > 0);
+  if (hasRealAnswers) {
+    autoExtractFromTranscript();
+  }
+}
+
+async function autoExtractFromTranscript() {
+  const status = document.getElementById('ma-finish-status');
+  status.innerHTML = '<span style="color:var(--text-muted)">Extracting profile from live transcript...</span>';
+
+  try {
+    const questionsPayload = QUESTIONS.map((q, i) => ({
+      id: q.id,
+      label: q.label,
+      section: q.section,
+      answer: questionTranscripts[i] || '(not discussed)',
+    }));
+    const r = await authFetch(`/api/onboarding/sessions/${sessionId}/extract`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ questions: questionsPayload }),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error);
+    status.innerHTML = '<span style="color:var(--lime)">Profile extracted from live transcript! View it in the dashboard.</span>';
+  } catch (err) {
+    status.innerHTML = 'Auto-extraction failed: ' + esc(err.message) + '. Use the buttons below to try again.';
+  }
 }
 
 async function importMeetTranscript() {
@@ -422,6 +491,9 @@ function toggleTranscript() {
     }
   });
 
+  // Start AI evaluation timer
+  startEvalTimer();
+
   // If popup was blocked, show instructions
   if (!capturePopup || capturePopup.closed) {
     // Open as a new tab instead
@@ -475,6 +547,7 @@ function handleTranscriptMessage(msg) {
   if (msg.type === 'transcript') {
     if (msg.isFinal) {
       transcriptText += (transcriptText ? ' ' : '') + msg.text;
+      currentQuestionTranscript += (currentQuestionTranscript ? ' ' : '') + msg.text;
       interimText = '';
     } else {
       interimText = msg.text;
@@ -487,6 +560,7 @@ function handleTranscriptMessage(msg) {
 
 function stopTranscript() {
   transcriptActive = false;
+  stopEvalTimer();
   if (capturePopup && !capturePopup.closed) {
     capturePopup.close();
   }
@@ -497,6 +571,68 @@ function stopTranscript() {
   }
   interimText = '';
   renderGuide();
+}
+
+function startEvalTimer() {
+  stopEvalTimer();
+  evalTimer = setInterval(() => { evaluateTranscript(); }, 15000);
+}
+
+function stopEvalTimer() {
+  if (evalTimer) { clearInterval(evalTimer); evalTimer = null; }
+}
+
+async function evaluateTranscript() {
+  const text = currentQuestionTranscript.trim();
+  // Don't evaluate if no new text or fewer than 5 words
+  if (!text || text === lastEvalText) return;
+  const wordCount = text.split(/\s+/).length;
+  if (wordCount < 5) return;
+
+  lastEvalText = text;
+  const q = QUESTIONS[currentQ];
+  if (!q) return;
+
+  // Show thinking state
+  const recEl = document.getElementById('ma-ai-rec');
+  if (recEl) { recEl.className = 'ma-ai-rec thinking'; recEl.style.display = 'block'; recEl.textContent = 'AI is evaluating the response...'; }
+
+  try {
+    const r = await authFetch('/api/onboarding/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        question: q.label,
+        answer: text,
+        followups: q.followups || [],
+        sectionName: q.section,
+        clientName: clientName,
+        alreadyFollowedUp: false,
+      }),
+    });
+    const data = await r.json();
+    aiRecState = data;
+
+    // Update badge in-place without full re-render
+    const el = document.getElementById('ma-ai-rec');
+    if (el) {
+      if (data.action === 'next') {
+        el.className = 'ma-ai-rec ready';
+        el.innerHTML = 'Answer sounds complete &mdash; ready to move on' + (data.message ? '<br><span style="opacity:.8;font-size:.68rem">' + esc(data.message) + '</span>' : '');
+      } else if (data.action === 'followup') {
+        el.className = 'ma-ai-rec followup';
+        el.innerHTML = 'Consider asking: ' + esc(data.message);
+      } else if (data.action === 'clarify') {
+        el.className = 'ma-ai-rec followup';
+        el.innerHTML = 'Answer was unclear &mdash; try rephrasing the question';
+      }
+    }
+  } catch (err) {
+    console.warn('AI evaluation failed:', err);
+    // Silently fail — don't disrupt the interview
+    const el = document.getElementById('ma-ai-rec');
+    if (el) { el.className = 'ma-ai-rec'; el.style.display = 'none'; }
+  }
 }
 
 function updateTranscriptBox() {
