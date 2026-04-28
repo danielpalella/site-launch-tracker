@@ -4825,18 +4825,35 @@ app.post('/api/launches/:id/scan-projects', requireAuth, async (req, res) => {
     const token = await getAnalyticsAccessToken();
     const geminiKey = await getGeminiKey();
 
-    // Find or create Projects subfolder
-    const projectsFolderId = await driveGetOrCreateSubfolder('Projects', d.drive_folder_id, token);
+    // Find Projects subfolder — check all matching folders (there might be duplicates)
+    const projQ = encodeURIComponent(`name='Projects' and '${d.drive_folder_id}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`);
+    const projR = await fetchWithRetry(`https://www.googleapis.com/drive/v3/files?q=${projQ}&fields=files(id,name)&pageSize=10`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const projData = projR.ok ? await projR.json() : { files: [] };
+    const allProjectFolders = projData.files || [];
+    console.log(`[scan-projects] Found ${allProjectFolders.length} "Projects" folders:`, allProjectFolders.map(f => f.id));
 
-    // List image files in Projects folder (and one level of subfolders)
-    async function listImages(folderId) {
-      const q = encodeURIComponent(`'${folderId}' in parents and mimeType contains 'image/' and trashed=false`);
-      const r = await fetchWithRetry(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,mimeType)&pageSize=20`, {
+    // Use the first one found, or create if none exist
+    let projectsFolderId = allProjectFolders[0]?.id;
+    if (!projectsFolderId) projectsFolderId = await driveCreateFolder('Projects', d.drive_folder_id, token);
+
+    // List ALL files in the folder (for debugging + scan all image-like files)
+    async function listAllFiles(folderId) {
+      const q = encodeURIComponent(`'${folderId}' in parents and trashed=false`);
+      const r = await fetchWithRetry(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,mimeType)&pageSize=30`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!r.ok) return [];
       const data = await r.json();
       return data.files || [];
+    }
+
+    async function listImages(folderId) {
+      const all = await listAllFiles(folderId);
+      console.log(`[scan-projects] Folder ${folderId} has ${all.length} files:`, all.map(f => `${f.name} (${f.mimeType})`));
+      // Match any image type
+      return all.filter(f => f.mimeType && (f.mimeType.startsWith('image/') || f.mimeType.includes('photo') || f.name.match(/\.(jpg|jpeg|png|gif|webp|avif|bmp|heic)$/i)));
     }
 
     // Also check subfolders one level deep
@@ -4858,13 +4875,21 @@ app.post('/api/launches/:id/scan-projects', requireAuth, async (req, res) => {
     const allFilesData = allFilesR.ok ? await allFilesR.json() : { files: [] };
     console.log(`[scan-projects] Projects folder ${projectsFolderId} contains ${(allFilesData.files || []).length} files:`, (allFilesData.files || []).map(f => `${f.name} (${f.mimeType})`));
 
-    let images = await listImages(projectsFolderId);
-    const subfolders = await listSubfolders(projectsFolderId);
-    for (const sf of subfolders) {
-      console.log(`[scan-projects] Checking subfolder: ${sf.name} (${sf.id})`);
-      const subImages = await listImages(sf.id);
-      images = images.concat(subImages);
+    // Search all Projects folders (in case of duplicates)
+    let images = [];
+    for (const pf of allProjectFolders) {
+      console.log(`[scan-projects] Scanning Projects folder: ${pf.id}`);
+      const pfImages = await listImages(pf.id);
+      images = images.concat(pfImages);
+      const subfolders = await listSubfolders(pf.id);
+      for (const sf of subfolders) {
+        console.log(`[scan-projects] Checking subfolder: ${sf.name} (${sf.id})`);
+        const subImages = await listImages(sf.id);
+        images = images.concat(subImages);
+      }
     }
+    // Deduplicate by ID
+    images = [...new Map(images.map(i => [i.id, i])).values()];
 
     // Cap at 20 images
     images = images.slice(0, 20);
