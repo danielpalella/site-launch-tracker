@@ -5004,78 +5004,72 @@ app.post('/api/launches/:id/scan-projects', requireAuth, async (req, res) => {
     const token = await getAnalyticsAccessToken();
     const geminiKey = await getGeminiKey();
 
-    // Find Projects subfolder — check all matching folders (there might be duplicates)
-    const projQ = encodeURIComponent(`name='Projects' and '${d.drive_folder_id}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`);
-    const projR = await fetchWithRetry(`https://www.googleapis.com/drive/v3/files?q=${projQ}&fields=files(id,name)&pageSize=10`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const projData = projR.ok ? await projR.json() : { files: [] };
-    const allProjectFolders = projData.files || [];
-    console.log(`[scan-projects] Found ${allProjectFolders.length} "Projects" folders:`, allProjectFolders.map(f => f.id));
-
-    // Use the first one found, or create if none exist
-    let projectsFolderId = allProjectFolders[0]?.id;
-    if (!projectsFolderId) projectsFolderId = await driveCreateFolder('Projects', d.drive_folder_id, token);
-
-    // List ALL files in the folder (for debugging + scan all image-like files)
-    async function listAllFiles(folderId) {
+    // Helper: list all files in a folder
+    async function listFiles(folderId) {
       const q = encodeURIComponent(`'${folderId}' in parents and trashed=false`);
-      const r = await fetchWithRetry(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,mimeType)&pageSize=30`, {
+      const r = await fetchWithRetry(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,mimeType)&pageSize=50`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!r.ok) return [];
-      const data = await r.json();
-      return data.files || [];
+      return (await r.json()).files || [];
     }
 
-    async function listImages(folderId) {
-      const all = await listAllFiles(folderId);
-      console.log(`[scan-projects] Folder ${folderId} has ${all.length} files:`, all.map(f => `${f.name} (${f.mimeType})`));
-      // Match any image type
-      return all.filter(f => f.mimeType && (f.mimeType.startsWith('image/') || f.mimeType.includes('photo') || f.name.match(/\.(jpg|jpeg|png|gif|webp|avif|bmp|heic)$/i)));
+    function isImage(f) {
+      return f.mimeType?.startsWith('image/') || f.name?.match(/\.(jpg|jpeg|png|gif|webp|avif|bmp|heic)$/i);
+    }
+    function isScreenshot(f) {
+      return f.name?.toLowerCase().includes('screenshot') || f.name?.toLowerCase().includes('screen shot');
+    }
+    function isFolder(f) { return f.mimeType === 'application/vnd.google-apps.folder'; }
+
+    // Find the Projects folder
+    const projFolderId = await driveFindFolder('Projects', d.drive_folder_id, token);
+    if (!projFolderId) {
+      await driveCreateFolder('Projects', d.drive_folder_id, token);
+      return res.json({ projects: [], message: 'Projects folder was empty. Created it — add project subfolders and try again.' });
     }
 
-    // Also check subfolders one level deep
-    async function listSubfolders(folderId) {
-      const q = encodeURIComponent(`'${folderId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`);
-      const r = await fetchWithRetry(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)&pageSize=10`, {
-        headers: { Authorization: `Bearer ${token}` },
+    // List everything in the Projects folder
+    const topLevelFiles = await listFiles(projFolderId);
+    const subfolders = topLevelFiles.filter(isFolder);
+    const looseImages = topLevelFiles.filter(isImage);
+
+    console.log(`[scan-projects] Projects folder has ${subfolders.length} subfolders, ${looseImages.length} loose images`);
+
+    // Structure: each subfolder = one project
+    // Inside each subfolder: screenshots = job info, other images = project photos
+    const projectEntries = [];
+
+    // Process subfolders (one project per subfolder)
+    for (const sf of subfolders.slice(0, 20)) {
+      const files = await listFiles(sf.id);
+      const images = files.filter(isImage);
+      const screenshots = images.filter(isScreenshot);
+      const photos = images.filter(f => !isScreenshot(f));
+
+      projectEntries.push({
+        folderName: sf.name,
+        folderId: sf.id,
+        screenshots,
+        photos,
       });
-      if (!r.ok) return [];
-      const data = await r.json();
-      return data.files || [];
+      console.log(`[scan-projects] Subfolder "${sf.name}": ${screenshots.length} screenshots, ${photos.length} photos`);
     }
 
-    // List ALL files in the Projects folder first (for debugging)
-    const allFilesQ = encodeURIComponent(`'${projectsFolderId}' in parents and trashed=false`);
-    const allFilesR = await fetchWithRetry(`https://www.googleapis.com/drive/v3/files?q=${allFilesQ}&fields=files(id,name,mimeType)&pageSize=30`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const allFilesData = allFilesR.ok ? await allFilesR.json() : { files: [] };
-    console.log(`[scan-projects] Projects folder ${projectsFolderId} contains ${(allFilesData.files || []).length} files:`, (allFilesData.files || []).map(f => `${f.name} (${f.mimeType})`));
-
-    // Search all Projects folders (in case of duplicates)
-    let images = [];
-    for (const pf of allProjectFolders) {
-      console.log(`[scan-projects] Scanning Projects folder: ${pf.id}`);
-      const pfImages = await listImages(pf.id);
-      images = images.concat(pfImages);
-      const subfolders = await listSubfolders(pf.id);
-      for (const sf of subfolders) {
-        console.log(`[scan-projects] Checking subfolder: ${sf.name} (${sf.id})`);
-        const subImages = await listImages(sf.id);
-        images = images.concat(subImages);
-      }
+    // Also handle loose images in the root Projects folder (legacy structure)
+    if (looseImages.length && !subfolders.length) {
+      const screenshots = looseImages.filter(isScreenshot);
+      const photos = looseImages.filter(f => !isScreenshot(f));
+      projectEntries.push({
+        folderName: 'Projects (root)',
+        folderId: projFolderId,
+        screenshots: screenshots.length ? screenshots : looseImages.slice(0, 5), // treat all as screenshots if none named
+        photos,
+      });
     }
-    // Deduplicate by ID
-    images = [...new Map(images.map(i => [i.id, i])).values()];
 
-    // Cap at 20 images
-    images = images.slice(0, 20);
-    console.log(`[scan-projects] Found ${images.length} images total`);
-
-    if (images.length === 0) {
-      return res.json({ projects: [], message: 'No images found in Projects folder', debug: { folderId: projectsFolderId, allFiles: (allFilesData.files || []).map(f => ({ name: f.name, type: f.mimeType })) } });
+    if (!projectEntries.length) {
+      return res.json({ projects: [], message: 'No project subfolders or images found. Create subfolders like "2026-04 Gutter Install - Ridge NJ" inside Projects/' });
     }
 
     const extractionPrompt = `You are extracting project/job data from a screenshot of a home services contractor's project management software.
@@ -5091,76 +5085,87 @@ Extract ALL visible information and return ONLY valid JSON:
   "service_tags": ["list of service types visible"],
   "review_text": "the full Google review text if visible, or null",
   "review_rating": 5 or null,
-  "reviewer_name": "reviewer name if visible, or null",
-  "has_photos": true/false based on whether project photos are visible in the screenshot
+  "reviewer_name": "reviewer name if visible, or null"
 }
 
-If the screenshot is not a project/job record, return {"error": "not_a_project"}.`;
+If the image is a photo of actual work (not a screenshot of software), return:
+{"type": "photo", "description": "brief description of what the photo shows"}
+
+If the image is not relevant, return {"error": "not_relevant"}.`;
 
     const projects = [];
-    for (let i = 0; i < images.length; i++) {
-      try {
-        // Download image content
-        const imgRes = await fetchWithRetry(`https://www.googleapis.com/drive/v3/files/${images[i].id}?alt=media`, {
-          headers: { Authorization: `Bearer ${token}` },
-          timeout: 30000,
-        });
-        if (!imgRes.ok) {
-          console.warn(`[scan-projects] Failed to download image ${images[i].name}: ${imgRes.status}`);
-          continue;
-        }
-        const imgBuffer = Buffer.from(await imgRes.arrayBuffer());
-        const base64 = imgBuffer.toString('base64');
-        const mimeType = images[i].mimeType || 'image/jpeg';
+    for (const entry of projectEntries) {
+      const project = {
+        folder_name: entry.folderName,
+        folder_id: entry.folderId,
+        photos: entry.photos.map(p => ({
+          id: p.id,
+          name: p.name,
+          url: `https://drive.google.com/thumbnail?id=${p.id}&sz=w800`,
+        })),
+      };
 
-        // Send to Gemini Vision
-        const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{
-              parts: [
+      // Process screenshots through Gemini Vision to extract job data
+      for (const screenshot of entry.screenshots.slice(0, 3)) {
+        try {
+          const imgRes = await fetchWithRetry(`https://www.googleapis.com/drive/v3/files/${screenshot.id}?alt=media`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (!imgRes.ok) continue;
+          const imgBuffer = Buffer.from(await imgRes.arrayBuffer());
+          const base64 = imgBuffer.toString('base64');
+          const mimeType = screenshot.mimeType || 'image/jpeg';
+
+          const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [
                 { text: extractionPrompt },
                 { inlineData: { mimeType, data: base64 } }
-              ]
-            }],
-            generationConfig: { temperature: 0.1, maxOutputTokens: 1024, thinkingConfig: { thinkingBudget: 0 } }
-          }),
-          signal: AbortSignal.timeout(30000),
-        });
-        incrApiStat('gemini');
+              ]}],
+              generationConfig: { temperature: 0.1, maxOutputTokens: 1024, thinkingConfig: { thinkingBudget: 0 } }
+            }),
+            signal: AbortSignal.timeout(30000),
+          });
+          incrApiStat('gemini');
 
-        const geminiData = await geminiRes.json();
-        if (!geminiRes.ok) {
-          console.warn(`[scan-projects] Gemini error for ${images[i].name}:`, geminiData.error?.message);
-          continue;
+          const geminiData = await geminiRes.json();
+          if (!geminiRes.ok) continue;
+
+          const parts = geminiData.candidates?.[0]?.content?.parts || [];
+          const rawText = (parts.filter(p => p.text).pop()?.text || '').trim();
+          const jsonStr = rawText.replace(/^```json?\n?/i, '').replace(/\n?```$/m, '').trim();
+          const parsed = JSON.parse(jsonStr);
+
+          if (!parsed.error && parsed.type !== 'photo') {
+            // Merge extracted data into the project
+            Object.assign(project, parsed);
+            project._source_file = screenshot.name;
+            break; // One screenshot is enough for job data
+          }
+        } catch (err) {
+          console.warn(`[scan-projects] Error processing ${screenshot.name}:`, err.message);
         }
-
-        const rawText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
-        // Extract JSON from response (may be wrapped in markdown code blocks)
-        const jsonStr = rawText.replace(/^```json?\n?/i, '').replace(/\n?```$/m, '').trim();
-        const parsed = JSON.parse(jsonStr);
-
-        if (!parsed.error) {
-          parsed._source_file = images[i].name;
-          projects.push(parsed);
-        }
-      } catch (err) {
-        console.warn(`[scan-projects] Error processing ${images[i].name}:`, err.message);
+        await new Promise(r => setTimeout(r, 1000));
       }
 
-      // 1-second delay between images to avoid rate limiting
-      if (i < images.length - 1) await new Promise(r => setTimeout(r, 1000));
+      // Use folder name as fallback title if no data extracted
+      if (!project.job_title && entry.folderName !== 'Projects (root)') {
+        project.job_title = entry.folderName;
+      }
+
+      projects.push(project);
     }
 
-    // Save projects to launch doc
+    // Save to launch doc
     await db.collection('launches').doc(req.params.id).update({
       projects,
       updated_at: FieldValue.serverTimestamp(),
     });
 
-    console.log(`[scan-projects] Extracted ${projects.length} projects from ${images.length} images for ${d.account_name}`);
-    res.json({ projects, imagesScanned: images.length });
+    console.log(`[scan-projects] Extracted ${projects.length} projects (${projectEntries.reduce((s, e) => s + e.photos.length, 0)} photos) for ${d.account_name}`);
+    res.json({ projects, foldersScanned: projectEntries.length });
   } catch (err) {
     console.error('[scan-projects] error:', err);
     res.status(500).json({ error: err.message || 'Scan failed' });
