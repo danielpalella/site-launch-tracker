@@ -4403,6 +4403,52 @@ mark.schema-fill-mark {
 .blog-history-title { font-size: .825rem; font-weight: 600; color: var(--text); line-height: 1.35; }
 .blog-history-meta { font-size: .74rem; color: var(--text-muted); }
 
+/* ── Blog tab redesign — data sources, content type pills, topic cards ── */
+.blog-section-label { font-size: .75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: .5rem; }
+.blog-ds-row { display: flex; flex-wrap: wrap; gap: .4rem; }
+.blog-ds-badge { display: inline-flex; align-items: center; gap: .3rem; font-size: .72rem; font-weight: 600; padding: .2rem .55rem; border-radius: 20px; border: 1px solid transparent; }
+.blog-ds-available { background: #22c55e14; color: #15803d; border-color: #22c55e33; }
+.blog-ds-missing { background: color-mix(in srgb, var(--text-muted) 8%, transparent); color: var(--text-muted); border-color: var(--border); }
+.blog-ct-row { display: flex; flex-wrap: wrap; gap: .4rem; }
+.blog-ct-pill {
+  font-size: .78rem; font-weight: 600; font-family: inherit;
+  padding: .35rem .75rem; border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--surface); color: var(--text-muted);
+  cursor: pointer; white-space: nowrap;
+  transition: background .15s, color .15s, border-color .15s;
+}
+.blog-ct-pill:hover { border-color: var(--primary); color: var(--primary); }
+.blog-ct-pill-active { background: var(--primary); color: #fff; border-color: var(--primary); }
+.blog-ct-pill-active:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
+.blog-topics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: .5rem;
+}
+.blog-topic-card {
+  padding: .75rem .9rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  cursor: pointer;
+  transition: border-color .15s, box-shadow .15s;
+}
+.blog-topic-card:hover { border-color: color-mix(in srgb, var(--primary) 50%, var(--border)); }
+.blog-topic-card-active { border-color: var(--primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 12%, transparent); }
+.blog-topic-title { font-size: .84rem; font-weight: 600; color: var(--text); line-height: 1.35; margin-bottom: .2rem; }
+.blog-topic-desc { font-size: .75rem; color: var(--text-muted); line-height: 1.4; }
+.blog-refresh-btn {
+  display: inline-flex; align-items: center; gap: .3rem;
+  font-size: .72rem; font-weight: 600; font-family: inherit;
+  padding: .2rem .55rem; border-radius: 6px;
+  border: 1px solid var(--border);
+  background: none; color: var(--text-muted);
+  cursor: pointer; transition: border-color .15s, color .15s;
+}
+.blog-refresh-btn:hover { border-color: var(--primary); color: var(--primary); }
+.blog-refresh-btn:disabled { opacity: .5; cursor: not-allowed; }
+
 /* ── Analytics Modal Tabs ── */
 .acd-tabs-nav {
   display: flex;

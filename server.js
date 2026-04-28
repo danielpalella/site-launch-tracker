@@ -3643,6 +3643,133 @@ ids must be q1 through q10. upvotes should be realistic numbers between 12 and 8
   }
 });
 
+// ── Blog context endpoint — returns available data sources for a launch ──
+app.get('/api/blog/context/:id', requireAuth, async (req, res) => {
+  try {
+    const doc = await db.collection('launches').doc(req.params.id).get();
+    if (!doc.exists) return res.status(404).json({ error: 'Launch not found' });
+    const d = doc.data();
+
+    // Parse research keywords
+    let researchKeywords = [];
+    if (d.research_md) {
+      const kwSection = d.research_md.match(/### (?:Primary|Location|Service|Problem|Long-Tail)[\s\S]*?(?=###|$)/gi);
+      researchKeywords = [...d.research_md.matchAll(/^- (.+)$/gm)].map(m => m[1].trim()).slice(0, 30);
+    }
+
+    // Fetch Google rating if place ID exists
+    let placeRating = null;
+    if (d.google_place_id) {
+      try {
+        const pd = await fetchPlaceRating(d.google_place_id);
+        if (pd) placeRating = { rating: pd.rating, reviewCount: pd.reviewCount };
+      } catch (e) { /* ignore */ }
+    }
+
+    // Count GSC keywords if analytics data exists
+    let gscKeywordCount = 0;
+    try {
+      const analyticsDoc = await db.collection('launches').doc(req.params.id).collection('analytics').doc('latest').get();
+      if (analyticsDoc.exists) {
+        const ad = analyticsDoc.data();
+        gscKeywordCount = (ad.gsc_queries || []).length;
+      }
+    } catch (e) { /* ignore */ }
+
+    res.json({
+      onboarding: { available: !!d.onboarding_profile, profile: d.onboarding_profile || null },
+      research: { available: !!d.research_md, keywords: researchKeywords },
+      projects: { available: !!(d.projects?.length), count: d.projects?.length || 0, items: d.projects || [] },
+      placeId: d.google_place_id || null,
+      placeRating,
+      gscKeywordCount,
+      industry: d.industry,
+      city: d.place_city,
+      domain: d.domain_name,
+      accountName: d.account_name,
+    });
+  } catch (err) {
+    console.error('blog/context error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Blog topic suggestions — AI-generated topics based on client data ──
+app.post('/api/blog/suggest-topics', requireAuth, async (req, res) => {
+  try {
+    const { launchId, contentType } = req.body;
+    if (!launchId) return res.status(400).json({ error: 'launchId is required' });
+
+    const doc = await db.collection('launches').doc(launchId).get();
+    if (!doc.exists) return res.status(404).json({ error: 'Launch not found' });
+    const d = doc.data();
+
+    const industry = d.industry || 'home services';
+    const city = d.place_city || '';
+    const bizName = d.account_name || '';
+
+    // Build context from available data
+    const contextParts = [];
+
+    if (d.onboarding_profile) {
+      const ob = d.onboarding_profile;
+      if (ob.services?.core?.length) contextParts.push(`Core services: ${ob.services.core.join(', ')}`);
+      if (ob.differentiation?.unique_selling_points?.length) contextParts.push(`USPs: ${ob.differentiation.unique_selling_points.join('; ')}`);
+      if (ob.service_area?.cities?.length) contextParts.push(`Service area: ${ob.service_area.cities.join(', ')}`);
+    }
+
+    if (d.research_md) {
+      const kwLines = [...d.research_md.matchAll(/^- (.+)$/gm)].map(m => m[1].trim()).slice(0, 15);
+      if (kwLines.length) contextParts.push(`SEO keywords from research: ${kwLines.join(', ')}`);
+    }
+
+    if (d.projects?.length) {
+      const projSummary = d.projects.slice(0, 3).map(p => p.job_title || 'Untitled project').join('; ');
+      contextParts.push(`Recent projects: ${projSummary}`);
+    }
+
+    const CONTENT_TYPE_LABELS = {
+      symptom: 'Problem / Symptom',
+      cost: 'Cost / Buying Guide',
+      seasonal: 'Seasonal / Maintenance',
+      emergency: 'Emergency / Urgent',
+      trust: 'Trust / Authority',
+    };
+    const ctLabel = CONTENT_TYPE_LABELS[contentType] || CONTENT_TYPE_LABELS.symptom;
+    const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    const currentMonth = monthNames[new Date().getMonth()];
+
+    const contextBlock = contextParts.length ? `\n\nClient context:\n${contextParts.join('\n')}` : '';
+
+    const prompt = `You are a local SEO content strategist for home service contractors.
+
+Suggest exactly 6 blog post topics for a ${ctLabel} post for a ${industry} company${city ? ` in ${city}` : ''}${bizName ? ` called "${bizName}"` : ''}.
+It is currently ${currentMonth} — weight 2-3 suggestions toward seasonally relevant topics.
+${contextBlock}
+
+Each topic should be a specific, actionable blog post idea that targets real homeowner search intent.
+Return ONLY a valid JSON array with no markdown, no code fences. Each item must have:
+{"title": "Blog post title under 70 chars", "description": "One sentence describing the angle and target audience"}`;
+
+    const geminiKey = await getGeminiKey();
+    const gRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.8, maxOutputTokens: 2048 } }),
+    });
+    const gData = await gRes.json();
+    if (!gRes.ok) throw new Error(gData.error?.message || 'Gemini error');
+    const raw = gData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const jsonMatch = raw.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) throw new Error('Failed to parse AI response');
+    const topics = JSON.parse(jsonMatch[0]);
+    res.json({ topics });
+  } catch (err) {
+    console.error('blog/suggest-topics error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post('/api/blog/post', requireAuth, async (req, res) => {
   try {
     const { industry, city: cityParam, question, detail, keywords, bizName, domain, wordCount, placeId, contentType: rawContentType } = req.body;
@@ -3896,6 +4023,22 @@ ${placeData?.reviews?.length ? `- A "Don't just take our word for it" <h2> secti
 
 ALSO generate a meta description on its own line at the very end, wrapped in <!-- META: [your 140-155 character meta description with keyword and a soft CTA like "Learn what to expect" or "Get a free estimate today"] -->
 
+OUTPUT FORMAT:
+Return the blog post wrapped in a styled container div. Include:
+1. A <style> block at the top with clean, modern CSS for the post
+2. The full post HTML inside a <div class="rw-blog-post"> wrapper
+
+The CSS should include:
+- Clean typography (system fonts, 1.6 line-height, max-width: 720px, centered)
+- Styled headings (h1: 2rem bold, h2: 1.4rem with bottom border, h3: 1.1rem)
+- Blockquote styling (left border, italic, grey background)
+- CTA button styling (primary color, rounded, centered)
+- FAQ section styling (each Q&A as a card with subtle border)
+- List styling (custom bullets, spacing)
+- Responsive (works on mobile)
+
+Make the CSS inline-friendly — use a <style> block, not external stylesheets.
+
 RULES — DO NOT VIOLATE:
 - Every <h2> MUST be phrased as a question (e.g. "What Causes...?" not "Common Causes of...")
 - Immediately after each <h2> question, the FIRST sentence must directly answer it — do not bury the answer
@@ -3907,7 +4050,7 @@ RULES — DO NOT VIOLATE:
 - Use <strong> to bold key terms where a skimmer would want to land — not randomly
 - Use numbered lists for step-by-step processes, bulleted lists for tips and warning signs
 
-Return ONLY the HTML body content (no <html>, <head>, <body> wrapper tags). Use only <h1>, <h2>, <h3>, <p>, <a>, <ul>, <ol>, <li>, <strong>, <blockquote>, <div> tags.`;
+Return the HTML with the <style> block and <div class="rw-blog-post"> wrapper. Do not include <html>, <head>, or <body> tags. Use only <h1>, <h2>, <h3>, <p>, <a>, <ul>, <ol>, <li>, <strong>, <blockquote>, <div> tags inside the wrapper.`;
 
     // Build Pexels search query from topic title (more relevant than location-based keyword)
     // Strip question words and city names; keep nouns related to the subject
