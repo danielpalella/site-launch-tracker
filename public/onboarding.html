@@ -257,6 +257,7 @@
         <div class="ob-results-sub" id="ob-results-sub" style="margin-bottom:0"></div>
       </div>
       <div style="display:flex;gap:.4rem;flex-shrink:0">
+        <button class="ob-copy-btn" onclick="editResultsProfile()" id="ob-edit-btn" style="margin-top:0"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Edit</button>
         <button class="ob-copy-btn" onclick="pushResultsToDrive()" id="ob-drive-btn" style="margin-top:0"><img src="/drive-icon.avif" width="14" height="14" style="border-radius:2px"> Push to Drive</button>
         <button class="ob-copy-btn" onclick="copyProfile()" style="margin-top:0"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy JSON</button>
         <button class="ob-copy-btn" onclick="downloadRawTranscript()" style="margin-top:0"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download Raw</button>
@@ -1005,6 +1006,72 @@ function renderResults(profile) {
   h += sec('Credentials', li('Licenses',p.credentials?.licenses)+f('Insured',p.credentials?.insured)+f('Bonded',p.credentials?.bonded)+li('Associations',p.credentials?.associations)+li('Awards',p.credentials?.awards));
   h += sec('Goals', li('Website Goals',p.goals?.website_goals)+f('6-Month Success',p.goals?.six_month_success)+f('Additional Notes',p.goals?.additional_notes));
   c.innerHTML = h;
+}
+
+// ── Edit profile ──
+function editResultsProfile() {
+  if (!extractedProfile) return;
+  const c = document.getElementById('ob-results-content');
+  const ta = (label, path, val) => {
+    const v = val != null ? (Array.isArray(val) ? val.join(', ') : String(val)) : '';
+    return `<div style="margin-bottom:.6rem"><label style="font-size:.68rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:.2rem">${esc(label)}</label><textarea data-path="${path}" style="width:100%;padding:.4rem .6rem;border:1px solid var(--border);border-radius:6px;font-size:.8rem;font-family:inherit;color:var(--text);background:var(--surface);resize:vertical;min-height:${v.length > 80 ? '60px' : '32px'};box-sizing:border-box">${esc(v)}</textarea></div>`;
+  };
+  const sec = (title, fields) => `<div class="ob-result-section" style="border-color:var(--primary)"><div class="ob-result-section-title">${esc(title)}</div>${fields}</div>`;
+  const p = extractedProfile;
+  let h = `<div style="display:flex;justify-content:flex-end;gap:.4rem;margin-bottom:.75rem">
+    <button class="ob-copy-btn" onclick="cancelEditResults()" style="margin-top:0">Cancel</button>
+    <button class="ob-copy-btn" onclick="saveEditResults()" id="ob-save-edit-btn" style="margin-top:0;background:var(--primary);color:#fff;border-color:var(--primary)">Save Changes</button>
+  </div>`;
+  h += sec('Overview', ta('Business Name','business_name',p.business_name)+ta('Owner','owner_name',p.owner_name)+ta('Years in Business','years_in_business',p.years_in_business)+ta('Origin Story','origin_story',p.origin_story)+ta('Family Connection','family_connection',p.family_connection)+ta('Pride Points (comma-separated)','pride_points',p.pride_points));
+  h += sec('Services', ta('Core Services (comma-separated)','services.core',p.services?.core)+ta('Top Revenue','services.top_revenue',p.services?.top_revenue)+ta('Promote More (comma-separated)','services.promote_more',p.services?.promote_more)+ta('Emergency Service (Yes/No)','services.emergency_available',p.services?.emergency_available));
+  h += sec('Differentiation', ta('USPs (comma-separated)','differentiation.unique_selling_points',p.differentiation?.unique_selling_points)+ta('Customer Compliments (comma-separated)','differentiation.customer_compliments',p.differentiation?.customer_compliments)+ta('Guarantees (comma-separated)','differentiation.guarantees',p.differentiation?.guarantees)+ta('Ideal Customer','differentiation.ideal_customer',p.differentiation?.ideal_customer));
+  h += sec('Service Area', ta('Cities (comma-separated)','service_area.cities',p.service_area?.cities)+ta('Primary Markets (comma-separated)','service_area.primary_markets',p.service_area?.primary_markets)+ta('Growth Targets (comma-separated)','service_area.growth_targets',p.service_area?.growth_targets)+ta('Max Travel','service_area.max_travel_radius',p.service_area?.max_travel_radius));
+  h += sec('Brand Voice', ta('Personality','brand_voice.personality',p.brand_voice?.personality)+ta('Tone','brand_voice.tone',p.brand_voice?.tone)+ta('Preferred Phrases (comma-separated)','brand_voice.preferred_phrases',p.brand_voice?.preferred_phrases)+ta('Avoid (comma-separated)','brand_voice.avoid_phrases',p.brand_voice?.avoid_phrases)+ta('Voice Description','brand_voice.voice_description',p.brand_voice?.voice_description));
+  h += sec('Credentials', ta('Licenses (comma-separated)','credentials.licenses',p.credentials?.licenses)+ta('Insured (Yes/No)','credentials.insured',p.credentials?.insured)+ta('Bonded (Yes/No)','credentials.bonded',p.credentials?.bonded)+ta('Associations (comma-separated)','credentials.associations',p.credentials?.associations)+ta('Awards (comma-separated)','credentials.awards',p.credentials?.awards));
+  h += sec('Goals', ta('Website Goals (comma-separated)','goals.website_goals',p.goals?.website_goals)+ta('6-Month Success','goals.six_month_success',p.goals?.six_month_success)+ta('Additional Notes','goals.additional_notes',p.goals?.additional_notes));
+  c.innerHTML = h;
+}
+
+function cancelEditResults() {
+  renderResults(extractedProfile);
+}
+
+async function saveEditResults() {
+  if (!selectedClientId) { alert('No client selected to save to'); return; }
+  const c = document.getElementById('ob-results-content');
+  const profile = JSON.parse(JSON.stringify(extractedProfile));
+  const ARRAYS = ['pride_points','services.core','services.promote_more','differentiation.unique_selling_points','differentiation.customer_compliments','differentiation.guarantees','service_area.cities','service_area.primary_markets','service_area.growth_targets','brand_voice.preferred_phrases','brand_voice.avoid_phrases','credentials.licenses','credentials.associations','credentials.awards','goals.website_goals'];
+  const BOOLS = ['services.emergency_available','credentials.insured','credentials.bonded'];
+  const NUMS = ['years_in_business'];
+
+  c.querySelectorAll('textarea[data-path]').forEach(ta => {
+    const path = ta.dataset.path;
+    const val = ta.value.trim();
+    const parts = path.split('.');
+    let parsed;
+    if (ARRAYS.includes(path)) parsed = val ? val.split(',').map(s => s.trim()).filter(Boolean) : [];
+    else if (BOOLS.includes(path)) parsed = ['yes','true','1'].includes(val.toLowerCase());
+    else if (NUMS.includes(path)) parsed = val ? parseInt(val) || null : null;
+    else parsed = val || null;
+    if (parts.length === 1) profile[parts[0]] = parsed;
+    else { if (!profile[parts[0]]) profile[parts[0]] = {}; profile[parts[0]][parts[1]] = parsed; }
+  });
+
+  const btn = document.getElementById('ob-save-edit-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
+  try {
+    const r = await fetch(`/api/launches/${selectedClientId}/onboarding-profile`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ profile }),
+    });
+    if (!r.ok) throw new Error((await r.json()).error || 'Save failed');
+    extractedProfile = profile;
+    renderResults(profile);
+  } catch (err) {
+    alert('Save failed: ' + err.message);
+    if (btn) { btn.disabled = false; btn.textContent = 'Save Changes'; }
+  }
 }
 
 // ── Push to Drive ──
