@@ -4850,18 +4850,28 @@ app.post('/api/launches/:id/scan-projects', requireAuth, async (req, res) => {
       return data.files || [];
     }
 
+    // List ALL files in the Projects folder first (for debugging)
+    const allFilesQ = encodeURIComponent(`'${projectsFolderId}' in parents and trashed=false`);
+    const allFilesR = await fetchWithRetry(`https://www.googleapis.com/drive/v3/files?q=${allFilesQ}&fields=files(id,name,mimeType)&pageSize=30`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const allFilesData = allFilesR.ok ? await allFilesR.json() : { files: [] };
+    console.log(`[scan-projects] Projects folder ${projectsFolderId} contains ${(allFilesData.files || []).length} files:`, (allFilesData.files || []).map(f => `${f.name} (${f.mimeType})`));
+
     let images = await listImages(projectsFolderId);
     const subfolders = await listSubfolders(projectsFolderId);
     for (const sf of subfolders) {
+      console.log(`[scan-projects] Checking subfolder: ${sf.name} (${sf.id})`);
       const subImages = await listImages(sf.id);
       images = images.concat(subImages);
     }
 
     // Cap at 20 images
     images = images.slice(0, 20);
+    console.log(`[scan-projects] Found ${images.length} images total`);
 
     if (images.length === 0) {
-      return res.json({ projects: [], message: 'No images found in Projects folder' });
+      return res.json({ projects: [], message: 'No images found in Projects folder', debug: { folderId: projectsFolderId, allFiles: (allFilesData.files || []).map(f => ({ name: f.name, type: f.mimeType })) } });
     }
 
     const extractionPrompt = `You are extracting project/job data from a screenshot of a home services contractor's project management software.
