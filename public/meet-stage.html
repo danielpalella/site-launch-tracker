@@ -39,6 +39,16 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .ms-complete { text-align: center }
 .ms-complete-icon { width: 56px; height: 56px; border-radius: 50%; background: rgba(203,255,77,.12); color: var(--lime); display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem }
 
+@keyframes unlock {
+  0% { transform: scale(1); background: var(--primary); border-color: var(--primary) }
+  40% { transform: scale(1.4); background: var(--lime); border-color: var(--lime); box-shadow: 0 0 24px rgba(203,255,77,.4) }
+  70% { transform: scale(.9) }
+  100% { transform: scale(1); background: var(--lime); border-color: var(--lime) }
+}
+@keyframes fadeUp { from { opacity: 0; transform: translateY(20px) } to { opacity: 1; transform: translateY(0) } }
+@keyframes badgeIn { from { opacity: 0; transform: scale(.8) } to { opacity: 1; transform: scale(1) } }
+@keyframes unlockItem { from { opacity: 0; transform: translateY(10px) } to { opacity: 1; transform: translateY(0) } }
+
 @media (max-width: 768px) { .ms-question { font-size: 1.5rem } .ms-tracker-label { display: none } }
 </style>
 </head>
@@ -106,12 +116,55 @@ async function poll() {
   } catch {}
 }
 
+let lastSummaryIdx = -1;
+let showingSummary = false;
+
 function updateState(data) {
   const sIdx = sectionIndexFromQuestion(data.current_question);
+  document.getElementById('ms-loading').style.display = 'none';
+  document.getElementById('ms-client').textContent = data.client_name || '';
+  document.getElementById('ms-progress-fill').style.width = (data.progress || 0) + '%';
 
-  if (data.section_summary) {
-    // Could show section summary here
+  // Section summary with unlock animation
+  if (data.section_summary && data.section_summary.section_index !== lastSummaryIdx) {
+    lastSummaryIdx = data.section_summary.section_index;
+    showingSummary = true;
+    const ss = data.section_summary;
+    // Animate the tracker
+    const icon = document.getElementById('ms-tic-' + ss.section_index);
+    if (icon) {
+      icon.innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5"><polyline points="20 6 9 17 4 12"/></svg>';
+      icon.className = 'ms-tracker-icon done';
+      icon.style.animation = 'unlock .6s ease forwards';
+    }
+    const item = document.getElementById('ms-ti-' + ss.section_index);
+    if (item) item.className = 'ms-tracker-item done';
+    const line = document.getElementById('ms-tl-' + ss.section_index);
+    if (line) setTimeout(() => line.classList.add('done'), 400);
+    completedSections.add(ss.section_index);
+
+    // Show summary content
+    const main = document.getElementById('ms-main');
+    main.innerHTML = `
+      <div style="max-width:600px;text-align:center;animation:fadeUp .5s ease">
+        <div style="display:inline-flex;align-items:center;gap:.5rem;background:rgba(203,255,77,.1);border:1px solid rgba(203,255,77,.2);border-radius:20px;padding:.35rem .85rem;margin-bottom:1.25rem;animation:badgeIn .5s ease">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#cbff4d" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+          <span style="font-size:.75rem;font-weight:700;color:#cbff4d;text-transform:uppercase;letter-spacing:.5px">Section ${ss.section_index + 1} of 7 Complete</span>
+        </div>
+        <div style="font-size:1.3rem;font-weight:700;margin-bottom:1rem">${esc(ss.section_name)}</div>
+        <div style="font-size:.9rem;line-height:1.65;color:rgba(255,255,255,.8);margin-bottom:1.5rem;text-align:left">${esc(ss.narrative || '')}</div>
+        <div style="font-size:.65rem;font-weight:700;color:#cbff4d;text-transform:uppercase;letter-spacing:.6px;margin-bottom:.6rem">Unlocked for your website</div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:.35rem">
+          ${(ss.unlocks || []).map((u, i) => `<div style="display:inline-flex;align-items:center;gap:.45rem;background:rgba(203,255,77,.06);border:1px solid rgba(203,255,77,.12);border-radius:8px;padding:.45rem .85rem;opacity:0;animation:unlockItem .4s ease ${.3 + i * .2}s forwards"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#cbff4d" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span style="font-size:.82rem;color:rgba(255,255,255,.85)">${esc(u)}</span></div>`).join('')}
+        </div>
+      </div>
+    `;
     return;
+  }
+
+  // If we were showing a summary and it's cleared, transition back
+  if (showingSummary && !data.section_summary) {
+    showingSummary = false;
   }
 
   updateTracker(sIdx);
@@ -120,9 +173,6 @@ function updateState(data) {
   if (!changed) return;
 
   const main = document.getElementById('ms-main');
-  document.getElementById('ms-loading').style.display = 'none';
-  document.getElementById('ms-client').textContent = data.client_name || '';
-  document.getElementById('ms-progress-fill').style.width = (data.progress || 0) + '%';
 
   main.innerHTML = `
     <div class="ms-section">${esc(data.current_section || '')}</div>

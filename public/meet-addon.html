@@ -348,15 +348,15 @@ function renderGuide() {
 
   document.getElementById('ma-guide').innerHTML = html;
 
-  // Save progress
+  // Save progress + sync current question text to Firestore for the main stage
   authFetch(`/api/onboarding/sessions/${sessionId}/answer`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ questionId: null, currentQuestion: currentQ }),
+    body: JSON.stringify({ questionId: null, currentQuestion: currentQ, aiMessage: q.label, clearSummary: true }),
   }).catch(() => {});
 }
 
-function nextQuestion() {
+async function nextQuestion() {
   const q = QUESTIONS[currentQ];
   const nextQ = QUESTIONS[currentQ + 1];
 
@@ -367,13 +367,23 @@ function nextQuestion() {
   lastEvalText = '';
 
   // Check if section is completing
-  if (nextQ && nextQ.section !== q.section) {
+  const isEndOfSection = (nextQ && nextQ.section !== q.section) || !nextQ;
+  if (isEndOfSection) {
     const sIdx = SECTIONS.indexOf(q.section);
     if (sIdx >= 0) completedSections.add(sIdx);
-  }
-  if (!nextQ) {
-    const sIdx = SECTIONS.indexOf(q.section);
-    if (sIdx >= 0) completedSections.add(sIdx);
+
+    // Generate section summary for the main stage slideshow
+    const sectionQs = QUESTIONS.filter(qq => qq.section === q.section);
+    const sectionAnswers = sectionQs.map(qq => {
+      const idx = QUESTIONS.indexOf(qq);
+      return { question: qq.label, answer: questionTranscripts[idx] || '' };
+    });
+    // Fire and forget — don't block navigation
+    authFetch(`/api/onboarding/sessions/${sessionId}/section-summary`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sectionName: q.section, sectionIndex: sIdx, answers: sectionAnswers, clientName }),
+    }).catch(() => {});
   }
 
   currentQ++;
