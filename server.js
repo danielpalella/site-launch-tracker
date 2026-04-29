@@ -5770,13 +5770,13 @@ app.post('/api/onboarding/sessions/:id/section-summary', requireAuth, async (req
     if (!sectionName || !sectionAnswers) return res.status(400).json({ error: 'sectionName and answers required' });
 
     const SECTION_UNLOCKS = {
-      'Origin Story': ['Homepage hero copy that leads with your story', 'About page built around your founding journey', 'Team section featuring key people'],
-      'Services': ['Service pages with detailed descriptions', 'Service area landing pages', 'Emergency service callouts and CTAs'],
-      'Differentiation': ['Competitive positioning throughout the site', 'Customer testimonial strategy', 'Trust signals on every page'],
-      'Service Area': ['City-specific landing pages for local SEO', 'Service area map and coverage details', 'Geo-targeted content for top markets'],
-      'Brand Voice': ['Consistent tone across all website copy', 'Homepage messaging that sounds like you', 'Blog content voice calibration'],
-      'Credentials': ['Trust badges and certification displays', 'About page credentials section', 'Schema markup for licenses and ratings'],
-      'Goals': ['SEO strategy targeting your priority keywords', 'Lead generation CTAs matched to your goals', 'Performance benchmarks to track success'],
+      'Origin Story': ['Homepage hero copy that leads with your story', 'About page built around your founding journey', 'Blog content rooted in your personal narrative'],
+      'Services': ['Dedicated service pages with real detail from your experience', 'Dynamic service area pages highlighting what you offer locally', 'FAQ content based on how you actually work'],
+      'Differentiation': ['Homepage copy that positions you against competitors', '"Why Choose Us" content built from real customer feedback', 'Review page framing that reinforces your strengths'],
+      'Service Area': ['City-specific landing pages for local SEO', 'Service area pages with geo-targeted content', 'Blog topics tailored to your top markets'],
+      'Brand Voice': ['Consistent tone across all website copy', 'Homepage messaging that sounds like you', 'Blog and FAQ voice calibration'],
+      'Credentials': ['Trust badges and certification displays on every page', 'About page credentials section', 'Schema markup for licenses and ratings'],
+      'Goals': ['SEO strategy targeting your priority keywords', 'Homepage and service page CTAs matched to your goals', 'Blog and FAQ topics aligned to what your customers search for'],
     };
 
     const geminiKey = await getGeminiKey();
@@ -5788,12 +5788,12 @@ Here's what they shared:
 
 ${qaPairs}
 
-Write a warm, confident, celebratory summary FOR the contractor — as if you're telling them what you heard and why it matters. This is shown on screen between sections to make them feel good about the process.
+Write a warm, confident, celebratory summary FOR the contractor — as if you're telling them what you heard and why it matters for their website. This is shown on screen between sections to make them feel good about the process.
 
 Return ONLY valid JSON with no markdown:
 {
   "narrative": "2-3 paragraphs. Reference specific details they shared (names, years, services, etc). Tone: warm and confident, like an experienced strategist who's excited about what they heard. NOT corporate — no 'stakeholder', 'value proposition', 'leverage'. Write like a real person talking to another person.",
-  "unlocks": ["2-4 concrete website deliverables this section enables, written as short bullet points starting with a verb"]
+  "unlocks": ["2-4 concrete website content improvements this section enables, written as short bullet points starting with a verb. Focus ONLY on website pages: homepage, service pages, service area pages, review page, blog, and FAQ. Do NOT mention social media, ad campaigns, lead gen campaigns, or anything outside the website itself."]
 }`;
 
     const gRes = await fetchWithRetry(
