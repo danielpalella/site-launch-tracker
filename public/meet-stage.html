@@ -20,23 +20,23 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .header-client { margin-left: auto; font-size: .78rem; color: var(--text-muted) }
 
 /* Top question area */
-.top-area { text-align: center; padding: 1.25rem 2rem .75rem; flex-shrink: 0 }
+.top-area { text-align: center; padding: .75rem 2rem .5rem; flex-shrink: 0 }
 .top-label { font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: .5rem }
 .top-label.active { color: var(--lime) }
 .top-label.complete { color: var(--lime) }
-.top-title { font-size: 1.65rem; font-weight: 600; line-height: 1.35; max-width: 680px; margin: 0 auto; transition: opacity .3s, transform .3s }
+.top-title { font-size: 1.45rem; font-weight: 600; line-height: 1.35; max-width: 680px; margin: 0 auto; transition: opacity .3s, transform .3s }
 .top-title.fading { opacity: 0; transform: translateY(6px) }
 .top-sub { font-size: .78rem; color: var(--text-muted); margin-top: .6rem }
 
 /* Progress dots */
-.dots { display: flex; align-items: center; justify-content: center; gap: .35rem; padding: .6rem 0 .5rem }
+.dots { display: flex; align-items: center; justify-content: center; gap: .35rem; padding: .35rem 0 .3rem }
 .dot { width: 28px; height: 4px; border-radius: 2px; background: rgba(255,255,255,.07); transition: background .4s }
 .dot.done { background: var(--lime) }
 .dot.active { background: var(--primary) }
 
 /* Grid */
-.grid { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; padding: .5rem 2rem 1.5rem; flex: 1; overflow-y: auto; align-content: start }
-.grid-last-center { grid-column: 1 / -1; max-width: calc(50% - .25rem); justify-self: center }
+.grid { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr 1fr 1fr; gap: .5rem; padding: .5rem 2rem 1rem; flex: 1; min-height: 0 }
+.grid-last-full { grid-column: 1 / -1 }
 
 /* Card base */
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: .75rem .9rem; transition: border-color .4s, background .4s, box-shadow .4s }
@@ -88,9 +88,15 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
   100% { box-shadow: none }
 }
 
+/* Card content fills height */
+.card { display: flex; flex-direction: column }
+.card-head { flex-shrink: 0 }
+.card [id^="cbody-"] { flex: 1; display: flex; flex-direction: column }
+.card-narrative { flex: 1 }
+
 @media (max-width: 768px) {
-  .grid { grid-template-columns: 1fr; padding: .5rem 1rem }
-  .grid-last-center { max-width: 100% }
+  .grid { grid-template-columns: 1fr; grid-template-rows: auto; padding: .5rem 1rem }
+  .grid-last-full { grid-column: 1 }
   .top-title { font-size: 1.2rem }
 }
 </style>
@@ -258,7 +264,7 @@ function buildGrid() {
   grid.innerHTML = SECTIONS.map((s, i) => {
     const isLast = i === SECTIONS.length - 1 && SECTIONS.length % 2 === 1;
     return `
-      <div class="card locked${isLast ? ' grid-last-center' : ''}" id="card-${i}">
+      <div class="card locked${isLast ? ' grid-last-full' : ''}" id="card-${i}">
         <div class="card-head">
           <div class="card-icon locked" id="cicon-${i}">${lockSvg}</div>
           <span class="card-name" id="cname-${i}">${esc(s.name)}</span>
