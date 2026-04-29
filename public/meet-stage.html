@@ -115,21 +115,27 @@ const joinToken = params.get('token');
   setInterval(poll, 1500);
 })();
 
+let pollFailCount = 0;
 async function poll() {
   try {
-    const r = await fetch(`/api/join/${sessionId}/${joinToken}/state`);
-    if (!r.ok) return;
+    const url = `/api/join/${sessionId}/${joinToken}/state`;
+    const r = await fetch(url);
+    if (!r.ok) { console.warn('[stage] Poll failed:', r.status); pollFailCount++; return; }
+    pollFailCount = 0;
     const data = await r.json();
+    console.log('[stage] Poll q=' + data.current_question + ' section=' + data.current_section);
 
     // Sync completed_summaries from server (accumulates)
     if (data.completed_summaries && data.completed_summaries.length > completedSummariesData.length) {
       completedSummariesData = data.completed_summaries;
-      renderSummaryPills();
     }
 
     if (!data.active || data.status === 'extracted') { showComplete(data); return; }
     updateState(data);
-  } catch {}
+  } catch (e) {
+    pollFailCount++;
+    console.error('[stage] Poll error:', e.message, 'fails:', pollFailCount);
+  }
 }
 
 function renderSummaryPills() {
