@@ -5770,13 +5770,13 @@ app.post('/api/onboarding/sessions/:id/section-summary', requireAuth, async (req
     if (!sectionName || !sectionAnswers) return res.status(400).json({ error: 'sectionName and answers required' });
 
     const SECTION_UNLOCKS = {
-      'Origin Story': ['Homepage hero copy that leads with your story', 'About page built around your founding journey', 'Blog content rooted in your personal narrative'],
-      'Services': ['Dedicated service pages with real detail from your experience', 'Dynamic service area pages highlighting what you offer locally', 'FAQ content based on how you actually work'],
-      'Differentiation': ['Homepage copy that positions you against competitors', '"Why Choose Us" content built from real customer feedback', 'Review page framing that reinforces your strengths'],
-      'Service Area': ['City-specific landing pages for local SEO', 'Service area pages with geo-targeted content', 'Blog topics tailored to your top markets'],
-      'Brand Voice': ['Consistent tone across all website copy', 'Homepage messaging that sounds like you', 'Blog and FAQ voice calibration'],
-      'Credentials': ['Trust badges and certification displays on every page', 'About page credentials section', 'Schema markup for licenses and ratings'],
-      'Goals': ['SEO strategy targeting your priority keywords', 'Homepage and service page CTAs matched to your goals', 'Blog and FAQ topics aligned to what your customers search for'],
+      'Origin Story': ['About Us copy', 'Homepage hero', 'Brand story'],
+      'Services': ['Service pages', 'Process section', 'FAQ content'],
+      'Differentiation': ['Why Choose Us', 'Trust signals', 'Review framing'],
+      'Service Area': ['City pages', 'Area coverage', 'Local SEO'],
+      'Brand Voice': ['Site tone', 'Messaging style', 'CTA copy'],
+      'Credentials': ['Trust badges', 'Certifications', 'Schema markup'],
+      'Goals': ['SEO strategy', 'Conversion goals', 'Content plan'],
     };
 
     const geminiKey = await getGeminiKey();
@@ -5793,7 +5793,7 @@ Write a warm, confident, celebratory summary FOR the contractor — as if you're
 Return ONLY valid JSON with no markdown:
 {
   "narrative": "2-3 paragraphs. Reference specific details they shared (names, years, services, etc). Tone: warm and confident, like an experienced strategist who's excited about what they heard. NOT corporate — no 'stakeholder', 'value proposition', 'leverage'. Write like a real person talking to another person.",
-  "unlocks": ["2-4 concrete website content improvements this section enables, written as short bullet points starting with a verb. Focus ONLY on website pages: homepage, service pages, service area pages, review page, blog, and FAQ. Do NOT mention social media, ad campaigns, lead gen campaigns, or anything outside the website itself."]
+  "unlocks": ["3-4 short, high-level labels (2-4 words each) for website areas this section improves. Examples: 'About Us copy', 'Service pages', 'Local SEO', 'Trust signals', 'Brand story'. Keep them vague and brief — NO full sentences, NO specific details from the interview. Focus on website pages only: homepage, service pages, service area pages, review page, blog, FAQ."]
 }`;
 
     const gRes = await fetchWithRetry(

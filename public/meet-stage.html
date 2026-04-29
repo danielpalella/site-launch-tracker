@@ -189,7 +189,8 @@ async function poll() {
 function updateState(data) {
   const sIdx = sectionIndexFromQuestion(data.current_question);
 
-  document.getElementById('loading').style.display = 'none';
+  const loadingEl = document.getElementById('loading');
+  if (loadingEl) loadingEl.style.display = 'none';
   document.getElementById('header-client').textContent = data.client_name || '';
   document.getElementById('progress-fill').style.width = (data.progress || 0) + '%';
 
