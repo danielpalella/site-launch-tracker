@@ -165,7 +165,8 @@ let showingSummary = false;
 
 function updateState(data) {
   const sIdx = sectionIndexFromQuestion(data.current_question);
-  document.getElementById('ms-loading').style.display = 'none';
+  const loadingEl = document.getElementById('ms-loading');
+  if (loadingEl) loadingEl.style.display = 'none';
   document.getElementById('ms-client').textContent = data.client_name || '';
   document.getElementById('ms-progress-fill').style.width = (data.progress || 0) + '%';
 
