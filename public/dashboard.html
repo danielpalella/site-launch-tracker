@@ -2430,6 +2430,13 @@ function switchTab(tab) {
   if (tab === 'edit-requests') fetchEditRequests();
   if (tab === 'analytics') { _initAcFilterPanel(); switchAnalyticsView('sites'); loadAnalytics(); }
 }
+// Switch to tab from URL hash (e.g. /dashboard#analytics)
+if (window.location.hash) {
+  const hashTab = window.location.hash.replace('#', '');
+  if (['launches', 'edit-requests', 'analytics'].includes(hashTab)) {
+    setTimeout(() => switchTab(hashTab), 100);
+  }
+}
 
 // ── Edit Requests ──
 let allEditRequests = [];
