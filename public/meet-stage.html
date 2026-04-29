@@ -5,123 +5,149 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Onboarding · RealWork</title>
 <style>
-:root { --primary: #1259FF; --bg: #06102a; --lime: #cbff4d; --text: #fff; --text-muted: rgba(255,255,255,.5); --border: rgba(255,255,255,.1) }
+:root { --primary: #1259FF; --bg: #06102a; --surface: #0d1a36; --lime: #cbff4d; --text: #fff; --text-muted: rgba(255,255,255,.5); --border: rgba(255,255,255,.08) }
 * { margin: 0; padding: 0; box-sizing: border-box }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; overflow: hidden }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column }
 
-.ms-progress { position: fixed; top: 0; left: 0; width: 100%; height: 4px; background: rgba(255,255,255,.06); z-index: 10 }
-.ms-progress-fill { height: 100%; background: var(--primary); border-radius: 0 2px 2px 0; transition: width .5s }
+/* Progress bar */
+.progress { position: fixed; top: 0; left: 0; width: 100%; height: 3px; background: rgba(255,255,255,.04); z-index: 10 }
+.progress-fill { height: 100%; background: var(--lime); border-radius: 0 2px 2px 0; transition: width .6s ease }
 
-.ms-header { display: flex; align-items: center; padding: .5rem 1.5rem; flex-shrink: 0; margin-top: 4px }
-.ms-logo { height: 22px; opacity: .7 }
-.ms-header-client { margin-left: auto; font-size: .78rem; color: var(--text-muted) }
+/* Header */
+.header { display: flex; align-items: center; padding: .6rem 2rem; flex-shrink: 0; margin-top: 3px }
+.logo { height: 22px; opacity: .7 }
+.header-client { margin-left: auto; font-size: .78rem; color: var(--text-muted) }
 
-.ms-body { flex: 1; display: flex; flex-direction: column; overflow: hidden }
+/* Top area — question during interview, completion header after */
+.top-area { text-align: center; padding: 1.5rem 2rem 1rem; flex-shrink: 0 }
+.top-label { font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: .4rem }
+.top-label.active { color: var(--primary) }
+.top-label.complete { color: var(--lime) }
+.top-title { font-size: 1.6rem; font-weight: 700; line-height: 1.35; max-width: 700px; margin: 0 auto .5rem; transition: opacity .35s, transform .35s }
+.top-title.fading { opacity: 0; transform: translateY(6px) }
+.top-sub { font-size: .78rem; color: var(--text-muted); line-height: 1.5 }
 
-/* Main question area */
-.ms-main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2rem; text-align: center }
-.ms-section { font-size: .75rem; font-weight: 700; color: var(--primary); text-transform: uppercase; letter-spacing: .8px; margin-bottom: .5rem }
-.ms-progress-label { font-size: .8rem; color: var(--text-muted); margin-bottom: 1.5rem }
-.ms-question { font-size: 2.2rem; font-weight: 600; line-height: 1.35; max-width: 800px; transition: opacity .4s, transform .4s; min-height: 3rem }
-.ms-question.fading { opacity: 0; transform: translateY(8px) }
-.ms-loading { color: var(--text-muted); font-size: .9rem }
+/* Progress dots */
+.dots { display: flex; align-items: center; justify-content: center; gap: .35rem; margin-top: .6rem }
+.dot { width: 28px; height: 4px; border-radius: 2px; background: rgba(255,255,255,.08); transition: background .4s }
+.dot.done { background: var(--lime) }
+.dot.active { background: var(--primary) }
 
-/* Section summaries strip — persistent at the bottom above tracker */
-.ms-summaries { display: flex; flex-wrap: wrap; gap: .6rem; padding: .6rem 2rem; justify-content: center; flex-shrink: 0 }
-.ms-summary-card { background: rgba(255,255,255,.05); border: 1px solid rgba(203,255,77,.18); border-radius: 12px; padding: .7rem 1rem; width: 320px; text-align: left; animation: cardIn .5s ease; backdrop-filter: blur(8px) }
-.ms-summary-card-header { display: flex; align-items: center; gap: .4rem; font-size: .8rem; font-weight: 700; color: var(--lime); margin-bottom: .4rem; letter-spacing: .2px }
-.ms-summary-card-text { font-size: .78rem; color: rgba(255,255,255,.75); line-height: 1.55; margin-bottom: .5rem }
-.ms-summary-card-unlocks { display: flex; flex-wrap: wrap; gap: .3rem }
-.ms-summary-card-unlock { font-size: .68rem; color: var(--lime); background: rgba(203,255,77,.1); border: 1px solid rgba(203,255,77,.15); padding: .2rem .5rem; border-radius: 6px; font-weight: 500 }
-@keyframes cardIn { from { opacity: 0; transform: translateY(8px) scale(.95) } to { opacity: 1; transform: translateY(0) scale(1) } }
+/* Section grid */
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; padding: .75rem 2rem 1.5rem; flex: 1; overflow-y: auto; align-content: start }
+.grid-last-center { grid-column: 1 / -1; max-width: calc(50% - .3rem); justify-self: center }
 
-/* Section tracker */
-.ms-tracker { display: flex; align-items: center; justify-content: center; gap: 0; padding: .75rem 1.5rem; flex-shrink: 0 }
-.ms-tracker-item { display: flex; align-items: center; gap: .3rem }
-.ms-tracker-icon { width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: .55rem; font-weight: 700; transition: all .3s }
-.ms-tracker-icon.locked { background: rgba(255,255,255,.06); border: 1.5px solid rgba(255,255,255,.1); color: rgba(255,255,255,.2) }
-.ms-tracker-icon.active { background: var(--primary); border: 1.5px solid var(--primary); color: #fff; box-shadow: 0 0 10px rgba(18,89,255,.3) }
-.ms-tracker-icon.done { background: var(--lime); border: 1.5px solid var(--lime); color: var(--bg) }
-.ms-tracker-label { font-size: .6rem; font-weight: 600; color: rgba(255,255,255,.3); white-space: nowrap }
-.ms-tracker-item.active .ms-tracker-label { color: rgba(255,255,255,.7) }
-.ms-tracker-item.done .ms-tracker-label { color: var(--lime) }
-.ms-tracker-line { width: 20px; height: 1.5px; background: rgba(255,255,255,.08); margin: 0 .25rem; transition: background .3s }
-.ms-tracker-line.done { background: var(--lime) }
+/* Section card */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: .85rem 1rem; position: relative; transition: border-color .4s, background .4s }
+.card.active { border-color: rgba(18,89,255,.35); background: rgba(18,89,255,.06) }
+.card.done { border-color: rgba(203,255,77,.18); background: rgba(203,255,77,.03) }
 
-.ms-complete { text-align: center }
-.ms-complete-icon { width: 56px; height: 56px; border-radius: 50%; background: rgba(203,255,77,.12); color: var(--lime); display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem }
+/* Card header */
+.card-head { display: flex; align-items: center; gap: .45rem; margin-bottom: .5rem }
+.card-icon { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all .4s }
+.card-icon.locked { background: rgba(255,255,255,.06); border: 1.5px solid rgba(255,255,255,.1) }
+.card-icon.active { background: var(--primary); border: 1.5px solid var(--primary) }
+.card-icon.done { background: var(--lime); border: 1.5px solid var(--lime) }
+.card-name { font-size: .88rem; font-weight: 700; flex: 1 }
+.card-name.locked { color: rgba(255,255,255,.25) }
+.card-name.active { color: var(--text) }
+.card-name.done { color: var(--text) }
+.card-actions { font-size: .68rem; color: var(--text-muted); white-space: nowrap }
 
-@keyframes unlock {
-  0% { transform: scale(1); background: var(--primary); border-color: var(--primary) }
-  40% { transform: scale(1.4); background: var(--lime); border-color: var(--lime); box-shadow: 0 0 24px rgba(203,255,77,.4) }
-  70% { transform: scale(.9) }
-  100% { transform: scale(1); background: var(--lime); border-color: var(--lime) }
+/* Card body — locked vs unlocked */
+.card-body { transition: filter .6s, opacity .6s }
+.card-body.locked { filter: blur(4px); opacity: .3; user-select: none; pointer-events: none }
+.card-body.unlocked { filter: none; opacity: 1 }
+
+.card-narrative { font-size: .78rem; color: rgba(255,255,255,.7); line-height: 1.55; margin-bottom: .55rem }
+.card-pills { display: flex; flex-wrap: wrap; gap: .3rem }
+.card-pill { font-size: .68rem; color: var(--lime); background: rgba(203,255,77,.08); border: 1px solid rgba(203,255,77,.15); padding: .2rem .55rem; border-radius: 6px; font-weight: 500 }
+
+/* Placeholder text for locked cards */
+.card-placeholder { font-size: .75rem; color: rgba(255,255,255,.15); line-height: 1.5 }
+
+/* Loading */
+.loading { text-align: center; padding: 4rem 2rem; color: var(--text-muted); font-size: .9rem }
+
+/* Animations */
+@keyframes fadeUp { from { opacity: 0; transform: translateY(12px) } to { opacity: 1; transform: translateY(0) } }
+@keyframes unlockPop {
+  0% { transform: scale(1) }
+  30% { transform: scale(1.35); box-shadow: 0 0 20px rgba(203,255,77,.4) }
+  60% { transform: scale(.9) }
+  100% { transform: scale(1) }
 }
-@keyframes fadeUp { from { opacity: 0; transform: translateY(20px) } to { opacity: 1; transform: translateY(0) } }
-@keyframes unlockItem { from { opacity: 0; transform: translateY(10px) } to { opacity: 1; transform: translateY(0) } }
+@keyframes cardUnlock {
+  0% { border-color: rgba(255,255,255,.08) }
+  50% { border-color: rgba(203,255,77,.4); box-shadow: 0 0 16px rgba(203,255,77,.15) }
+  100% { border-color: rgba(203,255,77,.18); box-shadow: none }
+}
 
-@media (max-width: 768px) { .ms-question { font-size: 1.5rem } .ms-tracker-label { display: none } }
+@media (max-width: 768px) {
+  .grid { grid-template-columns: 1fr; padding: .5rem 1rem }
+  .grid-last-center { max-width: 100% }
+  .top-title { font-size: 1.2rem }
+}
 </style>
 </head>
 <body>
 
-<div class="ms-progress"><div class="ms-progress-fill" id="ms-progress-fill"></div></div>
+<div class="progress"><div class="progress-fill" id="progress-fill"></div></div>
 
-<div class="ms-header">
-  <img src="/logo-white.svg" alt="RealWork" class="ms-logo">
-  <div class="ms-header-client" id="ms-client"></div>
+<div class="header">
+  <img src="/logo-white.svg" alt="RealWork" class="logo">
+  <div class="header-client" id="header-client"></div>
 </div>
 
-<div class="ms-body">
-  <div class="ms-main" id="ms-main">
-    <div class="ms-loading" id="ms-loading">Connecting...</div>
-  </div>
-
-  <div class="ms-summaries" id="ms-summaries"></div>
-  <div class="ms-tracker" id="ms-tracker"></div>
+<div class="top-area" id="top-area">
+  <div class="loading" id="loading">Connecting...</div>
 </div>
+
+<div class="dots" id="dots"></div>
+
+<div class="grid" id="grid"></div>
 
 <script>
 const SECTIONS = [
-  { name: 'Story', full: 'Origin Story' },
-  { name: 'Services', full: 'Services' },
-  { name: 'Differentiators', full: 'Differentiation' },
-  { name: 'Area', full: 'Service Area' },
-  { name: 'Voice', full: 'Brand Voice' },
-  { name: 'Creds', full: 'Credentials' },
-  { name: 'Goals', full: 'Goals' },
+  { name: 'Origin Story', placeholder: 'Your founding story, years of experience, and what motivated you to start the business.' },
+  { name: 'Services', placeholder: 'Core services offered, specialties, process from first call to completion.' },
+  { name: 'Differentiators', placeholder: 'What sets you apart, customer feedback themes, guarantees, and unique processes.' },
+  { name: 'Service Area', placeholder: 'Cities and neighborhoods served, travel radius, and growth targets.' },
+  { name: 'Brand Voice', placeholder: 'Company personality, preferred tone, words and phrases to use or avoid.' },
+  { name: 'Credentials', placeholder: 'Licenses, certifications, insurance, awards, and recognitions.' },
+  { name: 'Goals', placeholder: 'Website goals, success metrics, SEO priorities, and lead targets.' },
 ];
 
 let lastQuestion = -1;
 let lastAiMessage = '';
 let completedSections = new Set();
 let completedSummariesData = [];
-let renderedSummaryCount = 0;
+let summariesByIndex = {};
+let isComplete = false;
 
 const params = new URLSearchParams(window.location.search);
 const sessionId = params.get('session');
 const joinToken = params.get('token');
 
-// Unregister any service workers that might intercept fetch requests
+// Unregister service workers
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.getRegistrations().then(regs => {
-    regs.forEach(r => r.unregister());
-  });
+  navigator.serviceWorker.getRegistrations().then(regs => regs.forEach(r => r.unregister()));
 }
 
-// Init Meet SDK (with timeout so polling starts even if SDK hangs)
+// Init
 (async () => {
   try {
     await Promise.race([
       window.meet?.addon?.createAddonSession({ cloudProjectNumber: '630073859512' }),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 2000))
+      new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 2000))
     ]);
   } catch (e) { console.warn('Meet SDK:', e.message); }
 
-  buildTracker();
+  buildGrid();
+  buildDots();
 
   if (!sessionId || !joinToken) {
-    document.getElementById('ms-loading').textContent = 'Waiting for interview to start...';
+    document.getElementById('loading').textContent = 'Waiting for interview to start...';
     return;
   }
 
@@ -135,147 +161,206 @@ async function poll() {
   try {
     const url = `/api/join/${sessionId}/${joinToken}/state?_t=${Date.now()}`;
     const r = await fetch(url, { cache: 'no-store', credentials: 'omit' });
-    if (!r.ok) { console.warn('[stage] Poll failed:', r.status); pollFailCount++; return; }
+    if (!r.ok) { pollFailCount++; return; }
     pollFailCount = 0;
     const data = await r.json();
     console.log('[stage] Poll q=' + data.current_question + ' section=' + data.current_section);
 
-    // Sync completed_summaries from server (accumulates)
+    // Sync summaries
     if (data.completed_summaries && data.completed_summaries.length > completedSummariesData.length) {
+      const prev = completedSummariesData.length;
       completedSummariesData = data.completed_summaries;
-      renderSummaryCards();
+      for (let i = prev; i < completedSummariesData.length; i++) {
+        const s = completedSummariesData[i];
+        summariesByIndex[s.section_index] = s;
+        completedSections.add(s.section_index);
+        unlockCard(s.section_index, s);
+      }
     }
 
     if (!data.active || data.status === 'extracted') { showComplete(data); return; }
     updateState(data);
   } catch (e) {
     pollFailCount++;
-    console.error('[stage] Poll error:', e.message, 'fails:', pollFailCount);
-  }
-}
-
-function renderSummaryCards() {
-  const container = document.getElementById('ms-summaries');
-  if (!container) return;
-  // Only render newly added summaries to preserve animations
-  while (renderedSummaryCount < completedSummariesData.length) {
-    const s = completedSummariesData[renderedSummaryCount];
-    const card = document.createElement('div');
-    card.className = 'ms-summary-card';
-
-    let html = `<div class="ms-summary-card-header"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>${esc(s.section_name)}</div>`;
-    if (s.narrative) {
-      const short = s.narrative.split(/(?<=[.!?])\s+/).slice(0, 3).join(' ');
-      html += `<div class="ms-summary-card-text">${esc(short)}</div>`;
-    }
-    if (s.unlocks && s.unlocks.length) {
-      html += '<div class="ms-summary-card-unlocks">' + s.unlocks.map(u => `<span class="ms-summary-card-unlock">${esc(u)}</span>`).join('') + '</div>';
-    }
-    card.innerHTML = html;
-    container.appendChild(card);
-
-    // Also mark the section as done in the tracker
-    if (s.section_index !== undefined) {
-      completedSections.add(s.section_index);
-      const icon = document.getElementById('ms-tic-' + s.section_index);
-      if (icon) {
-        icon.innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5"><polyline points="20 6 9 17 4 12"/></svg>';
-        icon.className = 'ms-tracker-icon done';
-        icon.style.animation = 'unlock .6s ease forwards';
-      }
-      const item = document.getElementById('ms-ti-' + s.section_index);
-      if (item) item.className = 'ms-tracker-item done';
-      const line = document.getElementById('ms-tl-' + s.section_index);
-      if (line) setTimeout(() => line.classList.add('done'), 400);
-    }
-
-    renderedSummaryCount++;
+    console.error('[stage] Poll error:', e.message);
   }
 }
 
 function updateState(data) {
   const sIdx = sectionIndexFromQuestion(data.current_question);
-  const loadingEl = document.getElementById('ms-loading');
-  if (loadingEl) loadingEl.style.display = 'none';
-  document.getElementById('ms-client').textContent = data.client_name || '';
-  document.getElementById('ms-progress-fill').style.width = (data.progress || 0) + '%';
 
-  updateTracker(sIdx);
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('header-client').textContent = data.client_name || '';
+  document.getElementById('progress-fill').style.width = (data.progress || 0) + '%';
+
+  updateDots(sIdx);
+  updateCardStates(sIdx);
 
   const changed = data.current_question !== lastQuestion || (data.current_ai_message && data.current_ai_message !== lastAiMessage);
   if (!changed) return;
 
-  const main = document.getElementById('ms-main');
+  const topArea = document.getElementById('top-area');
+  const titleEl = topArea.querySelector('.top-title');
 
-  // Fade out existing question, then render new one
-  const questionEl = main.querySelector('.ms-question');
-  if (questionEl && lastQuestion !== -1) {
-    questionEl.classList.add('fading');
-    setTimeout(() => { renderQuestion(main, data); }, 300);
+  if (titleEl && lastQuestion !== -1) {
+    titleEl.classList.add('fading');
+    setTimeout(() => renderTopQuestion(topArea, data), 300);
   } else {
-    renderQuestion(main, data);
+    renderTopQuestion(topArea, data);
   }
 
   lastQuestion = data.current_question;
   lastAiMessage = data.current_ai_message || '';
 }
 
-function renderQuestion(main, data) {
-  main.innerHTML = `
-    <div class="ms-section">${esc(data.current_section || '')}</div>
-    <div class="ms-progress-label">Question ${data.current_question + 1} of ${data.total_questions}</div>
-    <div class="ms-question" style="animation:fadeUp .4s ease">${esc(data.current_ai_message || data.current_question_label || '')}</div>
+function renderTopQuestion(topArea, data) {
+  topArea.innerHTML = `
+    <div class="top-label active">${esc(data.current_section || '')} &middot; Question ${data.current_question + 1} of ${data.total_questions}</div>
+    <div class="top-title" style="animation:fadeUp .35s ease">${esc(data.current_ai_message || data.current_question_label || '')}</div>
   `;
 }
 
 function showComplete(data) {
-  if (data && data.completed_summaries && data.completed_summaries.length > completedSummariesData.length) {
+  if (isComplete) return;
+  isComplete = true;
+
+  if (data?.completed_summaries) {
     completedSummariesData = data.completed_summaries;
-    renderSummaryCards();
+    completedSummariesData.forEach(s => {
+      summariesByIndex[s.section_index] = s;
+      completedSections.add(s.section_index);
+    });
   }
 
-  SECTIONS.forEach((_, i) => completedSections.add(i));
-  updateTracker(-1);
+  // Unlock all cards
+  SECTIONS.forEach((_, i) => {
+    completedSections.add(i);
+    const s = summariesByIndex[i];
+    unlockCard(i, s);
+  });
 
-  const main = document.getElementById('ms-main');
-  let html = '<div class="ms-complete" style="animation:fadeUp .5s ease">';
-  html += '<div class="ms-complete-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></div>';
-  html += '<div style="font-size:1.3rem;font-weight:700;margin-bottom:.5rem">Interview Complete</div>';
-  html += '<div style="font-size:.9rem;color:var(--text-muted);margin-top:.5rem">Thank you! Your website profile is being built.</div>';
-  html += '</div>';
-  main.innerHTML = html;
+  updateDots(-1, true);
+  document.getElementById('progress-fill').style.width = '100%';
+
+  const topArea = document.getElementById('top-area');
+  topArea.innerHTML = `
+    <div class="top-label complete">INTERVIEW COMPLETE</div>
+    <div class="top-title" style="animation:fadeUp .4s ease">Here's what we heard</div>
+    <div class="top-sub">${SECTIONS.length} topics covered &middot; review the takeaways and action items below</div>
+  `;
 }
 
+// ── Grid ──
+function buildGrid() {
+  const grid = document.getElementById('grid');
+  grid.innerHTML = SECTIONS.map((s, i) => {
+    const isLast = i === SECTIONS.length - 1 && SECTIONS.length % 2 === 1;
+    return `
+      <div class="card${isLast ? ' grid-last-center' : ''}" id="card-${i}">
+        <div class="card-head">
+          <div class="card-icon locked" id="card-icon-${i}">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.2)" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+          </div>
+          <span class="card-name locked" id="card-name-${i}">${esc(s.name)}</span>
+          <span class="card-actions" id="card-actions-${i}"></span>
+        </div>
+        <div class="card-body locked" id="card-body-${i}">
+          <div class="card-placeholder">${esc(s.placeholder)}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function updateCardStates(activeIdx) {
+  SECTIONS.forEach((_, i) => {
+    const card = document.getElementById('card-' + i);
+    const icon = document.getElementById('card-icon-' + i);
+    const name = document.getElementById('card-name-' + i);
+
+    if (completedSections.has(i)) {
+      // Already unlocked — don't touch
+      return;
+    }
+
+    if (i === activeIdx) {
+      card.className = card.className.replace(/\b(active|done)\b/g, '').trim();
+      if (!card.classList.contains('active')) card.classList.add('active');
+      icon.className = 'card-icon active';
+      icon.innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><circle cx="12" cy="12" r="3"/></svg>';
+      name.className = 'card-name active';
+    } else {
+      card.className = card.className.replace(/\b(active|done)\b/g, '').trim();
+      icon.className = 'card-icon locked';
+      icon.innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.2)" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>';
+      name.className = 'card-name locked';
+    }
+  });
+}
+
+function unlockCard(idx, summaryData) {
+  const card = document.getElementById('card-' + idx);
+  const icon = document.getElementById('card-icon-' + idx);
+  const name = document.getElementById('card-name-' + idx);
+  const body = document.getElementById('card-body-' + idx);
+  const actions = document.getElementById('card-actions-' + idx);
+
+  if (!card) return;
+
+  // Card state
+  card.className = card.className.replace(/\b(active|done)\b/g, '').trim();
+  card.classList.add('done');
+  card.style.animation = 'cardUnlock .8s ease';
+
+  // Icon — checkmark
+  icon.className = 'card-icon done';
+  icon.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#06102a" stroke-width="3.5"><polyline points="20 6 9 17 4 12"/></svg>';
+  icon.style.animation = 'unlockPop .5s ease';
+
+  // Name
+  name.className = 'card-name done';
+
+  // Body — show real content
+  if (summaryData) {
+    const narrative = summaryData.narrative || '';
+    const short = narrative.split(/(?<=[.!?])\s+/).slice(0, 3).join(' ');
+    const unlocks = summaryData.unlocks || [];
+
+    actions.textContent = unlocks.length + ' action' + (unlocks.length !== 1 ? 's' : '');
+
+    let html = '';
+    if (short) html += `<div class="card-narrative">${esc(short)}</div>`;
+    if (unlocks.length) {
+      html += '<div class="card-pills">' + unlocks.map(u => `<span class="card-pill">${esc(u)}</span>`).join('') + '</div>';
+    }
+    body.innerHTML = html;
+  }
+
+  body.className = 'card-body unlocked';
+}
+
+// ── Dots ──
+function buildDots() {
+  document.getElementById('dots').innerHTML = SECTIONS.map((_, i) => `<div class="dot" id="dot-${i}"></div>`).join('');
+}
+
+function updateDots(activeIdx, allDone) {
+  SECTIONS.forEach((_, i) => {
+    const dot = document.getElementById('dot-' + i);
+    dot.className = 'dot';
+    if (allDone || completedSections.has(i)) {
+      dot.classList.add('done');
+    } else if (i === activeIdx) {
+      dot.classList.add('active');
+    }
+  });
+}
+
+// ── Helpers ──
 function sectionIndexFromQuestion(qIdx) {
   const breaks = [0,3,6,8,10,12,14,17];
   for (let i = 0; i < breaks.length - 1; i++) { if (qIdx < breaks[i+1]) return i; }
   return 6;
-}
-
-function buildTracker() {
-  document.getElementById('ms-tracker').innerHTML = SECTIONS.map((s, i) =>
-    `<div class="ms-tracker-item" id="ms-ti-${i}"><div class="ms-tracker-icon locked" id="ms-tic-${i}">${i+1}</div><span class="ms-tracker-label">${s.name}</span></div>` +
-    (i < SECTIONS.length - 1 ? `<div class="ms-tracker-line" id="ms-tl-${i}"></div>` : '')
-  ).join('');
-}
-
-function updateTracker(activeIdx) {
-  SECTIONS.forEach((s, i) => {
-    const item = document.getElementById('ms-ti-' + i);
-    const icon = document.getElementById('ms-tic-' + i);
-    const line = document.getElementById('ms-tl-' + i);
-    item.className = 'ms-tracker-item';
-    icon.className = 'ms-tracker-icon';
-    if (completedSections.has(i)) {
-      item.classList.add('done'); icon.classList.add('done');
-      icon.innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5"><polyline points="20 6 9 17 4 12"/></svg>';
-      if (line) line.classList.add('done');
-    } else if (i === activeIdx) {
-      item.classList.add('active'); icon.classList.add('active'); icon.textContent = i + 1;
-    } else {
-      icon.classList.add('locked'); icon.textContent = i + 1;
-    }
-  });
 }
 
 function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
