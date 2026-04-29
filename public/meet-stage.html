@@ -27,12 +27,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .ms-loading { color: var(--text-muted); font-size: .9rem }
 
 /* Section summaries strip — persistent at the bottom above tracker */
-.ms-summaries { display: flex; flex-wrap: wrap; gap: .4rem; padding: .5rem 1.5rem; justify-content: center; flex-shrink: 0 }
-.ms-summary-card { background: rgba(203,255,77,.06); border: 1px solid rgba(203,255,77,.12); border-radius: 10px; padding: .5rem .75rem; max-width: 280px; text-align: left; animation: cardIn .5s ease }
-.ms-summary-card-header { display: flex; align-items: center; gap: .3rem; font-size: .65rem; font-weight: 700; color: var(--lime); margin-bottom: .2rem }
-.ms-summary-card-text { font-size: .62rem; color: rgba(255,255,255,.6); line-height: 1.4 }
-.ms-summary-card-unlocks { display: flex; flex-wrap: wrap; gap: .2rem; margin-top: .25rem }
-.ms-summary-card-unlock { font-size: .58rem; color: var(--lime); background: rgba(203,255,77,.08); padding: .1rem .35rem; border-radius: 4px }
+.ms-summaries { display: flex; flex-wrap: wrap; gap: .6rem; padding: .6rem 2rem; justify-content: center; flex-shrink: 0 }
+.ms-summary-card { background: rgba(255,255,255,.05); border: 1px solid rgba(203,255,77,.18); border-radius: 12px; padding: .7rem 1rem; width: 320px; text-align: left; animation: cardIn .5s ease; backdrop-filter: blur(8px) }
+.ms-summary-card-header { display: flex; align-items: center; gap: .4rem; font-size: .8rem; font-weight: 700; color: var(--lime); margin-bottom: .4rem; letter-spacing: .2px }
+.ms-summary-card-text { font-size: .78rem; color: rgba(255,255,255,.75); line-height: 1.55; margin-bottom: .5rem }
+.ms-summary-card-unlocks { display: flex; flex-wrap: wrap; gap: .3rem }
+.ms-summary-card-unlock { font-size: .68rem; color: var(--lime); background: rgba(203,255,77,.1); border: 1px solid rgba(203,255,77,.15); padding: .2rem .5rem; border-radius: 6px; font-weight: 500 }
 @keyframes cardIn { from { opacity: 0; transform: translateY(8px) scale(.95) } to { opacity: 1; transform: translateY(0) scale(1) } }
 
 /* Section tracker */
@@ -165,7 +165,7 @@ function renderSummaryCards() {
 
     let html = `<div class="ms-summary-card-header"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>${esc(s.section_name)}</div>`;
     if (s.narrative) {
-      const short = s.narrative.split(/(?<=[.!?])\s+/).slice(0, 2).join(' ');
+      const short = s.narrative.split(/(?<=[.!?])\s+/).slice(0, 3).join(' ');
       html += `<div class="ms-summary-card-text">${esc(short)}</div>`;
     }
     if (s.unlocks && s.unlocks.length) {
