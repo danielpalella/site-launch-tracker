@@ -5618,12 +5618,24 @@ app.post('/api/onboarding/sessions/:id/extract', requireAuth, async (req, res) =
   try {
     const doc = await db.collection('onboarding_interviews').doc(req.params.id).get();
     if (!doc.exists) return res.status(404).json({ error: 'Not found' });
-    const { answers, client_name } = doc.data();
+    const sessionData2 = doc.data();
+    const firestoreAnswers = sessionData2.answers || {};
+    const client_name = sessionData2.client_name;
     const { questions } = req.body; // array of { id, label, answer }
     if (!questions || !questions.length) return res.status(400).json({ error: 'questions array required' });
 
+    // Merge: prefer client-sent answers, fall back to Firestore answers
+    const mergedQuestions = questions.map(q => {
+      let answer = q.answer;
+      if (!answer || answer === '(not discussed)' || answer === '(skipped)') {
+        const fsAnswer = firestoreAnswers[q.id];
+        if (fsAnswer && fsAnswer.trim()) answer = fsAnswer;
+      }
+      return { ...q, answer };
+    });
+
     const geminiKey = await getGeminiKey();
-    const qaPairs = questions.map(q => `Q: ${q.label}\nA: ${q.answer || '(skipped)'}`).join('\n\n');
+    const qaPairs = mergedQuestions.map(q => `Q: ${q.label}\nA: ${q.answer || '(skipped)'}`).join('\n\n');
 
     const prompt = `You are a structured data extractor for a home services contractor onboarding interview.
 Below are questions and the contractor's answers. Extract a structured JSON profile.
@@ -5732,9 +5744,8 @@ Return ONLY valid JSON with no markdown fencing, no commentary. Use this schema:
       join_token_active: false,
     });
 
-    const sessionData = doc.data();
-    if (sessionData.client_id) {
-      const launchRef = db.collection('launches').doc(sessionData.client_id);
+    if (sessionData2.client_id) {
+      const launchRef = db.collection('launches').doc(sessionData2.client_id);
       batch.update(launchRef, {
         onboarding_profile: profile,
         onboarding_completed_at: FieldValue.serverTimestamp(),
@@ -5744,8 +5755,8 @@ Return ONLY valid JSON with no markdown fencing, no commentary. Use this schema:
     try { await batch.commit(); } catch (e) {
       console.error('Batch commit failed, falling back:', e.message);
       await interviewRef.update({ status: 'extracted', extracted_profile: profile, completed_at: FieldValue.serverTimestamp(), updated_at: FieldValue.serverTimestamp(), join_token_active: false });
-      if (sessionData.client_id) {
-        await db.collection('launches').doc(sessionData.client_id).update({ onboarding_profile: profile, onboarding_completed_at: FieldValue.serverTimestamp() }).catch(() => {});
+      if (sessionData2.client_id) {
+        await db.collection('launches').doc(sessionData2.client_id).update({ onboarding_profile: profile, onboarding_completed_at: FieldValue.serverTimestamp() }).catch(() => {});
       }
     }
 
@@ -5753,9 +5764,9 @@ Return ONLY valid JSON with no markdown fencing, no commentary. Use this schema:
     emitSseEvent(req.params.id, 'complete', { status: 'extracted' });
 
     // Push to Google Drive in the background (fire-and-forget)
-    if (sessionData.client_id) {
-      const transcriptData = sessionData.answers ? Object.entries(sessionData.answers).map(([k, v]) => `${k}: ${v}`).join('\n\n') : null;
-      pushOnboardingToDrive(sessionData.client_id, sessionData.client_name || 'Unknown', profile, transcriptData).catch(() => {});
+    if (sessionData2.client_id) {
+      const transcriptData = firestoreAnswers ? Object.entries(firestoreAnswers).map(([k, v]) => `${k}: ${v}`).join('\n\n') : null;
+      pushOnboardingToDrive(sessionData2.client_id, sessionData2.client_name || 'Unknown', profile, transcriptData).catch(() => {});
     }
   } catch (err) {
     console.error('onboarding extract error:', err);
