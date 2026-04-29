@@ -77,7 +77,7 @@ const bc = new BroadcastChannel('meet-transcript');
 let ws = null;
 let audioCtx = null;
 let mediaStream = null;
-let processor = null;
+let workletNode = null;
 let source = null;
 
 function setStatus(text, state) {
@@ -123,14 +123,24 @@ async function startTabCapture() {
 }
 
 // ── Shared: connect audio to WebSocket + Speech-to-Text ──
-function connectAudioAndWs() {
+async function connectAudioAndWs() {
   setStatus('Connecting...', 'waiting');
 
+  // Create AudioContext at 16kHz and load the worklet processor
   audioCtx = new AudioContext({ sampleRate: 16000 });
+  try {
+    await audioCtx.audioWorklet.addModule('/pcm-worklet-processor.js');
+  } catch (e) {
+    console.warn('AudioWorklet failed, falling back to ScriptProcessor:', e.message);
+    connectAudioAndWsFallback();
+    return;
+  }
+
   const audioStream = new MediaStream(mediaStream.getAudioTracks());
   source = audioCtx.createMediaStreamSource(audioStream);
-  processor = audioCtx.createScriptProcessor(4096, 1, 1);
+  workletNode = new AudioWorkletNode(audioCtx, 'pcm-worklet-processor');
 
+  // Connect WebSocket
   const wsHost = location.host.includes('hosted.app')
     ? 'site-launch-tracker-2qh6nkd65a-uc.a.run.app'
     : location.host;
@@ -148,45 +158,85 @@ function connectAudioAndWs() {
         setStatus('Transcription active', 'active');
         document.getElementById('level-wrap').style.display = 'block';
         btnStop.style.display = '';
+        bc.postMessage({ type: 'status', capture: true, ws: true });
 
-        processor.onaudioprocess = (e) => {
+        // Receive PCM chunks from the worklet and send over WebSocket
+        workletNode.port.onmessage = (e) => {
+          if (e.data.type === 'audio') {
+            // Update level meter
+            levelBar.style.width = Math.min(100, e.data.level * 500) + '%';
+            // Send binary audio to server
+            if (ws && ws.readyState === WebSocket.OPEN) {
+              ws.send(e.data.buffer);
+            }
+          }
+        };
+
+        // Connect the audio graph: source -> worklet -> destination
+        source.connect(workletNode);
+        workletNode.connect(audioCtx.destination);
+
+      } else if (msg.type === 'transcript') {
+        handleTranscript(msg);
+      } else if (msg.type === 'error') {
+        setStatus('Error: ' + msg.message, 'error');
+        bc.postMessage({ type: 'status', capture: true, ws: false });
+      }
+    } catch {}
+  };
+
+  ws.onerror = () => {
+    setStatus('WebSocket error', 'error');
+    bc.postMessage({ type: 'status', capture: true, ws: false });
+  };
+  ws.onclose = (evt) => {
+    setStatus('Connection closed (code: ' + evt.code + ')', 'error');
+    btnStop.style.display = 'none';
+    bc.postMessage({ type: 'status', capture: true, ws: false });
+  };
+}
+
+// ScriptProcessor fallback for browsers that don't support AudioWorklet
+function connectAudioAndWsFallback() {
+  const audioStream = new MediaStream(mediaStream.getAudioTracks());
+  source = audioCtx.createMediaStreamSource(audioStream);
+  const fallbackProcessor = audioCtx.createScriptProcessor(4096, 1, 1);
+
+  const wsHost = location.host.includes('hosted.app')
+    ? 'site-launch-tracker-2qh6nkd65a-uc.a.run.app'
+    : location.host;
+  ws = new WebSocket(`wss://${wsHost}/ws/transcribe`);
+  ws.binaryType = 'arraybuffer';
+
+  ws.onopen = () => ws.send(JSON.stringify({ type: 'auth', token: authToken }));
+  ws.onmessage = (evt) => {
+    try {
+      const msg = JSON.parse(evt.data);
+      if (msg.type === 'auth_ok') {
+        setStatus('Transcription active (fallback)', 'active');
+        document.getElementById('level-wrap').style.display = 'block';
+        btnStop.style.display = '';
+
+        fallbackProcessor.onaudioprocess = (e) => {
           const float32 = e.inputBuffer.getChannelData(0);
-          // Level meter
           let sum = 0;
           for (let i = 0; i < float32.length; i++) sum += float32[i] * float32[i];
           levelBar.style.width = Math.min(100, Math.sqrt(sum / float32.length) * 500) + '%';
-          // Convert to Int16 and send
           const int16 = new Int16Array(float32.length);
           for (let i = 0; i < float32.length; i++) {
             int16[i] = Math.max(-32768, Math.min(32767, Math.round(float32[i] * 32768)));
           }
           if (ws && ws.readyState === WebSocket.OPEN) ws.send(int16.buffer);
         };
-        source.connect(processor);
-        processor.connect(audioCtx.destination);
-
+        source.connect(fallbackProcessor);
+        fallbackProcessor.connect(audioCtx.destination);
       } else if (msg.type === 'transcript') {
-        const debugDiv = document.getElementById('transcript-debug');
-        if (debugDiv) {
-          debugDiv.style.display = 'block';
-          if (msg.isFinal) {
-            debugDiv.innerHTML += '<div style="color:#fff">' + esc(msg.text) + '</div>';
-          } else {
-            let interim = debugDiv.querySelector('.interim');
-            if (!interim) { interim = document.createElement('div'); interim.className = 'interim'; interim.style.cssText = 'color:#888;font-style:italic'; debugDiv.appendChild(interim); }
-            interim.textContent = msg.text;
-          }
-          debugDiv.scrollTop = debugDiv.scrollHeight;
-        }
-        bc.postMessage({ type: 'transcript', text: msg.text, isFinal: msg.isFinal });
-        try { window.opener?.postMessage({ type: 'rw-transcript', text: msg.text, isFinal: msg.isFinal }, '*'); } catch {}
-
+        handleTranscript(msg);
       } else if (msg.type === 'error') {
         setStatus('Error: ' + msg.message, 'error');
       }
     } catch {}
   };
-
   ws.onerror = () => setStatus('WebSocket error', 'error');
   ws.onclose = (evt) => {
     setStatus('Connection closed (code: ' + evt.code + ')', 'error');
@@ -194,8 +244,26 @@ function connectAudioAndWs() {
   };
 }
 
+// Shared transcript handler
+function handleTranscript(msg) {
+  const debugDiv = document.getElementById('transcript-debug');
+  if (debugDiv) {
+    debugDiv.style.display = 'block';
+    if (msg.isFinal) {
+      debugDiv.innerHTML += '<div style="color:#fff">' + esc(msg.text) + '</div>';
+    } else {
+      let interim = debugDiv.querySelector('.interim');
+      if (!interim) { interim = document.createElement('div'); interim.className = 'interim'; interim.style.cssText = 'color:#888;font-style:italic'; debugDiv.appendChild(interim); }
+      interim.textContent = msg.text;
+    }
+    debugDiv.scrollTop = debugDiv.scrollHeight;
+  }
+  bc.postMessage({ type: 'transcript', text: msg.text, isFinal: msg.isFinal });
+  try { window.opener?.postMessage({ type: 'rw-transcript', text: msg.text, isFinal: msg.isFinal }, '*'); } catch {}
+}
+
 function stopCapture() {
-  if (processor) { try { processor.disconnect(); } catch {} processor = null; }
+  if (workletNode) { try { workletNode.disconnect(); } catch {} workletNode = null; }
   if (source) { try { source.disconnect(); } catch {} source = null; }
   if (audioCtx) { try { audioCtx.close(); } catch {} audioCtx = null; }
   if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; }
