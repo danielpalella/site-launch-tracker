@@ -5829,6 +5829,12 @@ Return ONLY valid JSON with no markdown:
     };
     await db.collection('onboarding_interviews').doc(req.params.id).update({
       section_summary: sectionSummary,
+      completed_summaries: FieldValue.arrayUnion({
+        section_name: sectionName,
+        section_index: sectionIndex,
+        narrative: summary.narrative,
+        unlocks: summary.unlocks,
+      }),
       updated_at: FieldValue.serverTimestamp(),
     });
 
@@ -6006,6 +6012,8 @@ app.get('/api/join/:sessionId/:token/state', async (req, res) => {
       current_section: q?.section || null,
       current_ai_message: d.current_ai_message || null,
       section_summary: d.section_summary || null,
+      completed_summaries: d.completed_summaries || [],
+      client_name: d.client_name || '',
       total_questions: ONBOARDING_QUESTIONS.length,
       progress: Math.round(((d.current_question || 0) / ONBOARDING_QUESTIONS.length) * 100),
     });

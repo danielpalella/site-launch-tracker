@@ -362,6 +362,22 @@ async function nextQuestion() {
 
   // Save per-question transcript and reset
   questionTranscripts[currentQ] = currentQuestionTranscript;
+
+  // Persist per-question transcript to Firestore in real-time
+  if (currentQuestionTranscript.trim()) {
+    authFetch(`/api/onboarding/sessions/${sessionId}/answer`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        questionId: QUESTIONS[currentQ].id,
+        answer: currentQuestionTranscript,
+        currentQuestion: currentQ + 1,
+        aiMessage: QUESTIONS[currentQ + 1]?.label || null,
+        clearSummary: true,
+      }),
+    }).catch(() => {});
+  }
+
   currentQuestionTranscript = '';
   aiRecState = null;
   lastEvalText = '';
@@ -396,23 +412,69 @@ function skipQuestion() {
 }
 
 // ── Finish ──
-function showFinish() {
-  // Save transcript for the last question if any
+async function showFinish() {
+  // 1. Save the last question's transcript
   if (currentQuestionTranscript) {
     questionTranscripts[currentQ] = currentQuestionTranscript;
     currentQuestionTranscript = '';
   }
+
+  // 2. Stop the evaluation timer
   stopEvalTimer();
   aiRecState = null;
+
+  // 3. Stop audio capture
+  if (transcriptActive) {
+    stopTranscript();
+  }
 
   document.querySelectorAll('.ma-phase').forEach(el => el.classList.remove('active'));
   const finishEl = document.getElementById('ma-finish');
   finishEl.style.display = 'block';
+  const status = document.getElementById('ma-finish-status');
 
-  // Check if we have any real transcript answers
+  // 4. Save ALL questionTranscripts to Firestore as answers on the session
   const hasRealAnswers = Object.values(questionTranscripts).some(t => t && t.trim().length > 0);
   if (hasRealAnswers) {
-    autoExtractFromTranscript();
+    status.innerHTML = '<span style="color:var(--text-muted)">Saving transcripts...</span>';
+    const savePromises = Object.entries(questionTranscripts).map(([idx, text]) => {
+      if (!text || !text.trim()) return Promise.resolve();
+      const q = QUESTIONS[parseInt(idx)];
+      if (!q) return Promise.resolve();
+      return authFetch(`/api/onboarding/sessions/${sessionId}/answer`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          questionId: q.id,
+          answer: text,
+          currentQuestion: parseInt(idx),
+        }),
+      }).catch(() => {});
+    });
+    await Promise.all(savePromises);
+
+    // 5. Generate the final section summary if the last section wasn't completed yet
+    const lastQ = QUESTIONS[QUESTIONS.length - 1];
+    const lastSIdx = SECTIONS.indexOf(lastQ.section);
+    if (lastSIdx >= 0 && !completedSections.has(lastSIdx)) {
+      completedSections.add(lastSIdx);
+      const sectionQs = QUESTIONS.filter(qq => qq.section === lastQ.section);
+      const sectionAnswers = sectionQs.map(qq => {
+        const idx = QUESTIONS.indexOf(qq);
+        return { question: qq.label, answer: questionTranscripts[idx] || '' };
+      });
+      authFetch(`/api/onboarding/sessions/${sessionId}/section-summary`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sectionName: lastQ.section, sectionIndex: lastSIdx, answers: sectionAnswers, clientName }),
+      }).catch(() => {});
+    }
+
+    // 6. Run extraction using the real transcripts
+    // 7. Push transcript to Google Drive (handled server-side in extract endpoint)
+    // 8. Show extraction progress + result
+    await autoExtractFromTranscript();
+    // 9. Session status set to extracted by extract endpoint (triggers completion on presentation)
   }
 }
 
