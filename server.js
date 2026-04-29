@@ -5999,6 +5999,7 @@ app.get('/api/join/:sessionId/:token', async (req, res) => {
 });
 
 app.get('/api/join/:sessionId/:token/state', async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
   try {
     const result = await validateJoinToken(req.params.sessionId, req.params.token);
     if (!result) return res.status(403).json({ error: 'Invalid' });

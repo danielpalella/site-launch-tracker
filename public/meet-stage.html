@@ -118,8 +118,8 @@ const joinToken = params.get('token');
 let pollFailCount = 0;
 async function poll() {
   try {
-    const url = `/api/join/${sessionId}/${joinToken}/state`;
-    const r = await fetch(url);
+    const url = `/api/join/${sessionId}/${joinToken}/state?_t=${Date.now()}`;
+    const r = await fetch(url, { cache: 'no-store' });
     if (!r.ok) { console.warn('[stage] Poll failed:', r.status); pollFailCount++; return; }
     pollFailCount = 0;
     const data = await r.json();
