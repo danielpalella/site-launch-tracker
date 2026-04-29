@@ -292,7 +292,7 @@ function renderGuide() {
   // Share buttons
   if (joinToken) {
     html += '<div style="display:flex;gap:.3rem;margin-bottom:.6rem">';
-    html += `<button onclick="showToAll()" style="flex:1;padding:.35rem .5rem;border:none;border-radius:5px;background:var(--primary);color:#fff;font-size:.68rem;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:.3rem"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>Show to Everyone</button>`;
+    html += `<button onclick="showToAll()" style="flex:1;padding:.35rem .5rem;border:none;border-radius:5px;background:var(--primary);color:#fff;font-size:.68rem;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:.3rem"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>Start Presentation</button>`;
     html += `<button onclick="copyJoinLink(this)" style="flex:0;padding:.35rem .5rem;border:1px solid var(--border);border-radius:5px;background:none;color:var(--text-muted);font-size:.68rem;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg> Copy Link</button>`;
     html += '</div>';
   }
@@ -579,25 +579,13 @@ function toggleTranscript() {
 }
 
 // ── Show to all participants via Meet main stage ──
-async function showToAll() {
+function showToAll() {
   if (!sessionId || !joinToken) return;
   const stageUrl = `${location.origin}/meet-stage?session=${sessionId}&token=${joinToken}`;
-  console.log('[meet-addon] showToAll, sidePanelClient:', !!sidePanelClient, 'url:', stageUrl);
-
-  if (sidePanelClient) {
-    try {
-      await sidePanelClient.startActivity({ mainStageUrl: stageUrl });
-      console.log('[meet-addon] startActivity succeeded');
-      return;
-    } catch (e) {
-      console.warn('[meet-addon] startActivity failed:', e.message);
-      alert('Could not show to everyone: ' + e.message + '\nOpening in a new tab instead.');
-    }
-  } else {
-    console.warn('[meet-addon] No sidePanelClient available');
-  }
-  // Fallback: open in new tab for screen sharing
-  window.open(stageUrl, '_blank');
+  // Open the presentation in a new tab — the rep shares this tab in Meet
+  // Note: startActivity only works for participants with the add-on installed,
+  // which external contractors won't have. Screen sharing is the reliable path.
+  window.open(stageUrl, 'rw-presentation');
 }
 
 function copyJoinLink(btn) {
