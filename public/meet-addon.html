@@ -542,7 +542,7 @@ function toggleTranscript() {
   // Try popup approach (works when sidebar can open popups)
   try {
     capturePopup = window.open(
-      '/meet-addon-capture?token=' + encodeURIComponent(authToken) + '&mode=tab',
+      '/meet-addon-capture?token=' + encodeURIComponent(authToken) + '&mode=mic',
       'audio-capture',
       'width=700,height=500,left=100,top=100'
     );
@@ -569,7 +569,7 @@ function toggleTranscript() {
   // If popup was blocked, show instructions
   if (!capturePopup || capturePopup.closed) {
     // Open as a new tab instead
-    const win = window.open('/meet-addon-capture?token=' + encodeURIComponent(authToken) + '&mode=tab', '_blank');
+    const win = window.open('/meet-addon-capture?token=' + encodeURIComponent(authToken) + '&mode=mic', '_blank');
     if (!win) {
       alert('Please allow popups for this site, or open this URL manually:\n' + location.origin + '/meet-addon-capture?token=' + authToken);
     }
