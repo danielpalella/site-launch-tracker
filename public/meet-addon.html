@@ -155,23 +155,23 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 <script>
 // ── Questions ──
 const QUESTIONS = [
-  { id:'origin_1', section:'Origin Story', label:'Tell us your story — how did you get into this trade and start your business?', tips:'Ask about when they started, what motivated them, how long they\'ve been in business.', followups:['How long have you been in business?','Was there a specific moment that pushed you to start your own company?'] },
-  { id:'origin_2', section:'Origin Story', label:'What makes you most proud about your company?', tips:'Listen for milestones, team achievements, specific projects they light up about.', followups:['Can you tell me about a project that really stands out?'] },
-  { id:'origin_3', section:'Origin Story', label:'Is there a family or personal story connected to the business?', tips:'Family involvement, personal connection to the trade. This makes great About page copy.', followups:['Are any family members involved in day-to-day operations?'] },
-  { id:'services_1', section:'Services', label:'Walk me through your core services — what do you do?', tips:'Get the full list. Ask about residential vs commercial, emergency availability.', followups:['Do you handle both residential and commercial?','Do you offer emergency or after-hours service?'] },
-  { id:'services_2', section:'Services', label:'Which service is your bread and butter, and which do you want to grow?', tips:'Top revenue service AND what they want the website to push more.', followups:['Why do you want to push those services more?'] },
-  { id:'services_3', section:'Services', label:'Describe your process from the first call to job completion.', tips:'This becomes the "How We Work" section. Get the step-by-step.', followups:['What happens after the job — any follow-up, warranty check-in?'] },
-  { id:'diff_1', section:'Differentiation', label:'What makes you different from competitors — and what do customers say about you?', tips:'Their edge, review themes, guarantees, unique processes. This is the USP.', followups:['Do you use specific brands or methods that set you apart?','Do you offer any guarantees?'] },
-  { id:'diff_2', section:'Differentiation', label:'Who is your ideal customer?', tips:'Residential vs commercial, neighborhood type, job size preference.', followups:['Is there a type of job you prefer to avoid?'] },
-  { id:'area_1', section:'Service Area', label:'What areas do you serve, and where do you get the most work?', tips:'Cities, counties, travel radius. Top markets for city landing pages.', followups:['How far will you travel for a job?','Are there areas you want to expand into?'] },
-  { id:'area_2', section:'Service Area', label:'Are there specific neighborhoods or cities you want to target for growth?', tips:'New markets, less competition areas. Important for SEO targeting.', followups:['Do you have any presence there already?'] },
-  { id:'voice_1', section:'Brand Voice', label:'How would you describe your company\'s personality and tone?', tips:'Professional, casual, friendly — how do they talk to customers? This calibrates all copy.', followups:['How do you want customers to feel after working with you?'] },
-  { id:'voice_2', section:'Brand Voice', label:'Any words, phrases, or taglines you love — or want to avoid on the website?', tips:'Mottos, jargon to avoid, specific language preferences.', followups:['Do you have a tagline or motto?'] },
-  { id:'cred_1', section:'Credentials', label:'What licenses, certifications, and insurance do you carry?', tips:'State licenses, manufacturer certs, bonded, insured. Trust signals.', followups:['Are you a member of any trade associations?'] },
-  { id:'cred_2', section:'Credentials', label:'Any awards, recognitions, or things you want to highlight?', tips:'Google rating, best-of awards, community involvement.', followups:['How many Google reviews do you have?'] },
-  { id:'goals_1', section:'Goals', label:'What are your top goals for the new website?', tips:'More leads, SEO, professional look. Get specific priorities.', followups:['What frustrates you about your current online presence?'] },
-  { id:'goals_2', section:'Goals', label:'What does success look like 6 months from now?', tips:'Measurable targets — lead count, ranking goals, revenue impact.', followups:['Specific number of leads per month you\'re targeting?'] },
-  { id:'goals_3', section:'Goals', label:'Anything else we should know about your business?', tips:'Open-ended catch-all. Let them talk.', followups:[] },
+  { id:'origin_1', section:'Origin Story', label:'Tell me how you got started — what\'s the story behind the business?', display:'Tell us your story — how did you get into this trade and start your business?', tips:'Ask about when they started, what motivated them, how long they\'ve been in business.', followups:['How long have you been in business?','Was there a specific moment that pushed you to start your own company?'] },
+  { id:'origin_2', section:'Origin Story', label:'What are you most proud of when you look at what you\'ve built?', display:'What makes you most proud about your company?', tips:'Listen for milestones, team achievements, specific projects they light up about.', followups:['Can you tell me about a project that really stands out?'] },
+  { id:'origin_3', section:'Origin Story', label:'Is there a family story or personal connection tied to the business?', display:'Is there a family or personal story behind the business?', tips:'Family involvement, personal connection to the trade. This makes great About page copy.', followups:['Are any family members involved in day-to-day operations?'] },
+  { id:'services_1', section:'Services', label:'Walk me through what you guys do — your core services.', display:'Walk us through your core services — what do you do?', tips:'Get the full list. Ask about residential vs commercial, emergency availability.', followups:['Do you handle both residential and commercial?','Do you offer emergency or after-hours service?'] },
+  { id:'services_2', section:'Services', label:'What\'s your bread and butter, and what do you want to do more of?', display:'Which service drives the most revenue, and which do you want to grow?', tips:'Top revenue service AND what they want the website to push more.', followups:['Why do you want to push those services more?'] },
+  { id:'services_3', section:'Services', label:'Take me through your process — from first call to job done.', display:'Describe your process from the first call to job completion.', tips:'This becomes the "How We Work" section. Get the step-by-step.', followups:['What happens after the job — any follow-up, warranty check-in?'] },
+  { id:'diff_1', section:'Differentiation', label:'What makes you guys different? What do your customers usually say about you?', display:'What sets you apart from competitors — and what do customers say?', tips:'Their differentiators, review themes, guarantees, unique processes.', followups:['Do you use specific brands or methods that set you apart?','Do you offer any guarantees?'] },
+  { id:'diff_2', section:'Differentiation', label:'Who\'s your ideal customer — the kind of job you love getting?', display:'Who is your ideal customer?', tips:'Residential vs commercial, neighborhood type, job size preference.', followups:['Is there a type of job you prefer to avoid?'] },
+  { id:'area_1', section:'Service Area', label:'What areas do you cover, and where does most of your work come from?', display:'What areas do you serve, and where do you get the most work?', tips:'Cities, counties, travel radius. Top markets for city landing pages.', followups:['How far will you travel for a job?','Are there areas you want to expand into?'] },
+  { id:'area_2', section:'Service Area', label:'Any neighborhoods or cities you\'re looking to break into?', display:'Are there specific areas you want to target for growth?', tips:'New markets, less competition areas. Important for SEO targeting.', followups:['Do you have any presence there already?'] },
+  { id:'voice_1', section:'Brand Voice', label:'How would you describe the personality of your company?', display:'How would you describe your company\'s personality and tone?', tips:'Professional, casual, friendly — how do they talk to customers? This calibrates all copy.', followups:['How do you want customers to feel after working with you?'] },
+  { id:'voice_2', section:'Brand Voice', label:'Any words or phrases you love using — or ones you\'d rather we avoid?', display:'Any words, phrases, or taglines you love — or want to avoid?', tips:'Mottos, jargon to avoid, specific language preferences.', followups:['Do you have a tagline or motto?'] },
+  { id:'cred_1', section:'Credentials', label:'What licenses and certifications do you carry? Are you insured, bonded?', display:'What licenses, certifications, and insurance do you carry?', tips:'State licenses, manufacturer certs, bonded, insured. Trust signals.', followups:['Are you a member of any trade associations?'] },
+  { id:'cred_2', section:'Credentials', label:'Any awards or recognitions you want people to know about?', display:'Any awards, recognitions, or highlights worth showcasing?', tips:'Google rating, best-of awards, community involvement.', followups:['How many Google reviews do you have?'] },
+  { id:'goals_1', section:'Goals', label:'What are the main things you want this website to do for you?', display:'What are your top goals for the new website?', tips:'More leads, SEO, professional look. Get specific priorities.', followups:['What frustrates you about your current online presence?'] },
+  { id:'goals_2', section:'Goals', label:'Six months from now, what does success look like for you?', display:'What does success look like 6 months from now?', tips:'Measurable targets — lead count, ranking goals, revenue impact.', followups:['Specific number of leads per month you\'re targeting?'] },
+  { id:'goals_3', section:'Goals', label:'Anything else you want us to know about your business?', display:'Anything else we should know about your business?', tips:'Open-ended catch-all. Let them talk.', followups:[] },
 ];
 const SECTIONS = ['Origin Story','Services','Differentiation','Service Area','Brand Voice','Credentials','Goals'];
 
@@ -413,7 +413,7 @@ function renderGuide() {
   authFetch(`/api/onboarding/sessions/${sessionId}/answer`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ questionId: null, currentQuestion: currentQ, aiMessage: q.label, clearSummary: true }),
+    body: JSON.stringify({ questionId: null, currentQuestion: currentQ, aiMessage: q.display || q.label, clearSummary: true }),
   }).then(r => {
     if (!r.ok) console.error('[meet-addon] Failed to save question state:', r.status);
     else console.log('[meet-addon] Saved question', currentQ, 'to Firestore');
@@ -434,7 +434,7 @@ async function nextQuestion() {
         questionId: QUESTIONS[currentQ].id,
         answer: currentQuestionTranscript,
         currentQuestion: currentQ + 1,
-        aiMessage: QUESTIONS[currentQ + 1]?.label || null,
+        aiMessage: QUESTIONS[currentQ + 1]?.display || QUESTIONS[currentQ + 1]?.label || null,
         clearSummary: true,
       }),
     }).catch(() => {});
