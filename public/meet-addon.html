@@ -6,12 +6,12 @@
 <title>Onboarding · Meet</title>
 <link rel="icon" href="/favicon.png" type="image/png" />
 <style>
-:root { --primary: #1259FF; --bg: #06102a; --surface: #0f1d3a; --lime: #cbff4d; --text: #fff; --text-muted: rgba(255,255,255,.5); --border: rgba(255,255,255,.1); --green: #16a34a }
+:root { --primary: #1259FF; --bg: #06102a; --surface: #0f1d3a; --lime: #cbff4d; --text: #fff; --text-muted: rgba(255,255,255,.5); --border: rgba(255,255,255,.1); --green: #16a34a; --red: #ef4444 }
 * { margin: 0; padding: 0; box-sizing: border-box }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; display: flex; flex-direction: column }
 
 /* Header */
-.ma-header { padding: .6rem .75rem; display: flex; align-items: center; gap: .5rem; border-bottom: 1px solid var(--border) }
+.ma-header { padding: .6rem .75rem; display: flex; align-items: center; gap: .5rem; border-bottom: 1px solid var(--border); flex-shrink: 0 }
 .ma-logo { height: 18px; opacity: .7 }
 .ma-header-title { font-size: .7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px }
 
@@ -20,61 +20,75 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .ma-auth input { width: 100%; padding: .5rem .7rem; border: 1px solid var(--border); border-radius: 6px; font-size: .82rem; font-family: inherit; color: var(--text); background: var(--surface); margin: .75rem 0 .5rem; box-sizing: border-box }
 .ma-auth input:focus { outline: none; border-color: var(--primary) }
 .ma-auth-btn { width: 100%; padding: .55rem; border: none; border-radius: 6px; background: var(--primary); color: #fff; font-size: .82rem; font-weight: 700; cursor: pointer; font-family: inherit }
-.ma-auth-err { font-size: .72rem; color: #ef4444; margin-top: .3rem; display: none }
+.ma-auth-err { font-size: .72rem; color: var(--red); margin-top: .3rem; display: none }
 
 /* Phases */
-.ma-phase { display: none; padding: .75rem }
-.ma-phase.active { display: block }
+.ma-phase { display: none; flex: 1; flex-direction: column; overflow: hidden }
+.ma-phase.active { display: flex }
 
 /* Client search */
 .ma-search { width: 100%; padding: .5rem .7rem; border: 1px solid var(--border); border-radius: 6px; font-size: .82rem; font-family: inherit; color: var(--text); background: var(--surface); box-sizing: border-box; margin-bottom: .5rem }
 .ma-search:focus { outline: none; border-color: var(--primary) }
+.ma-phase-select-inner { padding: .75rem }
 .ma-client { padding: .45rem .6rem; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; margin-bottom: .3rem; transition: border-color .15s }
 .ma-client:hover { border-color: var(--primary) }
 .ma-client-name { font-size: .8rem; font-weight: 600 }
 .ma-client-meta { font-size: .68rem; color: var(--text-muted) }
 
-/* Interview guide */
-.ma-guide { padding: .75rem }
-.ma-guide-client { font-size: .85rem; font-weight: 700; margin-bottom: .15rem }
-.ma-guide-progress { font-size: .68rem; color: var(--text-muted); margin-bottom: .75rem }
-.ma-guide-section { font-size: .6rem; font-weight: 700; color: var(--primary); text-transform: uppercase; letter-spacing: .5px; margin-bottom: .3rem }
-.ma-guide-question { font-size: .95rem; font-weight: 600; line-height: 1.4; margin-bottom: .5rem }
-.ma-guide-tips { font-size: .72rem; color: var(--text-muted); line-height: 1.45; margin-bottom: .75rem; padding: .5rem .65rem; background: var(--surface); border-radius: 6px; border-left: 3px solid var(--primary) }
-.ma-guide-followups { margin-bottom: .75rem }
-.ma-guide-followups-label { font-size: .62rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .3px; margin-bottom: .25rem }
-.ma-guide-followup { font-size: .72rem; color: rgba(255,255,255,.7); padding: .2rem 0; padding-left: .6rem; position: relative }
-.ma-guide-followup::before { content: ''; position: absolute; left: 0; top: .45rem; width: 4px; height: 4px; border-radius: 50%; background: var(--text-muted) }
-.ma-guide-btns { display: flex; gap: .4rem }
-.ma-btn-skip { flex: 0; padding: .45rem .75rem; border: 1px solid var(--border); border-radius: 6px; background: none; color: var(--text-muted); font-size: .75rem; font-weight: 600; cursor: pointer; font-family: inherit }
-.ma-btn-next { flex: 1; padding: .45rem .75rem; border: none; border-radius: 6px; background: var(--green); color: #fff; font-size: .78rem; font-weight: 700; cursor: pointer; font-family: inherit; display: flex; align-items: center; justify-content: center; gap: .3rem }
-.ma-guide-divider { height: 1px; background: var(--border); margin: .75rem 0 }
-.ma-guide-note { font-size: .72rem; color: var(--text-muted); line-height: 1.4 }
-.ma-guide-note strong { color: var(--text); font-weight: 600 }
+/* Setup flow */
+.setup-flow { padding: .5rem .75rem; border-bottom: 1px solid var(--border); flex-shrink: 0 }
+.setup-step { display: flex; align-items: center; gap: .5rem; padding: .35rem 0 }
+.setup-num { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: .6rem; font-weight: 700; flex-shrink: 0; border: 1.5px solid var(--border); color: var(--text-muted); transition: all .2s }
+.setup-num.done { background: var(--lime); border-color: var(--lime); color: var(--bg) }
+.setup-num.current { background: var(--primary); border-color: var(--primary); color: #fff }
+.setup-btn { flex: 1; padding: .4rem .6rem; border: 1px solid var(--primary); border-radius: 6px; background: none; color: var(--primary); font-size: .72rem; font-weight: 700; cursor: pointer; font-family: inherit; display: flex; align-items: center; gap: .35rem; transition: all .15s }
+.setup-btn:hover { background: rgba(18,89,255,.1) }
+.setup-btn.done { border-color: var(--lime); color: var(--lime); opacity: .7; cursor: default }
+.setup-btn.active { background: var(--primary); color: #fff; border-color: var(--primary) }
+.setup-label { flex: 1; font-size: .72rem; color: var(--text-muted) }
+.setup-label.done { color: var(--lime) }
 
-/* Section complete */
-.ma-section-done { background: var(--surface); border-radius: 8px; padding: .65rem .75rem; margin-bottom: .75rem; border-left: 3px solid var(--lime) }
+/* Scrollable content area */
+.guide-scroll { flex: 1; overflow-y: auto; padding: .75rem; padding-bottom: 0 }
+
+/* Section badges */
+.ma-section-done { background: var(--surface); border-radius: 8px; padding: .5rem .65rem; margin-bottom: .5rem; border-left: 3px solid var(--lime) }
 .ma-section-done-title { font-size: .72rem; font-weight: 700; color: var(--lime) }
 .ma-section-done-text { font-size: .7rem; color: var(--text-muted); margin-top: .15rem }
 
+/* Question area */
+.guide-section { font-size: .6rem; font-weight: 700; color: var(--primary); text-transform: uppercase; letter-spacing: .5px; margin-bottom: .25rem }
+.guide-progress { font-size: .65rem; color: var(--text-muted); margin-bottom: .5rem }
+.guide-question { font-size: 1rem; font-weight: 600; line-height: 1.4; margin-bottom: .5rem }
+.guide-tips { font-size: .72rem; color: var(--text-muted); line-height: 1.45; margin-bottom: .6rem; padding: .45rem .6rem; background: var(--surface); border-radius: 6px; border-left: 3px solid var(--primary) }
+.guide-followups { margin-bottom: .6rem }
+.guide-followups-label { font-size: .6rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .3px; margin-bottom: .2rem }
+.guide-followup { font-size: .72rem; color: rgba(255,255,255,.7); padding: .15rem 0 .15rem .6rem; position: relative }
+.guide-followup::before { content: ''; position: absolute; left: 0; top: .42rem; width: 4px; height: 4px; border-radius: 50%; background: var(--text-muted) }
+
 /* Transcript */
-.ma-transcript-bar { display: flex; gap: .4rem; margin-bottom: .6rem }
-.ma-btn-transcript { flex: 1; padding: .4rem .6rem; border: 1px solid var(--primary); border-radius: 6px; background: none; color: var(--primary); font-size: .72rem; font-weight: 700; cursor: pointer; font-family: inherit; display: flex; align-items: center; justify-content: center; gap: .3rem }
-.ma-btn-transcript.active { background: var(--primary); color: #fff }
-.ma-btn-transcript-stop { flex: 0; padding: .4rem .6rem; border: 1px solid #ef4444; border-radius: 6px; background: none; color: #ef4444; font-size: .72rem; font-weight: 600; cursor: pointer; font-family: inherit; display: none }
-.ma-transcript-box { max-height: 140px; overflow-y: auto; background: var(--surface); border-radius: 6px; padding: .5rem .6rem; margin-bottom: .6rem; font-size: .74rem; line-height: 1.5; display: none; border: 1px solid var(--border) }
-.ma-transcript-box .interim { color: var(--text-muted) }
-.ma-transcript-box .final { color: var(--text) }
-.ma-transcript-empty { color: var(--text-muted); font-style: italic }
-.ma-transcript-status { font-size: .65rem; color: var(--text-muted); margin-bottom: .4rem; display: none }
-.ma-transcript-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--lime); margin-right: 4px; vertical-align: middle; animation: ma-pulse 1.5s infinite }
+.transcript-box { max-height: 100px; overflow-y: auto; background: var(--surface); border-radius: 6px; padding: .4rem .5rem; margin-bottom: .5rem; font-size: .72rem; line-height: 1.5; display: none; border: 1px solid var(--border) }
+.transcript-box .interim { color: var(--text-muted) }
+.transcript-box .final { color: var(--text) }
+.transcript-empty { color: var(--text-muted); font-style: italic }
+.transcript-status { font-size: .62rem; color: var(--text-muted); margin-bottom: .3rem; display: none }
+.transcript-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--lime); margin-right: 4px; vertical-align: middle; animation: ma-pulse 1.5s infinite }
 @keyframes ma-pulse { 0%,100% { opacity: 1 } 50% { opacity: .3 } }
 
-/* AI recommendation badges */
-.ma-ai-rec { padding: .4rem .6rem; border-radius: 6px; font-size: .72rem; line-height: 1.4; margin-bottom: .5rem; display: none }
-.ma-ai-rec.ready { display: block; background: rgba(22,163,74,.12); border: 1px solid rgba(22,163,74,.25); color: #4ade80 }
-.ma-ai-rec.followup { display: block; background: rgba(234,179,8,.1); border: 1px solid rgba(234,179,8,.2); color: #facc15 }
-.ma-ai-rec.thinking { display: block; background: rgba(255,255,255,.05); border: 1px solid var(--border); color: var(--text-muted) }
+/* AI recommendation */
+.ai-rec { padding: .35rem .55rem; border-radius: 6px; font-size: .72rem; line-height: 1.4; margin-bottom: .5rem; display: none }
+.ai-rec.ready { display: block; background: rgba(22,163,74,.12); border: 1px solid rgba(22,163,74,.25); color: #4ade80 }
+.ai-rec.followup { display: block; background: rgba(234,179,8,.1); border: 1px solid rgba(234,179,8,.2); color: #facc15 }
+.ai-rec.thinking { display: block; background: rgba(255,255,255,.05); border: 1px solid var(--border); color: var(--text-muted) }
+
+/* Bottom buttons — sticky */
+.guide-bottom { flex-shrink: 0; padding: .75rem; border-top: 1px solid var(--border); background: var(--bg) }
+.guide-btns { display: flex; gap: .5rem }
+.btn-skip { flex: 0 0 auto; padding: .85rem 1.2rem; border: 1px solid var(--border); border-radius: 10px; background: none; color: var(--text-muted); font-size: .85rem; font-weight: 600; cursor: pointer; font-family: inherit; transition: border-color .15s }
+.btn-skip:hover { border-color: rgba(255,255,255,.3) }
+.btn-next { flex: 1; padding: .85rem 1.2rem; border: none; border-radius: 10px; background: var(--green); color: #fff; font-size: 1rem; font-weight: 700; cursor: pointer; font-family: inherit; display: flex; align-items: center; justify-content: center; gap: .4rem; transition: background .15s }
+.btn-next:hover { background: #15803d }
+.btn-next:active { transform: scale(.98) }
 
 /* Finish screen */
 .ma-finish { display: none; padding: 1.5rem .75rem; text-align: center }
@@ -89,7 +103,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 
 <div class="ma-header">
   <img src="/logo-white.svg" alt="RealWork" class="ma-logo">
-  <span class="ma-header-title">Onboarding</span>
+  <span class="ma-header-title">Onboarding Copilot</span>
 </div>
 
 <!-- Auth -->
@@ -103,14 +117,28 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 
 <!-- Phase 1: Client Selection -->
 <div class="ma-phase" id="ma-phase-select">
-  <div style="font-size:.85rem;font-weight:700;margin-bottom:.5rem">Select a client</div>
-  <input type="text" class="ma-search" id="ma-search" placeholder="Search clients..." oninput="searchClients()">
-  <div id="ma-clients-list"></div>
+  <div class="ma-phase-select-inner">
+    <div style="font-size:.85rem;font-weight:700;margin-bottom:.5rem">Select a client</div>
+    <input type="text" class="ma-search" id="ma-search" placeholder="Search clients..." oninput="searchClients()">
+    <div id="ma-clients-list"></div>
+  </div>
 </div>
 
 <!-- Phase 2: Interview Guide -->
 <div class="ma-phase" id="ma-phase-guide">
-  <div class="ma-guide" id="ma-guide"></div>
+  <!-- Setup flow steps -->
+  <div class="setup-flow" id="setup-flow"></div>
+
+  <!-- Scrollable content -->
+  <div class="guide-scroll" id="guide-scroll"></div>
+
+  <!-- Sticky bottom buttons -->
+  <div class="guide-bottom" id="guide-bottom">
+    <div class="guide-btns">
+      <button class="btn-skip" onclick="skipQuestion()">Skip</button>
+      <button class="btn-next" onclick="nextQuestion()">Next <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></button>
+    </div>
+  </div>
 </div>
 
 <!-- Phase 3: Finish -->
@@ -166,11 +194,14 @@ let questionTranscripts = {};
 let currentQuestionTranscript = '';
 let evalTimer = null;
 let lastEvalText = '';
-let aiRecState = null; // { action, message }
+let aiRecState = null;
+let presentationOpened = false;
+let screenShared = false;
 
 function authHeaders(h = {}) { if (authToken) h['Authorization'] = 'Bearer ' + authToken; return h; }
 function authFetch(url, opts = {}) { opts.headers = authHeaders(opts.headers || {}); return fetch(url, opts); }
 const esc = s => { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
+const checkSvg = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5"><polyline points="20 6 9 17 4 12"/></svg>';
 
 // ── Init ──
 (async () => {
@@ -179,11 +210,9 @@ const esc = s => { const d = document.createElement('div'); d.textContent = s; r
     sidePanelClient = await meetSession.createSidePanelClient();
   } catch (e) { console.warn('Meet SDK:', e.message); }
 
-  // Try cookie auth first (works if SameSite=None; Secure is set)
   try {
     const r = await fetch('/api/auth/me', { credentials: 'include' });
     if (r.ok) {
-      // Cookies work! Get a token for Bearer auth on subsequent calls
       const tr = await fetch('/api/auth/meet-token', { credentials: 'include' });
       const td = await tr.json();
       if (td.token) {
@@ -196,7 +225,6 @@ const esc = s => { const d = document.createElement('div'); d.textContent = s; r
     }
   } catch {}
 
-  // Check URL token or sessionStorage
   const params = new URLSearchParams(window.location.search);
   authToken = params.get('token');
   if (!authToken) try { authToken = sessionStorage.getItem('ma-token'); } catch {}
@@ -259,7 +287,6 @@ async function searchClients() {
 async function selectClient(client) {
   selectedClientId = client.id;
   clientName = client.account_name;
-  // Create session
   try {
     const r = await authFetch('/api/onboarding/sessions', {
       method: 'POST',
@@ -272,9 +299,60 @@ async function selectClient(client) {
     joinToken = data.join_token || null;
     currentQ = 0;
     completedSections.clear();
+    presentationOpened = false;
+    screenShared = false;
     showPhase('guide');
+    renderSetupFlow();
     renderGuide();
   } catch (err) { alert('Failed to start: ' + err.message); }
+}
+
+// ── Setup Flow ──
+function renderSetupFlow() {
+  const flow = document.getElementById('setup-flow');
+  if (!joinToken) { flow.innerHTML = ''; return; }
+
+  let html = '';
+
+  // Step 1: Start Presentation
+  if (presentationOpened) {
+    html += `<div class="setup-step"><div class="setup-num done">${checkSvg}</div><span class="setup-label done">Presentation opened</span></div>`;
+  } else {
+    html += `<div class="setup-step"><div class="setup-num current">1</div><button class="setup-btn" onclick="doStartPresentation()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>Start Presentation</button></div>`;
+  }
+
+  // Step 2: Share your screen
+  if (screenShared) {
+    html += `<div class="setup-step"><div class="setup-num done">${checkSvg}</div><span class="setup-label done">Screen shared</span></div>`;
+  } else if (presentationOpened) {
+    html += `<div class="setup-step"><div class="setup-num current">2</div><button class="setup-btn" onclick="doConfirmShare()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>Share Presentation Tab in Meet</button></div>`;
+  } else {
+    html += `<div class="setup-step"><div class="setup-num">2</div><span class="setup-label">Share presentation tab in Meet</span></div>`;
+  }
+
+  // Step 3: Live Transcript
+  if (transcriptActive) {
+    html += `<div class="setup-step"><div class="setup-num done">${checkSvg}</div><span class="setup-label done"><span class="transcript-dot"></span>Transcript active</span></div>`;
+  } else if (screenShared) {
+    html += `<div class="setup-step"><div class="setup-num current">3</div><button class="setup-btn" onclick="toggleTranscript()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/></svg>Start Live Transcript</button></div>`;
+  } else {
+    html += `<div class="setup-step"><div class="setup-num">3</div><span class="setup-label">Start live transcript</span></div>`;
+  }
+
+  flow.innerHTML = html;
+}
+
+function doStartPresentation() {
+  if (!sessionId || !joinToken) return;
+  const stageUrl = `${location.origin}/meet-stage?session=${sessionId}&token=${joinToken}`;
+  window.open(stageUrl, 'rw-presentation');
+  presentationOpened = true;
+  renderSetupFlow();
+}
+
+function doConfirmShare() {
+  screenShared = true;
+  renderSetupFlow();
 }
 
 // ── Interview Guide ──
@@ -282,51 +360,42 @@ function renderGuide() {
   const q = QUESTIONS[currentQ];
   if (!q) { showFinish(); return; }
 
-  const prevSection = currentQ > 0 ? QUESTIONS[currentQ - 1].section : null;
-  const isNewSection = q.section !== prevSection;
-
+  const scroll = document.getElementById('guide-scroll');
   let html = '';
-  html += `<div class="ma-guide-client">${esc(clientName)}</div>`;
-  html += `<div class="ma-guide-progress">Question ${currentQ + 1} of ${QUESTIONS.length}</div>`;
 
-  // Share buttons
-  if (joinToken) {
-    html += '<div style="display:flex;gap:.3rem;margin-bottom:.6rem">';
-    html += `<button onclick="showToAll()" style="flex:1;padding:.35rem .5rem;border:none;border-radius:5px;background:var(--primary);color:#fff;font-size:.68rem;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:.3rem"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>Start Presentation</button>`;
-    html += `<button onclick="copyJoinLink(this)" style="flex:0;padding:.35rem .5rem;border:1px solid var(--border);border-radius:5px;background:none;color:var(--text-muted);font-size:.68rem;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg> Copy Link</button>`;
-    html += '</div>';
-  }
+  // Client name + progress
+  html += `<div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:.5rem">`;
+  html += `<div style="font-size:.85rem;font-weight:700">${esc(clientName)}</div>`;
+  html += `<div class="guide-progress">Q ${currentQ + 1}/${QUESTIONS.length}</div>`;
+  html += `</div>`;
 
-  // Show completed section badges
+  // Completed section badges
   SECTIONS.forEach((s, i) => {
     if (completedSections.has(i)) {
       html += `<div class="ma-section-done"><div class="ma-section-done-title">${esc(s)} complete</div></div>`;
     }
   });
 
-  html += `<div class="ma-guide-section">${esc(q.section)}</div>`;
-  html += `<div class="ma-guide-question">${esc(q.label)}</div>`;
+  // Current question
+  html += `<div class="guide-section">${esc(q.section)}</div>`;
+  html += `<div class="guide-question">${esc(q.label)}</div>`;
 
   if (q.tips) {
-    html += `<div class="ma-guide-tips"><strong>Ask about:</strong> ${esc(q.tips)}</div>`;
+    html += `<div class="guide-tips"><strong>Ask about:</strong> ${esc(q.tips)}</div>`;
   }
 
   if (q.followups?.length) {
-    html += '<div class="ma-guide-followups"><div class="ma-guide-followups-label">Follow-up if needed</div>';
-    q.followups.forEach(f => { html += `<div class="ma-guide-followup">${esc(f)}</div>`; });
+    html += '<div class="guide-followups"><div class="guide-followups-label">Follow-up if needed</div>';
+    q.followups.forEach(f => { html += `<div class="guide-followup">${esc(f)}</div>`; });
     html += '</div>';
   }
 
-  // Transcript controls
-  html += '<div class="ma-transcript-bar">';
-  html += `<button class="ma-btn-transcript${transcriptActive ? ' active' : ''}" id="ma-btn-transcript" onclick="toggleTranscript()">${transcriptActive ? '<span class="ma-transcript-dot"></span>Listening...' : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg> Live Transcript'}</button>`;
-  if (transcriptActive) html += '<button class="ma-btn-transcript-stop" style="display:inline-block" onclick="stopTranscript()">Stop</button>';
-  html += '</div>';
-  html += '<div class="ma-transcript-status" id="ma-transcript-status"' + (transcriptActive ? ' style="display:block"' : '') + '><span class="ma-transcript-dot"></span>Live transcription active</div>';
-  html += '<div class="ma-transcript-box" id="ma-transcript-box"' + (transcriptActive ? ' style="display:block"' : '') + '>' + (transcriptText || '<span class="ma-transcript-empty">Transcript will appear here...</span>') + '</div>';
+  // Transcript box (only shown when active)
+  html += '<div class="transcript-status" id="transcript-status"' + (transcriptActive ? ' style="display:block"' : '') + '><span class="transcript-dot"></span>Live transcription active</div>';
+  html += '<div class="transcript-box" id="transcript-box"' + (transcriptActive ? ' style="display:block"' : '') + '>' + (transcriptText || '<span class="transcript-empty">Transcript will appear here...</span>') + '</div>';
 
-  // AI recommendation badge
-  html += '<div class="ma-ai-rec' + (aiRecState ? (aiRecState.action === 'next' ? ' ready' : ' followup') : '') + '" id="ma-ai-rec">';
+  // AI recommendation
+  html += '<div class="ai-rec' + (aiRecState ? (aiRecState.action === 'next' ? ' ready' : ' followup') : '') + '" id="ai-rec">';
   if (aiRecState) {
     if (aiRecState.action === 'next') {
       html += 'Answer sounds complete &mdash; ready to move on' + (aiRecState.message ? '<br><span style="opacity:.8;font-size:.68rem">' + esc(aiRecState.message) + '</span>' : '');
@@ -338,17 +407,9 @@ function renderGuide() {
   }
   html += '</div>';
 
-  html += '<div class="ma-guide-btns">';
-  html += '<button class="ma-btn-skip" onclick="skipQuestion()">Skip</button>';
-  html += `<button class="ma-btn-next" onclick="nextQuestion()">Next <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></button>`;
-  html += '</div>';
+  scroll.innerHTML = html;
 
-  html += '<div class="ma-guide-divider"></div>';
-  html += '<div class="ma-guide-note"><strong>Tip:</strong> Just have a natural conversation. Meet is recording the transcript — the AI will extract everything after the call.</div>';
-
-  document.getElementById('ma-guide').innerHTML = html;
-
-  // Save progress + sync current question text to Firestore for the main stage
+  // Save progress to Firestore
   authFetch(`/api/onboarding/sessions/${sessionId}/answer`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
@@ -363,10 +424,8 @@ async function nextQuestion() {
   const q = QUESTIONS[currentQ];
   const nextQ = QUESTIONS[currentQ + 1];
 
-  // Save per-question transcript and reset
   questionTranscripts[currentQ] = currentQuestionTranscript;
 
-  // Persist per-question transcript to Firestore in real-time
   if (currentQuestionTranscript.trim()) {
     authFetch(`/api/onboarding/sessions/${sessionId}/answer`, {
       method: 'PUT',
@@ -385,19 +444,16 @@ async function nextQuestion() {
   aiRecState = null;
   lastEvalText = '';
 
-  // Check if section is completing
   const isEndOfSection = (nextQ && nextQ.section !== q.section) || !nextQ;
   if (isEndOfSection) {
     const sIdx = SECTIONS.indexOf(q.section);
     if (sIdx >= 0) completedSections.add(sIdx);
 
-    // Generate section summary for the main stage slideshow
     const sectionQs = QUESTIONS.filter(qq => qq.section === q.section);
     const sectionAnswers = sectionQs.map(qq => {
       const idx = QUESTIONS.indexOf(qq);
       return { question: qq.label, answer: questionTranscripts[idx] || '' };
     });
-    // Fire and forget — don't block navigation
     authFetch(`/api/onboarding/sessions/${sessionId}/section-summary`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -416,17 +472,14 @@ function skipQuestion() {
 
 // ── Finish ──
 async function showFinish() {
-  // 1. Save the last question's transcript
   if (currentQuestionTranscript) {
     questionTranscripts[currentQ] = currentQuestionTranscript;
     currentQuestionTranscript = '';
   }
 
-  // 2. Stop the evaluation timer
   stopEvalTimer();
   aiRecState = null;
 
-  // 3. Stop audio capture
   if (transcriptActive) {
     stopTranscript();
   }
@@ -436,7 +489,6 @@ async function showFinish() {
   finishEl.style.display = 'block';
   const status = document.getElementById('ma-finish-status');
 
-  // 4. Save ALL questionTranscripts to Firestore as answers on the session
   const hasRealAnswers = Object.values(questionTranscripts).some(t => t && t.trim().length > 0);
   if (hasRealAnswers) {
     status.innerHTML = '<span style="color:var(--text-muted)">Saving transcripts...</span>';
@@ -456,7 +508,6 @@ async function showFinish() {
     });
     await Promise.all(savePromises);
 
-    // 5. Generate the final section summary if the last section wasn't completed yet
     const lastQ = QUESTIONS[QUESTIONS.length - 1];
     const lastSIdx = SECTIONS.indexOf(lastQ.section);
     if (lastSIdx >= 0 && !completedSections.has(lastSIdx)) {
@@ -473,11 +524,7 @@ async function showFinish() {
       }).catch(() => {});
     }
 
-    // 6. Run extraction using the real transcripts
-    // 7. Push transcript to Google Drive (handled server-side in extract endpoint)
-    // 8. Show extraction progress + result
     await autoExtractFromTranscript();
-    // 9. Session status set to extracted by extract endpoint (triggers completion on presentation)
   }
 }
 
@@ -523,18 +570,8 @@ async function importMeetTranscript() {
 }
 
 // ── Live Transcript ──
-const EXTENSION_ID = ''; // Will be set after installing the extension
-let extensionDetected = false;
 let transcriptPollTimer = null;
 let lastTranscriptIdx = 0;
-
-// Try to detect the Chrome extension on load
-function detectExtension() {
-  if (!chrome?.runtime?.sendMessage) return;
-  // Try known extension IDs, or use externally_connectable
-  // The sidebar can't directly message the extension from inside Meet's iframe
-  // Instead, we use the popup fallback + BroadcastChannel approach
-}
 
 function toggleTranscript() {
   if (transcriptActive) return;
@@ -542,7 +579,6 @@ function toggleTranscript() {
   transcriptText = '';
   interimText = '';
 
-  // Try popup approach (works when sidebar can open popups)
   try {
     capturePopup = window.open(
       '/meet-addon-capture?token=' + encodeURIComponent(authToken) + '&mode=tab',
@@ -551,7 +587,6 @@ function toggleTranscript() {
     );
   } catch {}
 
-  // Listen on BroadcastChannel (from popup or extension)
   try {
     transcriptChannel = new BroadcastChannel('meet-transcript');
     transcriptChannel.onmessage = (evt) => {
@@ -559,66 +594,23 @@ function toggleTranscript() {
     };
   } catch {}
 
-  // Also listen via postMessage as fallback (BroadcastChannel may not work across iframe origins)
   window.addEventListener('message', (evt) => {
     if (evt.data?.type === 'rw-transcript') {
       handleTranscriptMessage({ type: 'transcript', text: evt.data.text, isFinal: evt.data.isFinal });
     }
   });
 
-  // Start AI evaluation timer
   startEvalTimer();
 
-  // If popup was blocked, show instructions
   if (!capturePopup || capturePopup.closed) {
-    // Open as a new tab instead
     const win = window.open('/meet-addon-capture?token=' + encodeURIComponent(authToken) + '&mode=tab', '_blank');
     if (!win) {
       alert('Please allow popups for this site, or open this URL manually:\n' + location.origin + '/meet-addon-capture?token=' + authToken);
     }
   }
 
+  renderSetupFlow();
   renderGuide();
-}
-
-// ── Show to all participants via Meet main stage ──
-function showToAll() {
-  if (!sessionId || !joinToken) return;
-  const stageUrl = `${location.origin}/meet-stage?session=${sessionId}&token=${joinToken}`;
-  // Open the presentation in a new tab — the rep shares this tab in Meet
-  // Note: startActivity only works for participants with the add-on installed,
-  // which external contractors won't have. Screen sharing is the reliable path.
-  window.open(stageUrl, 'rw-presentation');
-}
-
-function copyJoinLink(btn) {
-  if (!sessionId || !joinToken) return;
-  const url = `${location.origin}/join/${sessionId}/${joinToken}`;
-  navigator.clipboard.writeText(url).then(() => {
-    btn.innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Copied!';
-    btn.style.color = '#16a34a';
-    btn.style.borderColor = '#16a34a';
-    setTimeout(() => {
-      btn.innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg> Copy Link';
-      btn.style.color = '';
-      btn.style.borderColor = '';
-    }, 2000);
-  });
-}
-
-function handleTranscriptMessage(msg) {
-  if (msg.type === 'transcript') {
-    if (msg.isFinal) {
-      transcriptText += (transcriptText ? ' ' : '') + msg.text;
-      currentQuestionTranscript += (currentQuestionTranscript ? ' ' : '') + msg.text;
-      interimText = '';
-    } else {
-      interimText = msg.text;
-    }
-    updateTranscriptBox();
-  } else if (msg.type === 'stopped') {
-    stopTranscript();
-  }
 }
 
 function stopTranscript() {
@@ -633,6 +625,7 @@ function stopTranscript() {
     transcriptChannel = null;
   }
   interimText = '';
+  renderSetupFlow();
   renderGuide();
 }
 
@@ -647,7 +640,6 @@ function stopEvalTimer() {
 
 async function evaluateTranscript() {
   const text = currentQuestionTranscript.trim();
-  // Don't evaluate if no new text or fewer than 5 words
   if (!text || text === lastEvalText) return;
   const wordCount = text.split(/\s+/).length;
   if (wordCount < 5) return;
@@ -656,9 +648,8 @@ async function evaluateTranscript() {
   const q = QUESTIONS[currentQ];
   if (!q) return;
 
-  // Show thinking state
-  const recEl = document.getElementById('ma-ai-rec');
-  if (recEl) { recEl.className = 'ma-ai-rec thinking'; recEl.style.display = 'block'; recEl.textContent = 'AI is evaluating the response...'; }
+  const recEl = document.getElementById('ai-rec');
+  if (recEl) { recEl.className = 'ai-rec thinking'; recEl.style.display = 'block'; recEl.textContent = 'AI is evaluating the response...'; }
 
   try {
     const r = await authFetch('/api/onboarding/chat', {
@@ -676,35 +667,48 @@ async function evaluateTranscript() {
     const data = await r.json();
     aiRecState = data;
 
-    // Update badge in-place without full re-render
-    const el = document.getElementById('ma-ai-rec');
+    const el = document.getElementById('ai-rec');
     if (el) {
       if (data.action === 'next') {
-        el.className = 'ma-ai-rec ready';
+        el.className = 'ai-rec ready';
         el.innerHTML = 'Answer sounds complete &mdash; ready to move on' + (data.message ? '<br><span style="opacity:.8;font-size:.68rem">' + esc(data.message) + '</span>' : '');
       } else if (data.action === 'followup') {
-        el.className = 'ma-ai-rec followup';
+        el.className = 'ai-rec followup';
         el.innerHTML = 'Consider asking: ' + esc(data.message);
       } else if (data.action === 'clarify') {
-        el.className = 'ma-ai-rec followup';
+        el.className = 'ai-rec followup';
         el.innerHTML = 'Answer was unclear &mdash; try rephrasing the question';
       }
     }
   } catch (err) {
     console.warn('AI evaluation failed:', err);
-    // Silently fail — don't disrupt the interview
-    const el = document.getElementById('ma-ai-rec');
-    if (el) { el.className = 'ma-ai-rec'; el.style.display = 'none'; }
+    const el = document.getElementById('ai-rec');
+    if (el) { el.className = 'ai-rec'; el.style.display = 'none'; }
+  }
+}
+
+function handleTranscriptMessage(msg) {
+  if (msg.type === 'transcript') {
+    if (msg.isFinal) {
+      transcriptText += (transcriptText ? ' ' : '') + msg.text;
+      currentQuestionTranscript += (currentQuestionTranscript ? ' ' : '') + msg.text;
+      interimText = '';
+    } else {
+      interimText = msg.text;
+    }
+    updateTranscriptBox();
+  } else if (msg.type === 'stopped') {
+    stopTranscript();
   }
 }
 
 function updateTranscriptBox() {
-  const box = document.getElementById('ma-transcript-box');
+  const box = document.getElementById('transcript-box');
   if (!box) return;
   let html = '';
   if (transcriptText) html += '<span class="final">' + esc(transcriptText) + '</span>';
   if (interimText) html += ' <span class="interim">' + esc(interimText) + '</span>';
-  if (!html) html = '<span class="ma-transcript-empty">Transcript will appear here...</span>';
+  if (!html) html = '<span class="transcript-empty">Transcript will appear here...</span>';
   box.innerHTML = html;
   box.scrollTop = box.scrollHeight;
 }
