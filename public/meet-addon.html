@@ -353,7 +353,10 @@ function renderGuide() {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ questionId: null, currentQuestion: currentQ, aiMessage: q.label, clearSummary: true }),
-  }).catch(() => {});
+  }).then(r => {
+    if (!r.ok) console.error('[meet-addon] Failed to save question state:', r.status);
+    else console.log('[meet-addon] Saved question', currentQ, 'to Firestore');
+  }).catch(e => console.error('[meet-addon] Save error:', e.message));
 }
 
 async function nextQuestion() {
