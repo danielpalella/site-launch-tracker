@@ -73,6 +73,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 <div class="ms-main" id="ms-main">
   <div class="ms-loading" id="ms-loading">Connecting...</div>
 </div>
+<div id="debug-overlay" style="position:fixed;bottom:8px;right:8px;background:rgba(0,0,0,.85);color:#0f0;font-size:11px;font-family:monospace;padding:4px 8px;border-radius:4px;z-index:999;pointer-events:none"></div>
 
 <script src="https://www.gstatic.com/meetjs/addons/1.1.0/meet.addons.js"></script>
 <script>
@@ -97,10 +98,20 @@ const params = new URLSearchParams(window.location.search);
 const sessionId = params.get('session');
 const joinToken = params.get('token');
 
-// Init Meet SDK
+// Unregister any service workers that might intercept fetch requests
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then(regs => {
+    regs.forEach(r => r.unregister());
+  });
+}
+
+// Init Meet SDK (with timeout so polling starts even if SDK hangs)
 (async () => {
   try {
-    await window.meet.addon.createAddonSession({ cloudProjectNumber: '630073859512' });
+    await Promise.race([
+      window.meet?.addon?.createAddonSession({ cloudProjectNumber: '630073859512' }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 2000))
+    ]);
   } catch (e) { console.warn('Meet SDK:', e.message); }
 
   buildTracker();
@@ -111,6 +122,7 @@ const joinToken = params.get('token');
   }
 
   // Start polling for state
+  console.log('[stage] Starting polls for session=' + sessionId);
   poll();
   setInterval(poll, 1500);
 })();
@@ -119,11 +131,12 @@ let pollFailCount = 0;
 async function poll() {
   try {
     const url = `/api/join/${sessionId}/${joinToken}/state?_t=${Date.now()}`;
-    const r = await fetch(url, { cache: 'no-store' });
+    const r = await fetch(url, { cache: 'no-store', credentials: 'omit' });
     if (!r.ok) { console.warn('[stage] Poll failed:', r.status); pollFailCount++; return; }
     pollFailCount = 0;
     const data = await r.json();
     console.log('[stage] Poll q=' + data.current_question + ' section=' + data.current_section);
+    document.getElementById('debug-overlay').textContent = 'Poll: q=' + data.current_question + ' last=' + lastQuestion + ' showing=' + showingSummary;
 
     // Sync completed_summaries from server (accumulates)
     if (data.completed_summaries && data.completed_summaries.length > completedSummariesData.length) {
@@ -135,6 +148,7 @@ async function poll() {
   } catch (e) {
     pollFailCount++;
     console.error('[stage] Poll error:', e.message, 'fails:', pollFailCount);
+    document.getElementById('debug-overlay').textContent = 'ERR: ' + e.message + ' fails=' + pollFailCount;
   }
 }
 
