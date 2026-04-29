@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Onboarding · RealWork</title>
 <style>
-:root { --primary: #1259FF; --bg: #06102a; --surface: #0d1a36; --lime: #cbff4d; --text: #fff; --text-muted: rgba(255,255,255,.5); --border: rgba(255,255,255,.08) }
+:root { --primary: #1259FF; --bg: #06102a; --surface: #0c1830; --lime: #cbff4d; --text: #fff; --text-muted: rgba(255,255,255,.45); --border: rgba(255,255,255,.07) }
 * { margin: 0; padding: 0; box-sizing: border-box }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column }
 
@@ -14,73 +14,77 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .progress-fill { height: 100%; background: var(--lime); border-radius: 0 2px 2px 0; transition: width .6s ease }
 
 /* Header */
-.header { display: flex; align-items: center; padding: .6rem 2rem; flex-shrink: 0; margin-top: 3px }
+.header { display: flex; align-items: center; padding: .5rem 2rem; flex-shrink: 0; margin-top: 3px }
 .logo { height: 22px; opacity: .7 }
 .header-client { margin-left: auto; font-size: .78rem; color: var(--text-muted) }
 
-/* Top area — question during interview, completion header after */
-.top-area { text-align: center; padding: 1.5rem 2rem 1rem; flex-shrink: 0 }
-.top-label { font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: .4rem }
-.top-label.active { color: var(--primary) }
+/* Top question area */
+.top-area { text-align: center; padding: 1.25rem 2rem .75rem; flex-shrink: 0 }
+.top-label { font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: .5rem }
+.top-label.active { color: var(--lime) }
 .top-label.complete { color: var(--lime) }
-.top-title { font-size: 1.6rem; font-weight: 700; line-height: 1.35; max-width: 700px; margin: 0 auto .5rem; transition: opacity .35s, transform .35s }
+.top-title { font-size: 1.65rem; font-weight: 600; line-height: 1.35; max-width: 680px; margin: 0 auto; transition: opacity .3s, transform .3s }
 .top-title.fading { opacity: 0; transform: translateY(6px) }
-.top-sub { font-size: .78rem; color: var(--text-muted); line-height: 1.5 }
+.top-sub { font-size: .78rem; color: var(--text-muted); margin-top: .6rem }
 
 /* Progress dots */
-.dots { display: flex; align-items: center; justify-content: center; gap: .35rem; margin-top: .6rem }
-.dot { width: 28px; height: 4px; border-radius: 2px; background: rgba(255,255,255,.08); transition: background .4s }
+.dots { display: flex; align-items: center; justify-content: center; gap: .35rem; padding: .6rem 0 .5rem }
+.dot { width: 28px; height: 4px; border-radius: 2px; background: rgba(255,255,255,.07); transition: background .4s }
 .dot.done { background: var(--lime) }
 .dot.active { background: var(--primary) }
 
-/* Section grid */
-.grid { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; padding: .75rem 2rem 1.5rem; flex: 1; overflow-y: auto; align-content: start }
-.grid-last-center { grid-column: 1 / -1; max-width: calc(50% - .3rem); justify-self: center }
+/* Grid */
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; padding: .5rem 2rem 1.5rem; flex: 1; overflow-y: auto; align-content: start }
+.grid-last-center { grid-column: 1 / -1; max-width: calc(50% - .25rem); justify-self: center }
 
-/* Section card */
-.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: .85rem 1rem; position: relative; transition: border-color .4s, background .4s }
-.card.active { border-color: rgba(18,89,255,.35); background: rgba(18,89,255,.06) }
-.card.done { border-color: rgba(203,255,77,.18); background: rgba(203,255,77,.03) }
+/* Card base */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: .75rem .9rem; transition: border-color .4s, background .4s, box-shadow .4s }
+
+/* Card — locked (default) */
+.card.locked { }
+.card.locked .card-name { color: rgba(255,255,255,.35) }
+.card.locked .card-desc { color: rgba(255,255,255,.2) }
+
+/* Card — active */
+.card.active { border-color: rgba(203,255,77,.3); background: rgba(203,255,77,.04) }
+.card.active .card-name { color: var(--text) }
+.card.active .card-desc { color: rgba(255,255,255,.55) }
+
+/* Card — done */
+.card.done { border-color: rgba(203,255,77,.15); background: rgba(203,255,77,.02) }
+.card.done .card-name { color: var(--text) }
 
 /* Card header */
-.card-head { display: flex; align-items: center; gap: .45rem; margin-bottom: .5rem }
-.card-icon { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all .4s }
-.card-icon.locked { background: rgba(255,255,255,.06); border: 1.5px solid rgba(255,255,255,.1) }
-.card-icon.active { background: var(--primary); border: 1.5px solid var(--primary) }
+.card-head { display: flex; align-items: center; gap: .45rem; margin-bottom: .3rem }
+.card-icon { width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all .35s }
+.card-icon.locked { background: rgba(255,255,255,.05); border: 1.5px solid rgba(255,255,255,.1) }
+.card-icon.active { background: var(--lime); border: 1.5px solid var(--lime) }
 .card-icon.done { background: var(--lime); border: 1.5px solid var(--lime) }
-.card-name { font-size: .88rem; font-weight: 700; flex: 1 }
-.card-name.locked { color: rgba(255,255,255,.25) }
-.card-name.active { color: var(--text) }
-.card-name.done { color: var(--text) }
-.card-actions { font-size: .68rem; color: var(--text-muted); white-space: nowrap }
+.card-name { font-size: .88rem; font-weight: 700; flex: 1; transition: color .3s }
+.card-badge { font-size: .58rem; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--lime); white-space: nowrap }
+.card-actions { font-size: .65rem; color: var(--text-muted); white-space: nowrap }
 
-/* Card body — locked vs unlocked */
-.card-body { transition: filter .6s, opacity .6s }
-.card-body.locked { filter: blur(4px); opacity: .3; user-select: none; pointer-events: none }
-.card-body.unlocked { filter: none; opacity: 1 }
-
-.card-narrative { font-size: .78rem; color: rgba(255,255,255,.7); line-height: 1.55; margin-bottom: .55rem }
+/* Card body */
+.card-desc { font-size: .76rem; line-height: 1.5; transition: color .4s }
+.card-narrative { font-size: .76rem; color: rgba(255,255,255,.65); line-height: 1.55; margin-bottom: .5rem }
 .card-pills { display: flex; flex-wrap: wrap; gap: .3rem }
-.card-pill { font-size: .68rem; color: var(--lime); background: rgba(203,255,77,.08); border: 1px solid rgba(203,255,77,.15); padding: .2rem .55rem; border-radius: 6px; font-weight: 500 }
-
-/* Placeholder text for locked cards */
-.card-placeholder { font-size: .75rem; color: rgba(255,255,255,.15); line-height: 1.5 }
+.card-pill { font-size: .66rem; color: var(--lime); background: rgba(203,255,77,.08); border: 1px solid rgba(203,255,77,.12); padding: .18rem .5rem; border-radius: 5px; font-weight: 500 }
 
 /* Loading */
-.loading { text-align: center; padding: 4rem 2rem; color: var(--text-muted); font-size: .9rem }
+.loading { color: var(--text-muted); font-size: .9rem }
 
 /* Animations */
 @keyframes fadeUp { from { opacity: 0; transform: translateY(12px) } to { opacity: 1; transform: translateY(0) } }
 @keyframes unlockPop {
   0% { transform: scale(1) }
-  30% { transform: scale(1.35); box-shadow: 0 0 20px rgba(203,255,77,.4) }
-  60% { transform: scale(.9) }
+  30% { transform: scale(1.3); box-shadow: 0 0 16px rgba(203,255,77,.35) }
+  60% { transform: scale(.92) }
   100% { transform: scale(1) }
 }
-@keyframes cardUnlock {
-  0% { border-color: rgba(255,255,255,.08) }
-  50% { border-color: rgba(203,255,77,.4); box-shadow: 0 0 16px rgba(203,255,77,.15) }
-  100% { border-color: rgba(203,255,77,.18); box-shadow: none }
+@keyframes cardGlow {
+  0% { box-shadow: none }
+  40% { box-shadow: 0 0 20px rgba(203,255,77,.12) }
+  100% { box-shadow: none }
 }
 
 @media (max-width: 768px) {
@@ -109,14 +113,18 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 
 <script>
 const SECTIONS = [
-  { name: 'Origin Story', placeholder: 'Your founding story, years of experience, and what motivated you to start the business.' },
-  { name: 'Services', placeholder: 'Core services offered, specialties, process from first call to completion.' },
-  { name: 'Differentiators', placeholder: 'What sets you apart, customer feedback themes, guarantees, and unique processes.' },
-  { name: 'Service Area', placeholder: 'Cities and neighborhoods served, travel radius, and growth targets.' },
-  { name: 'Brand Voice', placeholder: 'Company personality, preferred tone, words and phrases to use or avoid.' },
-  { name: 'Credentials', placeholder: 'Licenses, certifications, insurance, awards, and recognitions.' },
-  { name: 'Goals', placeholder: 'Website goals, success metrics, SEO priorities, and lead targets.' },
+  { name: 'Origin story', desc: 'How you got into the trade and built the business.' },
+  { name: 'Services', desc: 'What you offer and who it\'s for.' },
+  { name: 'Differentiators', desc: 'What sets you apart from competitors.' },
+  { name: 'Service area', desc: 'Where you work and where you want to grow.' },
+  { name: 'Brand voice', desc: 'How you talk to customers and what you stand for.' },
+  { name: 'Credentials', desc: 'Licenses, certifications, awards, and recognition.' },
+  { name: 'Goals', desc: 'What success looks like for you and your business.' },
 ];
+
+const lockSvg = '<svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.2)" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>';
+const dotSvg = '<svg width="9" height="9" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="5" fill="#06102a" stroke="#06102a" stroke-width="2"/></svg>';
+const checkSvg = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#06102a" stroke-width="3.5"><polyline points="20 6 9 17 4 12"/></svg>';
 
 let lastQuestion = -1;
 let lastAiMessage = '';
@@ -129,12 +137,10 @@ const params = new URLSearchParams(window.location.search);
 const sessionId = params.get('session');
 const joinToken = params.get('token');
 
-// Unregister service workers
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.getRegistrations().then(regs => regs.forEach(r => r.unregister()));
 }
 
-// Init
 (async () => {
   try {
     await Promise.race([
@@ -164,9 +170,7 @@ async function poll() {
     if (!r.ok) { pollFailCount++; return; }
     pollFailCount = 0;
     const data = await r.json();
-    console.log('[stage] Poll q=' + data.current_question + ' section=' + data.current_section);
 
-    // Sync summaries
     if (data.completed_summaries && data.completed_summaries.length > completedSummariesData.length) {
       const prev = completedSummariesData.length;
       completedSummariesData = data.completed_summaries;
@@ -182,7 +186,6 @@ async function poll() {
     updateState(data);
   } catch (e) {
     pollFailCount++;
-    console.error('[stage] Poll error:', e.message);
   }
 }
 
@@ -205,7 +208,7 @@ function updateState(data) {
 
   if (titleEl && lastQuestion !== -1) {
     titleEl.classList.add('fading');
-    setTimeout(() => renderTopQuestion(topArea, data), 300);
+    setTimeout(() => renderTopQuestion(topArea, data), 280);
   } else {
     renderTopQuestion(topArea, data);
   }
@@ -217,7 +220,7 @@ function updateState(data) {
 function renderTopQuestion(topArea, data) {
   topArea.innerHTML = `
     <div class="top-label active">${esc(data.current_section || '')} &middot; Question ${data.current_question + 1} of ${data.total_questions}</div>
-    <div class="top-title" style="animation:fadeUp .35s ease">${esc(data.current_ai_message || data.current_question_label || '')}</div>
+    <div class="top-title" style="animation:fadeUp .3s ease">${esc(data.current_ai_message || data.current_question_label || '')}</div>
   `;
 }
 
@@ -233,18 +236,15 @@ function showComplete(data) {
     });
   }
 
-  // Unlock all cards
   SECTIONS.forEach((_, i) => {
     completedSections.add(i);
-    const s = summariesByIndex[i];
-    unlockCard(i, s);
+    unlockCard(i, summariesByIndex[i]);
   });
 
   updateDots(-1, true);
   document.getElementById('progress-fill').style.width = '100%';
 
-  const topArea = document.getElementById('top-area');
-  topArea.innerHTML = `
+  document.getElementById('top-area').innerHTML = `
     <div class="top-label complete">INTERVIEW COMPLETE</div>
     <div class="top-title" style="animation:fadeUp .4s ease">Here's what we heard</div>
     <div class="top-sub">${SECTIONS.length} topics covered &middot; review the takeaways and action items below</div>
@@ -257,16 +257,15 @@ function buildGrid() {
   grid.innerHTML = SECTIONS.map((s, i) => {
     const isLast = i === SECTIONS.length - 1 && SECTIONS.length % 2 === 1;
     return `
-      <div class="card${isLast ? ' grid-last-center' : ''}" id="card-${i}">
+      <div class="card locked${isLast ? ' grid-last-center' : ''}" id="card-${i}">
         <div class="card-head">
-          <div class="card-icon locked" id="card-icon-${i}">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.2)" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
-          </div>
-          <span class="card-name locked" id="card-name-${i}">${esc(s.name)}</span>
-          <span class="card-actions" id="card-actions-${i}"></span>
+          <div class="card-icon locked" id="cicon-${i}">${lockSvg}</div>
+          <span class="card-name" id="cname-${i}">${esc(s.name)}</span>
+          <span class="card-badge" id="cbadge-${i}"></span>
+          <span class="card-actions" id="cactions-${i}"></span>
         </div>
-        <div class="card-body locked" id="card-body-${i}">
-          <div class="card-placeholder">${esc(s.placeholder)}</div>
+        <div id="cbody-${i}">
+          <div class="card-desc">${esc(s.desc)}</div>
         </div>
       </div>
     `;
@@ -274,57 +273,51 @@ function buildGrid() {
 }
 
 function updateCardStates(activeIdx) {
-  SECTIONS.forEach((_, i) => {
-    const card = document.getElementById('card-' + i);
-    const icon = document.getElementById('card-icon-' + i);
-    const name = document.getElementById('card-name-' + i);
+  SECTIONS.forEach((s, i) => {
+    if (completedSections.has(i)) return;
 
-    if (completedSections.has(i)) {
-      // Already unlocked — don't touch
-      return;
-    }
+    const card = document.getElementById('card-' + i);
+    const icon = document.getElementById('cicon-' + i);
+    const badge = document.getElementById('cbadge-' + i);
+    const body = document.getElementById('cbody-' + i);
 
     if (i === activeIdx) {
-      card.className = card.className.replace(/\b(active|done)\b/g, '').trim();
-      if (!card.classList.contains('active')) card.classList.add('active');
+      card.className = card.className.replace(/\b(locked|active|done)\b/g, '').trim() + ' card active';
       icon.className = 'card-icon active';
-      icon.innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><circle cx="12" cy="12" r="3"/></svg>';
-      name.className = 'card-name active';
+      icon.innerHTML = dotSvg;
+      badge.textContent = 'IN PROGRESS';
+      body.innerHTML = `<div class="card-desc">${esc(s.desc)}</div>`;
     } else {
-      card.className = card.className.replace(/\b(active|done)\b/g, '').trim();
+      card.className = card.className.replace(/\b(locked|active|done)\b/g, '').trim() + ' card locked';
       icon.className = 'card-icon locked';
-      icon.innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.2)" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>';
-      name.className = 'card-name locked';
+      icon.innerHTML = lockSvg;
+      badge.textContent = '';
+      body.innerHTML = `<div class="card-desc">${esc(s.desc)}</div>`;
     }
   });
 }
 
 function unlockCard(idx, summaryData) {
   const card = document.getElementById('card-' + idx);
-  const icon = document.getElementById('card-icon-' + idx);
-  const name = document.getElementById('card-name-' + idx);
-  const body = document.getElementById('card-body-' + idx);
-  const actions = document.getElementById('card-actions-' + idx);
+  const icon = document.getElementById('cicon-' + idx);
+  const badge = document.getElementById('cbadge-' + idx);
+  const actions = document.getElementById('cactions-' + idx);
+  const body = document.getElementById('cbody-' + idx);
 
   if (!card) return;
 
-  // Card state
-  card.className = card.className.replace(/\b(active|done)\b/g, '').trim();
-  card.classList.add('done');
-  card.style.animation = 'cardUnlock .8s ease';
+  card.className = card.className.replace(/\b(locked|active|done)\b/g, '').trim() + ' card done';
+  card.style.animation = 'cardGlow .8s ease';
 
-  // Icon — checkmark
   icon.className = 'card-icon done';
-  icon.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#06102a" stroke-width="3.5"><polyline points="20 6 9 17 4 12"/></svg>';
+  icon.innerHTML = checkSvg;
   icon.style.animation = 'unlockPop .5s ease';
 
-  // Name
-  name.className = 'card-name done';
+  badge.textContent = '';
 
-  // Body — show real content
   if (summaryData) {
     const narrative = summaryData.narrative || '';
-    const short = narrative.split(/(?<=[.!?])\s+/).slice(0, 3).join(' ');
+    const short = narrative.split(/(?<=[.!?])\s+/).slice(0, 2).join(' ');
     const unlocks = summaryData.unlocks || [];
 
     actions.textContent = unlocks.length + ' action' + (unlocks.length !== 1 ? 's' : '');
@@ -336,8 +329,6 @@ function unlockCard(idx, summaryData) {
     }
     body.innerHTML = html;
   }
-
-  body.className = 'card-body unlocked';
 }
 
 // ── Dots ──
@@ -349,11 +340,8 @@ function updateDots(activeIdx, allDone) {
   SECTIONS.forEach((_, i) => {
     const dot = document.getElementById('dot-' + i);
     dot.className = 'dot';
-    if (allDone || completedSections.has(i)) {
-      dot.classList.add('done');
-    } else if (i === activeIdx) {
-      dot.classList.add('active');
-    }
+    if (allDone || completedSections.has(i)) dot.classList.add('done');
+    else if (i === activeIdx) dot.classList.add('active');
   });
 }
 
