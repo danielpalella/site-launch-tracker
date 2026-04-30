@@ -351,11 +351,26 @@ function doStartPresentation() {
   window.open(stageUrl, 'rw-presentation');
   presentationOpened = true;
   renderSetupFlow();
+
+  // Don't push Q0 yet — let the welcome screen show.
+  // Q0 gets pushed when the rep clicks Next (or after they confirm screen share).
 }
 
 function doConfirmShare() {
   screenShared = true;
   renderSetupFlow();
+
+  // Push Q0 to Firestore — transitions presentation from welcome to first question
+  const q = QUESTIONS[0];
+  if (q && sessionId) {
+    authFetch(`/api/onboarding/sessions/${sessionId}/answer`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ questionId: null, currentQuestion: 0, aiMessage: q.display || q.label, clearSummary: true }),
+    }).then(r => {
+      if (r.ok) console.log('[meet-addon] Pushed Q0 — presentation will transition from welcome');
+    }).catch(() => {});
+  }
 }
 
 // ── Interview Guide ──
@@ -412,15 +427,17 @@ function renderGuide() {
 
   scroll.innerHTML = html;
 
-  // Save progress to Firestore
-  authFetch(`/api/onboarding/sessions/${sessionId}/answer`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ questionId: null, currentQuestion: currentQ, aiMessage: q.display || q.label, clearSummary: true }),
-  }).then(r => {
-    if (!r.ok) console.error('[meet-addon] Failed to save question state:', r.status);
-    else console.log('[meet-addon] Saved question', currentQ, 'to Firestore');
-  }).catch(e => console.error('[meet-addon] Save error:', e.message));
+  // Save progress to Firestore (skip Q0 until presentation is started — keeps welcome screen)
+  if (currentQ > 0 || presentationOpened) {
+    authFetch(`/api/onboarding/sessions/${sessionId}/answer`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ questionId: null, currentQuestion: currentQ, aiMessage: q.display || q.label, clearSummary: true }),
+    }).then(r => {
+      if (!r.ok) console.error('[meet-addon] Failed to save question state:', r.status);
+      else console.log('[meet-addon] Saved question', currentQ, 'to Firestore');
+    }).catch(e => console.error('[meet-addon] Save error:', e.message));
+  }
 }
 
 async function nextQuestion() {
