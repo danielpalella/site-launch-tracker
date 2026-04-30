@@ -461,8 +461,8 @@ function renderGuide() {
 
   scroll.innerHTML = html;
 
-  // Save progress to Firestore (skip Q0 until presentation is started — keeps welcome screen)
-  if (currentQ > 0 || presentationOpened) {
+  // Save progress to Firestore (skip Q0 until Begin Interview is clicked — keeps welcome screen)
+  if (currentQ > 0 || interviewBegun) {
     authFetch(`/api/onboarding/sessions/${sessionId}/answer`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
