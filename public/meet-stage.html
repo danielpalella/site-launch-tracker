@@ -79,6 +79,20 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .card-pills { display: flex; flex-wrap: wrap; gap: .3rem }
 .card-pill { font-size: .72rem; color: var(--lime); background: rgba(203,255,77,.08); border: 1px solid rgba(203,255,77,.12); padding: .22rem .55rem; border-radius: 5px; font-weight: 500 }
 
+/* Welcome screen */
+.welcome { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; min-height: 70vh; padding: 2rem; animation: fadeUp .5s ease }
+.welcome-logo { height: 32px; opacity: .5; margin-bottom: 2rem }
+.welcome-greeting { font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: var(--lime); margin-bottom: .75rem }
+.welcome-title { font-size: 2rem; font-weight: 700; line-height: 1.3; max-width: 600px; margin-bottom: 1rem }
+.welcome-desc { font-size: .95rem; color: rgba(255,255,255,.6); line-height: 1.65; max-width: 500px; margin-bottom: 2rem }
+.welcome-meta { display: flex; gap: 2rem; justify-content: center; flex-wrap: wrap }
+.welcome-meta-item { text-align: center }
+.welcome-meta-value { font-size: 1.25rem; font-weight: 700; color: var(--text) }
+.welcome-meta-label { font-size: .68rem; color: var(--text-muted); margin-top: .15rem }
+.welcome-waiting { font-size: .75rem; color: var(--text-muted); margin-top: 2.5rem; display: flex; align-items: center; gap: .4rem }
+.welcome-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--lime); animation: wPulse 1.5s infinite }
+@keyframes wPulse { 0%,100% { opacity: 1 } 50% { opacity: .3 } }
+
 /* Loading */
 .loading { color: var(--text-muted); font-size: .9rem }
 
@@ -107,21 +121,41 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 </head>
 <body>
 
-<div class="progress"><div class="progress-fill" id="progress-fill"></div></div>
-
-<div class="header">
-  <img src="/logo-white.svg" alt="RealWork" class="logo">
-  <div class="header-client" id="header-client"></div>
+<!-- Welcome screen -->
+<div id="welcome-screen">
+  <div class="header">
+    <img src="/logo-white.svg" alt="RealWork" class="logo">
+    <div class="header-client" id="welcome-client"></div>
+  </div>
+  <div class="welcome">
+    <div class="welcome-greeting">Website Onboarding</div>
+    <div class="welcome-title" id="welcome-title">Let's build a website that sounds like you</div>
+    <div class="welcome-desc">We're going to walk through a few topics about your business — your story, services, what makes you different, and your goals. This helps us create authentic content for your website that actually represents who you are.</div>
+    <div class="welcome-meta">
+      <div class="welcome-meta-item"><div class="welcome-meta-value">7</div><div class="welcome-meta-label">Topics</div></div>
+      <div class="welcome-meta-item"><div class="welcome-meta-value">~20</div><div class="welcome-meta-label">Minutes</div></div>
+      <div class="welcome-meta-item"><div class="welcome-meta-value">17</div><div class="welcome-meta-label">Questions</div></div>
+    </div>
+    <div class="welcome-waiting"><span class="welcome-dot"></span> Waiting for interview to begin</div>
+  </div>
 </div>
 
-<div class="top-area" id="top-area">
-  <div class="loading" id="loading">Connecting...</div>
-</div>
+<!-- Interview screen (hidden until first question) -->
+<div id="interview-screen" style="display:none;flex-direction:column;min-height:100vh">
+  <div class="progress"><div class="progress-fill" id="progress-fill"></div></div>
 
-<div class="dots" id="dots"></div>
+  <div class="header">
+    <img src="/logo-white.svg" alt="RealWork" class="logo">
+    <div class="header-client" id="header-client"></div>
+  </div>
 
-<div class="grid-wrap">
-  <div class="grid" id="grid"></div>
+  <div class="top-area" id="top-area"></div>
+
+  <div class="dots" id="dots"></div>
+
+  <div class="grid-wrap">
+    <div class="grid" id="grid"></div>
+  </div>
 </div>
 
 <script>
@@ -145,6 +179,7 @@ let completedSections = new Set();
 let completedSummariesData = [];
 let summariesByIndex = {};
 let isComplete = false;
+let interviewStarted = false;
 
 const params = new URLSearchParams(window.location.search);
 const sessionId = params.get('session');
@@ -162,11 +197,7 @@ if ('serviceWorker' in navigator) {
     ]);
   } catch (e) { console.warn('Meet SDK:', e.message); }
 
-  buildGrid();
-  buildDots();
-
   if (!sessionId || !joinToken) {
-    document.getElementById('loading').textContent = 'Waiting for interview to start...';
     return;
   }
 
@@ -194,15 +225,34 @@ async function poll() {
       }
     }
 
-    if (!data.active || data.status === 'extracted') { showComplete(data); return; }
+    // Update welcome screen with client name while waiting
+    if (!interviewStarted && data.client_name) {
+      document.getElementById('welcome-client').textContent = data.client_name;
+      document.getElementById('welcome-title').textContent = 'Let\u2019s build a website that sounds like ' + data.client_name;
+    }
+
+    if (!data.active || data.status === 'extracted') { showInterviewScreen(data.client_name); showComplete(data); return; }
     updateState(data);
   } catch (e) { pollFailCount++; }
 }
 
+function showInterviewScreen(clientName) {
+  if (interviewStarted) return;
+  interviewStarted = true;
+  document.getElementById('welcome-screen').style.display = 'none';
+  const screen = document.getElementById('interview-screen');
+  screen.style.display = 'flex';
+  buildGrid();
+  buildDots();
+}
+
 function updateState(data) {
+  // Update welcome screen client name while waiting
+  const welcomeClient = document.getElementById('welcome-client');
+  if (welcomeClient && data.client_name) welcomeClient.textContent = data.client_name;
+
+  showInterviewScreen(data.client_name);
   const sIdx = sectionIndexFromQuestion(data.current_question);
-  const loadingEl = document.getElementById('loading');
-  if (loadingEl) loadingEl.style.display = 'none';
   document.getElementById('header-client').textContent = data.client_name || '';
   document.getElementById('progress-fill').style.width = (data.progress || 0) + '%';
 
