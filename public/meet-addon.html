@@ -200,6 +200,7 @@ let lastEvalText = '';
 let aiRecState = null;
 let presentationOpened = false;
 let screenShared = false;
+let showQuestionOnScreen = true;
 
 function authHeaders(h = {}) { if (authToken) h['Authorization'] = 'Bearer ' + authToken; return h; }
 function authFetch(url, opts = {}) { opts.headers = authHeaders(opts.headers || {}); return fetch(url, opts); }
@@ -356,6 +357,17 @@ function doStartPresentation() {
   // Q0 gets pushed when the rep clicks Next (or after they confirm screen share).
 }
 
+function toggleQuestionVisibility(checked) {
+  showQuestionOnScreen = checked;
+  if (sessionId) {
+    authFetch(`/api/onboarding/sessions/${sessionId}/answer`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ questionId: null, currentQuestion: currentQ, aiMessage: showQuestionOnScreen ? (QUESTIONS[currentQ]?.display || QUESTIONS[currentQ]?.label) : '__hidden__', clearSummary: false }),
+    }).catch(() => {});
+  }
+}
+
 function doConfirmShare() {
   screenShared = true;
   renderSetupFlow();
@@ -366,7 +378,7 @@ function doConfirmShare() {
     authFetch(`/api/onboarding/sessions/${sessionId}/answer`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ questionId: null, currentQuestion: 0, aiMessage: q.display || q.label, clearSummary: true }),
+      body: JSON.stringify({ questionId: null, currentQuestion: 0, aiMessage: showQuestionOnScreen ? (q.display || q.label) : '__hidden__', clearSummary: true }),
     }).then(r => {
       if (r.ok) console.log('[meet-addon] Pushed Q0 — presentation will transition from welcome');
     }).catch(() => {});
@@ -385,6 +397,13 @@ function renderGuide() {
   html += `<div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:.5rem">`;
   html += `<div style="font-size:.85rem;font-weight:700">${esc(clientName)}</div>`;
   html += `<div class="guide-progress">Q ${currentQ + 1}/${QUESTIONS.length}</div>`;
+  html += `</div>`;
+
+  // Show/hide question toggle
+  html += `<div style="display:flex;align-items:center;gap:.4rem;margin-bottom:.6rem">`;
+  html += `<label style="display:flex;align-items:center;gap:.35rem;cursor:pointer;font-size:.68rem;color:var(--text-muted)">`;
+  html += `<input type="checkbox" ${showQuestionOnScreen ? 'checked' : ''} onchange="toggleQuestionVisibility(this.checked)" style="accent-color:var(--lime);width:14px;height:14px;cursor:pointer">`;
+  html += `Show question on presentation</label>`;
   html += `</div>`;
 
   // Completed section badges
@@ -432,7 +451,7 @@ function renderGuide() {
     authFetch(`/api/onboarding/sessions/${sessionId}/answer`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ questionId: null, currentQuestion: currentQ, aiMessage: q.display || q.label, clearSummary: true }),
+      body: JSON.stringify({ questionId: null, currentQuestion: currentQ, aiMessage: showQuestionOnScreen ? (q.display || q.label) : '__hidden__', clearSummary: true }),
     }).then(r => {
       if (!r.ok) console.error('[meet-addon] Failed to save question state:', r.status);
       else console.log('[meet-addon] Saved question', currentQ, 'to Firestore');
@@ -454,7 +473,7 @@ async function nextQuestion() {
         questionId: QUESTIONS[currentQ].id,
         answer: currentQuestionTranscript,
         currentQuestion: currentQ + 1,
-        aiMessage: QUESTIONS[currentQ + 1]?.display || QUESTIONS[currentQ + 1]?.label || null,
+        aiMessage: showQuestionOnScreen ? (QUESTIONS[currentQ + 1]?.display || QUESTIONS[currentQ + 1]?.label || null) : '__hidden__',
         clearSummary: true,
       }),
     }).catch(() => {});

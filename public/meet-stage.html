@@ -280,9 +280,10 @@ function updateState(data) {
 }
 
 function renderTopQuestion(topArea, data) {
+  const hidden = data.current_ai_message === '__hidden__';
   topArea.innerHTML = `
     <div class="top-label active">${esc(data.current_section || '')} &middot; Question ${data.current_question + 1} of ${data.total_questions}</div>
-    <div class="top-title" style="animation:fadeUp .3s ease">${esc(data.current_ai_message || data.current_question_label || '')}</div>
+    ${hidden ? '' : `<div class="top-title" style="animation:fadeUp .3s ease">${esc(data.current_ai_message || data.current_question_label || '')}</div>`}
   `;
 }
 
