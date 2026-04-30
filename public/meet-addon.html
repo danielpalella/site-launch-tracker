@@ -549,16 +549,18 @@ async function autoExtractFromTranscript() {
     });
     const data = await r.json();
     if (!r.ok) throw new Error(data.error);
-    status.innerHTML = '<span style="color:var(--lime)">Profile extracted! View it in the dashboard.</span>';
+    status.innerHTML = '<div style="display:flex;align-items:center;gap:.4rem;justify-content:center;color:var(--lime);font-weight:600"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Success — profile extracted and pushed to Drive</div>';
   } catch (err) {
-    status.innerHTML = '<span style="color:var(--red,#ef4444)">Extraction failed: ' + esc(err.message) + '</span>';
+    status.innerHTML = '<div style="display:flex;align-items:center;gap:.4rem;justify-content:center;color:#ef4444;font-weight:600"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Failed — transcript may not have been captured</div>';
     document.getElementById('ma-finish-retry').style.display = '';
   }
 }
 
 async function importMeetTranscript() {
   const status = document.getElementById('ma-finish-status');
-  status.textContent = 'Searching for Meet transcript in Drive...';
+  const retry = document.getElementById('ma-finish-retry');
+  status.innerHTML = '<span style="color:var(--text-muted)">Searching for Meet transcript in Drive...</span>';
+  retry.style.display = 'none';
   try {
     const r = await authFetch(`/api/onboarding/sessions/${sessionId}/import-meet-transcript`, {
       method: 'POST',
@@ -567,9 +569,10 @@ async function importMeetTranscript() {
     });
     const data = await r.json();
     if (!r.ok) throw new Error(data.error);
-    status.innerHTML = '<span style="color:var(--lime)">Profile extracted successfully!</span>';
+    status.innerHTML = '<div style="display:flex;align-items:center;gap:.4rem;justify-content:center;color:var(--lime);font-weight:600"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Success — profile extracted from Meet transcript</div>';
   } catch (err) {
-    status.textContent = 'Import failed: ' + err.message + '. Try "Extract from Notes" or upload the transcript from the Onboarding page.';
+    status.innerHTML = '<div style="display:flex;align-items:center;gap:.4rem;justify-content:center;color:#ef4444;font-weight:600"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> ' + esc(err.message) + '</div>';
+    retry.style.display = '';
   }
 }
 
@@ -719,7 +722,9 @@ function updateTranscriptBox() {
 
 async function manualExtract() {
   const status = document.getElementById('ma-finish-status');
-  status.textContent = 'Extracting profile from session data...';
+  const retry = document.getElementById('ma-finish-retry');
+  status.innerHTML = '<span style="color:var(--text-muted)">Extracting profile from saved answers...</span>';
+  retry.style.display = 'none';
   try {
     const questionsPayload = QUESTIONS.map(q => ({ id: q.id, label: q.label, section: q.section, answer: '(answered during call — see Meet transcript)' }));
     const r = await authFetch(`/api/onboarding/sessions/${sessionId}/extract`, {
@@ -729,9 +734,10 @@ async function manualExtract() {
     });
     const data = await r.json();
     if (!r.ok) throw new Error(data.error);
-    status.innerHTML = '<span style="color:var(--lime)">Profile extracted! View it in the dashboard.</span>';
+    status.innerHTML = '<div style="display:flex;align-items:center;gap:.4rem;justify-content:center;color:var(--lime);font-weight:600"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Success — profile extracted from saved answers</div>';
   } catch (err) {
-    status.textContent = 'Failed: ' + err.message;
+    status.innerHTML = '<div style="display:flex;align-items:center;gap:.4rem;justify-content:center;color:#ef4444;font-weight:600"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> ' + esc(err.message) + '</div>';
+    retry.style.display = '';
   }
 }
 </script>
