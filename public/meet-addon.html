@@ -343,6 +343,15 @@ function renderSetupFlow() {
     html += `<div class="setup-step"><div class="setup-num">3</div><span class="setup-label">Start live transcript</span></div>`;
   }
 
+  // Step 4: Begin Interview
+  if (interviewBegun) {
+    html += `<div class="setup-step"><div class="setup-num done">${checkSvg}</div><span class="setup-label done">Interview started</span></div>`;
+  } else if (screenShared) {
+    html += `<div class="setup-step"><div class="setup-num current" style="background:var(--lime);border-color:var(--lime);color:var(--bg)">4</div><button class="setup-btn" onclick="beginInterview()" style="flex:1;background:var(--lime);border-color:var(--lime);color:var(--bg);font-weight:700;justify-content:center">Begin Interview</button></div>`;
+  } else {
+    html += `<div class="setup-step"><div class="setup-num">4</div><span class="setup-label">Begin interview</span></div>`;
+  }
+
   flow.innerHTML = html;
 }
 
@@ -371,7 +380,12 @@ function toggleQuestionVisibility(checked) {
 function doConfirmShare() {
   screenShared = true;
   renderSetupFlow();
+}
 
+let interviewBegun = false;
+function beginInterview() {
+  if (interviewBegun) return;
+  interviewBegun = true;
   // Push Q0 to Firestore — transitions presentation from welcome to first question
   const q = QUESTIONS[0];
   if (q && sessionId) {
@@ -383,6 +397,7 @@ function doConfirmShare() {
       if (r.ok) console.log('[meet-addon] Pushed Q0 — presentation will transition from welcome');
     }).catch(() => {});
   }
+  renderSetupFlow();
 }
 
 // ── Interview Guide ──
