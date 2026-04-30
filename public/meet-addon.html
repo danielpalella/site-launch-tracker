@@ -146,9 +146,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
   <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--lime)" stroke-width="2" style="margin-bottom:.75rem"><circle cx="12" cy="12" r="10"/><polyline points="20 6 9 17 4 12" stroke-width="2.5"/></svg>
   <div class="ma-finish-title">Interview Complete</div>
   <div class="ma-finish-sub">Great job! The AI is extracting the client profile from the live transcript.</div>
-  <button class="ma-finish-btn-outline" onclick="importMeetTranscript()" style="margin-bottom:.4rem">Import Meet Transcript</button>
-  <button class="ma-finish-btn-outline" onclick="manualExtract()">Extract from Notes</button>
   <div class="ma-finish-status" id="ma-finish-status"></div>
+  <div id="ma-finish-retry" style="display:none;margin-top:.75rem">
+    <div style="font-size:.72rem;color:var(--text-muted);margin-bottom:.4rem">Extraction didn't work? Try one of these:</div>
+    <button class="ma-finish-btn-outline" onclick="importMeetTranscript()" style="margin-bottom:.4rem">Retry from Meet Transcript</button>
+    <button class="ma-finish-btn-outline" onclick="manualExtract()">Retry from Saved Answers</button>
+  </div>
 </div>
 
 <script src="https://www.gstatic.com/meetjs/addons/1.1.0/meet.addons.js"></script>
@@ -546,9 +549,10 @@ async function autoExtractFromTranscript() {
     });
     const data = await r.json();
     if (!r.ok) throw new Error(data.error);
-    status.innerHTML = '<span style="color:var(--lime)">Profile extracted from live transcript! View it in the dashboard.</span>';
+    status.innerHTML = '<span style="color:var(--lime)">Profile extracted! View it in the dashboard.</span>';
   } catch (err) {
-    status.innerHTML = 'Auto-extraction failed: ' + esc(err.message) + '. Use the buttons below to try again.';
+    status.innerHTML = '<span style="color:var(--red,#ef4444)">Extraction failed: ' + esc(err.message) + '</span>';
+    document.getElementById('ma-finish-retry').style.display = '';
   }
 }
 
