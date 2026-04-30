@@ -368,7 +368,7 @@ function doStartPresentation() {
 
 function toggleQuestionVisibility(checked) {
   showQuestionOnScreen = checked;
-  if (sessionId) {
+  if (sessionId && interviewBegun) {
     authFetch(`/api/onboarding/sessions/${sessionId}/answer`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
