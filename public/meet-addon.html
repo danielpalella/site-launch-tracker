@@ -325,7 +325,7 @@ function renderSetupFlow() {
   if (screenShared) {
     html += `<div class="setup-step"><div class="setup-num done">${checkSvg}</div><span class="setup-label done">Screen shared</span></div>`;
   } else if (presentationOpened) {
-    html += `<div class="setup-step"><div class="setup-num current">2</div><div style="flex:1"><div style="font-size:.72rem;color:var(--text-muted);line-height:1.4;margin-bottom:.35rem">Share your screen in Meet and select the presentation tab</div><button class="setup-btn" onclick="doConfirmShare()" style="width:100%;justify-content:center">${checkSvg} Done</button></div></div>`;
+    html += `<div class="setup-step"><div class="setup-num current">2</div><button class="setup-btn" onclick="doConfirmShare()" style="flex:1">Share screen in Meet, then tap here</button></div>`;
   } else {
     html += `<div class="setup-step"><div class="setup-num">2</div><span class="setup-label">Share presentation tab in Meet</span></div>`;
   }
