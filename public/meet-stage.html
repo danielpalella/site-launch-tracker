@@ -232,6 +232,10 @@ async function poll() {
     }
 
     if (!data.active || data.status === 'extracted') { showInterviewScreen(data.client_name); showComplete(data); return; }
+
+    // Stay on welcome screen until the rep starts the first question (current_question >= 0)
+    if (!interviewStarted && data.current_question < 0) return;
+
     updateState(data);
   } catch (e) { pollFailCount++; }
 }

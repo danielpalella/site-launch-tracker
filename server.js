@@ -5289,7 +5289,7 @@ app.post('/api/onboarding/sessions', requireAuth, async (req, res) => {
       client_id: clientId || null,
       mode: 'ai_led',
       status: 'in_progress',
-      current_question: 0,
+      current_question: -1,
       answers: {},
       skipped: [],
       extracted_profile: null,
@@ -5297,7 +5297,7 @@ app.post('/api/onboarding/sessions', requireAuth, async (req, res) => {
       join_token_active: true,
       transcript_chunks: [],
     });
-    res.json({ id: doc.id, status: 'in_progress', current_question: 0, join_token: joinToken });
+    res.json({ id: doc.id, status: 'in_progress', current_question: -1, join_token: joinToken });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -6019,7 +6019,7 @@ app.get('/api/join/:sessionId/:token/state', async (req, res) => {
     res.json({
       status: d.status,
       active: d.join_token_active !== false,
-      current_question: d.current_question || 0,
+      current_question: d.current_question ?? 0,
       current_question_label: q?.label || null,
       current_section: q?.section || null,
       current_ai_message: d.current_ai_message || null,
@@ -6027,7 +6027,7 @@ app.get('/api/join/:sessionId/:token/state', async (req, res) => {
       completed_summaries: d.completed_summaries || [],
       client_name: d.client_name || '',
       total_questions: ONBOARDING_QUESTIONS.length,
-      progress: Math.round(((d.current_question || 0) / ONBOARDING_QUESTIONS.length) * 100),
+      progress: Math.round((Math.max(0, d.current_question ?? 0) / ONBOARDING_QUESTIONS.length) * 100),
     });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
