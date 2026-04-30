@@ -99,8 +99,12 @@ body { font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; b
 .w-stat-num { font-size: 28px; font-weight: 700; letter-spacing: -.02em; line-height: 1; margin-bottom: 6px }
 .w-stat-num .unit { font-size: 14px; color: rgba(255,255,255,.62); font-weight: 500; margin-left: 2px }
 .w-stat-label { font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: rgba(255,255,255,.42) }
-.w-footer { position: absolute; bottom: 32px; left: 50%; transform: translateX(-50%); font-size: 12px; color: rgba(255,255,255,.42); letter-spacing: .05em; z-index: 2; animation: fadeUp .8s ease-out .7s both }
+.w-footer { position: absolute; bottom: 32px; left: 0; right: 0; text-align: center; font-size: 12px; color: rgba(255,255,255,.42); letter-spacing: .05em; z-index: 2; animation: fadeUp .8s ease-out .7s both }
 .w-footer strong { color: rgba(255,255,255,.62); font-weight: 600 }
+.w-rec { display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px 8px 12px; background: rgba(239,68,68,.08); border: 1px solid rgba(239,68,68,.2); border-radius: 999px; margin-top: 32px; animation: fadeUp .8s ease-out .5s both }
+.w-rec-dot { width: 8px; height: 8px; border-radius: 50%; background: #ef4444; animation: recPulse 1.2s ease-in-out infinite }
+.w-rec-label { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: #ef4444 }
+@keyframes recPulse { 0%,100% { opacity: 1; box-shadow: 0 0 0 0 rgba(239,68,68,.4) } 50% { opacity: .6; box-shadow: 0 0 0 6px rgba(239,68,68,0) } }
 @media (max-width: 600px) { .w-stat-num { font-size: 22px } .w-stat { padding: 16px 8px } }
 
 /* Loading */
@@ -152,6 +156,11 @@ body { font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; b
         <div class="w-stat"><div class="w-stat-num">~20<span class="unit">min</span></div><div class="w-stat-label">Your Time</div></div>
         <div class="w-stat"><div class="w-stat-num">7</div><div class="w-stat-label">Topics</div></div>
         <div class="w-stat"><div class="w-stat-num">17</div><div class="w-stat-label">Questions</div></div>
+      </div>
+
+      <div class="w-rec">
+        <span class="w-rec-dot"></span>
+        <span class="w-rec-label">Recording</span>
       </div>
     </div>
 
