@@ -155,12 +155,13 @@
 
   <!-- ═══ Landing ═══ -->
   <div id="ob-landing">
-    <h1 class="ob-title">Onboarding</h1>
+    <h1 class="ob-title">AI Onboarding Interview <span class="ob-badge">BETA</span></h1>
+    <p class="ob-sub">Select a client to start or resume an onboarding interview. The AI asks 17 questions across 7 sections, evaluates answers, and produces a structured profile for their website.</p>
 
     <!-- Client search -->
     <div class="ob-search-wrap" id="ob-search-wrap">
       <svg class="ob-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      <input type="text" class="ob-search-input" id="ob-client-search" placeholder="Search for a client to start an interview..." autocomplete="off" oninput="searchClients()" onfocus="onSearchFocus()">
+      <input type="text" class="ob-search-input" id="ob-client-search" placeholder="Search for a client or business..." autocomplete="off" oninput="searchClients()" onfocus="onSearchFocus()">
       <div class="ob-search-results" id="ob-search-results"></div>
     </div>
 
@@ -174,21 +175,23 @@
         </div>
         <button class="ob-sc-change" onclick="clearClientSelection()">Change</button>
       </div>
-      <div style="display:flex;gap:.5rem;margin-top:.75rem;flex-wrap:wrap">
-        <button class="ob-start-btn" id="ob-start-btn" onclick="startInterview()">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-          Start Interview
-        </button>
-        <button class="ob-start-btn" id="ob-meet-btn" onclick="copyMeetCode()" style="background:var(--surface);color:var(--text);border:1px solid var(--border)">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="15" height="10" rx="2"/><polygon points="22 7 17 12 22 17 22 7"/></svg>
-          Copy Meet Code
-        </button>
-        <button class="ob-start-btn" id="ob-upload-btn" onclick="document.getElementById('ob-transcript-file').click()" style="background:none;color:var(--text-muted);border:none;padding:.5rem .75rem;font-size:.78rem;font-weight:600">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-          Upload Transcript
-        </button>
-        <input type="file" id="ob-transcript-file" accept=".vtt,.txt,.srt" style="display:none" onchange="handleTranscriptUpload(this)">
-      </div>
+    </div>
+
+    <!-- Action buttons -->
+    <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin-top:.25rem">
+      <button class="ob-start-btn" id="ob-start-btn" onclick="startInterview()" disabled>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Start Interview
+      </button>
+      <button class="ob-start-btn" id="ob-meet-btn" onclick="copyMeetCode()" disabled style="background:var(--surface);color:var(--text);border:1px solid var(--border)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="15" height="10" rx="2"/><polygon points="22 7 17 12 22 17 22 7"/></svg>
+        Copy Meet Code
+      </button>
+      <button class="ob-start-btn" id="ob-upload-btn" onclick="document.getElementById('ob-transcript-file').click()" disabled style="background:var(--surface);color:var(--text);border:1px solid var(--border)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Upload Transcript
+      </button>
+      <input type="file" id="ob-transcript-file" accept=".vtt,.txt,.srt" style="display:none" onchange="handleTranscriptUpload(this)">
     </div>
 
     <!-- Upload processing state -->
@@ -400,6 +403,9 @@ function selectClient(client) {
   document.getElementById('ob-sc-detail').textContent = [client.contact_name, client.industry, client.domain_name].filter(Boolean).join(' · ');
   document.getElementById('ob-selected-client').style.display = '';
   document.getElementById('ob-search-wrap').style.display = 'none';
+  document.getElementById('ob-start-btn').disabled = false;
+  document.getElementById('ob-upload-btn').disabled = false;
+  document.getElementById('ob-meet-btn').disabled = false;
   document.getElementById('ob-search-results').classList.remove('open');
 }
 
@@ -409,6 +415,9 @@ function clearClientSelection() {
   clientName = '';
   document.getElementById('ob-selected-client').style.display = 'none';
   document.getElementById('ob-search-wrap').style.display = '';
+  document.getElementById('ob-start-btn').disabled = true;
+  document.getElementById('ob-upload-btn').disabled = true;
+  document.getElementById('ob-meet-btn').disabled = true;
   document.getElementById('ob-client-search').value = '';
   document.getElementById('ob-client-search').focus();
 }
