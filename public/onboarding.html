@@ -51,6 +51,19 @@
 
 /* New client modal */
 
+/* Method cards */
+.ob-methods { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: .6rem; margin-bottom: 1.5rem }
+.ob-method { border: 1.5px solid var(--border); border-radius: 10px; padding: .85rem 1rem; background: var(--surface); cursor: pointer; transition: border-color .15s, background .15s; text-align: center; position: relative }
+.ob-method:hover { border-color: var(--primary); background: rgba(18,89,255,.03) }
+.ob-method.disabled { opacity: .5; cursor: not-allowed }
+.ob-method.disabled:hover { border-color: var(--border); background: var(--surface) }
+.ob-method-icon { width: 36px; height: 36px; margin: 0 auto .5rem; display: flex; align-items: center; justify-content: center }
+.ob-method-icon img { width: 32px; height: 32px; border-radius: 6px }
+.ob-method-name { font-size: .85rem; font-weight: 700; color: var(--text); margin-bottom: .2rem }
+.ob-method-desc { font-size: .72rem; color: var(--text-muted); line-height: 1.4 }
+.ob-method-tag { position: absolute; top: .5rem; right: .5rem; font-size: .55rem; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; padding: .1rem .35rem; border-radius: 4px; background: rgba(22,163,74,.12); color: #16a34a }
+@media (max-width: 600px) { .ob-methods { grid-template-columns: 1fr } }
+
 .ob-sessions { margin-top: 2rem }
 .ob-sessions-title { font-size: .82rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: .5rem }
 .ob-session-row { display: flex; align-items: center; gap: .75rem; padding: .55rem .85rem; border: 1px solid var(--border); border-radius: 8px; margin-bottom: .35rem; cursor: pointer; transition: border-color .15s }
@@ -155,17 +168,31 @@
 
   <!-- ═══ Landing ═══ -->
   <div id="ob-landing">
-    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;margin-bottom:.5rem">
-      <h1 class="ob-title" style="margin-bottom:0">AI Onboarding Interview <span class="ob-badge">BETA</span></h1>
-      <button class="ob-start-btn" id="ob-meet-btn" onclick="copyMeetCode()" style="background:var(--surface);color:var(--text);border:1px solid var(--border);font-size:.78rem;padding:.45rem .9rem">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="15" height="10" rx="2"/><polygon points="22 7 17 12 22 17 22 7"/></svg>
-        Copy Meet Code
-      </button>
-    </div>
-    <p class="ob-sub">Select a client to start or resume an onboarding interview. The AI asks 17 questions across 7 sections, evaluates answers, and produces a structured profile for their website.</p>
+    <h1 class="ob-title">AI Onboarding Interview <span class="ob-badge">BETA</span></h1>
+    <p class="ob-sub">Conduct an AI-driven onboarding interview to build a structured profile for the client's website. Choose how to run the interview:</p>
 
-    <!-- Client search -->
-    <div class="ob-search-wrap" id="ob-search-wrap">
+    <!-- Method cards -->
+    <div class="ob-methods">
+      <div class="ob-method" onclick="copyMeetCode()" id="ob-meet-btn">
+        <span class="ob-method-tag">Recommended</span>
+        <div class="ob-method-icon"><img src="/google-meet-icon.avif" alt="Google Meet"></div>
+        <div class="ob-method-name">Google Meet</div>
+        <div class="ob-method-desc">Live interview with AI copilot sidebar, real-time transcription, and presentation view.</div>
+      </div>
+      <div class="ob-method" onclick="methodChat()" id="ob-method-chat">
+        <div class="ob-method-icon"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+        <div class="ob-method-name">Chat Interview</div>
+        <div class="ob-method-desc">Type-based interview in the browser. AI asks questions and evaluates answers in real time.</div>
+      </div>
+      <div class="ob-method" onclick="methodUpload()" id="ob-method-upload">
+        <div class="ob-method-icon"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.8"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
+        <div class="ob-method-name">Upload Transcript</div>
+        <div class="ob-method-desc">Upload a .vtt, .txt, or .srt file from a recorded call. AI extracts the profile automatically.</div>
+      </div>
+    </div>
+
+    <!-- Client search (shown for chat + upload methods) -->
+    <div class="ob-search-wrap" id="ob-search-wrap" style="display:none">
       <svg class="ob-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
       <input type="text" class="ob-search-input" id="ob-client-search" placeholder="Search for a client or business..." autocomplete="off" oninput="searchClients()" onfocus="onSearchFocus()">
       <div class="ob-search-results" id="ob-search-results"></div>
@@ -183,13 +210,13 @@
       </div>
     </div>
 
-    <!-- Action buttons -->
-    <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin-top:.25rem">
-      <button class="ob-start-btn" id="ob-start-btn" onclick="startInterview()" disabled>
+    <!-- Action buttons (shown after client selected for chat/upload) -->
+    <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin-top:.25rem;display:none" id="ob-action-btns">
+      <button class="ob-start-btn" id="ob-start-btn" onclick="startInterview()">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         Start Interview
       </button>
-      <button class="ob-start-btn" id="ob-upload-btn" onclick="document.getElementById('ob-transcript-file').click()" disabled style="background:var(--surface);color:var(--text);border:1px solid var(--border)">
+      <button class="ob-start-btn" id="ob-upload-btn" onclick="document.getElementById('ob-transcript-file').click()" style="background:var(--surface);color:var(--text);border:1px solid var(--border);display:none">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
         Upload Transcript
       </button>
@@ -396,17 +423,35 @@ function renderSearchResults(clients, searchTerm) {
   el.innerHTML = html;
 }
 
+let selectedMethod = null; // 'chat' or 'upload'
+
+function methodChat() {
+  selectedMethod = 'chat';
+  document.getElementById('ob-search-wrap').style.display = '';
+  document.getElementById('ob-client-search').focus();
+  document.getElementById('ob-start-btn').style.display = '';
+  document.getElementById('ob-upload-btn').style.display = 'none';
+  document.querySelector('.ob-methods').style.display = 'none';
+}
+
+function methodUpload() {
+  selectedMethod = 'upload';
+  document.getElementById('ob-search-wrap').style.display = '';
+  document.getElementById('ob-client-search').focus();
+  document.getElementById('ob-start-btn').style.display = 'none';
+  document.getElementById('ob-upload-btn').style.display = '';
+  document.querySelector('.ob-methods').style.display = 'none';
+}
+
 function selectClient(client) {
   selectedClient = client;
   selectedClientId = client.id;
   clientName = client.account_name;
-  // Update UI
   document.getElementById('ob-sc-name').textContent = client.account_name;
   document.getElementById('ob-sc-detail').textContent = [client.contact_name, client.industry, client.domain_name].filter(Boolean).join(' · ');
   document.getElementById('ob-selected-client').style.display = '';
   document.getElementById('ob-search-wrap').style.display = 'none';
-  document.getElementById('ob-start-btn').disabled = false;
-  document.getElementById('ob-upload-btn').disabled = false;
+  document.getElementById('ob-action-btns').style.display = 'flex';
   document.getElementById('ob-search-results').classList.remove('open');
 }
 
@@ -415,9 +460,10 @@ function clearClientSelection() {
   selectedClientId = null;
   clientName = '';
   document.getElementById('ob-selected-client').style.display = 'none';
+  document.getElementById('ob-action-btns').style.display = 'none';
   document.getElementById('ob-search-wrap').style.display = '';
-  document.getElementById('ob-start-btn').disabled = true;
-  document.getElementById('ob-upload-btn').disabled = true;
+  document.querySelector('.ob-methods').style.display = 'grid';
+  selectedMethod = null;
   document.getElementById('ob-client-search').value = '';
   document.getElementById('ob-client-search').focus();
 }
