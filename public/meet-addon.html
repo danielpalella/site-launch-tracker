@@ -346,8 +346,12 @@ function renderSetupFlow() {
   // Step 4: Begin Interview
   if (interviewBegun) {
     html += `<div class="setup-step"><div class="setup-num done">${checkSvg}</div><span class="setup-label done">Interview started</span></div>`;
-  } else if (screenShared) {
+  } else if (transcriptActive) {
+    // Transcript is running — Begin Interview is the clear next action
     html += `<div class="setup-step"><div class="setup-num current" style="background:var(--lime);border-color:var(--lime);color:var(--bg)">4</div><button class="setup-btn" onclick="beginInterview()" style="flex:1;background:var(--lime);border-color:var(--lime);color:var(--bg);font-weight:700;justify-content:center">Begin Interview</button></div>`;
+  } else if (screenShared) {
+    // Screen shared but transcript not started — show Begin as available but not highlighted
+    html += `<div class="setup-step"><div class="setup-num">4</div><button class="setup-btn" onclick="beginInterview()" style="flex:1;justify-content:center">Begin Interview</button></div>`;
   } else {
     html += `<div class="setup-step"><div class="setup-num">4</div><span class="setup-label">Begin interview</span></div>`;
   }
