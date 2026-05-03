@@ -141,7 +141,7 @@ flowchart LR
     API -->|set chunkId| Chunks
     API -->|update status| Parent
     API -.->|existing flow| Drive
-    Parent -->|trigger| CF
+    Parent -."status = extracted<br/>fires Firestore trigger".-> CF
     CF -->|read| Chunks
     CF -->|write| GCS
     CF -->|set archive_uri| Parent
