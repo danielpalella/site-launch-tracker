@@ -110,37 +110,46 @@ Every field shares the same 1 MiB envelope. Read costs grow with interview lengt
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{'primaryColor':'#F8F9FB','primaryTextColor':'#00072D','primaryBorderColor':'#2D72F7','secondaryColor':'#F8F9FB','secondaryTextColor':'#00072D','secondaryBorderColor':'#DFE1E7','tertiaryColor':'#F8F9FB','tertiaryTextColor':'#00072D','tertiaryBorderColor':'#DFE1E7','lineColor':'#08103D','textColor':'#00072D','clusterBkg':'#F8F9FB','clusterBorder':'#DFE1E7','titleColor':'#08103D','edgeLabelBackground':'#FFFFFF','fontFamily':'Inter, Plus Jakarta Sans, sans-serif','fontSize':'14px'}}}%%
 
-flowchart TB
-    Contractor["Contractor<br/>join.html"]:::primary -->|POST chunk| Server["Server<br/>Cloud Run"]:::dark
-    Server -->|SSE transcript| Rep["Rep<br/>present.html"]:::primary
+flowchart LR
+    subgraph Clients["Clients"]
+        direction TB
+        Contractor["Contractor<br/>join.html"]:::primary
+        Rep["Rep<br/>present.html"]:::primary
+    end
+
+    subgraph Server["Cloud Run"]
+        direction TB
+        API["Express Server"]:::dark
+    end
 
     subgraph Live["Live Tier — Firestore"]
         direction TB
-        Parent["onboarding_interviews/sessionId<br/>metadata, answers, profile, summaries"]:::neutral
-        Chunks[("transcript_chunks/<br/>chunkId — subcollection")]:::primary
-        Parent -.->|has many| Chunks
+        Parent["Session Doc<br/>metadata, answers,<br/>profile, summaries"]:::neutral
+        Chunks["Chunks Subcollection<br/>transcript_chunks/chunkId"]:::primary
     end
 
-    Server -->|set chunkId| Chunks
-    Server -->|status update| Parent
-
-    Parent -->|"document trigger<br/>status = extracted"| CF["Cloud Function<br/>2nd gen"]:::dark
-    CF -->|list ordered| Chunks
-    CF -->|write| Archive
-    CF -->|update archive_uri| Parent
-
-    subgraph Archive["Archive Tier — Cloud Storage"]
+    subgraph Completion["On Interview Complete"]
         direction TB
-        GCS["gs://rwl-onboarding-archive/<br/>clientId/sessionId/<br/>transcript.json, profile.json, manifest.json"]:::accent
+        CF["Cloud Function"]:::dark
+        GCS["GCS Archive<br/>transcript.json<br/>profile.json<br/>manifest.json"]:::accent
     end
 
-    Server -.->|existing flow| Drive["Google Drive<br/>client folder"]:::neutral
+    Drive["Google Drive"]:::neutral
+
+    Contractor -->|POST chunk| API
+    API -->|SSE| Rep
+    API -->|set chunkId| Chunks
+    API -->|update status| Parent
+    API -.->|existing flow| Drive
+    Parent -->|trigger| CF
+    CF -->|read| Chunks
+    CF -->|write| GCS
+    CF -->|set archive_uri| Parent
 
     classDef primary fill:#2D72F7,stroke:#08103D,color:#FFFFFF
     classDef dark    fill:#08103D,stroke:#00072D,color:#FFFFFF
     classDef accent  fill:#CFFF04,stroke:#B5DD08,color:#00072D
     classDef neutral fill:#F8F9FB,stroke:#DFE1E7,color:#00072D
-    classDef error   fill:#FF443D,stroke:#FF443D,color:#FFFFFF
 ```
 
 ### Live tier — Firestore subcollection
@@ -216,27 +225,27 @@ Unchanged. The existing `pushOnboardingToDrive()` continues to write the human-r
 ## Data Model
 
 ```mermaid
-%%{init: {'theme':'base','themeVariables':{'primaryColor':'#F8F9FB','primaryTextColor':'#00072D','primaryBorderColor':'#2D72F7','secondaryColor':'#F8F9FB','secondaryTextColor':'#00072D','secondaryBorderColor':'#DFE1E7','tertiaryColor':'#F8F9FB','tertiaryTextColor':'#00072D','tertiaryBorderColor':'#DFE1E7','lineColor':'#08103D','textColor':'#00072D','clusterBkg':'#F8F9FB','clusterBorder':'#DFE1E7','titleColor':'#08103D','edgeLabelBackground':'#FFFFFF','fontFamily':'Inter, Plus Jakarta Sans, sans-serif','fontSize':'14px'}}}%%
-
 erDiagram
-    SESSION ||--o{ CHUNK : "has many"
-    SESSION ||--o{ SUMMARY : "has 0..7"
-    SESSION ||--o| PROFILE : "has 0..1"
-    SESSION ||--o| ARCHIVE : "produces 0..1"
-
+    SESSION ||--o{ CHUNK : contains
+    SESSION ||--o{ SUMMARY : contains
     SESSION {
         string sessionId PK
         string clientId FK
         string status
-        timestamp started_at
-        timestamp completed_at
+        string created_by
+        timestamp created_at
+        timestamp updated_at
+        number current_question
+        string join_token
+        boolean join_token_active
         number chunk_count
         string archive_uri
         timestamp archived_at
+        json answers
+        json extracted_profile
     }
     CHUNK {
         string chunkId PK
-        string sessionId FK
         string text
         timestamp ts
         string source
@@ -248,16 +257,13 @@ erDiagram
         string section_name
         number section_index
         string narrative
-        array unlocks
+        string unlocks
     }
-    PROFILE {
-        json extracted_profile
-    }
+    SESSION ||--o| ARCHIVE : produces
     ARCHIVE {
-        string gcs_uri PK
-        json transcript_json
-        json profile_json
-        json manifest_json
+        string transcript_json
+        string profile_json
+        string manifest_json
     }
 ```
 
