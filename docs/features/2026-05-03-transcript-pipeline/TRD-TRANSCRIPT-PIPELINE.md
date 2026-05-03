@@ -117,9 +117,9 @@ flowchart LR
         Rep["Rep<br/>present.html"]:::primary
     end
 
-    subgraph Server["Cloud Run"]
+    subgraph Server["Server"]
         direction TB
-        API["Express Server"]:::dark
+        API["Express<br/>Cloud Run"]:::dark
     end
 
     subgraph Live["Live Tier — Firestore"]
@@ -139,7 +139,7 @@ flowchart LR
     Contractor -->|POST chunk| API
     API -->|SSE| Rep
     API -->|set chunkId| Chunks
-    API -->|update status| Parent
+    API -->|update| Parent
     API -.->|existing flow| Drive
     Parent -."status = extracted<br/>fires Firestore trigger".-> CF
     CF -->|read| Chunks
