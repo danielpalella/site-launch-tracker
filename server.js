@@ -1,6 +1,6 @@
 import express from 'express';
 import multer from 'multer';
-import { randomUUID } from 'crypto';
+import { randomUUID, createHash } from 'crypto';
 import { google } from 'googleapis';
 import { getStorage } from 'firebase-admin/storage';
 import { join, dirname } from 'path';
@@ -10,6 +10,8 @@ import { WebSocketServer } from 'ws';
 import speech from '@google-cloud/speech';
 import { initializeApp, getApps } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { Storage } from '@google-cloud/storage';
+import { ONBOARDING_QUESTIONS } from './lib/questions.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -18,6 +20,44 @@ const PORT = process.env.PORT || 3000;
 // ── Firebase init ──
 if (!getApps().length) initializeApp();
 const db = getFirestore();
+const gcsStorage = new Storage();
+
+// ── Transcript subcollection feature flag ──
+// Values: 'off' (default) | 'dual-write' | 'dual-read' | 'true'
+const TRANSCRIPT_SUBCOLLECTION = process.env.TRANSCRIPT_SUBCOLLECTION_ENABLED || 'off';
+const ARCHIVE_BUCKET = process.env.ARCHIVE_BUCKET || `${process.env.GCLOUD_PROJECT || 'realwork'}-onboarding-archives`;
+
+function computeChunkId(sessionId, source, seq) {
+  return createHash('sha1').update(`${sessionId}:${source}:${seq}`).digest('hex').slice(0, 20);
+}
+
+async function writeChunkToSubcollection(sessionId, chunk, seq) {
+  const chunkId = computeChunkId(sessionId, chunk.source, seq);
+  const ref = db.collection('onboarding_interviews').doc(sessionId);
+  const chunkRef = ref.collection('transcript_chunks').doc(chunkId);
+  await db.runTransaction(async (tx) => {
+    tx.set(chunkRef, { ...chunk, seq });
+    tx.update(ref, { chunk_count: FieldValue.increment(1) });
+  });
+}
+
+async function readChunksFromSubcollection(sessionId) {
+  const snap = await db
+    .collection('onboarding_interviews')
+    .doc(sessionId)
+    .collection('transcript_chunks')
+    .orderBy('seq', 'asc')
+    .get();
+  return snap.docs.map(d => d.data());
+}
+
+async function getTranscriptChunks(sessionId, parentData) {
+  if (TRANSCRIPT_SUBCOLLECTION === 'dual-read' || TRANSCRIPT_SUBCOLLECTION === 'true') {
+    const subcollChunks = await readChunksFromSubcollection(sessionId);
+    if (subcollChunks.length > 0) return subcollChunks;
+  }
+  return parentData.transcript_chunks || [];
+}
 
 // ── API usage instrumentation ──
 function incrApiStat(service) {
@@ -5296,6 +5336,7 @@ app.post('/api/onboarding/sessions', requireAuth, async (req, res) => {
       join_token: joinToken,
       join_token_active: true,
       transcript_chunks: [],
+      chunk_count: 0,
     });
     res.json({ id: doc.id, status: 'in_progress', current_question: -1, join_token: joinToken });
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -5474,9 +5515,36 @@ app.get('/api/onboarding/sessions/:id/raw', requireAuth, async (req, res) => {
       current_question: d.current_question,
       answers: d.answers || {},
       skipped: d.skipped || [],
-      transcript_chunks: d.transcript_chunks || [],
+      transcript_chunks: await getTranscriptChunks(doc.id, d),
       extracted_profile: d.extracted_profile || null,
     });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/onboarding/sessions/:id/archive-url', requireAuth, async (req, res) => {
+  try {
+    const doc = await db.collection('onboarding_interviews').doc(req.params.id).get();
+    if (!doc.exists) return res.status(404).json({ error: 'Not found' });
+    const d = doc.data();
+    if (!d.archive_uri) return res.status(404).json({ error: 'No archive available' });
+
+    const allowedFiles = ['transcript.json', 'profile.json', 'manifest.json'];
+    const file = req.query.file || 'transcript.json';
+    if (!allowedFiles.includes(file)) return res.status(400).json({ error: `file must be one of: ${allowedFiles.join(', ')}` });
+
+    // archive_uri is like gs://bucket/prefix — extract bucket and path
+    const gsUri = d.archive_uri;
+    const withoutScheme = gsUri.replace('gs://', '');
+    const slashIdx = withoutScheme.indexOf('/');
+    const bucketName = withoutScheme.slice(0, slashIdx);
+    const prefix = withoutScheme.slice(slashIdx + 1);
+
+    const bucket = gcsStorage.bucket(bucketName);
+    const [url] = await bucket.file(`${prefix}/${file}`).getSignedUrl({
+      action: 'read',
+      expires: Date.now() + 15 * 60 * 1000,
+    });
+    res.json({ url, file, expires_in: 900 });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -5870,25 +5938,7 @@ app.post('/api/onboarding/sessions/:id/clear-summary', requireAuth, async (req, 
 });
 
 // ── Onboarding Join (contractor-facing, no auth) ──
-const ONBOARDING_QUESTIONS = [
-  { id:'origin_1', section:'Origin Story', label:'Tell us your story — how did you get into this trade and start your business?' },
-  { id:'origin_2', section:'Origin Story', label:'What makes you most proud about your company?' },
-  { id:'origin_3', section:'Origin Story', label:'Is there a family or personal story connected to the business?' },
-  { id:'services_1', section:'Services', label:'Walk me through your core services — what do you do?' },
-  { id:'services_2', section:'Services', label:'Which service is your bread and butter, and which do you want to grow?' },
-  { id:'services_3', section:'Services', label:'Describe your process from the first call to job completion.' },
-  { id:'diff_1', section:'Differentiation', label:'What makes you different from competitors — and what do customers say about you?' },
-  { id:'diff_2', section:'Differentiation', label:'Who is your ideal customer?' },
-  { id:'area_1', section:'Service Area', label:'What areas do you serve, and where do you get the most work?' },
-  { id:'area_2', section:'Service Area', label:'Are there specific neighborhoods or cities you want to target for growth?' },
-  { id:'voice_1', section:'Brand Voice', label:'How would you describe your company\'s personality and tone?' },
-  { id:'voice_2', section:'Brand Voice', label:'Any words, phrases, or taglines you love — or want to avoid on the website?' },
-  { id:'cred_1', section:'Credentials', label:'What licenses, certifications, and insurance do you carry?' },
-  { id:'cred_2', section:'Credentials', label:'Any awards, recognitions, or things you want to highlight?' },
-  { id:'goals_1', section:'Goals', label:'What are your top goals for the new website?' },
-  { id:'goals_2', section:'Goals', label:'What does success look like 6 months from now?' },
-  { id:'goals_3', section:'Goals', label:'Anything else we should know about your business?' },
-];
+// ONBOARDING_QUESTIONS imported from lib/questions.js
 
 // ── Rate limiter for unauthenticated join endpoints ──
 const joinRateMap = new Map();
@@ -5972,8 +6022,9 @@ app.get('/api/onboarding/sessions/:id/stream', requireAuth, async (req, res) => 
     });
 
     const d = doc.data();
+    const chunks = await getTranscriptChunks(req.params.id, d);
     res.write(`event: state\ndata: ${JSON.stringify({
-      transcript_chunks: d.transcript_chunks || [],
+      transcript_chunks: chunks,
       contractor_interim: d.contractor_interim || '',
       current_question: d.current_question || 0,
     })}\n\n`);
@@ -6037,7 +6088,7 @@ app.post('/api/join/:sessionId/:token/transcript', joinRateLimit, async (req, re
     const result = await validateJoinToken(req.params.sessionId, req.params.token);
     if (!result) return res.status(403).json({ error: 'Invalid' });
     if (!result.data.join_token_active) return res.status(410).json({ error: 'Interview completed' });
-    const { text, interim } = req.body;
+    const { text, interim, seq } = req.body;
     if (!text) return res.status(400).json({ error: 'text required' });
     if (typeof text !== 'string' || text.length > 5000) return res.status(400).json({ error: 'text exceeds maximum length of 5000 characters' });
 
@@ -6046,11 +6097,21 @@ app.post('/api/join/:sessionId/:token/transcript', joinRateLimit, async (req, re
     if (interim) {
       await ref.update({ contractor_interim: text });
     } else {
-      await ref.update({
-        transcript_chunks: FieldValue.arrayUnion(chunk),
-        contractor_interim: '',
-      });
-      // Emit transcript event for rep's onboarding page
+      const useSubcoll = TRANSCRIPT_SUBCOLLECTION !== 'off';
+      const useLegacy = TRANSCRIPT_SUBCOLLECTION !== 'true';
+
+      if (useSubcoll) {
+        const chunkSeq = typeof seq === 'number' ? seq : (result.data.chunk_count || 0) + 1;
+        await writeChunkToSubcollection(req.params.sessionId, chunk, chunkSeq);
+      }
+      if (useLegacy) {
+        await ref.update({
+          transcript_chunks: FieldValue.arrayUnion(chunk),
+          contractor_interim: '',
+        });
+      } else {
+        await ref.update({ contractor_interim: '' });
+      }
       emitSseEvent(req.params.sessionId, 'transcript', chunk);
     }
     res.json({ ok: true });
@@ -6064,9 +6125,18 @@ app.post('/api/join/:sessionId/:token/skip', joinRateLimit, async (req, res) => 
     if (!result.data.join_token_active) return res.status(410).json({ error: 'Interview completed' });
     const ref = db.collection('onboarding_interviews').doc(req.params.sessionId);
     const skipChunk = { text: '(skipped by contractor)', ts: new Date().toISOString(), source: 'contractor', questionIndex: result.data.current_question || 0, skipped: true };
-    await ref.update({
-      transcript_chunks: FieldValue.arrayUnion(skipChunk),
-    });
+
+    const useSubcoll = TRANSCRIPT_SUBCOLLECTION !== 'off';
+    const useLegacy = TRANSCRIPT_SUBCOLLECTION !== 'true';
+
+    if (useSubcoll) {
+      const seq = (result.data.chunk_count || 0) + 1;
+      await writeChunkToSubcollection(req.params.sessionId, skipChunk, seq);
+    }
+    if (useLegacy) {
+      await ref.update({ transcript_chunks: FieldValue.arrayUnion(skipChunk) });
+    }
+
     res.json({ ok: true });
     emitSseEvent(req.params.sessionId, 'transcript', skipChunk);
   } catch (err) { res.status(500).json({ error: err.message }); }

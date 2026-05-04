@@ -473,12 +473,14 @@ function stopPolling() { if (pollTimer) { clearInterval(pollTimer); pollTimer = 
 
 // ── Transcript ──
 let sendQueue = Promise.resolve();
+let chunkSeq = 0;
 function sendTranscript(text, interim) {
+  const seq = interim ? undefined : ++chunkSeq;
   sendQueue = sendQueue.then(async () => {
     try {
       await fetch(`/api/join/${sessionId}/${joinToken}/transcript`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, interim }),
+        body: JSON.stringify({ text, interim, seq }),
       });
     } catch {}
   });

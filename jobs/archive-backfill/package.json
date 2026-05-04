@@ -1,0 +1,16 @@
+{
+  "name": "archive-backfill",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "index.js",
+  "engines": {
+    "node": "20"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@google-cloud/storage": "^7.14.0",
+    "firebase-admin": "^13.7.0"
+  }
+}
